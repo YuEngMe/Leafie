@@ -1,0 +1,1 @@
+"""Yeso Plant backend application."""
