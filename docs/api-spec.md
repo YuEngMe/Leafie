@@ -755,36 +755,51 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 
 | Method | Path | 설명 |
 |---|---|---|
-| POST | `/ai-chats` | 선택된 식물을 태그한 대화방 생성 |
-| GET | `/ai-chats?query=&plant_id=` | 전체 대화 검색 및 식물 필터 |
-| GET | `/ai-chats/{chat_id}/messages` | 메시지 목록 |
-| POST | `/ai-chats/{chat_id}/messages` | 사용자 메시지 전송 |
-| DELETE | `/ai-chats/{chat_id}` | 대화 삭제 |
+| GET | `/plants/{plant_id}/chat` | 해당 식물의 단일 채팅방 조회 |
+| GET | `/plants/{plant_id}/chat/messages` | 메시지 목록 조회 |
+| POST | `/plants/{plant_id}/chat/messages` | 사용자 메시지 전송 |
+| DELETE | `/plants/{plant_id}/chat/messages` | 채팅방은 유지하고 대화 기록 삭제 |
 | POST | `/ai-actions/{action_id}/confirm` | AI가 제안한 변경 작업을 사용자 승인 후 실행 |
 | POST | `/ai-actions/{action_id}/cancel` | AI가 제안한 변경 작업 취소 |
 
-`POST /ai-chats`:
+식물 등록 트랜잭션에서 해당 식물의 `AI_CHATS` 레코드를 함께 생성합니다. 식물마다
+채팅방은 정확히 하나이며 사용자가 새 채팅방을 만들거나 식물 태그를 바꾸는 기능은
+제공하지 않습니다. 기존 식물은 migration에서 채팅방을 일괄 생성합니다.
+
+`GET /plants/{plant_id}/chat`:
 
 ```json
 {
+  "id": "uuid",
   "plant_id": "uuid",
-  "title": "씩씩이의 물주기"
+  "plant_name": "씩씩이",
+  "last_message_at": "2026-07-24T02:15:00Z"
 }
 ```
 
-대화방 하나는 식물 하나에만 연결됩니다. 홈에서 선택된 식물은 새 대화방의 기본 태그일 뿐이며 기존 대화방의 식물은 변경되지 않습니다. 초기에는 일반 JSON 응답을 사용하고 응답 지연이 문제가 되면 SSE 스트리밍을 추가합니다.
+캐릭터 방에서 식물을 선택하면 홈·캘린더·다이어리와 동일하게 AI 채팅도 해당
+식물의 채팅방으로 전환합니다. 선택 상태는 최초 화면을 정하는 UI 상태일 뿐이며
+모든 요청은 경로의 `plant_id`로 대상을 명시하고 서버가 소유권을 검증합니다.
+대화 목록, 새 채팅, 제목 검색과 식물 태그 선택 UI는 만들지 않습니다.
 
-`POST /ai-chats/{chat_id}/messages`는 `content`와 선택적인
-`media_file_id` 한 개를 받습니다. 메시지의 식물 태그는 별도로 받지 않고
-대화방의 `plant_id`를 사용해 한 대화에 여러 식물이 섞이지 않게 합니다.
+`POST /plants/{plant_id}/chat/messages`는 `content`와 선택적인
+`media_file_id` 한 개를 받습니다. 메시지에 식물 ID나 태그를 별도로 받지 않고
+경로의 식물과 단일 채팅방을 사용해 다른 식물의 내용이 섞이지 않게 합니다.
 AI 채팅의 사진 첨부는 MVP에 포함합니다. 정식 진단 결과가 필요한 경우에도 사진은
 한 장만 사용하며, 진단 생성 API가 같은 `media_file_id`를 참조할 수 있습니다.
 텍스트만 있는 메시지는 실시간으로 처리합니다. 사진이 첨부된 메시지는
 `PROCESSING` 상태로 저장하고 `CHAT_IMAGE_ANALYSIS` Queue 작업을 만든 뒤 Worker가
 처리합니다. 앱은 메시지 목록을 다시 조회하거나 완료 푸시를 받아 결과를 표시합니다.
 
-`POST /ai-chats/{chat_id}/messages`는 OpenAI Responses API를 호출하고 필요할 때
-다음 읽기 도구를 서버 내부에서 실행합니다.
+메시지 목록은 cursor pagination으로 전체 기록을 조회할 수 있습니다. 모델
+컨텍스트에는 전체 기록을 매번 넣지 않고 최근 메시지와 이전 대화의 누적 요약,
+최신 식물 정보를 조합합니다. 요약 기준 메시지 ID와 요약 버전을 저장해 같은
+메시지를 중복 요약하지 않습니다. 대화 기록 삭제 시 메시지와 누적 요약,
+외부 제공자 대화 상태를 함께 초기화하되 식물의 채팅방 레코드는 유지합니다.
+
+`POST /plants/{plant_id}/chat/messages`는 OpenAI Responses API를 호출하고 필요할
+때 다음 읽기 도구를 서버 내부에서 실행합니다. 초기에는 일반 JSON 응답을 사용하고
+응답 지연이 문제가 되면 SSE 스트리밍을 추가합니다.
 
 ```text
 get_plant_profile
@@ -797,8 +812,9 @@ get_today_tasks
 get_condition_trend
 ```
 
-FastAPI는 `user_id`와 `plant_id`를 대화방에서 주입하며 모델 입력값을 신뢰하지
-않습니다. 읽기 도구는 즉시 실행합니다. 진단 기반 비료·가지치기 일회성 일정
+FastAPI는 인증 사용자 ID와 경로의 `plant_id`를 조회한 단일 채팅방과 대조한 뒤
+도구 실행 컨텍스트에 주입하며 모델 입력값을 신뢰하지 않습니다. 읽기 도구는 즉시
+실행합니다. 진단 기반 비료·가지치기 일회성 일정
 추가는 바로 실행하지 않고 `AI_ACTIONS`에 `PENDING_CONFIRMATION` 상태로 저장해
 사용자 승인을 받습니다. 물주기·분갈이 완료는 AI 도구로 제공하지 않고 일정
 화면의 완료 버튼으로만 처리합니다.
