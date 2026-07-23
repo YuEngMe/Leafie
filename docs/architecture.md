@@ -5,7 +5,8 @@
 출시 구조는 **모듈형 모놀리스 FastAPI + Supabase + 독립 Python Worker**로
 구성합니다.
 
-- 인증은 Supabase Auth를 사용하고 이메일 인증 완료 전에는 세션을 발급하지 않습니다.
+- 인증은 Supabase Auth의 이메일·비밀번호와 Kakao OAuth를 사용합니다.
+- 이메일 가입은 이메일 인증 완료 전 세션을 발급하지 않습니다.
 - 데이터베이스는 Supabase PostgreSQL을 사용합니다.
 - 사용자 이미지는 비공개 Supabase Storage 버킷에 저장합니다.
 - 비동기 작업 큐는 Supabase Queues(`pgmq`)를 사용합니다.
@@ -20,6 +21,7 @@
 ```mermaid
 flowchart LR
     APP["Flutter 앱"]
+    KAKAO["Kakao OAuth"]
     AUTH["Supabase Auth"]
     API["FastAPI API"]
     DB[("Supabase PostgreSQL")]
@@ -33,7 +35,8 @@ flowchart LR
     PUSH["FCM / APNs"]
     OBS["로그 / 오류 추적"]
 
-    APP -->|"회원가입·로그인"| AUTH
+    APP -->|"이메일 가입·로그인 / Kakao OAuth 시작"| AUTH
+    AUTH <-->|"OAuth / OIDC"| KAKAO
     AUTH -->|"Supabase JWT"| APP
     APP -->|"Bearer JWT"| API
     API -->|"JWKS 검증"| AUTH
@@ -98,16 +101,28 @@ backend/
 
 ## 4. 인증과 권한
 
-1. Flutter 앱이 Supabase Auth로 회원가입합니다.
-2. `Confirm email`을 활성화해 이메일 인증 전에는 세션을 발급하지 않습니다.
-3. Flutter 앱은 Supabase Access Token을 FastAPI의 Bearer Token으로 전달합니다.
-4. FastAPI는 Supabase JWKS로 JWT의 서명, 만료, 발급자, 대상을 검증합니다.
-5. JWT의 `sub`를 현재 사용자 ID로 사용합니다.
-6. 모든 식물·다이어리·일정·대화 조회에서 사용자 소유권을 다시 확인합니다.
+1. Flutter 앱은 이메일·비밀번호 또는 Supabase Kakao Provider로 인증합니다.
+2. 이메일 가입은 `Confirm email`을 활성화해 인증 전 세션을 발급하지 않습니다.
+3. 카카오 로그인은 PKCE와 등록된 앱 deep link를 사용하고 OAuth 성공 후 세션을 확인합니다.
+4. Kakao Biz App의 `account_email` 동의를 사용하고 이메일 없는 계정은 허용하지 않습니다.
+5. 동일한 검증 이메일의 identity는 Supabase Auth의 동일 사용자로 연결합니다.
+6. Flutter 앱은 Supabase Access Token을 FastAPI의 Bearer Token으로 전달합니다.
+7. FastAPI는 로그인 방식과 무관하게 Supabase JWKS로 JWT의 서명, 만료, 발급자, 대상을 검증합니다.
+8. JWT의 `sub`를 현재 사용자 ID로 사용하고 모든 사용자 리소스의 소유권을 확인합니다.
 
 Supabase `service_role` 키와 OpenAI API Key는 Worker와 FastAPI 환경변수에만
-저장하며 Flutter 앱에 포함하지 않습니다. 비밀번호와 Refresh Token은 Supabase
-Auth가 관리하므로 애플리케이션 DB에 저장하지 않습니다.
+저장합니다. Kakao Client Secret은 Supabase Provider 설정에만 저장합니다.
+비밀번호와 Refresh Token은 Supabase Auth가 관리하므로 애플리케이션 DB와 Flutter
+앱에 저장하지 않습니다.
+
+### iOS 출시 게이트
+
+Kakao OAuth는 사용자의 기본 계정을 인증하는 제3자 로그인입니다. App Store 제출
+전 Apple App Review Guidelines 4.8의 이름·이메일 최소 수집, 이메일 비공개,
+광고 목적 상호작용 추적 제한 요건을 만족하는 동등한 로그인 옵션을 추가해야 합니다.
+현재 구조에서는 Supabase Auth의 Sign in with Apple을 iOS 출시 필수 작업으로
+간주합니다. 이메일·비밀번호 로그인만으로 이 출시 게이트를 충족한 것으로 보지
+않습니다.
 
 ## 5. 이미지 저장
 

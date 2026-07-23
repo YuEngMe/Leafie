@@ -8,8 +8,9 @@
 | 화면 | 확정 UI 및 동작 | API | DB 또는 계산 | 상태 |
 |---|---|---|---|---|
 | 스플래시·앱 소개 | 로고, 소개, 시작하기 | 없음 | 로컬 화면 | 일치 |
-| 로그인 | 이메일 인증을 완료한 계정만 이메일·비밀번호 로그인 | Supabase Auth SDK | `auth.users` | 문서 일치, 화면 문구 수정 필요 |
+| 로그인 | 이메일·비밀번호 로그인 또는 카카오 로그인, 이메일 계정은 인증 완료 필수 | Supabase Auth SDK `signInWithPassword`, `signInWithOAuth(kakao)` | `auth.users`, `auth.identities` | 카카오 로그인 버튼과 오류 상태 추가 필요 |
 | 이메일 인증 | 가입 후 인증 완료 전 Supabase 세션 발급과 로그인 차단 | Supabase Auth `signUp`, `resend` | `auth.users.email_confirmed_at` | 문서 있음, 화면 누락 |
+| 카카오 OAuth 복귀 | 카카오 동의 후 앱 deep link 복귀, 세션 확인, 이메일 미제공·취소·실패 처리 | Supabase Auth SDK | `auth.users`, `auth.identities` | 화면 흐름 추가 필요 |
 | 식물 등록 | 식물명칭 필수, 이름 검색 또는 사진 인식 후보 중 하나 선택, 7개 종류 중 선택, 애칭 필수, 함께한 시작일 | `/plant-species/search`, `/plant-species/identifications`, `POST /plants` | `SPECIES_IDENTIFICATIONS`, `PLANTS` | 일치 |
 | 캐릭터 만들기 | 색·머리·장식 선택, 6개 성격 중 하나 | `/character-options`, `PATCH /plants/{id}/character` | `PLANT_CHARACTERS` | 일치 |
 | 환경 등록 | 장소 별명, 화분, 위치, 마지막 물주기, 마지막 분갈이 | `POST /plants`, `PATCH /plants/{id}/environment` | `PLANT_ENVIRONMENTS`, `CARE_SCHEDULES`, `CARE_EVENTS` | 일치 |
@@ -56,7 +57,7 @@
 
 ## 와이어프레임에서 수정할 점
 
-1. 로그인 화면의 `아이디`와 `아이디 찾기`를 `이메일`과 `비밀번호 재설정`으로 바꿉니다.
+1. 로그인 화면의 `아이디`와 `아이디 찾기`를 `이메일`과 `비밀번호 재설정`으로 바꾸고 카카오 로그인 버튼을 추가합니다.
 2. 홈 화면 하단 탭은 `달력`이 아니라 `홈`이 선택된 상태여야 합니다.
 3. 환경 등록의 `마지막 물 준 날`과 `분갈이 언제` 입력값에 식물 이름이 들어간 예시를 실제 날짜로 바꿉니다.
 4. `정보 수정`은 식물·환경 수정으로, `꾸미기`는 캐릭터 외형·성격 수정으로 화면을 분리합니다.
@@ -66,7 +67,8 @@
 
 ## 추가로 필요한 화면
 
-- 회원가입, 이메일 인증, 비밀번호 재설정
+- 회원가입, 이메일 인증, 비밀번호 재설정, 카카오 OAuth 복귀·취소·오류
+- App Store 제출 전 Sign in with Apple 및 이메일 비공개 계정 처리
 - 다이어리 작성·수정 폼과 중복 작성 시 기존 기록 편집 처리
 - 관리 주기 추가·수정
 - 진단 사진 촬영, 업로드, 분석 중, 재촬영, 실패, 결과 상세

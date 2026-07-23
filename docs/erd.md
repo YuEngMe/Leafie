@@ -343,6 +343,7 @@ erDiagram
 ## 2. 핵심 관계
 
 - `AUTH_USERS`는 Supabase `auth.users`를 나타내며 비밀번호와 세션은 Supabase가 관리합니다.
+- 이메일과 카카오 로그인 identity는 Supabase `auth.identities`가 관리하며 같은 검증 이메일은 동일 사용자에 연결합니다.
 - `USER_PROFILES.user_id`는 `auth.users.id`와 동일한 1:1 키입니다.
 - 사용자는 여러 식물을 소유하고 그중 하나를 현재 캐릭터 방으로 선택합니다.
 - 컨디션은 다이어리에 포함되며 홈에서는 오늘 다이어리의 값을 읽기 전용으로 표시합니다.
