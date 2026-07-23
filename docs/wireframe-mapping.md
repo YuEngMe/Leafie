@@ -10,7 +10,7 @@
 | 스플래시·앱 소개 | 로고, 소개, 시작하기 | 없음 | 로컬 화면 | 일치 |
 | 로그인 | 이메일 인증을 완료한 계정만 이메일·비밀번호 로그인 | Supabase Auth SDK | `auth.users` | 문서 일치, 화면 문구 수정 필요 |
 | 이메일 인증 | 가입 후 인증 완료 전 Supabase 세션 발급과 로그인 차단 | Supabase Auth `signUp`, `resend` | `auth.users.email_confirmed_at` | 문서 있음, 화면 누락 |
-| 식물 등록 | 식물 종 직접 입력, 7개 종류 중 선택, 애칭 필수, 함께한 시작일 | `POST /plants` | `PLANTS` | 일치 |
+| 식물 등록 | 식물명칭 필수, 이름 검색 또는 사진 인식 후보 중 하나 선택, 7개 종류 중 선택, 애칭 필수, 함께한 시작일 | `/plant-species/search`, `/plant-species/identifications`, `POST /plants` | `SPECIES_IDENTIFICATIONS`, `PLANTS` | 일치 |
 | 캐릭터 만들기 | 색·머리·장식 선택, 6개 성격 중 하나 | `/character-options`, `PATCH /plants/{id}/character` | `PLANT_CHARACTERS` | 일치 |
 | 환경 등록 | 장소 별명, 화분, 위치, 마지막 물주기, 마지막 분갈이 | `POST /plants`, `PATCH /plants/{id}/environment` | `PLANT_ENVIRONMENTS`, `CARE_SCHEDULES`, `CARE_EVENTS` | 일치 |
 | 홈·캐릭터 방 | 식물 전환, D+일, 캐릭터 대사, 오늘 다이어리의 읽기 전용 컨디션 아이콘, 알림 수 | `GET /home`, `/users/me/selected-plant` | 선택 식물, 오늘 다이어리, 관리 이벤트 집계 | 일치 |

@@ -1,4 +1,4 @@
-# API 명세 v0.5
+# API 명세 v0.6
 
 이 문서는 구현 전 프론트엔드와 합의할 계약 초안입니다. 구현 이후 `/openapi.json`을 최종 기준으로 사용합니다.
 
@@ -62,12 +62,14 @@
 | 이름 | 값 |
 |---|---|
 | `PlantCategory` | `FOLIAGE`, `FLOWER`, `SUCCULENT_CACTUS`, `TREE`, `HERB`, `FRUIT`, `VINE` |
+| `SpeciesSelectionMethod` | `SEARCH`, `PHOTO` |
+| `SpeciesIdentificationStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
 | `ConditionLevel` | `VERY_BAD`, `BAD`, `NORMAL`, `GOOD`, `VERY_GOOD` |
 | `DiagnosisCondition` | `HEALTHY`, `OBSERVE`, `WARNING`, `CRITICAL`, `UNKNOWN` |
 | `PersonalityType` | `OUTGOING`, `CHIC`, `CUTE`, `CRUSH`, `INTROVERTED`, `CHUNGCHEONG` |
 | `CareEventType` | `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING` |
 | `CareEventStatus` | `SCHEDULED`, `OVERDUE`, `COMPLETED`, `CANCELLED` |
-| `MediaPurpose` | `USER_PROFILE`, `PLANT_PROFILE`, `DIARY`, `DIAGNOSIS`, `CHAT` |
+| `MediaPurpose` | `USER_PROFILE`, `PLANT_PROFILE`, `SPECIES_IDENTIFICATION`, `DIARY`, `DIAGNOSIS`, `CHAT` |
 | `DiagnosisStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED` |
 | `ChatRole` | `USER`, `ASSISTANT`, `SYSTEM` |
 | `AIMessageStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
@@ -196,11 +198,21 @@ Supabase Auth 사용자를 삭제합니다.
 
 ## 6. 식물
 
-식물 종은 사진으로 식별하지 않습니다. 사용자가 필수값인 `species_name`을 직접 입력하고
-정해진 7개 `PlantCategory` 중 하나를 선택합니다.
+식물명칭은 필수입니다. 사용자는 임의 문자열을 바로 저장하지 않고 다음 두 경로 중
+하나로 후보를 찾은 뒤 하나를 선택합니다.
+
+1. 이름으로 검색하여 후보 선택
+2. 사진을 한 장 촬영하거나 업로드하여 인식 후보 선택
+
+사진 인식 결과는 자동 확정하지 않습니다. 서버는 신뢰도 순 후보를 반환하고 사용자가
+하나를 선택해야 등록할 수 있습니다. 정해진 7개 `PlantCategory` 선택은 식물명칭과
+별개의 필수 입력입니다.
 
 | Method | Path | 설명 |
 |---|---|---|
+| GET | `/plant-species/search?query=` | 식물명칭 검색 후보 |
+| POST | `/plant-species/identifications` | 사진 인식 작업 생성 |
+| GET | `/plant-species/identifications/{identification_id}` | 사진 인식 상태와 후보 조회 |
 | POST | `/plants` | 식물 등록 |
 | GET | `/plants` | 내 식물 목록 |
 | GET | `/plants/{plant_id}` | 식물 상세 |
@@ -210,6 +222,67 @@ Supabase Auth 사용자를 삭제합니다.
 | DELETE | `/plants/{plant_id}` | 식물 삭제 |
 | GET | `/character-options` | 캐릭터 베이스, 색, 머리, 장식, 성격과 대사 미리보기 조회 |
 
+`GET /plant-species/search?query=바질` 응답 `200`:
+
+```json
+{
+  "items": [
+    {
+      "reference_id": "catalog:ocimum-basilicum",
+      "display_name": "바질",
+      "scientific_name": "Ocimum basilicum",
+      "category_suggestion": "HERB",
+      "confidence": null
+    }
+  ],
+  "next_cursor": null,
+  "has_next": false
+}
+```
+
+`POST /plant-species/identifications`:
+
+```json
+{
+  "media_file_id": "uuid"
+}
+```
+
+`media_file_id`는 본인이 `SPECIES_IDENTIFICATION` 목적으로 업로드해 `READY`가 된
+사진 한 장이어야 합니다. 응답 `202`:
+
+```json
+{
+  "id": "uuid",
+  "status": "PENDING",
+  "created_at": "2026-07-23T13:30:00Z"
+}
+```
+
+`GET /plant-species/identifications/{identification_id}` 응답 `200`:
+
+```json
+{
+  "id": "uuid",
+  "status": "COMPLETED",
+  "candidates": [
+    {
+      "reference_id": "provider:ocimum-basilicum",
+      "display_name": "바질",
+      "scientific_name": "Ocimum basilicum",
+      "category_suggestion": "HERB",
+      "confidence": 0.91
+    }
+  ],
+  "failure_code": null,
+  "completed_at": "2026-07-23T13:30:04Z"
+}
+```
+
+검색 결과의 `category_suggestion`은 UI의 초기 추천일 뿐이며 사용자가 최종 종류를
+확인합니다. 사진 인식은 `COMPLETED` 후보 중 하나를 선택해야 하고, 인식 실패 또는
+적합한 후보가 없으면 검색 방식으로 전환할 수 있습니다.
+
 `POST /plants`:
 
 ```json
@@ -217,6 +290,10 @@ Supabase Auth 사용자를 삭제합니다.
   "name": "씩씩이",
   "category": "HERB",
   "species_name": "바질",
+  "species_scientific_name": "Ocimum basilicum",
+  "species_reference_id": "provider:ocimum-basilicum",
+  "species_selection_method": "PHOTO",
+  "species_identification_id": "uuid",
   "started_on": "2026-07-16",
   "primary_media_file_id": "uuid-or-null",
   "character": {
@@ -253,6 +330,8 @@ Supabase Auth 사용자를 삭제합니다.
   "name": "씩씩이",
   "category": "HERB",
   "species_name": "바질",
+  "species_scientific_name": "Ocimum basilicum",
+  "species_selection_method": "PHOTO",
   "started_on": "2026-07-16",
   "days_together": 2,
   "primary_image_url": "short-lived-url-or-null",
