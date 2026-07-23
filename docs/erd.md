@@ -367,7 +367,7 @@ erDiagram
 | `care_schedules` | `type`은 `WATERING` 또는 `REPOTTING`, `(plant_id, type)` unique |
 | `care_events` | 완료 시각은 완료 API의 서버 현재 시각이며 사용자 수정 불가 |
 | `diagnosis_images` | 진단당 정확히 한 장 |
-| `diagnoses` | `confidence`는 0~1 또는 null |
+| `diagnoses` | `confidence`는 0~1 또는 null이며 모델 신뢰도만 의미, 임의 건강점수 저장 금지 |
 | `ai_chats` | `plant_id` 필수, 생성 후 변경 불가 |
 | `ai_messages` | 첨부 사진은 null 또는 한 장 |
 | `ai_actions` | `PENDING_CONFIRMATION`만 confirm/cancel 가능, 만료 후 실행 불가 |
