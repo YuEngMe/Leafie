@@ -1,4 +1,4 @@
-# API 명세 v0.6
+# API 명세 v0.7
 
 이 문서는 구현 전 프론트엔드와 합의할 계약 초안입니다. 구현 이후 `/openapi.json`을 최종 기준으로 사용합니다.
 
@@ -104,22 +104,45 @@
 
 ## 3. Supabase Auth
 
-회원가입, 이메일 인증, 로그인, 세션 갱신, 비밀번호 재설정, 로그아웃은 Flutter의
-Supabase Auth SDK가 직접 처리합니다. FastAPI에는 별도의 `/auth/*` API를 만들지
-않습니다.
+이메일 회원가입·로그인, 카카오 로그인, 세션 갱신, 비밀번호 재설정과 로그아웃은
+Flutter의 Supabase Auth SDK가 직접 처리합니다. FastAPI에는 별도의 `/auth/*`
+API를 만들지 않습니다.
 
 | 화면 동작 | Supabase Auth 동작 |
 |---|---|
 | 회원가입 | `signUp(email, password)` |
 | 인증 메일 재발송 | `resend(type: signup, email)` |
-| 로그인 | `signInWithPassword(email, password)` |
+| 이메일 로그인 | `signInWithPassword(email, password)` |
+| 카카오 로그인 | `signInWithOAuth(OAuthProvider.kakao, redirectTo: <app-callback>)` |
+| OAuth 앱 복귀 | Flutter deep link를 Supabase Auth SDK가 처리하고 세션 확인 |
 | 비밀번호 재설정 메일 | `resetPasswordForEmail(email)` |
 | 새 비밀번호 저장 | `updateUser(password)` |
 | 로그아웃 | `signOut()` |
 
-Supabase 프로젝트의 `Confirm email`을 활성화합니다. 인증 전 회원가입 응답에는
-세션이 없으며 인증이 완료돼야 로그인할 수 있습니다. 로그인 식별자는 이메일로
-통일하고 별도의 아이디 찾기는 제공하지 않습니다.
+Supabase 프로젝트의 `Confirm email`을 활성화합니다. 이메일 회원가입 응답에는
+인증 완료 전 세션이 없으며 인증이 완료돼야 이메일로 로그인할 수 있습니다. 별도의
+아이디 찾기는 제공하지 않습니다.
+
+카카오 로그인은 Kakao Developers의 REST API Key와 Client Secret을 Supabase
+Kakao Provider에만 설정합니다. Flutter 앱에는 Client Secret을 포함하지 않습니다.
+Kakao Biz App에서 `account_email` 동의를 설정하고 Supabase의 이메일 없는 사용자
+허용 옵션은 비활성화해 모든 사용자 이메일을 필수로 유지합니다. 이메일을 제공하지
+않으면 가입을 완료하지 않고 검색 가능한 일반 오류 문구와 함께 이메일 로그인을
+안내합니다.
+
+카카오 OAuth가 성공하면 이메일 인증을 별도로 요구하지 않고 Supabase가 발급한
+세션을 사용합니다. 기존 이메일 계정과 검증된 카카오 이메일이 같으면 Supabase의
+자동 identity linking으로 같은 `auth.users.id`를 사용합니다. OAuth callback은
+허용 목록에 등록한 앱 전용 deep link만 사용하며 callback URL을 임의 입력값으로
+받지 않습니다.
+
+OAuth 오류는 FastAPI 공통 에러가 아니라 Flutter 인증 화면 상태로 처리합니다.
+
+| 앱 인증 상태 | 표시 및 처리 |
+|---|---|
+| `OAUTH_CANCELLED` | 사용자가 카카오 동의를 취소함, 로그인 화면 유지 |
+| `OAUTH_CALLBACK_FAILED` | 앱 복귀 또는 세션 교환 실패, 다시 시도 제공 |
+| `SOCIAL_EMAIL_REQUIRED` | 카카오 이메일 동의가 없어 가입 중단, 이메일 로그인 안내 |
 
 Flutter는 Supabase Access Token을 FastAPI에 전달합니다. FastAPI는 Supabase
 JWKS로 JWT를 검증하고 `sub` claim을 현재 사용자 ID로 사용합니다. 만료된
@@ -136,7 +159,7 @@ Access Token의 갱신은 Supabase SDK가 담당합니다.
 | GET | `/users/me/stats` | 전체 식물 및 기록 요약 |
 
 `GET /users/me`의 사용자 객체에는 Supabase Auth에서 조합한 `email`,
-`email_verified_at`과 애플리케이션 프로필의 `nickname`,
+`email_verified_at`, `auth_providers`와 애플리케이션 프로필의 `nickname`,
 `bio`, `profile_image_url`, `timezone`, `selected_plant_id`, `gardener_days`가
 포함됩니다. `gardener_days`는 가입일과 사용자 시간대의 오늘 날짜로 계산합니다.
 
@@ -148,10 +171,11 @@ Access Token의 갱신은 Supabase SDK가 담당합니다.
 }
 ```
 
-비밀번호 변경과 로그아웃은 Supabase Auth SDK를 사용합니다. 회원 탈퇴는
-삭제 직전에 Supabase Auth로 재로그인해 최근 발급된 Access Token을 사용해야
-합니다. FastAPI가 업무 데이터와 Storage 삭제를 예약한 뒤 서버 권한으로
-Supabase Auth 사용자를 삭제합니다.
+비밀번호 변경은 이메일 identity가 있는 계정에만 표시하고 로그아웃은 모든 로그인
+방식에서 Supabase Auth SDK를 사용합니다. 회원 탈퇴 직전에는 이메일 계정은
+이메일·비밀번호, 카카오 전용 계정은 카카오 OAuth로 다시 인증해 최근 발급된
+Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage 삭제를 예약한
+뒤 서버 권한으로 Supabase Auth 사용자를 삭제합니다.
 
 ## 5. 미디어 업로드
 

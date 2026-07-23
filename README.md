@@ -25,7 +25,7 @@
 
 ## MVP 범위
 
-- 이메일 회원가입 및 로그인
+- 이메일 회원가입·로그인과 카카오 로그인
 - 반려식물 등록과 관리
 - 다이어리와 관리 일정 기록
 - 월별 캘린더와 상태 통계
@@ -39,7 +39,7 @@
 
 - Frontend: Flutter
 - API: FastAPI, Pydantic v2, SQLAlchemy 2.x
-- Auth: Supabase Auth
+- Auth: Supabase Auth (Email/Password, Kakao OAuth)
 - Database: Supabase PostgreSQL
 - Storage: Supabase Storage
 - Queue: Supabase Queues (`pgmq`)
@@ -54,6 +54,8 @@ Docker는 필수가 아니며 배포 환경 통일이 필요해질 때 추가합
 프론트엔드와 백엔드는 [API 명세](docs/api-spec.md)의 요청, 응답, Enum, 에러
 코드를 먼저 합의합니다. 실제 구현 이후 FastAPI 계약은 OpenAPI를 기준으로 하고,
 인증 화면은 Supabase Auth SDK 계약을 기준으로 관리합니다.
+App Store 제출 전 Apple 로그인 정책 대응은 [시스템 아키텍처](docs/architecture.md)의
+iOS 출시 게이트를 따릅니다.
 
 백엔드 로컬 실행 방법은 [backend/README.md](backend/README.md), 브랜치와 PR
 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)를 따릅니다.

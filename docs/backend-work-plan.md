@@ -40,6 +40,7 @@
 ### `backend/feat-project-foundation`
 
 - Supabase JWT의 서명·만료·issuer·audience 검증
+- 이메일·카카오 로그인에서 발급된 JWT를 같은 인증 dependency로 처리
 - SQLAlchemy async session과 transaction 경계
 - 표준 에러 응답과 request ID
 - 공통 pagination schema
@@ -49,6 +50,8 @@
 ### `backend/feat-auth-profile`
 
 - Supabase `auth.users`와 `USER_PROFILES` 연결
+- 이메일·카카오 최초 로그인 시 프로필 멱등 생성
+- 연결된 `auth.identities` 기반 로그인 방식과 비밀번호 메뉴 제공 여부 조회
 - 사용자 프로필 조회·수정
 - 선택 식물 소유권 검증
 - 가입일 기준 식집사 일수 계산
