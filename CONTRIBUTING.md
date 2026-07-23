@@ -64,7 +64,7 @@ git switch -c backend/feat-plant-crud
 
 ```bash
 git add <변경한 파일>
-git commit -m "feat(backend): add plant creation API"
+git commit -m "feat(backend): 식물 등록 API 추가"
 git push -u origin backend/feat-plant-crud
 ```
 
@@ -101,20 +101,21 @@ Conventional Commits 형식을 사용합니다.
 
 ### Summary
 
-- 영문 소문자로 시작합니다.
-- 명령형 현재 시제를 사용합니다.
+- 한국어로 작성합니다.
+- `type`과 `scope`만 영문 소문자를 사용합니다.
+- `추가`, `수정`, `방지`, `정의`처럼 변경 내용을 명확하게 표현합니다.
 - 마침표를 붙이지 않습니다.
-- 무엇을 변경했는지 한 문장으로 작성합니다.
+- 무엇을 변경했는지 짧은 한 문장으로 작성합니다.
 - 관련 없는 변경을 한 커밋에 섞지 않습니다.
 
 좋은 예:
 
 ```text
-feat(backend): add plant creation API
-feat(frontend): add email verification screen
-fix(worker): prevent duplicate diagnosis processing
-docs(api): define diary response schema
-chore(supabase): add local migration configuration
+feat(backend): 식물 등록 API 추가
+feat(frontend): 이메일 인증 화면 추가
+fix(worker): 진단 중복 처리 방지
+docs(api): 다이어리 응답 스키마 정의
+chore(supabase): 로컬 마이그레이션 설정 추가
 ```
 
 피해야 할 예:
@@ -123,7 +124,7 @@ chore(supabase): add local migration configuration
 update
 수정함
 feat: 여러 기능 이것저것 추가
-fix: final final
+fix: 최종 수정
 ```
 
 호환성이 깨지는 변경은 본문 또는 footer에 `BREAKING CHANGE:`를 작성하고 API
@@ -134,7 +135,7 @@ fix: final final
 PR 제목도 커밋 메시지와 같은 형식을 사용합니다.
 
 ```text
-feat(backend): add plant creation API
+feat(backend): 식물 등록 API 추가
 ```
 
 PR 본문에는 다음을 적습니다.
