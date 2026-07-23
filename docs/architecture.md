@@ -27,6 +27,7 @@ flowchart LR
     QUEUE["Supabase Queues<br/>pgmq"]
     CRON["Supabase Cron<br/>pg_cron"]
     WORKER["Python Worker"]
+    SPECIES["식물 종 검색·인식 Provider"]
     RESPONSES["OpenAI Responses API<br/>Tool Calling"]
     BATCH["OpenAI Batch API"]
     PUSH["FCM / APNs"]
@@ -45,6 +46,8 @@ flowchart LR
     WORKER --> QUEUE
     WORKER --> DB
     WORKER --> STORAGE
+    API -->|"이름 검색"| SPECIES
+    WORKER -->|"사진 인식"| SPECIES
     API --> RESPONSES
     WORKER --> RESPONSES
     WORKER --> BATCH
@@ -108,7 +111,7 @@ Auth가 관리하므로 애플리케이션 DB에 저장하지 않습니다.
 
 ## 5. 이미지 저장
 
-- 프로필, 다이어리, 진단, AI 채팅 이미지는 Supabase Storage 비공개 버킷에 저장합니다.
+- 프로필, 식물명칭 인식, 다이어리, 진단, AI 채팅 이미지는 Supabase Storage 비공개 버킷에 저장합니다.
 - FastAPI가 사용자와 목적에 맞는 경로를 생성하고 Signed Upload URL을 발급합니다.
 - Flutter 앱은 Signed URL로 Storage에 직접 업로드합니다.
 - 업로드 완료 후 FastAPI가 파일 존재, 크기, MIME type, signature를 검사합니다.
@@ -146,6 +149,7 @@ Queue 메시지에는 리소스 ID와 작업 종류만 넣고 원본 사진이�
 
 Worker 작업:
 
+- 식물명칭 사진 인식
 - 사진 기반 상태 진단
 - AI 채팅 이미지 분석
 - OpenAI Batch 제출과 결과 수집

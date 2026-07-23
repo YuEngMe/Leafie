@@ -20,16 +20,17 @@
 | 1 | `backend/feat-project-foundation` | 공동 | 설정, DB session, JWT 검증, 공통 에러, pagination, 소유권 검사, 테스트 fixture, 로깅 | 없음 |
 | 2 | `backend/feat-auth-profile` | A | `/users/me`, 프로필 수정, 선택 식물, 사용자 통계, 계정 탈퇴 예약 | 1 |
 | 3 | `backend/feat-media-storage` | B | Signed Upload URL, 업로드 완료 검증, Signed Download URL, 파일 삭제 작업 | 1 |
-| 4 | `backend/feat-plant-character` | A | 식물 CRUD, 캐릭터·성격, 환경, 캐릭터 옵션 | 1, 2 |
-| 5 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 컨디션 점수, 월간 통계 | 3, 4 |
-| 6 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 관리 이벤트, 완료·지연, 일회성 일정 | 4 |
-| 7 | `backend/feat-home-calendar` | A | 홈 집계, 식물 전환 데이터, 월간 캘린더, agenda, 기간 통계 | 5, 6 |
-| 8 | `backend/feat-queue-worker` | B | Supabase Queues adapter, Worker loop, visibility timeout, 재시도, 멱등성 | 1 |
-| 9 | `backend/feat-diagnosis` | B | 사진 1장 진단 생성·조회·재시도·취소·삭제, 비동기 분석 | 3, 4, 8 |
-| 10 | `backend/feat-ai-chat` | B | 식물 고정 대화방, 메시지, 검색, 사진 첨부 비동기 처리 | 3, 4, 8 |
-| 11 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 6, 9, 10 |
-| 12 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 5, 6, 8 |
-| 13 | `backend/feat-notifications` | B | 기기 토큰, 알림함, 읽음 처리, 알림 설정, FCM/APNs 발송 | 2, 6, 8, 9, 12 |
+| 4 | `backend/feat-queue-worker` | B | Supabase Queues adapter, Worker loop, visibility timeout, 재시도, 멱등성 | 1 |
+| 5 | `backend/feat-species-identification` | B | 식물명칭 검색, 사진 인식 작업, 후보 조회와 선택 검증 | 3, 4 |
+| 6 | `backend/feat-plant-character` | A | 식물 CRUD, 캐릭터·성격, 환경, 캐릭터 옵션 | 1, 2, 5 |
+| 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 컨디션 점수, 월간 통계 | 3, 6 |
+| 8 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 관리 이벤트, 완료·지연, 일회성 일정 | 6 |
+| 9 | `backend/feat-home-calendar` | A | 홈 집계, 식물 전환 데이터, 월간 캘린더, agenda, 기간 통계 | 7, 8 |
+| 10 | `backend/feat-diagnosis` | B | 사진 1장 진단 생성·조회·재시도·취소·삭제, 비동기 분석 | 3, 4, 6 |
+| 11 | `backend/feat-ai-chat` | B | 식물 고정 대화방, 메시지, 검색, 사진 첨부 비동기 처리 | 3, 4, 6 |
+| 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 8, 10, 11 |
+| 13 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 4, 7, 8 |
+| 14 | `backend/feat-notifications` | B | 기기 토큰, 알림함, 읽음 처리, 알림 설정, FCM/APNs 발송 | 2, 4, 8, 10, 13 |
 
 모든 브랜치는 생성 시점의 `main`에서 시작합니다. 선행 작업이 merge되면 작업
 브랜치에서 최신 `main`을 반영한 뒤 구현을 계속합니다.
@@ -64,7 +65,8 @@
 ### `backend/feat-plant-character`
 
 - 확정된 식물 종류 7개
-- 식물 종 사용자 직접 입력
+- 검색 또는 사진 인식에서 선택한 식물명칭 필수
+- 선택 출처와 사진 인식 후보의 서버 검증
 - 캐릭터 외형과 성격 6개
 - 환경과 초기 물주기·분갈이 정보
 - 식물 삭제 시 연결 데이터 처리
@@ -100,6 +102,14 @@
 - `job_type`, `resource_id`, `trace_id` 계약
 - 중복 처리 방지를 위한 멱등성 검사
 - 실패 코드와 작업 로그
+
+### `backend/feat-species-identification`
+
+- 이름 검색과 사진 인식이 동일한 후보 응답 계약 사용
+- 사진 인식용 `READY` 미디어와 사용자 소유권 검증
+- 사진 인식 작업의 Queue 상태 전이와 실패 처리
+- 신뢰도 순 후보 제공, 결과 자동 확정 금지
+- 검색 또는 완료된 인식 후보를 선택했는지 식물 등록 시 검증
 
 ### `backend/feat-diagnosis`
 
@@ -148,6 +158,7 @@
 | Supabase Auth·JWT | `backend/feat-project-foundation` |
 | 사용자 | `backend/feat-auth-profile` |
 | 미디어 | `backend/feat-media-storage` |
+| 식물명칭 검색·사진 인식 | `backend/feat-species-identification` |
 | 식물·캐릭터·환경 | `backend/feat-plant-character` |
 | 홈 | `backend/feat-home-calendar` |
 | 다이어리·컨디션 | `backend/feat-diary-condition` |

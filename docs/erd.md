@@ -9,6 +9,7 @@ Supabase의 `auth.users`, Storage, Queues 내부 테이블은 Supabase가 관리
 erDiagram
     AUTH_USERS ||--|| USER_PROFILES : extends
     AUTH_USERS ||--o{ MEDIA_FILES : uploads
+    AUTH_USERS ||--o{ SPECIES_IDENTIFICATIONS : requests
     AUTH_USERS ||--o{ PLANTS : owns
     AUTH_USERS ||--o{ AI_CHATS : owns
     AUTH_USERS ||--o{ AI_ACTIONS : approves
@@ -18,6 +19,7 @@ erDiagram
 
     MEDIA_FILES ||--o{ USER_PROFILES : profile_image
     MEDIA_FILES ||--o{ PLANTS : profile_image
+    MEDIA_FILES ||--o{ SPECIES_IDENTIFICATIONS : identification_image
     MEDIA_FILES ||--o{ PLANT_DIARIES : diary_image
     MEDIA_FILES ||--o{ DIAGNOSIS_IMAGES : diagnosis_image
     MEDIA_FILES ||--o{ AI_MESSAGES : chat_attachment
@@ -33,6 +35,8 @@ erDiagram
     PLANTS ||--o{ AI_BATCH_ITEMS : batched_for
     PLANTS ||--o{ MONTHLY_REPORTS : summarized_by
     PLANTS ||--o{ NOTIFICATIONS : concerns
+
+    SPECIES_IDENTIFICATIONS o|--o| PLANTS : selected_for
 
     CARE_SCHEDULES o|--o{ CARE_EVENTS : generates
     DIAGNOSES o|--o{ CARE_EVENTS : recommends
@@ -81,13 +85,29 @@ erDiagram
         timestamptz deleted_at
     }
 
+    SPECIES_IDENTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid media_file_id FK
+        varchar status
+        varchar provider
+        jsonb candidates
+        varchar failure_code
+        timestamptz created_at
+        timestamptz completed_at
+    }
+
     PLANTS {
         uuid id PK
         uuid user_id FK
         uuid primary_media_file_id FK
+        uuid species_identification_id FK
         varchar name
         varchar category
         varchar species_name
+        varchar species_scientific_name
+        varchar species_reference_id
+        varchar species_selection_method
         date started_on
         text memo
         timestamptz created_at
@@ -327,6 +347,7 @@ erDiagram
 - 사용자는 여러 식물을 소유하고 그중 하나를 현재 캐릭터 방으로 선택합니다.
 - 컨디션은 다이어리에 포함되며 홈에서는 오늘 다이어리의 값을 읽기 전용으로 표시합니다.
 - 다이어리는 사진을 최대 한 장, 진단은 정확히 한 장 사용합니다.
+- 식물명칭은 검색 또는 사진 인식 후보에서 선택하며 사진 인식 결과는 사용자가 확정합니다.
 - 자동 반복 일정은 물주기와 분갈이만 지원합니다.
 - AI 대화방 하나는 정확히 한 식물에 고정됩니다.
 - 읽기 Tool Call은 서버가 실행하고 변경 제안은 `AI_ACTIONS`에서 사용자 승인을 기다립니다.
@@ -338,7 +359,8 @@ erDiagram
 | 테이블 | 제약조건 |
 |---|---|
 | `user_profiles` | `user_id`는 Supabase `auth.users.id`, `selected_plant_id`는 본인 소유 식물 |
-| `plants` | `category`는 확정된 7개 Enum, `name`과 `species_name` 필수 |
+| `species_identifications` | 사진 한 장, 상태 전이 검증, 완료 후보의 표시명·학명·참조 ID·신뢰도 저장 |
+| `plants` | `category`는 확정된 7개 Enum, `name`, `species_name`, `species_reference_id`, `species_selection_method` 필수 |
 | `plant_characters` | `personality_type`은 확정된 6개 Enum |
 | `plant_diaries` | `(plant_id, diary_date)` unique, 글과 컨디션 필수, 사진은 null 또는 한 장 |
 | `care_schedules` | `type`은 `WATERING` 또는 `REPOTTING`, `(plant_id, type)` unique |
