@@ -1,4 +1,4 @@
-# API 명세 v0.7
+# API 명세 v0.8
 
 이 문서는 구현 전 프론트엔드와 합의할 계약 초안입니다. 구현 이후 `/openapi.json`을 최종 기준으로 사용합니다.
 
@@ -558,10 +558,13 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 월 평균은 해당 월에 작성한 다이어리의 컨디션 점수를 사용합니다. 다이어리를
 작성하지 않은 날은 평균에서 제외합니다. 기록이 없는 달은 `average_score`와
 `level`을 `null`로 반환하며 0점으로 처리하지 않습니다.
-진단표 막대그래프는 `condition_trend`를 날짜순으로 표시하며 X축은 날짜, Y축은
-10·30·50·70·90점 컨디션 점수입니다.
 
 ## 11. 사진 기반 상태 분석
+
+AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 기록을 생성합니다.
+진단표는 다이어리 컨디션 통계와 분리하며 해당 식물의 진단 이력과 개별 상세 결과만
+표시합니다. 사진 분석으로 임의의 0~100 건강점수를 만들거나 막대그래프로 표시하지
+않습니다.
 
 ### `POST /plants/{plant_id}/diagnoses`
 
@@ -570,14 +573,15 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 ```json
 {
   "media_file_id": "uuid-1",
+  "source_message_id": "uuid",
   "symptom_started_on": "2026-07-14",
   "environment": {
     "location": "INDOOR",
     "light_level": "BRIGHT_INDIRECT",
-    "soil_moisture": "DRY",
+    "soil_moisture": "WET",
     "visible_pests": false
   },
-  "user_note": "최근 잎 끝이 갈색으로 변했어요."
+  "user_note": "물을 준 뒤에도 잎이 노랗고 처져 있어요."
 }
 ```
 
@@ -600,43 +604,119 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 {
   "id": "uuid",
   "plant_id": "uuid",
+  "related_chat_id": "uuid",
   "status": "COMPLETED",
+  "image_url": "short-lived-url",
   "overall_condition": "WARNING",
-  "summary": "잎 끝 갈변과 가벼운 처짐이 관찰됩니다.",
-  "observations": ["잎 끝 갈변", "잎 처짐"],
+  "summary": "잎 황변과 처짐이 관찰되며 과습 가능성이 높습니다.",
+  "observations": ["잎 황변", "잎 처짐", "흙 표면 습윤"],
   "possible_causes": [
     {
-      "code": "UNDERWATERING_SUSPECTED",
-      "label": "수분 부족 가능성",
-      "confidence": 0.76,
-      "evidence": ["마른 흙", "잎 처짐"]
+      "code": "OVERWATERING_SUSPECTED",
+      "label": "과습 가능성",
+      "confidence": 0.88,
+      "evidence": ["잎 황변", "젖은 흙", "최근 물주기 기록"]
     },
     {
-      "code": "LIGHT_STRESS_SUSPECTED",
-      "label": "강한 빛에 의한 스트레스 가능성",
-      "confidence": 0.41,
-      "evidence": ["잎 끝 갈변"]
+      "code": "POOR_AIRFLOW_SUSPECTED",
+      "label": "통풍 부족 가능성",
+      "confidence": 0.54,
+      "evidence": ["실내 배치", "흙이 오래 젖어 있음"]
+    },
+    {
+      "code": "LOW_LIGHT_SUSPECTED",
+      "label": "빛 부족 가능성",
+      "confidence": 0.31,
+      "evidence": ["실내 환경", "잎 처짐"]
     }
   ],
-  "recommendations": [
-    "흙 속 2~3cm의 수분 상태를 확인하세요.",
-    "완전히 말랐다면 화분 아래로 물이 흐를 때까지 물을 주세요."
-  ],
+  "recommendations": {
+    "immediate_actions": [
+      "오늘은 물을 주지 마세요.",
+      "통풍이 잘되는 곳으로 옮겨주세요."
+    ],
+    "avoid_actions": [
+      "흙이 마르기 전에 추가로 물을 주지 마세요."
+    ],
+    "prevention": [
+      "물주기 전 흙 속 2~3cm의 수분 상태를 확인하세요."
+    ],
+    "follow_up": {
+      "recommended_after_days": 3,
+      "message": "3일 후 같은 부위를 다시 촬영해 진단해 주세요."
+    }
+  },
   "additional_question": null,
   "needs_retake": false,
-  "confidence": 0.72,
+  "confidence": 0.88,
   "disclaimer": "사진과 관리 기록을 기반으로 한 상태 분석이며 확정 진단이 아닙니다.",
-  "completed_at": "2026-07-17T03:00:08Z"
+  "completed_at": "2026-07-23T13:30:08Z"
 }
 ```
 
 진단 요청은 사진 한 장만 허용합니다. 재촬영 필요 응답도 HTTP `200`이며 `needs_retake=true`, `retake_reason`을 포함합니다.
+`source_message_id`는 현재 사용자의 채팅과 식물에 속한 사진 메시지인지 서버에서
+검증하며 상세 응답의 `related_chat_id`를 계산할 때 사용합니다.
+`confidence`는 AI가 결과를 얼마나 확신하는지를 나타낼 뿐 식물 건강점수가 아닙니다.
+`possible_causes`는 신뢰도 내림차순으로 최대 3개를 반환합니다.
+
+### `GET /plants/{plant_id}/diagnoses`
+
+현재 식물의 최근 진단과 전체 이력을 최신순으로 조회합니다.
+
+```json
+{
+  "latest": {
+    "id": "uuid-3",
+    "status": "COMPLETED",
+    "thumbnail_url": "short-lived-url",
+    "overall_condition": "WARNING",
+    "summary": "과습 가능성이 높아요.",
+    "top_cause": {
+      "label": "과습 가능성",
+      "confidence": 0.88
+    },
+    "created_at": "2026-07-23T13:30:00Z"
+  },
+  "items": [
+    {
+      "id": "uuid-3",
+      "status": "COMPLETED",
+      "thumbnail_url": "short-lived-url",
+      "overall_condition": "WARNING",
+      "summary": "과습 가능성이 높아요.",
+      "top_cause": {
+        "label": "과습 가능성",
+        "confidence": 0.88
+      },
+      "needs_retake": false,
+      "created_at": "2026-07-23T13:30:00Z"
+    },
+    {
+      "id": "uuid-2",
+      "status": "PROCESSING",
+      "thumbnail_url": "short-lived-url",
+      "overall_condition": null,
+      "summary": null,
+      "top_cause": null,
+      "needs_retake": false,
+      "created_at": "2026-07-15T09:10:00Z"
+    }
+  ],
+  "next_cursor": null,
+  "has_next": false
+}
+```
+
+목록 항목을 누르면 `GET /diagnoses/{diagnosis_id}`로 원본 사진, 종합 상태,
+AI 신뢰도, 관찰 증상, 의심 원인 TOP 3, 즉시 조치, 피해야 할 행동, 예방법과
+재진단 권장일을 조회합니다. `related_chat_id`가 있으면 관련 AI 채팅으로 이동할
+수 있습니다.
 
 ### 기타 진단 API
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/plants/{plant_id}/diagnoses` | 진단 기록 목록 |
 | POST | `/diagnoses/{diagnosis_id}/retry` | 실패한 분석 재시도 |
 | POST | `/diagnoses/{diagnosis_id}/cancel` | 대기 중인 분석 취소 |
 | DELETE | `/diagnoses/{diagnosis_id}` | 진단과 연결 이미지 삭제 요청 |
