@@ -29,10 +29,10 @@
 | 8 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 관리 이벤트, 완료·지연, 일회성 일정 | 6 |
 | 9 | `backend/feat-home-calendar` | A | 홈 집계, 식물 전환 데이터, 월간 캘린더, agenda, 기간 통계 | 7, 8 |
 | 10 | `backend/feat-diagnosis` | B | 사진 1장 진단 생성·조회·재시도·취소·삭제, 비동기 분석 | 3, 4, 6 |
-| 11 | `backend/feat-ai-chat` | B | 식물 고정 대화방, 메시지, 검색, 사진 첨부 비동기 처리 | 3, 4, 6 |
+| 11 | `backend/feat-ai-chat` | B | 식물별 단일 대화방, 메시지, 누적 요약, 사진 첨부 비동기 처리 | 3, 4, 6 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 8, 10, 11 |
 | 13 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 4, 7, 8 |
-| 14 | `backend/feat-notifications` | A | 알림 설정, 알림함, 읽음 처리, 도메인 이벤트별 알림 레코드 생성 | 2, 8, 10, 13 |
+| 14 | `backend/feat-notifications` | A | 알림 설정, 알림함, 읽음 처리, 도메인 이벤트별 알림 레코드 생성 | 2, 8, 10, 11, 13 |
 | 15 | `backend/feat-push-delivery` | B | 기기 토큰, Queue 기반 FCM/APNs 발송, 재시도와 전송 결과 기록 | 4, 14 |
 
 모든 브랜치는 생성 시점의 `main`에서 시작합니다. 선행 작업이 merge되면 작업
@@ -160,11 +160,15 @@
 
 ### `backend/feat-ai-chat`
 
-- 대화방당 식물 하나 고정
-- 대화 목록 검색과 식물 필터
+- 식물 등록 시 채팅방 자동 생성과 기존 식물 backfill
+- `ai_chats.plant_id` unique로 식물별 채팅방 하나 보장
+- 선택 식물의 채팅방 조회와 cursor 기반 전체 메시지 조회
+- 새 채팅·대화 목록·검색·태그 변경 API를 만들지 않음
 - 텍스트 메시지 실시간 응답
 - 사진 메시지 Queue 기반 비동기 처리
-- 대화·메시지 소유권 검사
+- 최근 메시지와 누적 요약 기반 모델 컨텍스트 구성
+- 기록 삭제 시 채팅방은 유지하고 메시지·요약·제공자 상태 초기화
+- 식물·대화·메시지 소유권 검사
 
 ### `backend/feat-ai-tool-calling`
 

@@ -30,7 +30,7 @@ erDiagram
     PLANTS ||--o{ CARE_SCHEDULES : configures
     PLANTS ||--o{ CARE_EVENTS : records
     PLANTS ||--o{ DIAGNOSES : receives
-    PLANTS ||--o{ AI_CHATS : tagged_in
+    PLANTS ||--|| AI_CHATS : has_chat
     PLANTS ||--o{ AI_ACTIONS : affected_by
     PLANTS ||--o{ AI_BATCH_ITEMS : batched_for
     PLANTS ||--o{ MONTHLY_REPORTS : summarized_by
@@ -214,9 +214,12 @@ erDiagram
     AI_CHATS {
         uuid id PK
         uuid user_id FK
-        uuid plant_id FK
-        varchar title
+        uuid plant_id FK,UK
         varchar provider_conversation_id
+        text context_summary
+        uuid summarized_through_message_id FK
+        varchar summary_version
+        timestamptz summary_updated_at
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at
@@ -360,7 +363,8 @@ erDiagram
 - 다이어리는 사진을 최대 한 장, 진단은 정확히 한 장 사용합니다.
 - 식물명칭은 검색 또는 사진 인식 후보에서 선택하며 사진 인식 결과는 사용자가 확정합니다.
 - 자동 반복 일정은 물주기와 분갈이만 지원합니다.
-- AI 대화방 하나는 정확히 한 식물에 고정됩니다.
+- 식물 하나에는 AI 대화방이 정확히 하나 있으며 식물 등록 시 함께 생성합니다.
+- AI 채팅 전체 기록은 보존하되 모델 입력은 최근 메시지와 누적 요약으로 제한합니다.
 - 읽기 Tool Call은 서버가 실행하고 변경 제안은 `AI_ACTIONS`에서 사용자 승인을 기다립니다.
 - OpenAI Batch 하나는 여러 항목을 포함하고 각 항목은 최대 하나의 월간 리포트를 생성합니다.
 - Supabase Queues 메시지는 업무 테이블 ID만 운반하며 업무 데이터의 원본은 아닙니다.
@@ -381,7 +385,7 @@ erDiagram
 | `diagnoses` | `possible_causes`는 최대 3개, 원인별 `confidence`는 제공자가 반환한 0~1 값 또는 null |
 | `diagnoses` | 전체 건강점수와 LLM이 생성한 진단 확률은 저장하지 않음 |
 | `diagnoses` | 진단 모델, 설명 모델·프롬프트, 관리 규칙 버전을 서로 분리해 저장 |
-| `ai_chats` | `plant_id` 필수, 생성 후 변경 불가 |
+| `ai_chats` | `plant_id` unique·필수, 식물 등록 시 함께 생성하며 변경·추가 생성 불가 |
 | `ai_messages` | 첨부 사진은 null 또는 한 장 |
 | `ai_actions` | `PENDING_CONFIRMATION`만 confirm/cancel 가능, 만료 후 실행 불가 |
 | `ai_batch_items` | `custom_id` unique |
@@ -404,8 +408,7 @@ care_events(plant_id, scheduled_at)
 care_events(status, scheduled_at)
 diagnoses(plant_id, created_at DESC)
 diagnoses(status, created_at)
-ai_chats(user_id, updated_at DESC)
-ai_chats(plant_id, updated_at DESC)
+ai_chats(plant_id) UNIQUE
 ai_messages(chat_id, created_at)
 ai_tool_calls(message_id, created_at)
 ai_actions(user_id, status, expires_at)
