@@ -356,7 +356,12 @@ stateDiagram-v2
 
 | 담당 A | 담당 B | 공동 |
 |---|---|---|
-| 사용자 프로필, 식물, 다이어리, 일정, 캘린더 | Storage, Worker, AI 진단, Tool Calling, Batch, 알림 | Supabase 설정, DB migration, OpenAPI 검토, 배포, 코드 리뷰 |
+| 사용자 프로필, 식물, 다이어리, 일정, 캘린더, 알림 설정·알림함 | Storage, Queue·Worker, 식물 사진 인식, AI 진단, Tool Calling, Batch, FCM/APNs 발송 | 프로젝트 기반, Supabase 설정, DB migration, OpenAPI 검토, 통합 테스트, 배포, 코드 리뷰 |
+
+공통 프로젝트 기반은 담당 B가 첫 구현하고 담당 A가 필수 리뷰합니다. 알림
+레코드와 사용자 설정은 담당 A가 소유하고, 기기 토큰과 Queue 기반 외부 푸시
+전송은 담당 B가 소유합니다. 상세 구현 순서와 브랜치 의존성은
+[백엔드 기능별 작업 계획](backend-work-plan.md)을 따릅니다.
 
 ## 13. 공식 문서
 
