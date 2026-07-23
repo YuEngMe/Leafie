@@ -1,4 +1,4 @@
-# API 명세 v0.8
+# API 명세 v0.9
 
 이 문서는 구현 전 프론트엔드와 합의할 계약 초안입니다. 구현 이후 `/openapi.json`을 최종 기준으로 사용합니다.
 
@@ -65,12 +65,12 @@
 | `SpeciesSelectionMethod` | `SEARCH`, `PHOTO` |
 | `SpeciesIdentificationStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
 | `ConditionLevel` | `VERY_BAD`, `BAD`, `NORMAL`, `GOOD`, `VERY_GOOD` |
-| `DiagnosisCondition` | `HEALTHY`, `OBSERVE`, `WARNING`, `CRITICAL`, `UNKNOWN` |
+| `DiagnosisCondition` | `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` |
 | `PersonalityType` | `OUTGOING`, `CHIC`, `CUTE`, `CRUSH`, `INTROVERTED`, `CHUNGCHEONG` |
 | `CareEventType` | `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING` |
 | `CareEventStatus` | `SCHEDULED`, `OVERDUE`, `COMPLETED`, `CANCELLED` |
 | `MediaPurpose` | `USER_PROFILE`, `PLANT_PROFILE`, `SPECIES_IDENTIFICATION`, `DIARY`, `DIAGNOSIS`, `CHAT` |
-| `DiagnosisStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED` |
+| `DiagnosisStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED` |
 | `ChatRole` | `USER`, `ASSISTANT`, `SYSTEM` |
 | `AIMessageStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
 | `ToolCallStatus` | `PENDING`, `COMPLETED`, `FAILED` |
@@ -558,6 +558,8 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 월 평균은 해당 월에 작성한 다이어리의 컨디션 점수를 사용합니다. 다이어리를
 작성하지 않은 날은 평균에서 제외합니다. 기록이 없는 달은 `average_score`와
 `level`을 `null`로 반환하며 0점으로 처리하지 않습니다.
+`condition_trend`와 `monthly_condition`은 사용자가 다이어리에 직접 기록한
+컨디션 통계이며 AI 진단 결과나 진단표의 건강점수가 아닙니다.
 
 ## 11. 사진 기반 상태 분석
 
@@ -607,9 +609,19 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
   "related_chat_id": "uuid",
   "status": "COMPLETED",
   "image_url": "short-lived-url",
-  "overall_condition": "WARNING",
+  "diagnosed_at": "2026-07-23T13:30:08Z",
+  "overall_condition": "UNHEALTHY",
   "summary": "잎 황변과 처짐이 관찰되며 과습 가능성이 높습니다.",
-  "observations": ["잎 황변", "잎 처짐", "흙 표면 습윤"],
+  "observations": [
+    {
+      "label": "잎 황변",
+      "evidence": "여러 잎이 노란색으로 변해 있습니다."
+    },
+    {
+      "label": "잎 처짐",
+      "evidence": "잎의 각도가 평소보다 아래로 향해 있습니다."
+    }
+  ],
   "possible_causes": [
     {
       "code": "OVERWATERING_SUSPECTED",
@@ -630,7 +642,7 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
       "evidence": ["실내 환경", "잎 처짐"]
     }
   ],
-  "recommendations": {
+  "care_guidance": {
     "immediate_actions": [
       "오늘은 물을 주지 마세요.",
       "통풍이 잘되는 곳으로 옮겨주세요."
@@ -640,25 +652,40 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
     ],
     "prevention": [
       "물주기 전 흙 속 2~3cm의 수분 상태를 확인하세요."
-    ],
-    "follow_up": {
-      "recommended_after_days": 3,
-      "message": "3일 후 같은 부위를 다시 촬영해 진단해 주세요."
-    }
+    ]
   },
-  "additional_question": null,
-  "needs_retake": false,
-  "confidence": 0.88,
+  "follow_up": {
+    "recommended_at": "2026-07-26",
+    "reason": "관리 후 잎 처짐과 황변이 진행되는지 확인해 주세요."
+  },
   "disclaimer": "사진과 관리 기록을 기반으로 한 상태 분석이며 확정 진단이 아닙니다.",
   "completed_at": "2026-07-23T13:30:08Z"
 }
 ```
 
-진단 요청은 사진 한 장만 허용합니다. 재촬영 필요 응답도 HTTP `200`이며 `needs_retake=true`, `retake_reason`을 포함합니다.
+진단 요청은 사진 한 장만 허용합니다. 전체 건강점수와 단일 AI 신뢰도는 반환하지
+않습니다. `possible_causes`는 신뢰도 내림차순으로 최대 세 개이며
+`confidence`는 전문 진단 제공자가 해당 원인에 대해 반환한 경우에만 포함합니다.
+LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
+
 `source_message_id`는 현재 사용자의 채팅과 식물에 속한 사진 메시지인지 서버에서
 검증하며 상세 응답의 `related_chat_id`를 계산할 때 사용합니다.
-`confidence`는 AI가 결과를 얼마나 확신하는지를 나타낼 뿐 식물 건강점수가 아닙니다.
-`possible_causes`는 신뢰도 내림차순으로 최대 3개를 반환합니다.
+
+재촬영 필요 응답:
+
+```json
+{
+  "id": "uuid",
+  "plant_id": "uuid",
+  "status": "NEEDS_RETAKE",
+  "retake_reason_code": "SYMPTOM_NOT_VISIBLE",
+  "retake_message": "증상이 있는 잎이 화면에 크게 보이도록 다시 촬영해 주세요."
+}
+```
+
+진단표 상세는 `진단 기본 정보 → 결과 요약 → 관찰된 증상 → 가능한 원인 TOP 3
+→ 지금 해야 할 일 → 피해야 할 행동 → 예방 방법 → 재확인 안내 → 관련 대화`
+순서로 표시합니다.
 
 ### `GET /plants/{plant_id}/diagnoses`
 
@@ -670,7 +697,7 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
     "id": "uuid-3",
     "status": "COMPLETED",
     "thumbnail_url": "short-lived-url",
-    "overall_condition": "WARNING",
+    "overall_condition": "UNHEALTHY",
     "summary": "과습 가능성이 높아요.",
     "top_cause": {
       "label": "과습 가능성",
@@ -683,13 +710,12 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
       "id": "uuid-3",
       "status": "COMPLETED",
       "thumbnail_url": "short-lived-url",
-      "overall_condition": "WARNING",
+      "overall_condition": "UNHEALTHY",
       "summary": "과습 가능성이 높아요.",
       "top_cause": {
         "label": "과습 가능성",
         "confidence": 0.88
       },
-      "needs_retake": false,
       "created_at": "2026-07-23T13:30:00Z"
     },
     {
@@ -699,7 +725,6 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
       "overall_condition": null,
       "summary": null,
       "top_cause": null,
-      "needs_retake": false,
       "created_at": "2026-07-15T09:10:00Z"
     }
   ],
@@ -709,7 +734,7 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
 ```
 
 목록 항목을 누르면 `GET /diagnoses/{diagnosis_id}`로 원본 사진, 종합 상태,
-AI 신뢰도, 관찰 증상, 의심 원인 TOP 3, 즉시 조치, 피해야 할 행동, 예방법과
+관찰 증상, 의심 원인 TOP 3와 원인별 확률, 즉시 조치, 피해야 할 행동, 예방법과
 재진단 권장일을 조회합니다. `related_chat_id`가 있으면 관련 AI 채팅으로 이동할
 수 있습니다.
 
@@ -720,6 +745,11 @@ AI 신뢰도, 관찰 증상, 의심 원인 TOP 3, 즉시 조치, 피해야 할 �
 | POST | `/diagnoses/{diagnosis_id}/retry` | 실패한 분석 재시도 |
 | POST | `/diagnoses/{diagnosis_id}/cancel` | 대기 중인 분석 취소 |
 | DELETE | `/diagnoses/{diagnosis_id}` | 진단과 연결 이미지 삭제 요청 |
+
+재진단은 새 사진을 업로드한 뒤 `POST /plants/{plant_id}/diagnoses`로 새 기록을
+만듭니다. 재확인 권장일은 안내 정보이며 진단만으로 기존 물주기·분갈이 반복
+일정을 자동 변경하지 않습니다. 비료·가지치기 일회성 일정은 사용자가 제안을
+확인한 뒤에만 추가합니다.
 
 ## 12. AI 상담과 Tool Calling
 
