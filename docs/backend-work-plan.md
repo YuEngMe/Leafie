@@ -7,17 +7,19 @@
 
 | 담당 | 주 책임 |
 |---|---|
-| 백엔드 A | 사용자·식물·다이어리·관리 일정·홈·캘린더 |
-| 백엔드 B | Storage·Queue·Worker·진단·AI·Batch·알림 |
+| 백엔드 A | 사용자·식물·다이어리·관리 일정·홈·캘린더·알림 설정과 알림함 |
+| 백엔드 B | Storage·Queue·Worker·식물 사진 인식·진단·AI·Batch·푸시 발송 |
 | 공동 | 공통 기반, migration 리뷰, API 계약, 통합 테스트, 배포 |
 
 담당은 코드 소유권을 의미합니다. 모든 PR은 다른 백엔드 담당자가 리뷰합니다.
+공통 기반은 백엔드 B가 첫 구현을 맡고 백엔드 A가 필수 리뷰합니다. 알림은
+사용자 데이터와 API를 A가, Queue 소비와 외부 푸시 전송을 B가 맡습니다.
 
 ## 기능 브랜치
 
 | 순서 | 브랜치 | 담당 | 구현 범위 | 선행 작업 |
 |---:|---|---|---|---|
-| 1 | `backend/feat-project-foundation` | 공동 | 설정, DB session, JWT 검증, 공통 에러, pagination, 소유권 검사, 테스트 fixture, 로깅 | 없음 |
+| 1 | `backend/feat-project-foundation` | B 구현·A 리뷰 | 설정, DB session, JWT 검증, 공통 에러, pagination, 소유권 검사, 테스트 fixture, 로깅 | 없음 |
 | 2 | `backend/feat-auth-profile` | A | `/users/me`, 프로필 수정, 선택 식물, 사용자 통계, 계정 탈퇴 예약 | 1 |
 | 3 | `backend/feat-media-storage` | B | Signed Upload URL, 업로드 완료 검증, Signed Download URL, 파일 삭제 작업 | 1 |
 | 4 | `backend/feat-queue-worker` | B | Supabase Queues adapter, Worker loop, visibility timeout, 재시도, 멱등성 | 1 |
@@ -30,10 +32,31 @@
 | 11 | `backend/feat-ai-chat` | B | 식물 고정 대화방, 메시지, 검색, 사진 첨부 비동기 처리 | 3, 4, 6 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 8, 10, 11 |
 | 13 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 4, 7, 8 |
-| 14 | `backend/feat-notifications` | B | 기기 토큰, 알림함, 읽음 처리, 알림 설정, FCM/APNs 발송 | 2, 4, 8, 10, 13 |
+| 14 | `backend/feat-notifications` | A | 알림 설정, 알림함, 읽음 처리, 도메인 이벤트별 알림 레코드 생성 | 2, 8, 10, 13 |
+| 15 | `backend/feat-push-delivery` | B | 기기 토큰, Queue 기반 FCM/APNs 발송, 재시도와 전송 결과 기록 | 4, 14 |
 
 모든 브랜치는 생성 시점의 `main`에서 시작합니다. 선행 작업이 merge되면 작업
 브랜치에서 최신 `main`을 반영한 뒤 구현을 계속합니다.
+
+두 담당자의 권장 진행 순서는 다음과 같습니다.
+
+| 단계 | 백엔드 A | 백엔드 B |
+|---:|---|---|
+| 0 | `backend/feat-project-foundation` 리뷰 | `backend/feat-project-foundation` 구현 |
+| 1 | `backend/feat-auth-profile` | `backend/feat-media-storage` |
+| 2 | API·migration 리뷰 | `backend/feat-queue-worker` |
+| 3 | 식물 등록 연동 검토 | `backend/feat-species-identification` |
+| 4 | `backend/feat-plant-character` | 진단 Provider 인터페이스와 평가 fixture 준비 |
+| 5 | `backend/feat-diary-condition` | `backend/feat-diagnosis` |
+| 6 | `backend/feat-care-schedule` | `backend/feat-ai-chat` |
+| 7 | `backend/feat-home-calendar` | `backend/feat-ai-tool-calling` |
+| 8 | 통합 테스트·리뷰 | `backend/feat-monthly-batch` |
+| 9 | `backend/feat-notifications` | 알림 이벤트 통합 리뷰 |
+| 10 | 통합 테스트·리뷰 | `backend/feat-push-delivery` |
+
+서로 다른 기능 브랜치에서 동시에 공통 모델을 임의로 수정하지 않습니다. 공통
+테이블이나 schema 변경이 필요하면 migration PR을 먼저 합의하고, 기능 브랜치는
+병합된 최신 `main`을 반영한 뒤 계속합니다.
 
 ## 브랜치별 완료 조건
 
@@ -117,15 +140,23 @@
 ### `backend/feat-diagnosis`
 
 - 진단 사진 정확히 한 장
-- `PENDING`부터 종료 상태까지 전이 검증
-- 낮은 품질 사진의 재촬영 응답
-- 최근 식물·환경·관리 기록을 분석 입력에 포함
+- `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED` 상태 전이 검증
+- 식물 존재 여부, 흐림, 밝기와 증상 부위 노출을 검사하는 사진 품질 단계
+- 전문 진단 API를 `DiagnosisProvider` 인터페이스 뒤에 격리
+- 제공자 응답을 내부 `DiagnosisResult` schema로 표준화
+- 최근 식물·환경·관리 기록 스냅샷을 자체 관리 규칙 입력에 포함
 - 식물별 최근 진단과 전체 이력 최신순 조회
-- 상세 결과에 종합 상태, 관찰 증상, 의심 원인 TOP 3와 신뢰도 제공
+- 종합 상태는 `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나
+- 관찰 증상과 의심 원인 TOP 3 제공
+- 원인별 확률은 전문 진단 제공자가 반환한 값만 사용
 - 즉시 조치, 피해야 할 행동, 예방법과 재진단 권장일 구조화
 - 관련 AI 채팅 이동을 위한 `related_chat_id` 제공
-- 모델 신뢰도와 식물 건강점수를 명확히 구분하고 임의 건강점수 생성 금지
-- 결과와 모델·프롬프트 버전 저장
+- LLM은 진단 원인이나 확률을 만들지 않고 한국어 설명만 생성
+- 설명 결과의 Pydantic schema와 금지 표현 검증
+- 단일 AI 신뢰도와 임의 건강점수 생성·저장 금지
+- 진단 결과만으로 물주기·분갈이 반복 일정 변경 금지
+- 진단 제공자·모델, 설명 모델·프롬프트, 관리 규칙 버전을 분리해 저장
+- 중복 요청 방지, 외부 API 지연 시간·사용량·비용 기록
 
 ### `backend/feat-ai-chat`
 
@@ -153,11 +184,19 @@
 
 ### `backend/feat-notifications`
 
-- FCM/APNs 기기 토큰 등록·폐기
-- 물주기·분갈이와 지연 알림
-- 진단·사진 채팅·월간 리포트 완료 알림
+- 알림 설정 조회·수정과 quiet hours
 - 알림함과 읽음 상태
-- 사용자 설정과 quiet hours
+- 물주기·분갈이·지연·진단·사진 채팅·월간 리포트 이벤트를 알림 레코드로 생성
+- 같은 원인 이벤트의 알림 중복 생성 방지
+
+### `backend/feat-push-delivery`
+
+- FCM/APNs 기기 토큰 등록·갱신·폐기
+- `PUSH_NOTIFICATION_SEND` Queue 소비
+- 사용자 알림 설정과 quiet hours 재검증
+- FCM/APNs 발송, 일시 오류 재시도와 영구 실패 토큰 폐기
+- 제공자 응답 ID, 지연 시간과 전송 결과 기록
+- 같은 알림의 중복 푸시 발송 방지
 
 ## API 범위 확인
 
@@ -176,7 +215,8 @@
 | AI 대화 | `backend/feat-ai-chat` |
 | Tool Calling·AI Action | `backend/feat-ai-tool-calling` |
 | 월간 리포트·Batch | `backend/feat-monthly-batch` |
-| 알림·기기 토큰 | `backend/feat-notifications` |
+| 알림 설정·알림함 | `backend/feat-notifications` |
+| 기기 토큰·FCM/APNs 발송 | `backend/feat-push-delivery` |
 | Queue·Worker 내부 작업 | `backend/feat-queue-worker` |
 
 이 표의 모든 영역이 구현되고 각 브랜치 완료 조건을 통과하면 현재 백엔드 명세의
