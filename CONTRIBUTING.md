@@ -4,7 +4,7 @@
 
 - `main`에는 직접 push하지 않습니다.
 - 백엔드: `backend/<feature>`
-- 모바일: `mobile/<feature>`
+- 프론트엔드: `frontend/<feature>`
 - 공통 문서와 인프라: `chore/<topic>`
 
 ## 작업 흐름

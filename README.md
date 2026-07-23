@@ -14,7 +14,7 @@
 ```text
 .
 ├── backend/                  # FastAPI API와 Python Worker
-├── mobile/                   # Flutter 애플리케이션
+├── frontend/                # Flutter 애플리케이션
 ├── supabase/                 # DB migration, RLS, Queue, Cron
 ├── docs/                     # 아키텍처, API, ERD, 화면 매핑
 ├── CONTRIBUTING.md
@@ -35,7 +35,7 @@
 
 ## 권장 기술 스택
 
-- Mobile: Flutter
+- Frontend: Flutter
 - API: FastAPI, Pydantic v2, SQLAlchemy 2.x
 - Auth: Supabase Auth
 - Database: Supabase PostgreSQL
