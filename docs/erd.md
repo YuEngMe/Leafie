@@ -177,19 +177,29 @@ erDiagram
         varchar status
         varchar overall_condition
         date symptom_started_on
-        jsonb environment
+        jsonb input_context_snapshot
+        jsonb image_quality_result
         text user_note
         text summary
         jsonb observations
         jsonb possible_causes
-        jsonb recommendations
-        numeric confidence
-        boolean needs_retake
+        jsonb immediate_actions
+        jsonb avoid_actions
+        jsonb prevention
+        date follow_up_at
+        text follow_up_reason
+        varchar retake_reason_code
         varchar failure_code
-        varchar provider
-        varchar model_name
-        varchar prompt_version
-        varchar provider_response_id
+        varchar diagnosis_provider
+        varchar diagnosis_model_name
+        varchar diagnosis_provider_response_id
+        varchar explanation_provider
+        varchar explanation_model_name
+        varchar explanation_prompt_version
+        varchar care_rule_version
+        int diagnosis_latency_ms
+        numeric estimated_cost
+        varchar cost_currency
         timestamptz created_at
         timestamptz started_at
         timestamptz completed_at
@@ -367,7 +377,10 @@ erDiagram
 | `care_schedules` | `type`은 `WATERING` 또는 `REPOTTING`, `(plant_id, type)` unique |
 | `care_events` | 완료 시각은 완료 API의 서버 현재 시각이며 사용자 수정 불가 |
 | `diagnosis_images` | 진단당 정확히 한 장 |
-| `diagnoses` | `confidence`는 0~1 또는 null이며 모델 신뢰도만 의미, 임의 건강점수 저장 금지 |
+| `diagnoses` | `overall_condition`은 `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나 |
+| `diagnoses` | `possible_causes`는 최대 3개, 원인별 `confidence`는 제공자가 반환한 0~1 값 또는 null |
+| `diagnoses` | 전체 건강점수와 LLM이 생성한 진단 확률은 저장하지 않음 |
+| `diagnoses` | 진단 모델, 설명 모델·프롬프트, 관리 규칙 버전을 서로 분리해 저장 |
 | `ai_chats` | `plant_id` 필수, 생성 후 변경 불가 |
 | `ai_messages` | 첨부 사진은 null 또는 한 장 |
 | `ai_actions` | `PENDING_CONFIRMATION`만 confirm/cancel 가능, 만료 후 실행 불가 |

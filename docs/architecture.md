@@ -30,6 +30,8 @@ flowchart LR
     CRON["Supabase Cron<br/>pg_cron"]
     WORKER["Python Worker"]
     SPECIES["식물 종 검색·인식 Provider"]
+    HEALTH["전문 식물 진단 API<br/>plant.health"]
+    RULES["자체 관리 규칙 엔진"]
     RESPONSES["OpenAI Responses API<br/>Tool Calling"]
     BATCH["OpenAI Batch API"]
     PUSH["FCM / APNs"]
@@ -51,6 +53,8 @@ flowchart LR
     WORKER --> STORAGE
     API -->|"이름 검색"| SPECIES
     WORKER -->|"사진 인식"| SPECIES
+    WORKER --> HEALTH
+    WORKER --> RULES
     API --> RESPONSES
     WORKER --> RESPONSES
     WORKER --> BATCH
@@ -255,15 +259,68 @@ sequenceDiagram
 
 ## 10. 사진 상태 진단
 
-진단 사진은 정확히 한 장입니다. Worker는 Supabase Storage에서 사진을 읽고 식물
-정보, 환경, 최근 관리 기록을 함께 분석합니다. 품질이 낮거나 식물 또는 증상
-부위가 명확하지 않으면 결과를 억지로 만들지 않고 재촬영을 요청합니다.
+출시 초기에는 자체 분류 모델을 학습하지 않고 **전문 식물 진단 API + 자체 관리
+규칙 엔진 + LLM 설명 생성**을 사용합니다. 전문 진단 API가 가능한 원인과
+원인별 확률을 제공하고, 자체 엔진이 식물 정보와 관리 이력을 반영하며, LLM은
+검증된 결과를 자연스러운 한국어로 설명하는 역할만 담당합니다.
 
-완료 결과는 종합 상태, 요약, 관찰 증상, 의심 원인 최대 3개와 각 신뢰도, 즉시
-조치, 피해야 할 행동, 예방법, 재진단 권장일로 구조화합니다. 진단표는 식물별
-기록을 최신순으로 보여주고 각 기록에서 상세 결과와 관련 AI 채팅으로 이동합니다.
-모델 신뢰도는 건강점수가 아니며 사진 진단 결과에 임의의 0~100 점수를 만들지
-않습니다.
+```mermaid
+flowchart TD
+    PHOTO["진단 사진 1장"] --> QUALITY["사진 품질 검사"]
+    QUALITY -->|"품질 부족"| RETAKE["재촬영 요청"]
+    QUALITY -->|"통과"| PROVIDER["전문 식물 진단 API"]
+    PROVIDER --> NORMALIZE["내부 DiagnosisResult로 표준화"]
+    CONTEXT["식물·환경·최근 관리 기록"] --> RULES["자체 관리 규칙 엔진"]
+    NORMALIZE --> RULES
+    RULES --> EXPLAIN["LLM 한국어 설명 생성"]
+    EXPLAIN --> VALIDATE["Pydantic 스키마·안전 규칙 검증"]
+    VALIDATE --> SAVE["진단표 저장"]
+```
+
+진단 사진은 정확히 한 장입니다. 사진 품질 검사에서는 식물이 실제로 보이는지,
+사진이 지나치게 흐리거나 어둡지 않은지, 증상 부위가 충분히 보이는지 확인합니다.
+품질이 낮거나 식물 또는 증상 부위가 명확하지 않으면 결과를 억지로 만들지 않고
+`NEEDS_RETAKE`로 전환합니다.
+
+전문 진단 API 호출에는 등록된 식물 종 정보를 컨텍스트로 전달하되 종 식별을
+매번 다시 요청하지 않습니다. 제공자 응답은 애플리케이션 내부
+`DiagnosisResult` 형식으로 변환하고 UI가 외부 제공자의 응답 구조에 직접
+의존하지 않게 합니다.
+
+내부 결과는 다음 항목으로 구성합니다.
+
+- `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나인 전체 상태
+- 사진에서 관찰된 증상
+- 가능한 원인 최대 세 개와 제공자가 반환한 원인별 확률
+- 지금 해야 할 일, 피해야 할 행동, 예방 방법
+- 재확인 권장일과 사유
+
+전체 건강점수나 근거 없는 단일 신뢰도는 생성하지 않습니다. 원인별 확률도
+전문 진단 API가 반환한 경우에만 표시하고 LLM이 임의로 만들지 않습니다.
+
+자체 관리 규칙 엔진은 등록된 식물 종, 환경, 마지막 물주기·분갈이 완료 시각,
+최근 일정과 다이어리 기록을 사용합니다. 진단 결과만으로 반복 일정을 자동
+변경하지 않으며, 비료·가지치기 같은 일회성 제안도 사용자가 승인한 뒤에만
+일정에 반영합니다.
+
+LLM은 원인 추가, 확률 변경, 확정적 병명 판단을 할 수 없습니다. 표준화된 진단
+결과와 관리 규칙의 출력만 요약하며 결과는 Pydantic JSON Schema와 금지 표현
+규칙을 통과해야 저장됩니다. 판단 근거가 부족하면 `UNCERTAIN`과 재촬영 또는
+재확인 안내를 반환합니다.
+
+외부 연동은 다음 인터페이스 뒤에 둡니다.
+
+```text
+DiagnosisProvider
+├── KindwiseDiagnosisProvider    # 출시 초기 주 진단기
+├── VisionObservationProvider    # 선택적 증상 관찰 보조, 자동 대체 진단 금지
+└── OwnModelProvider             # 검수 데이터 축적 후 추가
+```
+
+자체 모델은 사용자 동의를 받은 사진, 후속 상태, 전문가 검수 라벨이 충분히
+쌓인 뒤 도입합니다. 초기에는 `정상`, `수분 스트레스`, `빛 스트레스`,
+`병해충 의심`, `판별 불가`처럼 제한된 사전 분류부터 검증하고 불확실한 요청은
+전문 진단 API로 보내는 방식으로 확장합니다.
 
 진단 상태:
 
@@ -272,17 +329,25 @@ stateDiagram-v2
     [*] --> PENDING
     PENDING --> PROCESSING
     PROCESSING --> COMPLETED
+    PROCESSING --> NEEDS_RETAKE
     PROCESSING --> FAILED
     FAILED --> PENDING: 재시도
     PENDING --> CANCELLED: 사용자 취소
 ```
 
+비용 관리를 위해 같은 사용자의 중복 요청은 `media checksum + plant_id +
+입력 컨텍스트 버전`으로 감지하고, 사용자별 사용량 제한과 외부 API 비용을
+기록합니다. 제공자 장애 시 무근거 대체 진단을 생성하지 않고 재시도하거나
+일시 실패로 안내합니다.
+
 ## 11. 운영과 장애 처리
 
 - API와 Worker에 timeout, 지수 백오프, 최대 재시도 횟수를 둡니다.
 - Queue 메시지와 외부 API 요청은 멱등적으로 처리합니다.
-- OpenAI 요청에 모델명, 프롬프트 버전, 응답 ID를 저장합니다.
-- 앱은 비동기 작업의 `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`를 표시합니다.
+- 진단 제공자·모델, 설명 LLM·모델, 프롬프트, 관리 규칙 버전을 각각 저장합니다.
+- 외부 진단 API와 OpenAI 요청의 응답 ID, 지연 시간, 사용량과 비용을 기록합니다.
+- 앱은 비동기 작업의 `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`,
+  `FAILED`를 표시합니다.
 - Queue 길이, 가장 오래된 메시지, 진단 실패율, Tool 실패율, Batch 실패율을 모니터링합니다.
 - 운영 로그에 JWT, API Key, 원본 사진, AI 대화 전문을 남기지 않습니다.
 - DB migration은 배포 전에 수행하고 하위 호환 API 변경을 우선합니다.
@@ -302,3 +367,5 @@ stateDiagram-v2
 - [Supabase Cron](https://supabase.com/docs/guides/cron)
 - [OpenAI Responses API와 Tool Calling](https://developers.openai.com/api/docs/guides/latest-model)
 - [OpenAI Batch API](https://platform.openai.com/docs/api-reference/batch/object?api-mode=responses)
+- [Kindwise plant.health](https://www.kindwise.com/plant-health)
+- [Kindwise API 보안 및 가격 FAQ](https://www.kindwise.com/faq)

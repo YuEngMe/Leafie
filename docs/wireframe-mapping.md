@@ -25,9 +25,9 @@
 | 다이어리 작성·상세 | 식물별 하루 한 개, 글·5단계 컨디션 필수, 사진 한 장 선택 | `PUT /plants/{id}/diaries/{date}` | `PLANT_DIARIES` | 일치 |
 | AI 대화 | 한 대화에 식물 한 개 태그, 사진 한 장 첨부, Tool Calling으로 식물·관리 기록 조회 | `/ai-chats`, `/ai-chats/{id}/messages` | `AI_CHATS`, `AI_MESSAGES`, `AI_TOOL_CALLS` | 일치 |
 | AI 변경 제안 | 진단 기반 비료·가지치기 일회성 일정만 사용자 확인 후 추가 | `/ai-actions/{id}/confirm`, `/cancel` | `AI_ACTIONS` | 확인 UI 추가 필요 |
-| AI 진단 | AI 채팅에서 현재 식물의 사진 한 장으로 비동기 진단, 분석 중·재촬영·실패·완료 상태 | `POST /plants/{id}/diagnoses`, `/diagnoses/{id}` | `DIAGNOSES`, `DIAGNOSIS_IMAGES`, `AI_MESSAGES` | 구조 확정, 디자인 미정 |
+| AI 진단 | AI 채팅에서 현재 식물의 사진 한 장으로 비동기 진단, 품질 검사·전문 진단 API·관리 규칙·LLM 설명, 분석 중·재촬영·실패·완료 상태 | `POST /plants/{id}/diagnoses`, `/diagnoses/{id}` | `DIAGNOSES`, `DIAGNOSIS_IMAGES`, `AI_MESSAGES` | 구조 확정, 디자인 미정 |
 | 진단표 메인 | 현재 식물의 최근 진단 요약과 전체 진단 기록을 최신순 목록으로 표시, 기록 선택 시 상세 이동 | `GET /plants/{id}/diagnoses` | `DIAGNOSES`, `DIAGNOSIS_IMAGES` | 구조 확정, 디자인 미정 |
-| 진단 상세 | 원본 사진, 종합 상태, AI 신뢰도, 관찰 증상, 의심 원인 TOP 3, 즉시 조치, 예방법, 재진단 권장일, 관련 채팅 이동 | `GET /diagnoses/{id}` | `DIAGNOSES`, `DIAGNOSIS_IMAGES`, `AI_MESSAGES` | 구조 확정, 디자인 미정 |
+| 진단 상세 | 원본 사진, 종합 상태, 요약, 관찰 증상, 의심 원인 TOP 3와 원인별 확률, 즉시 조치, 피해야 할 행동, 예방법, 재진단 권장일, 관련 채팅 이동 | `GET /diagnoses/{id}` | `DIAGNOSES`, `DIAGNOSIS_IMAGES`, `AI_MESSAGES` | 구조 확정, 디자인 미정 |
 | 월간 AI 리포트 | 지난달 컨디션·관리 요약과 다음 달 권장 사항 | `/plants/{id}/monthly-reports`, `/monthly-reports/{id}` | OpenAI Batch, `MONTHLY_REPORTS` | 화면 추가 필요 |
 | 대화 목록 | 제목·날짜·검색·새 채팅 | `GET /ai-chats?query=`, `POST /ai-chats` | `AI_CHATS` | MVP에서 설정 버튼 제거 |
 | 마이페이지 | 프로필 사진, 닉네임, 한 줄 소개, 이메일, 식집사 일수 | `/users/me` | `USER_PROFILES`, `auth.users` 가입일 | 일치 |
@@ -84,7 +84,7 @@
 ![AI 진단 이력 및 상세 화면 구조 참고](assets/ai-diagnosis-history-wireframe-reference.png)
 
 - 왼쪽은 현재 식물의 최근 진단과 전체 진단 기록을 보여주는 메인 화면입니다.
-- 오른쪽은 선택한 진단의 사진, 상태, AI 신뢰도, 증상, 원인과 조치를 보여주는 상세 화면입니다.
-- AI 신뢰도는 분석 확신도이며 식물 건강점수로 표시하지 않습니다.
+- 오른쪽은 선택한 진단의 사진, 상태, 증상, 원인별 확률과 조치를 보여주는 상세 화면입니다.
+- 단일 AI 신뢰도와 식물 건강점수는 표시하지 않으며 제공자가 반환한 원인별 확률만 표시합니다.
 - 이 이미지는 화면 구성과 정보 우선순위를 확인하기 위한 참고 자료입니다.
 - 색상, 폰트, 아이콘, 간격, 컴포넌트 형태와 캐릭터 표현은 최종 디자인이 아닙니다.
