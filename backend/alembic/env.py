@@ -17,7 +17,11 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 if settings.database_url:
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+    config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    return not object_.info.get("skip_autogenerate", False)
 
 
 def run_migrations_offline() -> None:
@@ -31,6 +35,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -42,6 +47,7 @@ def do_run_migrations(connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
