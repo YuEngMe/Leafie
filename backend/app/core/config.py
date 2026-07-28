@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     supabase_storage_bucket: str = "leafie-media"
     media_download_url_expires_seconds: int = 300
     supabase_queue_name: str = "leafie_jobs"
+    account_deletion_reauth_max_age_seconds: int = Field(default=300, ge=60, le=3600)
 
     worker_poll_interval_seconds: float = Field(default=1.0, gt=0)
     worker_visibility_timeout_seconds: int = Field(default=60, ge=1)
