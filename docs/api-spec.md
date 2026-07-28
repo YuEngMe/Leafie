@@ -194,7 +194,7 @@ Provider로 다시 인증해 최근 발급된 Access Token을 사용해야 합�
   "file_name": "plant.jpg",
   "content_type": "image/jpeg",
   "size_bytes": 1842301,
-  "checksum_sha256": "hex-value"
+  "checksum_sha256": "64-character-lowercase-hex-value"
 }
 ```
 
@@ -214,7 +214,8 @@ Provider로 다시 인증해 최근 발급된 Access Token을 사용해야 합�
 
 ### `POST /media/{media_file_id}/complete`
 
-저장소 업로드가 끝난 뒤 호출합니다. 서버가 파일 존재, 크기, 형식을 검사하고 `READY`로 변경합니다.
+저장소 업로드가 끝난 뒤 호출합니다. 서버가 파일 존재, 크기, 실제 이미지 형식과
+SHA-256 체크섬을 검사하고 `READY`로 변경합니다.
 
 응답 `200`:
 
@@ -226,6 +227,24 @@ Provider로 다시 인증해 최근 발급된 Access Token을 사용해야 합�
   "size_bytes": 1842301
 }
 ```
+
+### `GET /media/{media_file_id}/download-url`
+
+본인의 `READY` 파일에 대해서만 5분간 유효한 Signed Download URL을 발급합니다.
+
+응답 `200`:
+
+```json
+{
+  "download_url": "https://project.supabase.co/storage/v1/object/sign/...",
+  "expires_at": "2026-07-17T03:05:00Z"
+}
+```
+
+### `DELETE /media/{media_file_id}`
+
+본인 파일을 soft delete하고 `204`를 반환합니다. 실제 Storage object 삭제는 Queue와
+Worker가 별도로 수행합니다.
 
 ## 6. 식물
 
