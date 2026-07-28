@@ -9,6 +9,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -62,6 +63,7 @@ class SpeciesIdentification(Base, UUIDPrimaryKeyMixin):
             f"status IN ({enum_values(SpeciesIdentificationStatus)})",
             name="status",
         ),
+        UniqueConstraint("media_file_id", name="uq_species_identifications_media_file_id"),
     )
 
     user_id: Mapped[UUID] = mapped_column(

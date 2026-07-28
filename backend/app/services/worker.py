@@ -120,6 +120,22 @@ class QueueWorker:
                     job.trace_id,
                     attempt,
                 )
+                on_exhausted = getattr(handler, "on_exhausted", None)
+                if on_exhausted is not None:
+                    try:
+                        await asyncio.wait_for(
+                            on_exhausted(job),
+                            timeout=max(float(self._visibility_timeout_seconds), 0.01),
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Task exhaustion callback failed message_id=%s job_type=%s "
+                            "resource_id=%s trace_id=%s",
+                            received.message_id,
+                            job.job_type,
+                            job.resource_id,
+                            job.trace_id,
+                        )
                 await self._archive(received.message_id)
                 return
 

@@ -2,6 +2,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,6 +25,7 @@ from app.models.enums import (
     PersonalityType,
     PlantCategory,
     SpeciesSelectionMethod,
+    TaxonRank,
     WaterRecommendationSource,
     enum_values,
 )
@@ -36,21 +39,61 @@ class SpeciesCareGuide(Base):
             f"water_recommendation_source IN ({enum_values(WaterRecommendationSource)})",
             name="water_recommendation_source",
         ),
+        CheckConstraint(f"taxon_rank IN ({enum_values(TaxonRank)})", name="taxon_rank"),
         CheckConstraint(
             "(recommended_water_min_ml IS NULL AND recommended_water_max_ml IS NULL) OR "
             "(recommended_water_min_ml > 0 AND "
             "recommended_water_min_ml <= recommended_water_max_ml)",
             name="water_amount_range",
         ),
+        CheckConstraint(
+            "default_watering_interval_days IS NULL OR default_watering_interval_days > 0",
+            name="default_watering_interval_days",
+        ),
+        CheckConstraint(
+            "default_repotting_interval_days IS NULL OR default_repotting_interval_days > 0",
+            name="default_repotting_interval_days",
+        ),
         Index("ix_species_care_guides_display_name", "display_name"),
+        Index("ix_species_care_guides_gbif_id", "gbif_id", unique=True),
+        Index(
+            "ix_species_care_guides_plantnet_species_id",
+            "plantnet_species_id",
+            unique=True,
+            postgresql_where=text("plantnet_species_id IS NOT NULL"),
+        ),
     )
 
     species_reference_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     scientific_name: Mapped[str | None] = mapped_column(String(255))
+    plantnet_species_id: Mapped[str | None] = mapped_column(String(255))
+    gbif_id: Mapped[int | None] = mapped_column(BigInteger)
+    powo_id: Mapped[str | None] = mapped_column(String(100))
+    aliases: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    taxon_rank: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'SPECIES'")
+    )
+    genus: Mapped[str | None] = mapped_column(String(100))
+    family: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[str] = mapped_column(String(32), nullable=False)
     recommended_water_min_ml: Mapped[int | None] = mapped_column(Integer)
     recommended_water_max_ml: Mapped[int | None] = mapped_column(Integer)
+    default_watering_interval_days: Mapped[int | None] = mapped_column(Integer)
+    default_repotting_interval_days: Mapped[int | None] = mapped_column(Integer)
+    care_profile: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    diagnosis_profile: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    source_references: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    care_data_version: Mapped[str | None] = mapped_column(String(32))
+    care_data_reviewed_at: Mapped[date | None] = mapped_column(Date)
     water_recommendation_source: Mapped[str] = mapped_column(
         String(32), nullable=False, server_default=text("'SPECIES_GUIDE'")
     )

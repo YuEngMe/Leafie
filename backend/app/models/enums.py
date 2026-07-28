@@ -23,6 +23,12 @@ class SpeciesIdentificationStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class TaxonRank(StrEnum):
+    SPECIES = "SPECIES"
+    GENUS = "GENUS"
+    FAMILY = "FAMILY"
+
+
 class WaterRecommendationSource(StrEnum):
     SPECIES_GUIDE = "SPECIES_GUIDE"
 
