@@ -1,4 +1,4 @@
-# Yeso Plant App
+# Leafie
 
 반려식물의 관리 기록, 일정, 상태 변화와 사진 기반 AI 상태 분석을 제공하는 모바일 앱입니다.
 
@@ -25,12 +25,14 @@
 
 ## MVP 범위
 
-- 이메일 회원가입·로그인과 카카오 로그인
-- 반려식물 등록과 관리
+- 인증 메일 기반 이메일 로그인과 Google·Kakao·Naver 소셜 로그인
+- 식물명칭 검색·사진 인식과 반려식물 등록
 - 다이어리와 관리 일정 기록
+- 물 권장량, 자동 반복 관리와 사용자 자유 할 일
 - 월별 캘린더와 상태 통계
 - 사진 1장을 이용한 비동기 식물 상태 분석
-- 식물 데이터를 조회하는 Tool Calling 기반 AI 상담
+- 식물별 영구 채팅방, 새 채팅·대화 목록과 Tool Calling 기반 AI 상담
+- 식물별 전체 진단 이력과 진단 상세
 - 사용자 확인을 거치는 AI 일정 변경 제안
 - OpenAI Batch API 기반 월간 AI 케어 리포트
 - 푸시 알림을 위한 기기 토큰 및 사용자 설정
@@ -39,7 +41,7 @@
 
 - Frontend: Flutter
 - API: FastAPI, Pydantic v2, SQLAlchemy 2.x
-- Auth: Supabase Auth (Email/Password, Kakao OAuth)
+- Auth: Supabase Auth (Email/Password, Google/Kakao OAuth, Naver Custom OAuth2)
 - Database: Supabase PostgreSQL
 - Storage: Supabase Storage
 - Queue: Supabase Queues (`pgmq`)
