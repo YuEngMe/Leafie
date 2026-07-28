@@ -7,6 +7,7 @@ from app.schemas.media import (
     MediaPresignRequest,
     MediaPresignResponse,
 )
+from app.schemas.queue import JobType, QueueJob
 
 __all__ = [
     "CursorPage",
@@ -16,4 +17,6 @@ __all__ = [
     "MediaDownloadResponse",
     "MediaPresignRequest",
     "MediaPresignResponse",
+    "JobType",
+    "QueueJob",
 ]

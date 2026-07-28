@@ -7,10 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import (
     get_current_user,
     get_database_session,
+    get_job_queue,
     get_storage_gateway,
 )
 from app.core.config import settings
+from app.core.request_context import create_request_id, get_request_id
 from app.core.security import AuthenticatedUser
+from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.schemas.media import (
     MediaCompleteResponse,
@@ -18,6 +21,7 @@ from app.schemas.media import (
     MediaPresignRequest,
     MediaPresignResponse,
 )
+from app.schemas.queue import JobType, QueueJob
 from app.services.media import MediaService, SQLAlchemyMediaRepository
 
 router = APIRouter(prefix="/media", tags=["media"])
@@ -25,6 +29,7 @@ router = APIRouter(prefix="/media", tags=["media"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_database_session)]
 CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
 Storage = Annotated[StorageGateway, Depends(get_storage_gateway)]
+Queue = Annotated[JobQueue, Depends(get_job_queue)]
 
 
 def build_service(session: AsyncSession, storage: StorageGateway) -> MediaService:
@@ -81,6 +86,15 @@ async def delete_media(
     current_user: CurrentUser,
     session: DatabaseSession,
     storage: Storage,
+    queue: Queue,
 ) -> Response:
     await build_service(session, storage).soft_delete(current_user.id, media_file_id)
+    await queue.enqueue(
+        QueueJob(
+            job_type=JobType.STORAGE_OBJECT_DELETE,
+            resource_id=media_file_id,
+            trace_id=get_request_id() or create_request_id(),
+        ),
+        session=session,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

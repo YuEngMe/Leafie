@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
+from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -38,6 +39,10 @@ async def get_current_user(
 
 def get_storage_gateway(request: Request) -> StorageGateway:
     return request.app.state.storage
+
+
+def get_job_queue(request: Request) -> JobQueue:
+    return request.app.state.queue
 
 
 def ensure_resource_owner(

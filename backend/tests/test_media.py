@@ -6,12 +6,16 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.api.v1.media import delete_media
 from app.core.errors import AppError
+from app.core.request_context import reset_request_id, set_request_id
+from app.core.security import AuthenticatedUser
 from app.integrations.storage import StorageObjectInfo
 from app.main import create_app
 from app.models.enums import MediaPurpose, MediaStatus
 from app.models.media import MediaFile
 from app.schemas.media import MediaPresignRequest
+from app.schemas.queue import JobType, QueueJob
 from app.services.media import MediaService
 
 JPEG_BYTES = b"\xff\xd8\xff" + (b"\x00" * 1021)
@@ -63,6 +67,31 @@ class FakeStorageGateway:
 
     async def delete_object(self, object_path: str) -> None:
         self.deleted_paths.append(object_path)
+
+
+class FakeQueue:
+    def __init__(self) -> None:
+        self.jobs: list[QueueJob] = []
+        self.sessions: list[object] = []
+
+    async def enqueue(
+        self,
+        job: QueueJob,
+        *,
+        delay_seconds: int = 0,
+        session=None,
+    ) -> int:
+        self.jobs.append(job)
+        self.sessions.append(session)
+        return len(self.jobs)
+
+
+class FakeSession:
+    def __init__(self, media_file: MediaFile) -> None:
+        self.media_file = media_file
+
+    async def scalar(self, _statement) -> MediaFile:
+        return self.media_file
 
 
 def build_request(**overrides: object) -> MediaPresignRequest:
@@ -231,6 +260,50 @@ async def test_delete_is_soft_delete_only() -> None:
     assert media_file.status == MediaStatus.DELETED
     assert media_file.deleted_at is not None
     assert storage.deleted_paths == []
+
+
+async def test_delete_route_enqueues_storage_cleanup_in_same_session() -> None:
+    user_id = uuid4()
+    media_file = MediaFile(
+        id=uuid4(),
+        user_id=user_id,
+        purpose=MediaPurpose.DIAGNOSIS,
+        status=MediaStatus.READY,
+        bucket_name="leafie-media",
+        object_path=f"{user_id}/diagnosis/{uuid4()}.jpg",
+        content_type="image/jpeg",
+        size_bytes=1024,
+    )
+    session = FakeSession(media_file)
+    queue = FakeQueue()
+    current_user = AuthenticatedUser(
+        id=user_id,
+        email="leafie@example.com",
+        role="authenticated",
+        claims={},
+    )
+    token = set_request_id("req_media_delete_test")
+    try:
+        response = await delete_media(
+            media_file.id,
+            current_user,
+            session,
+            FakeStorageGateway(),
+            queue,
+        )
+    finally:
+        reset_request_id(token)
+
+    assert response.status_code == 204
+    assert media_file.status == MediaStatus.DELETED
+    assert queue.sessions == [session]
+    assert queue.jobs == [
+        QueueJob(
+            job_type=JobType.STORAGE_OBJECT_DELETE,
+            resource_id=media_file.id,
+            trace_id="req_media_delete_test",
+        )
+    ]
 
 
 def test_media_routes_require_authentication() -> None:

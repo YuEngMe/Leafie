@@ -7,6 +7,16 @@ Worker는 식물명칭 사진 인식, 상태 진단, 채팅 이미지 처리, �
 Batch 작업을 처리합니다. 식물별 영구 채팅방과 대화 세션, 관리 자동화 규칙은
 FastAPI 서비스 계층에서 소유권과 상태 전이를 검증합니다.
 
+Queue Worker 실행:
+
+```bash
+python -m app.worker
+```
+
+`SUPABASE_QUEUE_NAME`과 `WORKER_*` 환경변수로 Queue 이름, polling 간격,
+visibility timeout, 최대 재시도와 batch 크기를 설정합니다. Worker는 종료 신호를
+받으면 현재 처리 중인 작업을 마친 뒤 DB와 Storage 연결을 닫습니다.
+
 ## 로컬 실행
 
 ```bash
