@@ -18,6 +18,7 @@ from app.core.request_context import (
 )
 from app.core.security import SupabaseJWTVerifier
 from app.db.session import Database
+from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 
 configure_logging(settings.log_level)
@@ -40,6 +41,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.logger = logger
     app.state.database = Database(settings)
+    app.state.queue = PgmqQueue(app.state.database, settings)
     app.state.jwt_verifier = SupabaseJWTVerifier(settings)
     app.state.storage = SupabaseStorageGateway(settings)
     yield

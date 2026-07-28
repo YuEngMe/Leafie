@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -30,6 +31,11 @@ class Database:
         return self._engine
 
     async def session(self) -> AsyncIterator[AsyncSession]:
+        async with self.session_context() as session:
+            yield session
+
+    @asynccontextmanager
+    async def session_context(self) -> AsyncIterator[AsyncSession]:
         self._initialize()
         assert self._session_factory is not None
 

@@ -179,6 +179,16 @@ Worker 작업:
 각 작업은 리소스 ID를 멱등성 키로 사용합니다. visibility timeout, 최대 재시도
 횟수, `failure_code`를 두고 성공한 메시지는 archive합니다.
 
+Queue payload의 `attempt`는 최초 enqueue 또는 재발행 시점의 시작값이며, Worker는
+`pgmq.read_ct`를 더한 값을 실제 처리 시도 횟수로 사용합니다. 처리 중에는 visibility
+timeout 절반 주기로 heartbeat를 갱신합니다. 일시 오류는 지수 backoff로 다시 보이게
+하고 영구 실패와 최대 재시도 초과 메시지는 로그에 `failure_code`를 남긴 뒤 archive해
+운영자가 원본 메시지를 추적할 수 있게 합니다.
+
+각 handler는 `job_type`과 `resource_id`로 DB의 최신 상태를 다시 조회해야 합니다.
+이미 완료되거나 삭제된 리소스는 성공으로 처리하고, 같은 메시지가 다시 전달되어도
+외부 API 호출이나 데이터 변경이 중복되지 않도록 상태 전이를 원자적으로 검사합니다.
+
 ## 7. 관리 일정 자동화
 
 - 자동 반복은 물주기와 분갈이만 지원합니다.

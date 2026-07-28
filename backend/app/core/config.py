@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import computed_field
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     supabase_jwt_audience: str = "authenticated"
     supabase_storage_bucket: str = "leafie-media"
     media_download_url_expires_seconds: int = 300
+    supabase_queue_name: str = "leafie_jobs"
+
+    worker_poll_interval_seconds: float = Field(default=1.0, gt=0)
+    worker_visibility_timeout_seconds: int = Field(default=60, ge=1)
+    worker_max_attempts: int = Field(default=3, ge=1)
+    worker_retry_base_seconds: int = Field(default=5, ge=1)
+    worker_retry_max_seconds: int = Field(default=300, ge=1)
+    worker_batch_size: int = Field(default=5, ge=1, le=100)
 
     database_url: str | None = None
 
