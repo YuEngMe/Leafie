@@ -5,12 +5,14 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from storage3.exceptions import StorageApiError
 
 from app.api.v1.media import delete_media
+from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.request_context import reset_request_id, set_request_id
 from app.core.security import AuthenticatedUser
-from app.integrations.storage import StorageObjectInfo
+from app.integrations.storage import StorageObjectInfo, SupabaseStorageGateway
 from app.main import create_app
 from app.models.enums import MediaPurpose, MediaStatus
 from app.models.media import MediaFile
@@ -317,3 +319,22 @@ def test_media_routes_require_authentication() -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+async def test_storage_delete_treats_missing_object_as_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MissingObjectBucket:
+        async def remove(self, _paths: list[str]) -> None:
+            raise StorageApiError("not found", "404", 404)
+
+    gateway = SupabaseStorageGateway(
+        Settings(
+            _env_file=None,
+            supabase_url="https://leafie-test.supabase.co",
+            supabase_secret_key="test-secret",
+        )
+    )
+    monkeypatch.setattr(gateway, "_bucket", lambda: MissingObjectBucket())
+
+    await gateway.delete_object("already-deleted.jpg")

@@ -17,6 +17,11 @@ python -m app.worker
 visibility timeout, 최대 재시도와 batch 크기를 설정합니다. Worker는 종료 신호를
 받으면 현재 처리 중인 작업을 마친 뒤 DB와 Storage 연결을 닫습니다.
 
+식물 사진 인식에는 My Pl@ntNet 개발자 대시보드에서 발급한
+`PLANTNET_API_KEY`가 필요합니다. 키가 없거나 유효하지 않으면 인식 작업은
+`FAILED`로 종료되며 `failure_code`로 원인을 반환합니다. Pl@ntNet이 지원하는
+JPEG와 PNG만 인식 입력으로 사용합니다.
+
 ## 로컬 실행
 
 ```bash

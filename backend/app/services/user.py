@@ -4,7 +4,7 @@ from typing import Any, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,6 +78,8 @@ class UserRepository(Protocol):
     async def plant_is_owned(self, plant_id: UUID, user_id: UUID) -> bool: ...
 
     async def get_stats(self, user_id: UUID) -> UserStats: ...
+
+    async def mark_deletion_pending(self, user_id: UUID) -> bool: ...
 
 
 class SQLAlchemyUserRepository:
@@ -163,6 +165,18 @@ class SQLAlchemyUserRepository:
             diagnosis_count=int(diagnosis_count or 0),
         )
 
+    async def mark_deletion_pending(self, user_id: UUID) -> bool:
+        statement = (
+            update(UserProfile)
+            .where(
+                UserProfile.user_id == user_id,
+                UserProfile.deleted_at.is_(None),
+            )
+            .values(deleted_at=datetime.now(UTC))
+            .returning(UserProfile.user_id)
+        )
+        return await self._session.scalar(statement) is not None
+
 
 class UserService:
     def __init__(
@@ -237,12 +251,9 @@ class UserService:
         user_id: UUID,
         claims: dict[str, Any],
     ) -> bool:
-        _, profile = await self._get_user(user_id)
+        await self._get_user(user_id)
         self._require_recent_authentication(claims)
-        if profile.deleted_at is not None:
-            return False
-        profile.deleted_at = datetime.now(UTC)
-        return True
+        return await self._repository.mark_deletion_pending(user_id)
 
     async def _get_active_user(self, user_id: UUID) -> tuple[AuthUserRecord, UserProfile]:
         auth_user, profile = await self._get_user(user_id)

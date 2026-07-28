@@ -59,10 +59,15 @@ class RecordingHandler:
         *,
         error: Exception | None = None,
         wait_seconds: float = 0,
+        exhausted_error: Exception | None = None,
+        exhausted_wait_seconds: float = 0,
     ) -> None:
         self.error = error
         self.wait_seconds = wait_seconds
+        self.exhausted_error = exhausted_error
+        self.exhausted_wait_seconds = exhausted_wait_seconds
         self.jobs: list[QueueJob] = []
+        self.exhausted_jobs: list[QueueJob] = []
 
     async def __call__(self, job: QueueJob) -> None:
         self.jobs.append(job)
@@ -70,6 +75,13 @@ class RecordingHandler:
             await asyncio.sleep(self.wait_seconds)
         if self.error:
             raise self.error
+
+    async def on_exhausted(self, job: QueueJob) -> None:
+        self.exhausted_jobs.append(job)
+        if self.exhausted_wait_seconds:
+            await asyncio.sleep(self.exhausted_wait_seconds)
+        if self.exhausted_error:
+            raise self.exhausted_error
 
 
 def make_job(**overrides: object) -> QueueJob:
@@ -156,9 +168,41 @@ async def test_max_attempt_failure_is_archived() -> None:
     message = make_message(read_count=3)
     queue = FakeQueue([message])
     registry = TaskRegistry()
-    registry.register(JobType.DIAGNOSIS_RUN, RecordingHandler(error=RuntimeError("still failing")))
+    handler = RecordingHandler(error=RuntimeError("still failing"))
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
 
     await make_worker(queue, registry).run_once()
+
+    assert queue.archived == [message.message_id]
+    assert queue.visibility_updates == []
+    assert len(handler.exhausted_jobs) == 1
+    assert handler.exhausted_jobs[0].resource_id == handler.jobs[0].resource_id
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        RecordingHandler(
+            error=RuntimeError("still failing"),
+            exhausted_error=RuntimeError("callback failed"),
+        ),
+        RecordingHandler(
+            error=RuntimeError("still failing"),
+            exhausted_wait_seconds=1,
+        ),
+    ],
+)
+async def test_exhaustion_callback_cannot_block_archiving(handler: RecordingHandler) -> None:
+    message = make_message(read_count=3)
+    queue = FakeQueue([message])
+    registry = TaskRegistry()
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
+
+    await make_worker(
+        queue,
+        registry,
+        visibility_timeout_seconds=0.02,
+    ).run_once()
 
     assert queue.archived == [message.message_id]
     assert queue.visibility_updates == []

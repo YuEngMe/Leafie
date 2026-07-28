@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -51,6 +52,14 @@ class FakeUserRepository:
         assert user_id == self.auth_user.id
         return self.stats
 
+    async def mark_deletion_pending(self, user_id: UUID) -> bool:
+        assert user_id == self.auth_user.id
+        assert self.profile is not None
+        if self.profile.deleted_at is not None:
+            return False
+        self.profile.deleted_at = datetime.now(UTC)
+        return True
+
 
 class FakeStorage:
     bucket_name = "leafie-media"
@@ -78,9 +87,13 @@ class FakeAuthAdmin:
 class FakeAccountRepository:
     def __init__(self, paths: list[str]) -> None:
         self.paths = paths
+        self.restored: list[UUID] = []
 
     async def list_media_paths(self, _user_id: UUID) -> list[str]:
         return self.paths
+
+    async def restore_deletion(self, user_id: UUID) -> None:
+        self.restored.append(user_id)
 
 
 def make_auth_user(**overrides: object) -> AuthUserRecord:
@@ -192,6 +205,19 @@ async def test_account_deletion_requires_recent_token_and_is_idempotent() -> Non
     assert not await service.request_account_deletion(repository.auth_user.id, recent_claims)
 
 
+async def test_concurrent_account_deletion_requests_only_schedule_once() -> None:
+    service, repository, _ = build_service()
+    recent_auth_time = int(datetime.now(UTC).timestamp())
+    claims = {"amr": [{"method": "password", "timestamp": recent_auth_time}]}
+
+    results = await asyncio.gather(
+        service.request_account_deletion(repository.auth_user.id, claims),
+        service.request_account_deletion(repository.auth_user.id, claims),
+    )
+
+    assert sorted(results) == [False, True]
+
+
 async def test_account_deletion_does_not_treat_token_refresh_as_reauthentication() -> None:
     service, repository, _ = build_service()
     now = int(datetime.now(UTC).timestamp())
@@ -232,6 +258,22 @@ async def test_account_delete_handler_removes_storage_then_auth_user() -> None:
 
     assert storage.deleted == ["one.jpg", "two.jpg"]
     assert auth_admin.deleted == [user_id]
+
+
+async def test_account_delete_handler_unlocks_profile_after_retry_exhaustion() -> None:
+    user_id = uuid4()
+    repository = FakeAccountRepository([])
+    handler = AccountDeleteHandler(repository, FakeStorage(), FakeAuthAdmin())
+
+    await handler.on_exhausted(
+        QueueJob(
+            job_type=JobType.ACCOUNT_DELETE,
+            resource_id=user_id,
+            trace_id="req_account_delete_exhausted",
+        )
+    )
+
+    assert repository.restored == [user_id]
 
 
 async def test_auth_admin_delete_uses_server_secret_and_treats_missing_as_success() -> None:

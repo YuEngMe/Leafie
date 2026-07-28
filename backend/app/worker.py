@@ -6,12 +6,17 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.session import Database
 from app.integrations.auth import SupabaseAuthAdminGateway
+from app.integrations.plantnet import PlantNetProvider
 from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 from app.schemas.queue import JobType
 from app.services.worker import QueueWorker
 from app.tasks.account import AccountDeleteHandler, SQLAlchemyAccountCleanupRepository
 from app.tasks.registry import TaskRegistry
+from app.tasks.species import (
+    SpeciesIdentificationHandler,
+    SpeciesIdentificationRepository,
+)
 from app.tasks.storage import (
     SQLAlchemyMediaCleanupRepository,
     StorageObjectDeleteHandler,
@@ -25,6 +30,7 @@ async def run_worker() -> None:
     database = Database(settings)
     storage = SupabaseStorageGateway(settings)
     auth_admin = SupabaseAuthAdminGateway(settings)
+    plantnet = PlantNetProvider(settings)
     queue = PgmqQueue(database, settings)
     registry = TaskRegistry()
     registry.register(
@@ -40,6 +46,14 @@ async def run_worker() -> None:
             SQLAlchemyAccountCleanupRepository(database),
             storage,
             auth_admin,
+        ),
+    )
+    registry.register(
+        JobType.SPECIES_IDENTIFICATION_RUN,
+        SpeciesIdentificationHandler(
+            SpeciesIdentificationRepository(database),
+            storage,
+            plantnet,
         ),
     )
     worker = QueueWorker(
@@ -61,6 +75,7 @@ async def run_worker() -> None:
         await worker.run(stop_event)
     finally:
         await auth_admin.close()
+        await plantnet.close()
         await storage.close()
         await database.close()
 

@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     supabase_queue_name: str = "leafie_jobs"
     account_deletion_reauth_max_age_seconds: int = Field(default=300, ge=60, le=3600)
 
+    plantnet_api_key: str | None = None
+    plantnet_base_url: str = "https://my-api.plantnet.org/v2"
+    plantnet_project: str = "all"
+    plantnet_language: str = "en"
+    plantnet_result_limit: int = Field(default=5, ge=1, le=20)
+    plantnet_timeout_seconds: float = Field(default=20.0, gt=0)
+
     worker_poll_interval_seconds: float = Field(default=1.0, gt=0)
     worker_visibility_timeout_seconds: int = Field(default=60, ge=1)
     worker_max_attempts: int = Field(default=3, ge=1)
