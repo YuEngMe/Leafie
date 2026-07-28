@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import Column, DateTime, MetaData, Table, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -18,11 +18,21 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
+AUTH_USERS_TABLE = Table(
+    "users",
+    Base.metadata,
+    Column("id", PG_UUID(as_uuid=True), primary_key=True),
+    schema="auth",
+    info={"skip_autogenerate": True},
+)
+
+
 class UUIDPrimaryKeyMixin:
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
+        server_default=text("gen_random_uuid()"),
     )
 
 
@@ -38,3 +48,7 @@ class TimestampMixin:
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class SoftDeleteMixin:
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
