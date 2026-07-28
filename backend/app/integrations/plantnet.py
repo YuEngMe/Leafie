@@ -1,8 +1,33 @@
+import logging
+import re
 from dataclasses import dataclass
 
 import httpx
 
 from app.core.config import Settings
+
+
+class _PlantNetSecretFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = _redact_api_key(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(_redact_api_key(value) for value in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {
+                key: _redact_api_key(value) for key, value in record.args.items()
+            }
+        return True
+
+
+def _redact_api_key(value: object) -> object:
+    if isinstance(value, httpx.URL) and "api-key" in value.params:
+        return value.copy_set_param("api-key", "***")
+    if isinstance(value, str):
+        return re.sub(r"([?&]api-key=)[^&\s\"]+", r"\1***", value)
+    return value
+
+
+logging.getLogger("httpx").addFilter(_PlantNetSecretFilter())
 
 
 @dataclass(frozen=True, slots=True)

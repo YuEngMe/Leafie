@@ -54,6 +54,21 @@ class FakeSpeciesRepository:
             return None
         return media_file
 
+    async def get_identification_by_media_owned(
+        self,
+        media_file_id: UUID,
+        user_id: UUID,
+    ) -> SpeciesIdentification | None:
+        return next(
+            (
+                identification
+                for identification in self.identifications.values()
+                if identification.media_file_id == media_file_id
+                and identification.user_id == user_id
+            ),
+            None,
+        )
+
     async def add_identification(self, identification: SpeciesIdentification) -> None:
         self.identifications[identification.id] = identification
 
@@ -74,7 +89,12 @@ class FakeSpeciesSession:
         self.added: list[SpeciesIdentification] = []
 
     async def scalar(self, _statement):
-        return self.media_file
+        entity = _statement.column_descriptions[0].get("entity")
+        if entity is MediaFile:
+            return self.media_file
+        if entity is SpeciesIdentification:
+            return next(iter(self.added), None)
+        raise AssertionError(f"Unexpected statement entity: {entity}")
 
     def add(self, item: SpeciesIdentification) -> None:
         self.added.append(item)
@@ -196,6 +216,39 @@ async def test_create_identification_requires_owned_ready_species_media() -> Non
     assert image_type.value.code == "SPECIES_IMAGE_TYPE_UNSUPPORTED"
 
 
+async def test_create_identification_rejects_other_users_media() -> None:
+    owner_id = uuid4()
+    requester_id = uuid4()
+    repository = FakeSpeciesRepository()
+    media_file = make_media(owner_id)
+    repository.media[media_file.id] = media_file
+
+    with pytest.raises(AppError) as error:
+        await SpeciesService(repository).create_identification(
+            requester_id,
+            media_file.id,
+        )
+
+    assert error.value.code == "MEDIA_FILE_NOT_FOUND"
+    assert repository.identifications == {}
+
+
+async def test_create_identification_reuses_result_for_same_media() -> None:
+    user_id = uuid4()
+    repository = FakeSpeciesRepository()
+    media_file = make_media(user_id)
+    repository.media[media_file.id] = media_file
+    service = SpeciesService(repository)
+
+    first = await service.create_identification(user_id, media_file.id)
+    second = await service.create_identification(user_id, media_file.id)
+
+    assert first.created is True
+    assert second.created is False
+    assert second.response.id == first.response.id
+    assert len(repository.identifications) == 1
+
+
 async def test_create_and_get_identification() -> None:
     user_id = uuid4()
     repository = FakeSpeciesRepository()
@@ -203,7 +256,8 @@ async def test_create_and_get_identification() -> None:
     repository.media[media_file.id] = media_file
     service = SpeciesService(repository)
 
-    created = await service.create_identification(user_id, media_file.id)
+    creation = await service.create_identification(user_id, media_file.id)
+    created = creation.response
     stored = repository.identifications[created.id]
     stored.status = SpeciesIdentificationStatus.COMPLETED
     stored.candidates = [
@@ -242,11 +296,18 @@ async def test_create_route_enqueues_identification_in_same_session() -> None:
             session,
             queue,
         )
+        duplicate_response = await create_species_identification(
+            SpeciesIdentificationCreateRequest(media_file_id=media_file.id),
+            current_user,
+            session,
+            queue,
+        )
     finally:
         reset_request_id(token)
 
     assert len(session.added) == 1
     assert session.added[0].id == response.id
+    assert duplicate_response.id == response.id
     assert queue.sessions == [session]
     assert queue.jobs == [
         QueueJob(

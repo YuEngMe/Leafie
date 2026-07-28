@@ -51,19 +51,20 @@ async def create_species_identification(
     session: DatabaseSession,
     queue: Queue,
 ) -> SpeciesIdentificationCreatedResponse:
-    response = await build_service(session).create_identification(
+    creation = await build_service(session).create_identification(
         current_user.id,
         request.media_file_id,
     )
-    await queue.enqueue(
-        QueueJob(
-            job_type=JobType.SPECIES_IDENTIFICATION_RUN,
-            resource_id=response.id,
-            trace_id=get_request_id() or create_request_id(),
-        ),
-        session=session,
-    )
-    return response
+    if creation.created:
+        await queue.enqueue(
+            QueueJob(
+                job_type=JobType.SPECIES_IDENTIFICATION_RUN,
+                resource_id=creation.response.id,
+                trace_id=get_request_id() or create_request_id(),
+            ),
+            session=session,
+        )
+    return creation.response
 
 
 @router.get(

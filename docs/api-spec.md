@@ -306,7 +306,9 @@ Worker가 별도로 수행합니다.
 ```
 
 `media_file_id`는 본인이 `SPECIES_IDENTIFICATION` 목적으로 업로드해 `READY`가 된
-사진 한 장이어야 합니다. 응답 `202`:
+사진 한 장이어야 합니다. 동일한 `media_file_id`로 다시 요청하면 기존 식별 작업을
+반환하며 새 레코드나 큐 작업을 만들지 않습니다. 재촬영한 사진은 새 미디어 파일로
+업로드합니다. 응답 `202`:
 
 ```json
 {
@@ -380,7 +382,7 @@ Provider 후보는 가능한 경우 `gbif.id`로 자체 카탈로그와 먼저 �
   "category": "HERB",
   "species_name": "바질",
   "species_scientific_name": "Ocimum basilicum",
-  "species_reference_id": "provider:ocimum-basilicum",
+  "species_reference_id": "catalog:ocimum-basilicum",
   "species_selection_method": "PHOTO",
   "species_identification_id": "uuid",
   "started_on": "2026-07-16",

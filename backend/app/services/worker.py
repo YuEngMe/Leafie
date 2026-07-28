@@ -123,7 +123,10 @@ class QueueWorker:
                 on_exhausted = getattr(handler, "on_exhausted", None)
                 if on_exhausted is not None:
                     try:
-                        await on_exhausted(job)
+                        await asyncio.wait_for(
+                            on_exhausted(job),
+                            timeout=max(float(self._visibility_timeout_seconds), 0.01),
+                        )
                     except Exception:
                         logger.exception(
                             "Task exhaustion callback failed message_id=%s job_type=%s "

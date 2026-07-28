@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 import pytest
 
@@ -79,3 +81,46 @@ async def test_plantnet_reports_missing_configuration() -> None:
 
     assert error.value.failure_code == "PLANTNET_NOT_CONFIGURED"
     await client.aclose()
+
+
+@pytest.mark.parametrize("status_code", [401, 403])
+async def test_plantnet_maps_auth_failure(status_code: int) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code)
+
+    with pytest.raises(PlantNetPermanentError) as error:
+        await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
+
+    assert error.value.failure_code == "PLANTNET_AUTH_FAILED"
+
+
+async def test_plantnet_maps_rejected_image() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(422)
+
+    with pytest.raises(PlantNetPermanentError) as error:
+        await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
+
+    assert error.value.failure_code == "SPECIES_IMAGE_REJECTED"
+
+
+async def test_plantnet_maps_invalid_response() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"results": [{"score": "bad"}]})
+
+    with pytest.raises(PlantNetPermanentError) as error:
+        await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
+
+    assert error.value.failure_code == "PLANTNET_INVALID_RESPONSE"
+
+
+async def test_plantnet_redacts_api_key_from_httpx_logs(caplog) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(422)
+
+    caplog.set_level(logging.INFO, logger="httpx")
+    with pytest.raises(PlantNetPermanentError):
+        await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
+
+    assert "test-key" not in caplog.text
+    assert "api-key" in caplog.text

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select, update
 
 from app.core.errors import AppError
 from app.db.session import Database
@@ -34,25 +34,25 @@ class SpeciesIdentificationRepository:
 
     async def start(self, identification_id: UUID) -> IdentificationWork | None:
         async with self._database.session_context() as session:
-            row = (
-                await session.execute(
-                    select(SpeciesIdentification, MediaFile)
-                    .join(MediaFile, MediaFile.id == SpeciesIdentification.media_file_id)
-                    .where(SpeciesIdentification.id == identification_id)
+            media_file_id = await session.scalar(
+                update(SpeciesIdentification)
+                .where(
+                    SpeciesIdentification.id == identification_id,
+                    SpeciesIdentification.status == SpeciesIdentificationStatus.PENDING,
                 )
-            ).one_or_none()
-            if row is None:
+                .values(
+                    status=SpeciesIdentificationStatus.PROCESSING.value,
+                    provider="PLANTNET",
+                    failure_code=None,
+                )
+                .returning(SpeciesIdentification.media_file_id)
+            )
+            if media_file_id is None:
                 return None
 
-            identification, media_file = row
-            if identification.status in {
-                SpeciesIdentificationStatus.COMPLETED,
-                SpeciesIdentificationStatus.FAILED,
-            }:
+            media_file = await session.get(MediaFile, media_file_id)
+            if media_file is None:
                 return None
-            identification.status = SpeciesIdentificationStatus.PROCESSING.value
-            identification.provider = "PLANTNET"
-            identification.failure_code = None
             return IdentificationWork(
                 object_path=media_file.object_path,
                 content_type=media_file.content_type,
@@ -64,18 +64,10 @@ class SpeciesIdentificationRepository:
     ) -> dict[str, SpeciesCareGuide]:
         if not candidates:
             return {}
-        lowered_names = [candidate.scientific_name.casefold() for candidate in candidates]
-        gbif_ids = [candidate.gbif_id for candidate in candidates if candidate.gbif_id is not None]
         async with self._database.session_context() as session:
             guides = (
                 await session.scalars(
-                    select(SpeciesCareGuide).where(
-                        SpeciesCareGuide.active.is_(True),
-                        (
-                            func.lower(SpeciesCareGuide.scientific_name).in_(lowered_names)
-                            | SpeciesCareGuide.gbif_id.in_(gbif_ids)
-                        ),
-                    )
+                    select(SpeciesCareGuide).where(SpeciesCareGuide.active.is_(True))
                 )
             ).all()
         matches: dict[str, SpeciesCareGuide] = {}
@@ -84,6 +76,8 @@ class SpeciesIdentificationRepository:
                 matches[f"gbif:{guide.gbif_id}"] = guide
             if guide.scientific_name is not None:
                 matches[f"name:{guide.scientific_name.casefold()}"] = guide
+            for alias in guide.aliases or []:
+                matches[f"alias:{alias.casefold()}"] = guide
         return matches
 
     async def complete(
@@ -193,4 +187,14 @@ def find_matching_guide(
         guide = guides.get(f"gbif:{candidate.gbif_id}")
         if guide is not None:
             return guide
-    return guides.get(f"name:{candidate.scientific_name.casefold()}")
+    normalized_scientific_name = candidate.scientific_name.casefold()
+    guide = guides.get(f"name:{normalized_scientific_name}") or guides.get(
+        f"alias:{normalized_scientific_name}"
+    )
+    if guide is not None:
+        return guide
+    for common_name in candidate.common_names:
+        guide = guides.get(f"alias:{common_name.casefold()}")
+        if guide is not None:
+            return guide
+    return None

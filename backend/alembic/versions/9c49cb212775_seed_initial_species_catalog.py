@@ -388,27 +388,8 @@ def upgrade() -> None:
         for item in CATALOG
     ]
     insert = postgresql.insert(catalog_table).values(rows)
-    update_columns = {
-        column: getattr(insert.excluded, column)
-        for column in (
-            "display_name",
-            "scientific_name",
-            "plantnet_species_id",
-            "gbif_id",
-            "powo_id",
-            "aliases",
-            "taxon_rank",
-            "genus",
-            "family",
-            "category",
-        )
-    }
-    op.get_bind().execute(
-        insert.on_conflict_do_update(
-            index_elements=[catalog_table.c.species_reference_id],
-            set_=update_columns,
-        )
-    )
+    # A conflict aborts the migration so downgrade can only delete rows created here.
+    op.get_bind().execute(insert)
 
 
 def downgrade() -> None:

@@ -1,5 +1,6 @@
 import base64
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -31,6 +32,12 @@ class SpeciesRepository(Protocol):
     ) -> list[SpeciesCareGuide]: ...
 
     async def get_media_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None: ...
+
+    async def get_identification_by_media_owned(
+        self,
+        media_file_id: UUID,
+        user_id: UUID,
+    ) -> SpeciesIdentification | None: ...
 
     async def add_identification(self, identification: SpeciesIdentification) -> None: ...
 
@@ -76,6 +83,18 @@ class SQLAlchemySpeciesRepository:
                 MediaFile.id == media_file_id,
                 MediaFile.user_id == user_id,
                 MediaFile.deleted_at.is_(None),
+            ).with_for_update()
+        )
+
+    async def get_identification_by_media_owned(
+        self,
+        media_file_id: UUID,
+        user_id: UUID,
+    ) -> SpeciesIdentification | None:
+        return await self._session.scalar(
+            select(SpeciesIdentification).where(
+                SpeciesIdentification.media_file_id == media_file_id,
+                SpeciesIdentification.user_id == user_id,
             )
         )
 
@@ -94,6 +113,12 @@ class SQLAlchemySpeciesRepository:
                 SpeciesIdentification.user_id == user_id,
             )
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SpeciesIdentificationCreation:
+    response: SpeciesIdentificationCreatedResponse
+    created: bool
 
 
 class SpeciesService:
@@ -126,7 +151,7 @@ class SpeciesService:
         self,
         user_id: UUID,
         media_file_id: UUID,
-    ) -> SpeciesIdentificationCreatedResponse:
+    ) -> SpeciesIdentificationCreation:
         media_file = await self._repository.get_media_owned(media_file_id, user_id)
         if media_file is None:
             raise AppError(
@@ -153,6 +178,20 @@ class SpeciesService:
                 status_code=422,
             )
 
+        existing = await self._repository.get_identification_by_media_owned(
+            media_file_id,
+            user_id,
+        )
+        if existing is not None:
+            return SpeciesIdentificationCreation(
+                response=SpeciesIdentificationCreatedResponse(
+                    id=existing.id,
+                    status=existing.status,
+                    created_at=existing.created_at,
+                ),
+                created=False,
+            )
+
         created_at = datetime.now(UTC)
         identification = SpeciesIdentification(
             id=uuid4(),
@@ -162,10 +201,13 @@ class SpeciesService:
             created_at=created_at,
         )
         await self._repository.add_identification(identification)
-        return SpeciesIdentificationCreatedResponse(
-            id=identification.id,
-            status=SpeciesIdentificationStatus.PENDING,
-            created_at=created_at,
+        return SpeciesIdentificationCreation(
+            response=SpeciesIdentificationCreatedResponse(
+                id=identification.id,
+                status=SpeciesIdentificationStatus.PENDING,
+                created_at=created_at,
+            ),
+            created=True,
         )
 
     async def get_identification(

@@ -418,7 +418,7 @@ erDiagram
 | 테이블 | 제약조건 |
 |---|---|
 | `user_profiles` | `user_id`는 Supabase `auth.users.id`, `selected_plant_id`는 본인 소유 식물 |
-| `species_identifications` | 사진 한 장, 상태 전이 검증, 완료 후보의 표시명·학명·참조 ID·신뢰도 저장 |
+| `species_identifications` | `media_file_id` unique, 사진 한 장당 식별 작업 하나, 원자적 `PENDING -> PROCESSING` 전이, 완료 후보 저장 |
 | `species_care_guides` | 운영팀 관리, GBIF ID 우선 매칭, 별칭 검색, 기본 일정은 양수 또는 null, 관리·진단 데이터에는 버전과 출처 저장 |
 | `plants` | `category`는 확정된 7개 Enum, `name`, `species_name`, `species_reference_id`, `species_selection_method` 필수 |
 | `plant_characters` | `personality_type`은 확정된 6개 Enum |

@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.errors import AppError
 from app.integrations.plantnet import PlantNetCandidate, PlantNetPermanentError
 from app.models.enums import PlantCategory, WaterRecommendationSource
 from app.models.plant import SpeciesCareGuide
@@ -10,6 +11,7 @@ from app.tasks.base import PermanentTaskError
 from app.tasks.species import (
     IdentificationWork,
     SpeciesIdentificationHandler,
+    find_matching_guide,
 )
 
 
@@ -22,8 +24,12 @@ class FakeRepository:
         self.guides: dict[str, SpeciesCareGuide] = {}
         self.completed = []
         self.failures: list[tuple[object, str]] = []
+        self.started: set[object] = set()
 
-    async def start(self, _identification_id):
+    async def start(self, identification_id):
+        if identification_id in self.started:
+            return None
+        self.started.add(identification_id)
         return self.work
 
     async def find_guides(self, _candidates):
@@ -37,8 +43,13 @@ class FakeRepository:
 
 
 class FakeStorage:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+
     async def download_object(self, object_path: str) -> bytes:
         assert object_path == "user/species/image.jpg"
+        if self.error is not None:
+            raise self.error
         return b"\xff\xd8\xffimage"
 
 
@@ -46,8 +57,10 @@ class FakeProvider:
     def __init__(self, result=None, error: Exception | None = None) -> None:
         self.result = result or []
         self.error = error
+        self.calls = 0
 
     async def identify(self, image: bytes, content_type: str):
+        self.calls += 1
         assert image == b"\xff\xd8\xffimage"
         assert content_type == "image/jpeg"
         if self.error:
@@ -102,6 +115,7 @@ async def test_species_handler_applies_catalog_metadata() -> None:
     assert candidates[0].recommended_water.min_ml == 150
     assert candidates[0].default_care is not None
     assert candidates[0].default_care.watering_interval_days == 3
+    assert candidates[0].default_care.repotting_interval_days == 365
     assert candidates[0].confidence == 0.93
 
 
@@ -142,6 +156,75 @@ async def test_species_handler_marks_permanent_provider_failure() -> None:
         await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(job)
 
     assert repository.failures == [(job.resource_id, "PLANTNET_AUTH_FAILED")]
+
+
+async def test_species_handler_marks_missing_uploaded_media_as_permanent() -> None:
+    repository = FakeRepository()
+    storage = FakeStorage(
+        AppError(
+            code="MEDIA_UPLOAD_NOT_FOUND",
+            message="업로드 파일이 없습니다.",
+            status_code=404,
+        )
+    )
+    job = make_job()
+
+    with pytest.raises(PermanentTaskError) as error:
+        await SpeciesIdentificationHandler(repository, storage, FakeProvider())(job)
+
+    assert error.value.failure_code == "MEDIA_UPLOAD_NOT_FOUND"
+    assert repository.failures == [(job.resource_id, "MEDIA_UPLOAD_NOT_FOUND")]
+
+
+async def test_species_handler_ignores_duplicate_message_delivery() -> None:
+    repository = FakeRepository()
+    provider = FakeProvider(
+        [
+            PlantNetCandidate(
+                scientific_name="Ocimum basilicum",
+                common_names=("Sweet basil",),
+                confidence=0.93,
+            )
+        ]
+    )
+    handler = SpeciesIdentificationHandler(repository, FakeStorage(), provider)
+    job = make_job()
+
+    await handler(job)
+    await handler(job)
+
+    assert provider.calls == 1
+    assert len(repository.completed) == 1
+
+
+def test_species_candidate_matches_catalog_alias_case_insensitively() -> None:
+    guide = SpeciesCareGuide(
+        species_reference_id="catalog:dracaena-trifasciata",
+        display_name="산세베리아",
+        scientific_name="Dracaena trifasciata",
+        aliases=["Snake Plant", "Sansevieria trifasciata"],
+        category=PlantCategory.FOLIAGE,
+        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
+        active=True,
+    )
+    guides = {
+        "alias:snake plant": guide,
+        "alias:sansevieria trifasciata": guide,
+    }
+
+    former_name = PlantNetCandidate(
+        scientific_name="Sansevieria trifasciata",
+        common_names=(),
+        confidence=0.8,
+    )
+    common_name = PlantNetCandidate(
+        scientific_name="Dracaena sp.",
+        common_names=("SNAKE PLANT",),
+        confidence=0.7,
+    )
+
+    assert find_matching_guide(former_name, guides) is guide
+    assert find_matching_guide(common_name, guides) is guide
 
 
 async def test_species_handler_marks_no_candidate_and_exhaustion() -> None:
