@@ -14,14 +14,31 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Health check:
+Supabase 프로젝트 URL, JWKS URL과 JWT issuer는 `.env`에 설정합니다. DB 작업을
+시작할 때 팀에서 공유한 비밀번호로 `DATABASE_URL`을 추가합니다. 실제 secret은
+저장소에 커밋하지 않습니다.
+
+상태 확인:
 
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/api/v1/health
+curl http://127.0.0.1:8000/api/v1/ready
 ```
+
+`health`는 프로세스 생존 여부를, `ready`는 DB 연결 가능 여부를 확인합니다.
+
+## Migration
+
+```bash
+alembic revision --autogenerate -m "변경 내용"
+alembic upgrade head
+```
+
+Migration 파일은 기능 PR에 포함하고 다른 백엔드 담당자의 리뷰를 받습니다.
 
 ## 테스트
 
