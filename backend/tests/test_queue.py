@@ -63,6 +63,7 @@ class RecordingHandler:
         self.error = error
         self.wait_seconds = wait_seconds
         self.jobs: list[QueueJob] = []
+        self.exhausted_jobs: list[QueueJob] = []
 
     async def __call__(self, job: QueueJob) -> None:
         self.jobs.append(job)
@@ -70,6 +71,9 @@ class RecordingHandler:
             await asyncio.sleep(self.wait_seconds)
         if self.error:
             raise self.error
+
+    async def on_exhausted(self, job: QueueJob) -> None:
+        self.exhausted_jobs.append(job)
 
 
 def make_job(**overrides: object) -> QueueJob:
@@ -156,12 +160,15 @@ async def test_max_attempt_failure_is_archived() -> None:
     message = make_message(read_count=3)
     queue = FakeQueue([message])
     registry = TaskRegistry()
-    registry.register(JobType.DIAGNOSIS_RUN, RecordingHandler(error=RuntimeError("still failing")))
+    handler = RecordingHandler(error=RuntimeError("still failing"))
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
 
     await make_worker(queue, registry).run_once()
 
     assert queue.archived == [message.message_id]
     assert queue.visibility_updates == []
+    assert len(handler.exhausted_jobs) == 1
+    assert handler.exhausted_jobs[0].resource_id == handler.jobs[0].resource_id
 
 
 async def test_permanent_failure_is_archived_without_retry() -> None:

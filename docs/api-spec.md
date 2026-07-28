@@ -323,14 +323,19 @@ Worker가 별도로 수행합니다.
   "current_candidate_index": 0,
   "candidates": [
     {
-      "reference_id": "provider:ocimum-basilicum",
+      "reference_id": "plantnet:ocimum-basilicum",
       "display_name": "바질",
       "scientific_name": "Ocimum basilicum",
       "category_suggestion": "HERB",
-      "confidence": 0.91
+      "confidence": 0.91,
+      "recommended_water": {
+        "min_ml": 150,
+        "max_ml": 250,
+        "source": "SPECIES_GUIDE"
+      }
     },
     {
-      "reference_id": "provider:ocimum-tenuiflorum",
+      "reference_id": "plantnet:ocimum-tenuiflorum",
       "display_name": "홀리 바질",
       "scientific_name": "Ocimum tenuiflorum",
       "category_suggestion": "HERB",
@@ -343,7 +348,9 @@ Worker가 별도로 수행합니다.
 ```
 
 검색 결과의 `category_suggestion`은 UI의 초기 추천일 뿐이며 사용자가 최종 종류를
-확인합니다. 사진 인식 화면에는
+확인합니다. Pl@ntNet 후보가 자체 관리 가이드와 매칭되지 않으면
+`category_suggestion`과 `recommended_water`는 `null`입니다. 사진 인식은
+JPEG 또는 PNG 한 장만 지원합니다. 사진 인식 화면에는
 `candidates[current_candidate_index]` 한 개만 표시합니다. `맞아요`를 누르면
 해당 후보를 등록 폼에 반영하고, `다시 검색`을 누르면 다음 확률 후보를 표시합니다.
 후보가 소진되면 재촬영 또는 이름 검색으로 전환합니다. 인식 결과만으로 식물을

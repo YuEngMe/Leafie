@@ -8,6 +8,14 @@ from app.schemas.media import (
     MediaPresignResponse,
 )
 from app.schemas.queue import JobType, QueueJob
+from app.schemas.species import (
+    RecommendedWater,
+    SpeciesCandidate,
+    SpeciesIdentificationCreatedResponse,
+    SpeciesIdentificationCreateRequest,
+    SpeciesIdentificationResponse,
+    SpeciesSearchResponse,
+)
 
 __all__ = [
     "CursorPage",
@@ -19,4 +27,10 @@ __all__ = [
     "MediaPresignResponse",
     "JobType",
     "QueueJob",
+    "RecommendedWater",
+    "SpeciesCandidate",
+    "SpeciesIdentificationCreateRequest",
+    "SpeciesIdentificationCreatedResponse",
+    "SpeciesIdentificationResponse",
+    "SpeciesSearchResponse",
 ]
