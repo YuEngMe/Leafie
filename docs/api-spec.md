@@ -283,10 +283,12 @@ Worker가 별도로 수행합니다.
       "scientific_name": "Ocimum basilicum",
       "category_suggestion": "HERB",
       "confidence": null,
-      "recommended_water": {
-        "min_ml": 150,
-        "max_ml": 250,
-        "source": "SPECIES_GUIDE"
+      "recommended_water": null,
+      "default_care": {
+        "watering_interval_days": 3,
+        "repotting_interval_days": null,
+        "source": "SPECIES_GUIDE",
+        "derived": true
       }
     }
   ],
@@ -323,23 +325,27 @@ Worker가 별도로 수행합니다.
   "current_candidate_index": 0,
   "candidates": [
     {
-      "reference_id": "plantnet:ocimum-basilicum",
+      "reference_id": "catalog:ocimum-basilicum",
       "display_name": "바질",
       "scientific_name": "Ocimum basilicum",
       "category_suggestion": "HERB",
       "confidence": 0.91,
-      "recommended_water": {
-        "min_ml": 150,
-        "max_ml": 250,
-        "source": "SPECIES_GUIDE"
+      "recommended_water": null,
+      "default_care": {
+        "watering_interval_days": 3,
+        "repotting_interval_days": null,
+        "source": "SPECIES_GUIDE",
+        "derived": true
       }
     },
     {
       "reference_id": "plantnet:ocimum-tenuiflorum",
       "display_name": "홀리 바질",
       "scientific_name": "Ocimum tenuiflorum",
-      "category_suggestion": "HERB",
-      "confidence": 0.06
+      "category_suggestion": null,
+      "confidence": 0.06,
+      "recommended_water": null,
+      "default_care": null
     }
   ],
   "failure_code": null,
@@ -349,7 +355,7 @@ Worker가 별도로 수행합니다.
 
 검색 결과의 `category_suggestion`은 UI의 초기 추천일 뿐이며 사용자가 최종 종류를
 확인합니다. Pl@ntNet 후보가 자체 관리 가이드와 매칭되지 않으면
-`category_suggestion`과 `recommended_water`는 `null`입니다. 사진 인식은
+`category_suggestion`, `recommended_water`, `default_care`는 `null`입니다. 사진 인식은
 JPEG 또는 PNG 한 장만 지원합니다. 사진 인식 화면에는
 `candidates[current_candidate_index]` 한 개만 표시합니다. `맞아요`를 누르면
 해당 후보를 등록 폼에 반영하고, `다시 검색`을 누르면 다음 확률 후보를 표시합니다.
@@ -360,6 +366,11 @@ Provider 후보는 가능한 경우 `gbif.id`로 자체 카탈로그와 먼저 �
 카탈로그의 `aliases`로 검색합니다. Pl@ntNet 공통명 응답을 위해 `lang=en`을
 사용하며 한글 표시명은 자체 카탈로그를 기준으로 합니다. 초기 지원 카탈로그는
 [species-catalog.md](./species-catalog.md)를 따릅니다.
+
+`default_care`는 종별 관리 자료의 토양 수분 선호도를 일정으로 변환한 온보딩
+초기값입니다. `derived=true`이므로 절대적인 생육 조건으로 취급하지 않습니다.
+실제 완료 이력, 계절, 화분과 배수 환경을 반영해 이후 일정을 보정합니다. 물의 ml
+권장량은 화분 크기 정보가 없으면 제공하지 않습니다.
 
 `POST /plants`:
 

@@ -12,6 +12,7 @@ from app.models.enums import MediaPurpose, MediaStatus, SpeciesIdentificationSta
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import SpeciesCareGuide
 from app.schemas.species import (
+    DefaultCareSchedule,
     RecommendedWater,
     SpeciesCandidate,
     SpeciesIdentificationCreatedResponse,
@@ -199,12 +200,20 @@ def guide_to_candidate(guide: SpeciesCareGuide) -> SpeciesCandidate:
             max_ml=guide.recommended_water_max_ml,
             source=guide.water_recommendation_source,
         )
+    default_care = None
+    if guide.default_watering_interval_days is not None:
+        default_care = DefaultCareSchedule(
+            watering_interval_days=guide.default_watering_interval_days,
+            repotting_interval_days=guide.default_repotting_interval_days,
+            source=guide.water_recommendation_source,
+        )
     return SpeciesCandidate(
         reference_id=guide.species_reference_id,
         display_name=guide.display_name,
         scientific_name=guide.scientific_name,
         category_suggestion=guide.category,
         recommended_water=recommended_water,
+        default_care=default_care,
     )
 
 

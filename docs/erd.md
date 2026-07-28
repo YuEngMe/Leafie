@@ -114,6 +114,13 @@ erDiagram
         varchar category
         int recommended_water_min_ml
         int recommended_water_max_ml
+        int default_watering_interval_days
+        int default_repotting_interval_days
+        jsonb care_profile
+        jsonb diagnosis_profile
+        jsonb source_references
+        varchar care_data_version
+        date care_data_reviewed_at
         varchar water_recommendation_source
         boolean active
         timestamptz updated_at
@@ -412,7 +419,7 @@ erDiagram
 |---|---|
 | `user_profiles` | `user_id`는 Supabase `auth.users.id`, `selected_plant_id`는 본인 소유 식물 |
 | `species_identifications` | 사진 한 장, 상태 전이 검증, 완료 후보의 표시명·학명·참조 ID·신뢰도 저장 |
-| `species_care_guides` | 운영팀 관리, GBIF ID 우선 매칭, 별칭 검색, 물 권장 최소·최대 ml는 함께 null이거나 `0 < min <= max` |
+| `species_care_guides` | 운영팀 관리, GBIF ID 우선 매칭, 별칭 검색, 기본 일정은 양수 또는 null, 관리·진단 데이터에는 버전과 출처 저장 |
 | `plants` | `category`는 확정된 7개 Enum, `name`, `species_name`, `species_reference_id`, `species_selection_method` 필수 |
 | `plant_characters` | `personality_type`은 확정된 6개 Enum |
 | `plant_diaries` | `(plant_id, diary_date)` unique, 글과 컨디션 필수, 사진은 null 또는 한 장 |

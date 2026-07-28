@@ -17,6 +17,13 @@ class RecommendedWater(BaseModel):
     source: WaterRecommendationSource
 
 
+class DefaultCareSchedule(BaseModel):
+    watering_interval_days: int = Field(gt=0)
+    repotting_interval_days: int | None = Field(default=None, gt=0)
+    source: WaterRecommendationSource
+    derived: bool = True
+
+
 class SpeciesCandidate(BaseModel):
     reference_id: str
     display_name: str
@@ -24,6 +31,7 @@ class SpeciesCandidate(BaseModel):
     category_suggestion: PlantCategory | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     recommended_water: RecommendedWater | None = None
+    default_care: DefaultCareSchedule | None = None
 
 
 class SpeciesSearchResponse(CursorPage[SpeciesCandidate]):

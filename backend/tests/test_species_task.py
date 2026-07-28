@@ -72,6 +72,8 @@ async def test_species_handler_applies_catalog_metadata() -> None:
         category=PlantCategory.HERB,
         recommended_water_min_ml=150,
         recommended_water_max_ml=250,
+        default_watering_interval_days=3,
+        default_repotting_interval_days=365,
         water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
@@ -98,6 +100,8 @@ async def test_species_handler_applies_catalog_metadata() -> None:
     assert candidates[0].display_name == "바질"
     assert candidates[0].category_suggestion == PlantCategory.HERB
     assert candidates[0].recommended_water.min_ml == 150
+    assert candidates[0].default_care is not None
+    assert candidates[0].default_care.watering_interval_days == 3
     assert candidates[0].confidence == 0.93
 
 

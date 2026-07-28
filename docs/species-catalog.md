@@ -8,7 +8,9 @@
 - 사진 인식 후보는 `GBIF ID -> 학명` 순서로 카탈로그와 매칭합니다.
 - `선인장`은 특정 종이 아닌 `Cactaceae` 과 수준 항목이므로 Pl@ntNet species ID와
   POWO ID를 저장하지 않습니다.
-- 물 권장량과 관리 주기는 별도의 검증된 출처가 생기기 전까지 비워 둡니다.
+- 종별 관리 프로필, 진단 힌트와 출처는 `2026-07-29.v1` 버전으로 관리합니다.
+- 물주기·분갈이 일수는 토양 수분 선호도를 일정으로 변환한 앱 초기값이며
+  식물학적 절대값이 아닙니다.
 
 ## 목록
 
@@ -56,3 +58,26 @@
 분류 식별자는 [Pl@ntNet taxonomy API](https://my.plantnet.org/doc/api/taxonomy)와
 [Pl@ntNet identification API](https://my.plantnet.org/doc/api/identify)의 응답 규격을
 기준으로 관리합니다.
+
+## 관리·진단 데이터
+
+각 카탈로그 항목에는 다음 정보가 함께 저장됩니다.
+
+- 생육 환경과 실내·실외 화분 적합성
+- 광량 등급, 토양 수분과 배수 조건, 습도 등급
+- 계절별 물주기 초기 간격과 분갈이 초기 간격
+- 관리 주의사항과 반려동물·사람 독성
+- 흔한 해충과 질병
+- 증상별 가능한 원인과 추가 확인 항목
+- 출처 URL, 조회일, 데이터 버전과 검토일
+
+진단 힌트는 확정 진단 문장이 아닙니다. 예를 들어 잎 황변은 과습 외에도 물 부족,
+광량 부족, 토양 pH, 영양 문제, 뿌리 손상으로 발생할 수 있으므로 사진과 최근
+물주기·환경·관리 이력을 함께 확인합니다.
+
+관리 정보는 주로 [NC State Extension Plant Toolbox](https://plants.ces.ncsu.edu/),
+[농촌진흥청 농사로](https://www.nongsaro.go.kr/portal/ps/psz/psza/contentMain.ps?menuId=PS00376),
+[RHS](https://www.rhs.org.uk/plants/types/houseplants),
+[UC IPM](https://ipm.ucanr.edu/home-and-landscape/houseplant-problems/),
+[ASPCA 독성 데이터](https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants)를
+사용합니다. 각 종에 실제로 사용한 상세 URL은 `source_references`에 저장합니다.

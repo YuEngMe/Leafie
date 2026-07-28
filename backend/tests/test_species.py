@@ -103,6 +103,8 @@ def make_guide(index: int) -> SpeciesCareGuide:
         category=PlantCategory.HERB,
         recommended_water_min_ml=150,
         recommended_water_max_ml=250,
+        default_watering_interval_days=3,
+        default_repotting_interval_days=365,
         water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
@@ -142,6 +144,9 @@ async def test_search_returns_shared_candidate_contract_and_cursor() -> None:
     assert first.items[0].category_suggestion == PlantCategory.HERB
     assert first.items[0].recommended_water is not None
     assert first.items[0].recommended_water.min_ml == 150
+    assert first.items[0].default_care is not None
+    assert first.items[0].default_care.watering_interval_days == 3
+    assert first.items[0].default_care.repotting_interval_days == 365
     assert [item.display_name for item in second.items] == ["바질 2"]
     assert second.has_next is False
 
