@@ -42,8 +42,8 @@ def build_service(session: AsyncSession, storage: StorageGateway) -> MediaServic
 )
 async def create_presigned_upload(
     request: MediaPresignRequest,
-    session: DatabaseSession,
     current_user: CurrentUser,
+    session: DatabaseSession,
     storage: Storage,
 ) -> MediaPresignResponse:
     return await build_service(session, storage).create_upload(current_user.id, request)
@@ -52,8 +52,8 @@ async def create_presigned_upload(
 @router.post("/{media_file_id}/complete", response_model=MediaCompleteResponse)
 async def complete_upload(
     media_file_id: UUID,
-    session: DatabaseSession,
     current_user: CurrentUser,
+    session: DatabaseSession,
     storage: Storage,
 ) -> MediaCompleteResponse:
     return await build_service(session, storage).complete_upload(
@@ -65,8 +65,8 @@ async def complete_upload(
 @router.get("/{media_file_id}/download-url", response_model=MediaDownloadResponse)
 async def create_download_url(
     media_file_id: UUID,
-    session: DatabaseSession,
     current_user: CurrentUser,
+    session: DatabaseSession,
     storage: Storage,
 ) -> MediaDownloadResponse:
     return await build_service(session, storage).create_download_url(
@@ -78,8 +78,8 @@ async def create_download_url(
 @router.delete("/{media_file_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_media(
     media_file_id: UUID,
-    session: DatabaseSession,
     current_user: CurrentUser,
+    session: DatabaseSession,
     storage: Storage,
 ) -> Response:
     await build_service(session, storage).soft_delete(current_user.id, media_file_id)
