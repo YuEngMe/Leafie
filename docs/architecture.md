@@ -5,7 +5,7 @@
 출시 구조는 **모듈형 모놀리스 FastAPI + Supabase + 독립 Python Worker**로
 구성합니다.
 
-- 인증은 Supabase Auth의 이메일·비밀번호와 Kakao OAuth를 사용합니다.
+- 인증은 Supabase Auth의 이메일·비밀번호와 Google·Kakao·Naver OAuth를 사용합니다.
 - 이메일 가입은 이메일 인증 완료 전 세션을 발급하지 않습니다.
 - 데이터베이스는 Supabase PostgreSQL을 사용합니다.
 - 사용자 이미지는 비공개 Supabase Storage 버킷에 저장합니다.
@@ -21,7 +21,7 @@
 ```mermaid
 flowchart LR
     APP["Flutter 앱"]
-    KAKAO["Kakao OAuth"]
+    OAUTH["Google / Kakao / Naver OAuth"]
     AUTH["Supabase Auth"]
     API["FastAPI API"]
     DB[("Supabase PostgreSQL")]
@@ -29,7 +29,7 @@ flowchart LR
     QUEUE["Supabase Queues<br/>pgmq"]
     CRON["Supabase Cron<br/>pg_cron"]
     WORKER["Python Worker"]
-    SPECIES["식물 종 검색·인식 Provider"]
+    SPECIES["식물 종 검색·인식 Provider<br/>Pl@ntNet"]
     HEALTH["전문 식물 진단 API<br/>plant.health"]
     RULES["자체 관리 규칙 엔진"]
     RESPONSES["OpenAI Responses API<br/>Tool Calling"]
@@ -37,8 +37,8 @@ flowchart LR
     PUSH["FCM / APNs"]
     OBS["로그 / 오류 추적"]
 
-    APP -->|"이메일 가입·로그인 / Kakao OAuth 시작"| AUTH
-    AUTH <-->|"OAuth / OIDC"| KAKAO
+    APP -->|"이메일 가입·로그인 / 소셜 OAuth 시작"| AUTH
+    AUTH <-->|"OAuth / OIDC"| OAUTH
     AUTH -->|"Supabase JWT"| APP
     APP -->|"Bearer JWT"| API
     API -->|"JWKS 검증"| AUTH
@@ -105,23 +105,24 @@ backend/
 
 ## 4. 인증과 권한
 
-1. Flutter 앱은 이메일·비밀번호 또는 Supabase Kakao Provider로 인증합니다.
+1. Flutter 앱은 이메일·비밀번호 또는 Supabase 소셜 Provider로 인증합니다.
 2. 이메일 가입은 `Confirm email`을 활성화해 인증 전 세션을 발급하지 않습니다.
-3. 카카오 로그인은 PKCE와 등록된 앱 deep link를 사용하고 OAuth 성공 후 세션을 확인합니다.
-4. Kakao Biz App의 `account_email` 동의를 사용하고 이메일 없는 계정은 허용하지 않습니다.
-5. 동일한 검증 이메일의 identity는 Supabase Auth의 동일 사용자로 연결합니다.
-6. Flutter 앱은 Supabase Access Token을 FastAPI의 Bearer Token으로 전달합니다.
-7. FastAPI는 로그인 방식과 무관하게 Supabase JWKS로 JWT의 서명, 만료, 발급자, 대상을 검증합니다.
-8. JWT의 `sub`를 현재 사용자 ID로 사용하고 모든 사용자 리소스의 소유권을 확인합니다.
+3. Google·Kakao는 기본 Provider, Naver는 Custom OAuth2 Provider를 사용합니다.
+4. 소셜 로그인은 PKCE와 등록된 앱 deep link를 사용하고 OAuth 성공 후 세션을 확인합니다.
+5. Kakao Biz App의 `account_email` 동의를 사용하고 이메일 없는 계정은 허용하지 않습니다.
+6. 동일 검증 이메일의 identity 연결 정책은 Provider별 실기기 테스트로 검증합니다.
+7. Flutter 앱은 Supabase Access Token을 FastAPI의 Bearer Token으로 전달합니다.
+8. FastAPI는 로그인 방식과 무관하게 Supabase JWKS로 JWT의 서명, 만료, 발급자, 대상을 검증합니다.
+9. JWT의 `sub`를 현재 사용자 ID로 사용하고 모든 사용자 리소스의 소유권을 확인합니다.
 
 Supabase `service_role` 키와 OpenAI API Key는 Worker와 FastAPI 환경변수에만
-저장합니다. Kakao Client Secret은 Supabase Provider 설정에만 저장합니다.
+저장합니다. 각 OAuth Client Secret은 Supabase Provider 설정에만 저장합니다.
 비밀번호와 Refresh Token은 Supabase Auth가 관리하므로 애플리케이션 DB와 Flutter
 앱에 저장하지 않습니다.
 
 ### iOS 출시 게이트
 
-Kakao OAuth는 사용자의 기본 계정을 인증하는 제3자 로그인입니다. App Store 제출
+Google·Kakao·Naver OAuth는 사용자의 기본 계정을 인증하는 제3자 로그인입니다. App Store 제출
 전 Apple App Review Guidelines 4.8의 이름·이메일 최소 수집, 이메일 비공개,
 광고 목적 상호작용 추적 제한 요건을 만족하는 동등한 로그인 옵션을 추가해야 합니다.
 현재 구조에서는 Supabase Auth의 Sign in with Apple을 iOS 출시 필수 작업으로
@@ -168,7 +169,7 @@ Queue 메시지에는 리소스 ID와 작업 종류만 넣고 원본 사진이�
 
 Worker 작업:
 
-- 식물명칭 사진 인식
+- Pl@ntNet 기반 식물명칭 사진 인식
 - 사진 기반 상태 진단
 - AI 채팅 이미지 분석
 - OpenAI Batch 제출과 결과 수집
@@ -187,22 +188,30 @@ Worker 작업:
 - 예정일이 지나면 Supabase Cron이 이벤트를 `OVERDUE`로 변경합니다.
 - 미완료 이벤트의 날짜를 임의로 다음 날짜로 옮기지 않습니다.
 - 비료와 가지치기는 진단 결과에서 권장만 하고 사용자가 승인할 때 일회성 일정으로 만듭니다.
+- 홈에서 사용자가 추가하는 자유 할 일은 `CUSTOM` 일회성 일정으로 만들며 MVP에서는
+  반복을 지원하지 않습니다.
+- 물 권장량은 운영팀 종별 가이드의 ml 범위를 물주기 규칙에 스냅샷으로 복사해
+  안내에만 사용합니다. 사용자는 수정할 수 없고 일정 계산에도 사용하지 않습니다.
 
 Supabase Cron은 지연 상태 처리, 알림 대상 수집, 월간 Batch 시작만 담당합니다.
 AI 호출처럼 오래 걸리는 작업은 Queue에 넣고 Worker가 처리합니다.
 
+사용자 알림 채널은 FCM/APNs 기반 앱 푸시만 지원합니다. SMS와 이메일 알림은
+MVP에서 제공하지 않으며 앱 내 알림함은 발송 이력과 읽음 상태를 보여줍니다.
+
 ## 8. 실시간 Tool Calling
 
-AI 채팅은 OpenAI Responses API를 사용합니다. 식물 등록 시 식물마다 대화방을
-정확히 하나 생성하며 새 채팅방 생성, 대화 목록과 식물 태그 변경 기능은 제공하지
-않습니다. 캐릭터 방에서 선택 식물을 바꾸면 홈·캘린더·다이어리와 함께 AI 채팅도
-그 식물의 채팅방으로 전환됩니다.
+AI 채팅은 OpenAI Responses API를 사용합니다. 식물 등록 시 식물마다 영구
+채팅방을 정확히 하나 생성하며 추가 영구 채팅방과 식물 태그 변경은 허용하지
+않습니다. 영구 채팅방 안에는 여러 대화 세션을 둘 수 있고 `새 채팅`은 현재
+식물 방 안에 세션을 추가합니다. 대화 목록과 검색은 현재 식물의 세션만 대상으로
+합니다. 캐릭터 방에서 선택 식물을 바꾸면 홈·캘린더·다이어리와 AI 채팅도 그
+식물의 마지막 활성 대화로 전환됩니다.
 
 FastAPI는 요청 경로의 `plant_id`와 현재 사용자 ID를 단일 채팅방과 대조한 뒤
 도구 실행 컨텍스트에 주입합니다. 모델이 임의의 사용자 ID나 식물 ID를 선택하게
-하지 않습니다. 사용자에게는 전체 채팅 기록을 제공하지만 모델 입력은 최근
-메시지, 이전 대화의 누적 요약과 최신 식물 정보로 제한해 장기 사용 시 컨텍스트와
-비용이 무제한 증가하지 않게 합니다.
+하지 않습니다. 모델 입력은 현재 대화 세션의 최근 메시지, 누적 요약과 최신 식물
+정보로 제한해 장기 사용 시 컨텍스트와 비용이 무제한 증가하지 않게 합니다.
 
 읽기 도구:
 
@@ -227,6 +236,10 @@ propose_one_time_care_task
 않고 `AI_ACTIONS`에 `PENDING_CONFIRMATION`으로 저장합니다. 앱이 제안 내용을
 보여주고 사용자가 확인 API를 호출한 뒤에만 비료·가지치기 같은 일회성 일정을
 추가합니다. 물주기·분갈이 완료는 기존 일정 화면의 완료 버튼으로만 처리합니다.
+
+채팅에서 `진단하기`를 시작하면 Assistant가 사진 한 장을 요청합니다. Worker가
+진단을 완료하면 해당 대화와 진단을 연결하고 `진단 결과 보기` 액션을 반환합니다.
+진단 이력 화면에는 별도의 진단 시작 버튼을 두지 않습니다.
 
 모든 도구 호출은 이름, 검증된 인자, 결과 요약, 지연 시간, 성공 여부를
 `AI_TOOL_CALLS`에 기록합니다. 비밀값과 원본 사진은 기록하지 않습니다.
@@ -264,7 +277,26 @@ sequenceDiagram
 `custom_id`는 Batch 항목과 식물·월을 연결하고, Batch 결과를 여러 번 수집해도
 같은 월간 리포트가 중복 생성되지 않도록 unique 제약과 upsert를 사용합니다.
 
-## 10. 사진 상태 진단
+## 10. 등록 전 식물명칭 인식
+
+식물명칭은 필수이며 사용자는 이름 검색 또는 사진 한 장 인식으로 후보를 찾습니다.
+출시 초기 사진 인식 Provider는 Pl@ntNet을 사용합니다.
+
+```mermaid
+flowchart LR
+    PHOTO["식물 사진 1장"] --> QUEUE["SPECIES_IDENTIFICATION_RUN"]
+    QUEUE --> PROVIDER["Pl@ntNet"]
+    PROVIDER --> SORT["확률순 후보 표준화"]
+    SORT --> UI["최상위 후보 1개 표시"]
+    UI -->|"맞아요"| FORM["등록 폼 반영"]
+    UI -->|"다시 검색"| NEXT["다음 후보 또는 재촬영"]
+```
+
+외부 응답의 후보와 확률은 보존하지만 화면에는 한 번에 한 후보만 표시합니다.
+사용자의 확인과 최종 등록 제출 없이 식물을 생성하지 않습니다. 검색 카탈로그의
+물 권장량은 운영팀이 관리하며 식물 등록 시 물주기 규칙에 스냅샷으로 복사합니다.
+
+## 11. 사진 상태 진단
 
 출시 초기에는 자체 분류 모델을 학습하지 않고 **전문 식물 진단 API + 자체 관리
 규칙 엔진 + LLM 설명 생성**을 사용합니다. 전문 진단 API가 가능한 원인과
@@ -294,13 +326,14 @@ flowchart TD
 `DiagnosisResult` 형식으로 변환하고 UI가 외부 제공자의 응답 구조에 직접
 의존하지 않게 합니다.
 
-내부 결과는 다음 항목으로 구성합니다.
+내부 결과와 확정 UI는 다음 항목으로 구성합니다.
 
 - `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나인 전체 상태
+- `조금 관리가 필요해요`와 같은 사용자용 상태 문구
+- 진단 일자와 촬영 사진
 - 사진에서 관찰된 증상
 - 가능한 원인 최대 세 개와 제공자가 반환한 원인별 확률
-- 지금 해야 할 일, 피해야 할 행동, 예방 방법
-- 재확인 권장일과 사유
+- 추천 관리
 
 전체 건강점수나 근거 없는 단일 신뢰도는 생성하지 않습니다. 원인별 확률도
 전문 진단 API가 반환한 경우에만 표시하고 LLM이 임의로 만들지 않습니다.
@@ -347,7 +380,7 @@ stateDiagram-v2
 기록합니다. 제공자 장애 시 무근거 대체 진단을 생성하지 않고 재시도하거나
 일시 실패로 안내합니다.
 
-## 11. 운영과 장애 처리
+## 12. 운영과 장애 처리
 
 - API와 Worker에 timeout, 지수 백오프, 최대 재시도 횟수를 둡니다.
 - Queue 메시지와 외부 API 요청은 멱등적으로 처리합니다.
@@ -359,20 +392,22 @@ stateDiagram-v2
 - 운영 로그에 JWT, API Key, 원본 사진, AI 대화 전문을 남기지 않습니다.
 - DB migration은 배포 전에 수행하고 하위 호환 API 변경을 우선합니다.
 
-## 12. 팀 분담
+## 13. 팀 분담
 
 | 담당 A | 담당 B | 공동 |
 |---|---|---|
-| 사용자 프로필, 식물, 다이어리, 일정, 캘린더, 알림 설정·알림함 | Storage, Queue·Worker, 식물 사진 인식, AI 진단, Tool Calling, Batch, FCM/APNs 발송 | 프로젝트 기반, Supabase 설정, DB migration, OpenAPI 검토, 통합 테스트, 배포, 코드 리뷰 |
+| 사용자 프로필, 식물 가이드·CRUD, 다이어리, 반복 일정·자유 할 일, 캘린더, 알림 설정·알림함 | Storage, Queue·Worker, 식물 사진 인식, 영구 채팅방·대화, AI 진단, Tool Calling, Batch, FCM/APNs 발송 | 프로젝트 기반, Supabase Auth·OAuth 설정, DB migration, OpenAPI 검토, 통합 테스트, 배포, 코드 리뷰 |
 
 공통 프로젝트 기반은 담당 B가 첫 구현하고 담당 A가 필수 리뷰합니다. 알림
 레코드와 사용자 설정은 담당 A가 소유하고, 기기 토큰과 Queue 기반 외부 푸시
 전송은 담당 B가 소유합니다. 상세 구현 순서와 브랜치 의존성은
 [백엔드 기능별 작업 계획](backend-work-plan.md)을 따릅니다.
 
-## 13. 공식 문서
+## 14. 공식 문서
 
 - [Supabase Auth 이메일 가입](https://supabase.com/docs/reference/python/auth-signup)
+- [Supabase Social Login](https://supabase.com/docs/guides/auth/social-login)
+- [Supabase Custom OAuth Providers](https://supabase.com/docs/guides/auth/custom-oauth-providers)
 - [Supabase JWT 검증](https://supabase.com/docs/guides/auth/jwts)
 - [Supabase Storage Signed Upload](https://supabase.com/docs/reference/python/storage-from-createsigneduploadurl)
 - [Supabase Queues](https://supabase.com/docs/guides/queues)
@@ -381,3 +416,4 @@ stateDiagram-v2
 - [OpenAI Batch API](https://platform.openai.com/docs/api-reference/batch/object?api-mode=responses)
 - [Kindwise plant.health](https://www.kindwise.com/plant-health)
 - [Kindwise API 보안 및 가격 FAQ](https://www.kindwise.com/faq)
+- [Pl@ntNet API](https://my.plantnet.org/)

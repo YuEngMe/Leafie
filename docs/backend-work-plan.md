@@ -7,8 +7,8 @@
 
 | 담당 | 주 책임 |
 |---|---|
-| 백엔드 A | 사용자·식물·다이어리·관리 일정·홈·캘린더·알림 설정과 알림함 |
-| 백엔드 B | Storage·Queue·Worker·식물 사진 인식·진단·AI·Batch·푸시 발송 |
+| 백엔드 A | 사용자·식물 가이드·식물·다이어리·관리 일정·자유 할 일·홈·캘린더·알림 설정과 알림함 |
+| 백엔드 B | Storage·Queue·Worker·식물 사진 인식·영구 채팅방·대화·진단·AI·Batch·푸시 발송 |
 | 공동 | 공통 기반, migration 리뷰, API 계약, 통합 테스트, 배포 |
 
 담당은 코드 소유권을 의미합니다. 모든 PR은 다른 백엔드 담당자가 리뷰합니다.
@@ -26,10 +26,10 @@
 | 5 | `backend/feat-species-identification` | B | 식물명칭 검색, 사진 인식 작업, 후보 조회와 선택 검증 | 3, 4 |
 | 6 | `backend/feat-plant-character` | A | 식물 CRUD, 캐릭터·성격, 환경, 캐릭터 옵션 | 1, 2, 5 |
 | 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 컨디션 점수, 월간 통계 | 3, 6 |
-| 8 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 관리 이벤트, 완료·지연, 일회성 일정 | 6 |
+| 8 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 물 권장량, 자유 할 일, 관리 이벤트, 완료·지연 | 6 |
 | 9 | `backend/feat-home-calendar` | A | 홈 집계, 식물 전환 데이터, 월간 캘린더, agenda, 기간 통계 | 7, 8 |
 | 10 | `backend/feat-diagnosis` | B | 사진 1장 진단 생성·조회·재시도·취소·삭제, 비동기 분석 | 3, 4, 6 |
-| 11 | `backend/feat-ai-chat` | B | 식물별 단일 대화방, 메시지, 누적 요약, 사진 첨부 비동기 처리 | 3, 4, 6 |
+| 11 | `backend/feat-ai-chat` | B | 식물별 영구 채팅방, 대화 세션·목록·검색, 메시지, 누적 요약, 사진 첨부 | 3, 4, 6 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 8, 10, 11 |
 | 13 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 4, 7, 8 |
 | 14 | `backend/feat-notifications` | A | 알림 설정, 알림함, 읽음 처리, 도메인 이벤트별 알림 레코드 생성 | 2, 8, 10, 11, 13 |
@@ -63,7 +63,7 @@
 ### `backend/feat-project-foundation`
 
 - Supabase JWT의 서명·만료·issuer·audience 검증
-- 이메일·카카오 로그인에서 발급된 JWT를 같은 인증 dependency로 처리
+- 이메일·Google·Kakao·Naver 로그인에서 발급된 JWT를 같은 인증 dependency로 처리
 - SQLAlchemy async session과 transaction 경계
 - 표준 에러 응답과 request ID
 - 공통 pagination schema
@@ -73,7 +73,7 @@
 ### `backend/feat-auth-profile`
 
 - Supabase `auth.users`와 `USER_PROFILES` 연결
-- 이메일·카카오 최초 로그인 시 프로필 멱등 생성
+- 이메일·Google·Kakao·Naver 최초 로그인 시 프로필 멱등 생성
 - 연결된 `auth.identities` 기반 로그인 방식과 비밀번호 메뉴 제공 여부 조회
 - 사용자 프로필 조회·수정
 - 선택 식물 소유권 검증
@@ -95,6 +95,7 @@
 - 선택 출처와 사진 인식 후보의 서버 검증
 - 캐릭터 외형과 성격 6개
 - 환경과 초기 물주기·분갈이 정보
+- 식물 생성 시 영구 AI 채팅방 함께 생성
 - 식물 삭제 시 연결 데이터 처리
 
 ### `backend/feat-diary-condition`
@@ -112,6 +113,8 @@
 - 실제 완료일 기준 다음 일정 생성
 - 미완료 일정 `OVERDUE` 유지
 - 진단 기반 비료·가지치기 일회성 일정
+- 운영팀 종별 가이드의 읽기 전용 물 권장량
+- 제목 필수 `CUSTOM` 자유 할 일과 기타 캘린더 필터
 
 ### `backend/feat-home-calendar`
 
@@ -135,6 +138,8 @@
 - 사진 인식용 `READY` 미디어와 사용자 소유권 검증
 - 사진 인식 작업의 Queue 상태 전이와 실패 처리
 - 신뢰도 순 후보 제공, 결과 자동 확정 금지
+- 화면에는 최상위 후보 하나를 우선 표시하고 `맞아요`·`다시 검색` 지원
+- Pl@ntNet Provider 격리와 종별 물 권장량 가이드 연결
 - 검색 또는 완료된 인식 후보를 선택했는지 식물 등록 시 검증
 
 ### `backend/feat-diagnosis`
@@ -149,8 +154,8 @@
 - 종합 상태는 `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나
 - 관찰 증상과 의심 원인 TOP 3 제공
 - 원인별 확률은 전문 진단 제공자가 반환한 값만 사용
-- 즉시 조치, 피해야 할 행동, 예방법과 재진단 권장일 구조화
-- 관련 AI 채팅 이동을 위한 `related_chat_id` 제공
+- 사용자용 상태 문구, 관찰 증상, 원인 TOP 3와 추천 관리 구조화
+- 관련 대화 이동을 위한 `related_conversation_id` 제공
 - LLM은 진단 원인이나 확률을 만들지 않고 한국어 설명만 생성
 - 설명 결과의 Pydantic schema와 금지 표현 검증
 - 단일 AI 신뢰도와 임의 건강점수 생성·저장 금지
@@ -161,13 +166,14 @@
 ### `backend/feat-ai-chat`
 
 - 식물 등록 시 채팅방 자동 생성과 기존 식물 backfill
-- `ai_chats.plant_id` unique로 식물별 채팅방 하나 보장
-- 선택 식물의 채팅방 조회와 cursor 기반 전체 메시지 조회
-- 새 채팅·대화 목록·검색·태그 변경 API를 만들지 않음
+- `ai_chats.plant_id` unique로 식물별 영구 채팅방 하나 보장
+- 영구 채팅방 안의 대화 세션 생성·목록·검색·삭제
+- 현재 식물의 마지막 활성 대화 자동 선택
+- 식물 태그 변경 API는 만들지 않음
 - 텍스트 메시지 실시간 응답
 - 사진 메시지 Queue 기반 비동기 처리
-- 최근 메시지와 누적 요약 기반 모델 컨텍스트 구성
-- 기록 삭제 시 채팅방은 유지하고 메시지·요약·제공자 상태 초기화
+- 대화 세션별 최근 메시지와 누적 요약 기반 모델 컨텍스트 구성
+- 대화 삭제 시 영구 채팅방 유지
 - 식물·대화·메시지 소유권 검사
 
 ### `backend/feat-ai-tool-calling`

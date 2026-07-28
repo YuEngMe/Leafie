@@ -1,4 +1,4 @@
-# API 명세 v0.9
+# API 명세 v1.0
 
 이 문서는 구현 전 프론트엔드와 합의할 계약 초안입니다. 구현 이후 `/openapi.json`을 최종 기준으로 사용합니다.
 
@@ -62,12 +62,13 @@
 | 이름 | 값 |
 |---|---|
 | `PlantCategory` | `FOLIAGE`, `FLOWER`, `SUCCULENT_CACTUS`, `TREE`, `HERB`, `FRUIT`, `VINE` |
+| `WaterRecommendationSource` | `SPECIES_GUIDE` |
 | `SpeciesSelectionMethod` | `SEARCH`, `PHOTO` |
 | `SpeciesIdentificationStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
 | `ConditionLevel` | `VERY_BAD`, `BAD`, `NORMAL`, `GOOD`, `VERY_GOOD` |
 | `DiagnosisCondition` | `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` |
 | `PersonalityType` | `OUTGOING`, `CHIC`, `CUTE`, `CRUSH`, `INTROVERTED`, `CHUNGCHEONG` |
-| `CareEventType` | `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING` |
+| `CareEventType` | `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING`, `CUSTOM` |
 | `CareEventStatus` | `SCHEDULED`, `OVERDUE`, `COMPLETED`, `CANCELLED` |
 | `MediaPurpose` | `USER_PROFILE`, `PLANT_PROFILE`, `SPECIES_IDENTIFICATION`, `DIARY`, `DIAGNOSIS`, `CHAT` |
 | `DiagnosisStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED` |
@@ -104,16 +105,18 @@
 
 ## 3. Supabase Auth
 
-이메일 회원가입·로그인, 카카오 로그인, 세션 갱신, 비밀번호 재설정과 로그아웃은
-Flutter의 Supabase Auth SDK가 직접 처리합니다. FastAPI에는 별도의 `/auth/*`
-API를 만들지 않습니다.
+이메일 회원가입·로그인, Google·Kakao·Naver 소셜 로그인, 세션 갱신, 비밀번호
+재설정과 로그아웃은 Flutter의 Supabase Auth SDK가 직접 처리합니다. FastAPI에는
+별도의 `/auth/*` API를 만들지 않습니다.
 
 | 화면 동작 | Supabase Auth 동작 |
 |---|---|
 | 회원가입 | `signUp(email, password)` |
 | 인증 메일 재발송 | `resend(type: signup, email)` |
 | 이메일 로그인 | `signInWithPassword(email, password)` |
+| Google 로그인 | `signInWithOAuth(OAuthProvider.google, redirectTo: <app-callback>)` |
 | 카카오 로그인 | `signInWithOAuth(OAuthProvider.kakao, redirectTo: <app-callback>)` |
+| Naver 로그인 | `signInWithOAuth(custom:naver, redirectTo: <app-callback>)` |
 | OAuth 앱 복귀 | Flutter deep link를 Supabase Auth SDK가 처리하고 세션 확인 |
 | 비밀번호 재설정 메일 | `resetPasswordForEmail(email)` |
 | 새 비밀번호 저장 | `updateUser(password)` |
@@ -123,26 +126,30 @@ Supabase 프로젝트의 `Confirm email`을 활성화합니다. 이메일 회원
 인증 완료 전 세션이 없으며 인증이 완료돼야 이메일로 로그인할 수 있습니다. 별도의
 아이디 찾기는 제공하지 않습니다.
 
+Google과 Kakao는 Supabase 기본 OAuth Provider를 사용하고 Naver는 Supabase
+Custom OAuth2 Provider로 등록합니다. 각 Provider의 Client Secret은 Supabase에만
+설정하고 Flutter 앱에는 포함하지 않습니다.
+
 카카오 로그인은 Kakao Developers의 REST API Key와 Client Secret을 Supabase
-Kakao Provider에만 설정합니다. Flutter 앱에는 Client Secret을 포함하지 않습니다.
+Kakao Provider에 설정합니다.
 Kakao Biz App에서 `account_email` 동의를 설정하고 Supabase의 이메일 없는 사용자
 허용 옵션은 비활성화해 모든 사용자 이메일을 필수로 유지합니다. 이메일을 제공하지
 않으면 가입을 완료하지 않고 검색 가능한 일반 오류 문구와 함께 이메일 로그인을
 안내합니다.
 
-카카오 OAuth가 성공하면 이메일 인증을 별도로 요구하지 않고 Supabase가 발급한
-세션을 사용합니다. 기존 이메일 계정과 검증된 카카오 이메일이 같으면 Supabase의
-자동 identity linking으로 같은 `auth.users.id`를 사용합니다. OAuth callback은
-허용 목록에 등록한 앱 전용 deep link만 사용하며 callback URL을 임의 입력값으로
-받지 않습니다.
+소셜 OAuth가 성공하면 이메일 인증을 별도로 요구하지 않고 Supabase가 발급한
+세션을 사용합니다. 기존 이메일 계정과 검증된 소셜 이메일이 같을 때의 identity
+linking 정책은 Provider별 실기기 테스트로 검증합니다. OAuth callback은 허용
+목록에 등록한 앱 전용 deep link만 사용하며 callback URL을 임의 입력값으로 받지
+않습니다.
 
 OAuth 오류는 FastAPI 공통 에러가 아니라 Flutter 인증 화면 상태로 처리합니다.
 
 | 앱 인증 상태 | 표시 및 처리 |
 |---|---|
-| `OAUTH_CANCELLED` | 사용자가 카카오 동의를 취소함, 로그인 화면 유지 |
+| `OAUTH_CANCELLED` | 사용자가 소셜 로그인을 취소함, 로그인 화면 유지 |
 | `OAUTH_CALLBACK_FAILED` | 앱 복귀 또는 세션 교환 실패, 다시 시도 제공 |
-| `SOCIAL_EMAIL_REQUIRED` | 카카오 이메일 동의가 없어 가입 중단, 이메일 로그인 안내 |
+| `SOCIAL_EMAIL_REQUIRED` | Provider 이메일 동의가 없어 가입 중단, 이메일 로그인 안내 |
 
 Flutter는 Supabase Access Token을 FastAPI에 전달합니다. FastAPI는 Supabase
 JWKS로 JWT를 검증하고 `sub` claim을 현재 사용자 ID로 사용합니다. 만료된
@@ -172,10 +179,10 @@ Access Token의 갱신은 Supabase SDK가 담당합니다.
 ```
 
 비밀번호 변경은 이메일 identity가 있는 계정에만 표시하고 로그아웃은 모든 로그인
-방식에서 Supabase Auth SDK를 사용합니다. 회원 탈퇴 직전에는 이메일 계정은
-이메일·비밀번호, 카카오 전용 계정은 카카오 OAuth로 다시 인증해 최근 발급된
-Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage 삭제를 예약한
-뒤 서버 권한으로 Supabase Auth 사용자를 삭제합니다.
+방식에서 Supabase Auth SDK를 사용합니다. 회원 탈퇴 직전에는 현재 로그인
+Provider로 다시 인증해 최근 발급된 Access Token을 사용해야 합니다. FastAPI가
+업무 데이터와 Storage 삭제를 예약한 뒤 서버 권한으로 Supabase Auth 사용자를
+삭제합니다.
 
 ## 5. 미디어 업로드
 
@@ -256,7 +263,12 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
       "display_name": "바질",
       "scientific_name": "Ocimum basilicum",
       "category_suggestion": "HERB",
-      "confidence": null
+      "confidence": null,
+      "recommended_water": {
+        "min_ml": 150,
+        "max_ml": 250,
+        "source": "SPECIES_GUIDE"
+      }
     }
   ],
   "next_cursor": null,
@@ -289,6 +301,7 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 {
   "id": "uuid",
   "status": "COMPLETED",
+  "current_candidate_index": 0,
   "candidates": [
     {
       "reference_id": "provider:ocimum-basilicum",
@@ -296,6 +309,13 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
       "scientific_name": "Ocimum basilicum",
       "category_suggestion": "HERB",
       "confidence": 0.91
+    },
+    {
+      "reference_id": "provider:ocimum-tenuiflorum",
+      "display_name": "홀리 바질",
+      "scientific_name": "Ocimum tenuiflorum",
+      "category_suggestion": "HERB",
+      "confidence": 0.06
     }
   ],
   "failure_code": null,
@@ -304,8 +324,11 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 ```
 
 검색 결과의 `category_suggestion`은 UI의 초기 추천일 뿐이며 사용자가 최종 종류를
-확인합니다. 사진 인식은 `COMPLETED` 후보 중 하나를 선택해야 하고, 인식 실패 또는
-적합한 후보가 없으면 검색 방식으로 전환할 수 있습니다.
+확인합니다. 사진 인식 화면에는
+`candidates[current_candidate_index]` 한 개만 표시합니다. `맞아요`를 누르면
+해당 후보를 등록 폼에 반영하고, `다시 검색`을 누르면 다음 확률 후보를 표시합니다.
+후보가 소진되면 재촬영 또는 이름 검색으로 전환합니다. 인식 결과만으로 식물을
+자동 등록하지 않습니다. 출시 초기 사진 인식 Provider는 Pl@ntNet을 사용합니다.
 
 `POST /plants`:
 
@@ -345,6 +368,9 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 `initial_care`가 있으면 식물 생성 트랜잭션에서 마지막 완료일의
 `CARE_EVENTS`와 종류별 `CARE_SCHEDULES`를 함께 만듭니다. 첫 다음 예정일은
 `마지막 실제 완료일 + interval_days`입니다.
+선택한 `species_reference_id`가 운영팀 식물 가이드와 일치하면 서버가 종별 물
+권장 범위를 물주기 스케줄에 스냅샷으로 복사합니다. 클라이언트가 권장 ml 값을
+직접 지정하지 않습니다. 같은 트랜잭션에서 식물별 영구 AI 채팅방도 생성합니다.
 
 응답 `201`:
 
@@ -411,9 +437,15 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
     {
       "id": "uuid",
       "type": "WATERING",
+      "title": "물주기",
       "status": "OVERDUE",
       "scheduled_date": "2026-07-15",
-      "overdue_days": 2
+      "overdue_days": 2,
+      "recommended_water": {
+        "min_ml": 150,
+        "max_ml": 250,
+        "display_text": "약 200ml"
+      }
     }
   ],
   "daily_checkin": {
@@ -477,7 +509,7 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 | POST | `/plants/{plant_id}/care-schedules` | 물주기 또는 분갈이 반복 규칙 생성 |
 | GET | `/plants/{plant_id}/care-schedules` | 관리 규칙 목록 |
 | PATCH | `/care-schedules/{schedule_id}` | 반복 간격과 활성 상태 수정 |
-| POST | `/plants/{plant_id}/care-events` | 진단 기반 비료·가지치기 일회성 권장 일정 생성 |
+| POST | `/plants/{plant_id}/care-events` | 사용자 자유 할 일 또는 승인된 일회성 관리 일정 생성 |
 | GET | `/plants/{plant_id}/care-events` | 기간별 관리 기록 조회 |
 | GET | `/plants/{plant_id}/agenda` | 이번 주 할 일과 다음 일정 |
 | GET | `/care-events/{event_id}` | 상세 조회 |
@@ -496,6 +528,20 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 }
 ```
 
+생성 및 조회 응답의 물주기 규칙에는 운영팀 식물 가이드에서 복사한 권장량이
+포함될 수 있습니다.
+
+```json
+{
+  "recommended_water": {
+    "min_ml": 150,
+    "max_ml": 250,
+    "source": "SPECIES_GUIDE",
+    "display_text": "약 200ml"
+  }
+}
+```
+
 기한이 지나도 완료되지 않은 일정은 삭제하거나 날짜를 이동하지 않고
 `OVERDUE`로 유지합니다. 완료하면 서버가 기록한 완료일에 `interval_days`를
 더해 다음 이벤트를 생성합니다.
@@ -504,6 +550,23 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 `PRUNING`은 진단 결과에서 필요할 때 먼저 권장만 합니다. 사용자가 캘린더 추가를
 선택한 경우에만 `source_diagnosis_id`가 있는 일회성 일정으로 생성하며 자동
 반복하지 않습니다.
+
+홈의 `추가`에서 만드는 사용자 자유 할 일은 `CUSTOM` 타입의 일회성 일정입니다.
+MVP에서는 자유 할 일의 반복을 지원하지 않습니다.
+
+```json
+{
+  "type": "CUSTOM",
+  "title": "지지대 상태 확인",
+  "note": "줄기가 기울었는지 보기",
+  "scheduled_at": "2026-07-20T09:00:00+09:00"
+}
+```
+
+`CUSTOM`은 `title` 필수, `note` 선택이며 반복 스케줄과 연결하지 않습니다.
+물 권장량은 운영팀이 관리하는 읽기 전용 참고값입니다. 사용자는 수정할 수 없고
+완료 판정과 다음 물주기 일정 계산에도 영향을 주지 않습니다.
+
 `POST /care-events/{event_id}/complete`는 요청 본문을 받지 않으며 서버의 현재
 시각을 `completed_at`으로 저장합니다. 사용자는 완료 날짜와 시각을 수정하거나
 과거로 입력할 수 없습니다. 다음 예정일은 이 시각을 사용자 시간대의 날짜로
@@ -558,6 +621,7 @@ Access Token을 사용해야 합니다. FastAPI가 업무 데이터와 Storage �
 월 평균은 해당 월에 작성한 다이어리의 컨디션 점수를 사용합니다. 다이어리를
 작성하지 않은 날은 평균에서 제외합니다. 기록이 없는 달은 `average_score`와
 `level`을 `null`로 반환하며 0점으로 처리하지 않습니다.
+`CUSTOM` 이벤트는 캘린더의 `기타 할 일` 필터로 조회하며 제목을 표시합니다.
 `condition_trend`와 `monthly_condition`은 사용자가 다이어리에 직접 기록한
 컨디션 통계이며 AI 진단 결과나 진단표의 건강점수가 아닙니다.
 
@@ -606,12 +670,12 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
 {
   "id": "uuid",
   "plant_id": "uuid",
-  "related_chat_id": "uuid",
+  "related_conversation_id": "uuid",
   "status": "COMPLETED",
   "image_url": "short-lived-url",
   "diagnosed_at": "2026-07-23T13:30:08Z",
   "overall_condition": "UNHEALTHY",
-  "summary": "잎 황변과 처짐이 관찰되며 과습 가능성이 높습니다.",
+  "condition_label": "조금 관리가 필요해요",
   "observations": [
     {
       "label": "잎 황변",
@@ -642,22 +706,10 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
       "evidence": ["실내 환경", "잎 처짐"]
     }
   ],
-  "care_guidance": {
-    "immediate_actions": [
-      "오늘은 물을 주지 마세요.",
-      "통풍이 잘되는 곳으로 옮겨주세요."
-    ],
-    "avoid_actions": [
-      "흙이 마르기 전에 추가로 물을 주지 마세요."
-    ],
-    "prevention": [
-      "물주기 전 흙 속 2~3cm의 수분 상태를 확인하세요."
-    ]
-  },
-  "follow_up": {
-    "recommended_at": "2026-07-26",
-    "reason": "관리 후 잎 처짐과 황변이 진행되는지 확인해 주세요."
-  },
+  "recommended_care": [
+    "오늘은 물을 주지 마세요.",
+    "통풍이 잘되는 곳으로 옮겨주세요."
+  ],
   "disclaimer": "사진과 관리 기록을 기반으로 한 상태 분석이며 확정 진단이 아닙니다.",
   "completed_at": "2026-07-23T13:30:08Z"
 }
@@ -668,8 +720,8 @@ AI 채팅에서 사진 진단을 실행하면 현재 채팅의 식물에 진단 
 `confidence`는 전문 진단 제공자가 해당 원인에 대해 반환한 경우에만 포함합니다.
 LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 
-`source_message_id`는 현재 사용자의 채팅과 식물에 속한 사진 메시지인지 서버에서
-검증하며 상세 응답의 `related_chat_id`를 계산할 때 사용합니다.
+`source_message_id`는 현재 사용자의 대화 세션과 식물에 속한 사진 메시지인지
+서버에서 검증하며 상세 응답의 `related_conversation_id`를 계산할 때 사용합니다.
 
 재촬영 필요 응답:
 
@@ -683,9 +735,9 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 }
 ```
 
-진단표 상세는 `진단 기본 정보 → 결과 요약 → 관찰된 증상 → 가능한 원인 TOP 3
-→ 지금 해야 할 일 → 피해야 할 행동 → 예방 방법 → 재확인 안내 → 관련 대화`
-순서로 표시합니다.
+진단표 상세의 확정 표시 항목은 `진단 일자와 사진 → 전체 상태 문구 → 관찰된 증상
+→ 원인 분석 TOP 3와 원인별 확률 → 추천 관리`입니다. 단일 건강점수, 날짜별
+막대그래프와 월별 진단 점수는 표시하지 않습니다.
 
 ### `GET /plants/{plant_id}/diagnoses`
 
@@ -698,7 +750,7 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
     "status": "COMPLETED",
     "thumbnail_url": "short-lived-url",
     "overall_condition": "UNHEALTHY",
-    "summary": "과습 가능성이 높아요.",
+    "condition_label": "조금 관리가 필요해요",
     "top_cause": {
       "label": "과습 가능성",
       "confidence": 0.88
@@ -711,7 +763,7 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
       "status": "COMPLETED",
       "thumbnail_url": "short-lived-url",
       "overall_condition": "UNHEALTHY",
-      "summary": "과습 가능성이 높아요.",
+      "condition_label": "조금 관리가 필요해요",
       "top_cause": {
         "label": "과습 가능성",
         "confidence": 0.88
@@ -723,7 +775,7 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
       "status": "PROCESSING",
       "thumbnail_url": "short-lived-url",
       "overall_condition": null,
-      "summary": null,
+      "condition_label": null,
       "top_cause": null,
       "created_at": "2026-07-15T09:10:00Z"
     }
@@ -733,10 +785,11 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 }
 ```
 
-목록 항목을 누르면 `GET /diagnoses/{diagnosis_id}`로 원본 사진, 종합 상태,
-관찰 증상, 의심 원인 TOP 3와 원인별 확률, 즉시 조치, 피해야 할 행동, 예방법과
-재진단 권장일을 조회합니다. `related_chat_id`가 있으면 관련 AI 채팅으로 이동할
-수 있습니다.
+목록은 오늘 진단과 지난 진단을 구분해 보여주되 cursor pagination으로 모든 기록을
+최신순 탐색할 수 있어야 합니다. 항목을 누르면 `GET
+/diagnoses/{diagnosis_id}`로 진단 상세를 조회합니다. 새 진단 시작은 AI 채팅
+화면에서만 제공하고 진단 이력 화면에는 별도의 `진단하기` 버튼을 두지 않습니다.
+`related_conversation_id`가 있으면 진단을 생성한 대화로 이동할 수 있습니다.
 
 ### 기타 진단 API
 
@@ -746,25 +799,30 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 | POST | `/diagnoses/{diagnosis_id}/cancel` | 대기 중인 분석 취소 |
 | DELETE | `/diagnoses/{diagnosis_id}` | 진단과 연결 이미지 삭제 요청 |
 
-재진단은 새 사진을 업로드한 뒤 `POST /plants/{plant_id}/diagnoses`로 새 기록을
-만듭니다. 재확인 권장일은 안내 정보이며 진단만으로 기존 물주기·분갈이 반복
-일정을 자동 변경하지 않습니다. 비료·가지치기 일회성 일정은 사용자가 제안을
-확인한 뒤에만 추가합니다.
+재진단은 AI 채팅에서 새 사진을 업로드한 뒤
+`POST /plants/{plant_id}/diagnoses`로 새 기록을 만듭니다. 진단만으로 기존
+물주기·분갈이 반복 일정을 자동 변경하지 않습니다. 비료·가지치기 일회성 일정은
+사용자가 제안을 확인한 뒤에만 추가합니다.
 
 ## 12. AI 상담과 Tool Calling
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/plants/{plant_id}/chat` | 해당 식물의 단일 채팅방 조회 |
-| GET | `/plants/{plant_id}/chat/messages` | 메시지 목록 조회 |
-| POST | `/plants/{plant_id}/chat/messages` | 사용자 메시지 전송 |
-| DELETE | `/plants/{plant_id}/chat/messages` | 채팅방은 유지하고 대화 기록 삭제 |
+| GET | `/plants/{plant_id}/chat` | 해당 식물의 영구 채팅방 조회 |
+| GET | `/plants/{plant_id}/chat/conversations?query=` | 현재 식물의 대화 목록과 검색 |
+| POST | `/plants/{plant_id}/chat/conversations` | 새 채팅 시작 |
+| PATCH | `/chat-conversations/{conversation_id}` | 대화 제목 수정 |
+| DELETE | `/chat-conversations/{conversation_id}` | 대화 삭제 |
+| GET | `/chat-conversations/{conversation_id}/messages` | 메시지 목록 조회 |
+| POST | `/chat-conversations/{conversation_id}/messages` | 사용자 메시지 전송 |
 | POST | `/ai-actions/{action_id}/confirm` | AI가 제안한 변경 작업을 사용자 승인 후 실행 |
 | POST | `/ai-actions/{action_id}/cancel` | AI가 제안한 변경 작업 취소 |
 
 식물 등록 트랜잭션에서 해당 식물의 `AI_CHATS` 레코드를 함께 생성합니다. 식물마다
-채팅방은 정확히 하나이며 사용자가 새 채팅방을 만들거나 식물 태그를 바꾸는 기능은
-제공하지 않습니다. 기존 식물은 migration에서 채팅방을 일괄 생성합니다.
+영구 채팅방은 정확히 하나이며 식물 태그를 바꾸지 않습니다. 영구 채팅방 안에는
+여러 `AI_CONVERSATIONS` 대화 세션을 둘 수 있습니다. `새 채팅`은 채팅방을 새로
+만드는 것이 아니라 현재 식물의 영구 채팅방 안에 새 대화 세션을 만듭니다. 기존
+식물은 migration에서 영구 채팅방을 일괄 생성합니다.
 
 `GET /plants/{plant_id}/chat`:
 
@@ -773,6 +831,7 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
   "id": "uuid",
   "plant_id": "uuid",
   "plant_name": "씩씩이",
+  "last_conversation_id": "uuid-or-null",
   "last_message_at": "2026-07-24T02:15:00Z"
 }
 ```
@@ -780,24 +839,29 @@ LLM이 원인이나 확률을 새로 생성해서는 안 됩니다.
 캐릭터 방에서 식물을 선택하면 홈·캘린더·다이어리와 동일하게 AI 채팅도 해당
 식물의 채팅방으로 전환합니다. 선택 상태는 최초 화면을 정하는 UI 상태일 뿐이며
 모든 요청은 경로의 `plant_id`로 대상을 명시하고 서버가 소유권을 검증합니다.
-대화 목록, 새 채팅, 제목 검색과 식물 태그 선택 UI는 만들지 않습니다.
+대화 목록은 현재 식물의 대화 세션만 최신순으로 표시하고 제목 검색을 지원합니다.
+식물 태그 선택 UI는 만들지 않습니다. 캐릭터 방을 바꾸면 해당 식물의 마지막 활성
+대화를 열고, 대화가 없으면 빈 새 대화를 시작합니다.
 
-`POST /plants/{plant_id}/chat/messages`는 `content`와 선택적인
+`POST /chat-conversations/{conversation_id}/messages`는 `content`와 선택적인
 `media_file_id` 한 개를 받습니다. 메시지에 식물 ID나 태그를 별도로 받지 않고
-경로의 식물과 단일 채팅방을 사용해 다른 식물의 내용이 섞이지 않게 합니다.
+대화가 속한 영구 채팅방의 식물을 사용해 다른 식물의 내용이 섞이지 않게 합니다.
 AI 채팅의 사진 첨부는 MVP에 포함합니다. 정식 진단 결과가 필요한 경우에도 사진은
 한 장만 사용하며, 진단 생성 API가 같은 `media_file_id`를 참조할 수 있습니다.
 텍스트만 있는 메시지는 실시간으로 처리합니다. 사진이 첨부된 메시지는
 `PROCESSING` 상태로 저장하고 `CHAT_IMAGE_ANALYSIS` Queue 작업을 만든 뒤 Worker가
 처리합니다. 앱은 메시지 목록을 다시 조회하거나 완료 푸시를 받아 결과를 표시합니다.
 
-메시지 목록은 cursor pagination으로 전체 기록을 조회할 수 있습니다. 모델
-컨텍스트에는 전체 기록을 매번 넣지 않고 최근 메시지와 이전 대화의 누적 요약,
-최신 식물 정보를 조합합니다. 요약 기준 메시지 ID와 요약 버전을 저장해 같은
-메시지를 중복 요약하지 않습니다. 대화 기록 삭제 시 메시지와 누적 요약,
-외부 제공자 대화 상태를 함께 초기화하되 식물의 채팅방 레코드는 유지합니다.
+메시지 목록은 cursor pagination으로 대화 세션의 전체 기록을 조회합니다. 모델
+컨텍스트에는 해당 세션의 최근 메시지와 누적 요약, 최신 식물 정보를 조합합니다.
+요약 기준 메시지 ID와 요약 버전을 대화 세션에 저장해 같은 메시지를 중복 요약하지
+않습니다. 대화를 삭제해도 식물의 영구 채팅방은 유지합니다.
 
-`POST /plants/{plant_id}/chat/messages`는 OpenAI Responses API를 호출하고 필요할
+채팅에서 `진단하기`를 선택하면 Assistant가 사진 한 장 촬영 또는 첨부를
+유도합니다. 진단 완료 메시지는 `진단 결과 보기` 액션을 포함하고 연결된 진단
+상세로 이동합니다.
+
+메시지 전송 API는 OpenAI Responses API를 호출하고 필요할
 때 다음 읽기 도구를 서버 내부에서 실행합니다. 초기에는 일반 JSON 응답을 사용하고
 응답 지연이 문제가 되면 SSE 스트리밍을 추가합니다.
 
@@ -812,7 +876,7 @@ get_today_tasks
 get_condition_trend
 ```
 
-FastAPI는 인증 사용자 ID와 경로의 `plant_id`를 조회한 단일 채팅방과 대조한 뒤
+FastAPI는 인증 사용자 ID와 대화 세션이 속한 영구 채팅방의 `plant_id`를 대조한 뒤
 도구 실행 컨텍스트에 주입하며 모델 입력값을 신뢰하지 않습니다. 읽기 도구는 즉시
 실행합니다. 진단 기반 비료·가지치기 일회성 일정
 추가는 바로 실행하지 않고 `AI_ACTIONS`에 `PENDING_CONFIRMATION` 상태로 저장해
@@ -885,12 +949,17 @@ Worker가 대상 식물 데이터를 JSONL로 묶어 OpenAI Batch API에 제출�
 | GET | `/notification-settings` | 알림 설정 조회 |
 | PATCH | `/notification-settings` | 물주기, 일정, 진단 완료, 월간 리포트 알림 설정 |
 
+사용자 알림 채널은 FCM/APNs 기반 앱 푸시만 지원합니다. SMS·이메일·마케팅
+알림은 MVP 범위가 아닙니다. 앱 내 알림함은 푸시와 연결된 이력 및 읽음 상태를
+보여주는 화면입니다.
+
 ## 15. 내부 비동기 작업
 
 외부 모바일 API가 아니라 FastAPI, Supabase Queues, Cron, Worker 사이의 계약입니다.
 
 | Queue 작업 | 생성 주체 | 처리 주체 |
 |---|---|---|
+| `SPECIES_IDENTIFICATION_RUN` | FastAPI | Worker |
 | `DIAGNOSIS_RUN` | FastAPI | Worker |
 | `CHAT_IMAGE_ANALYSIS` | FastAPI | Worker |
 | `PUSH_NOTIFICATION_SEND` | FastAPI 또는 Cron | Worker |
@@ -903,11 +972,12 @@ Queue 메시지는 `job_type`, `resource_id`, `attempt`, `trace_id`만 포함합
 
 ## 16. 프론트 연동 우선순위
 
-1. Supabase Auth와 FastAPI JWT 검증
-2. 식물 CRUD와 홈
+1. Supabase 이메일·Google·Kakao·Naver Auth와 FastAPI JWT 검증
+2. 식물명칭 검색·사진 인식, 식물 CRUD와 홈
 3. 미디어 업로드
-4. 다이어리와 관리 일정
+4. 다이어리, 반복 관리 일정과 사용자 자유 할 일
 5. 캘린더와 통계
-6. 비동기 진단 상태
-7. AI 상담 Tool Calling과 사용자 승인 액션
-8. 월간 AI 리포트와 푸시 알림
+6. 식물별 영구 채팅방, 새 채팅과 대화 목록
+7. 비동기 진단 상태와 전체 진단 이력
+8. AI 상담 Tool Calling과 사용자 승인 액션
+9. 월간 AI 리포트와 앱 푸시 알림
