@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     supabase_jwks_url: str | None = None
     supabase_jwt_issuer: str | None = None
     supabase_jwt_audience: str = "authenticated"
+    supabase_storage_bucket: str = "leafie-media"
+    media_download_url_expires_seconds: int = 300
 
     database_url: str | None = None
 

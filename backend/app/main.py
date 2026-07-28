@@ -18,6 +18,7 @@ from app.core.request_context import (
 )
 from app.core.security import SupabaseJWTVerifier
 from app.db.session import Database
+from app.integrations.storage import SupabaseStorageGateway
 
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
@@ -40,7 +41,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.logger = logger
     app.state.database = Database(settings)
     app.state.jwt_verifier = SupabaseJWTVerifier(settings)
+    app.state.storage = SupabaseStorageGateway(settings)
     yield
+    await app.state.storage.close()
     await app.state.jwt_verifier.close()
     await app.state.database.close()
 

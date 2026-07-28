@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
+from app.integrations.storage import StorageGateway
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -33,6 +34,10 @@ async def get_current_user(
         )
 
     return await request.app.state.jwt_verifier.verify(credentials.credentials)
+
+
+def get_storage_gateway(request: Request) -> StorageGateway:
+    return request.app.state.storage
 
 
 def ensure_resource_owner(
