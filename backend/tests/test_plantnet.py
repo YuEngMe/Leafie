@@ -22,7 +22,7 @@ def make_provider(handler, **settings_overrides: object) -> PlantNetProvider:
 async def test_plantnet_normalizes_and_sorts_candidates() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["api-key"] == "test-key"
-        assert request.url.params["lang"] == "ko"
+        assert request.url.params["lang"] == "en"
         assert request.headers["content-type"].startswith("multipart/form-data")
         return httpx.Response(
             200,
@@ -37,6 +37,8 @@ async def test_plantnet_normalizes_and_sorts_candidates() -> None:
                     },
                     {
                         "score": 0.91,
+                        "gbif": {"id": "2927096"},
+                        "powo": {"id": "452874-1"},
                         "species": {
                             "scientificNameWithoutAuthor": "Ocimum basilicum",
                             "commonNames": ["바질"],
@@ -54,6 +56,8 @@ async def test_plantnet_normalizes_and_sorts_candidates() -> None:
         "Ocimum tenuiflorum",
     ]
     assert candidates[0].confidence == 0.91
+    assert candidates[0].gbif_id == 2927096
+    assert candidates[0].powo_id == "452874-1"
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 503])

@@ -60,25 +60,31 @@ class SpeciesIdentificationRepository:
 
     async def find_guides(
         self,
-        scientific_names: list[str],
+        candidates: list[PlantNetCandidate],
     ) -> dict[str, SpeciesCareGuide]:
-        if not scientific_names:
+        if not candidates:
             return {}
-        lowered_names = [name.casefold() for name in scientific_names]
+        lowered_names = [candidate.scientific_name.casefold() for candidate in candidates]
+        gbif_ids = [candidate.gbif_id for candidate in candidates if candidate.gbif_id is not None]
         async with self._database.session_context() as session:
             guides = (
                 await session.scalars(
                     select(SpeciesCareGuide).where(
                         SpeciesCareGuide.active.is_(True),
-                        func.lower(SpeciesCareGuide.scientific_name).in_(lowered_names),
+                        (
+                            func.lower(SpeciesCareGuide.scientific_name).in_(lowered_names)
+                            | SpeciesCareGuide.gbif_id.in_(gbif_ids)
+                        ),
                     )
                 )
             ).all()
-        return {
-            guide.scientific_name.casefold(): guide
-            for guide in guides
-            if guide.scientific_name is not None
-        }
+        matches: dict[str, SpeciesCareGuide] = {}
+        for guide in guides:
+            if guide.gbif_id is not None:
+                matches[f"gbif:{guide.gbif_id}"] = guide
+            if guide.scientific_name is not None:
+                matches[f"name:{guide.scientific_name.casefold()}"] = guide
+        return matches
 
     async def complete(
         self,
@@ -148,11 +154,9 @@ class SpeciesIdentificationHandler:
             await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
             return
 
-        guides = await self._repository.find_guides(
-            [candidate.scientific_name for candidate in provider_candidates]
-        )
+        guides = await self._repository.find_guides(provider_candidates)
         candidates = [
-            normalize_candidate(candidate, guides.get(candidate.scientific_name.casefold()))
+            normalize_candidate(candidate, find_matching_guide(candidate, guides))
             for candidate in provider_candidates
         ]
         await self._repository.complete(job.resource_id, candidates)
@@ -179,3 +183,14 @@ def normalize_candidate(
         scientific_name=candidate.scientific_name,
         confidence=candidate.confidence,
     )
+
+
+def find_matching_guide(
+    candidate: PlantNetCandidate,
+    guides: dict[str, SpeciesCareGuide],
+) -> SpeciesCareGuide | None:
+    if candidate.gbif_id is not None:
+        guide = guides.get(f"gbif:{candidate.gbif_id}")
+        if guide is not None:
+            return guide
+    return guides.get(f"name:{candidate.scientific_name.casefold()}")

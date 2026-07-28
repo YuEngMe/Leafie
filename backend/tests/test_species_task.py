@@ -26,7 +26,7 @@ class FakeRepository:
     async def start(self, _identification_id):
         return self.work
 
-    async def find_guides(self, _scientific_names):
+    async def find_guides(self, _candidates):
         return self.guides
 
     async def complete(self, identification_id, candidates):
@@ -75,13 +75,17 @@ async def test_species_handler_applies_catalog_metadata() -> None:
         water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
-    repository.guides = {"ocimum basilicum": guide}
+    repository.guides = {
+        "gbif:2927096": guide,
+        "name:ocimum basilicum": guide,
+    }
     provider = FakeProvider(
         [
             PlantNetCandidate(
                 scientific_name="Ocimum basilicum",
                 common_names=("Sweet basil",),
                 confidence=0.93,
+                gbif_id=2927096,
             )
         ]
     )
@@ -95,6 +99,34 @@ async def test_species_handler_applies_catalog_metadata() -> None:
     assert candidates[0].category_suggestion == PlantCategory.HERB
     assert candidates[0].recommended_water.min_ml == 150
     assert candidates[0].confidence == 0.93
+
+
+async def test_species_handler_prefers_gbif_match_over_scientific_name() -> None:
+    repository = FakeRepository()
+    guide = SpeciesCareGuide(
+        species_reference_id="catalog:alocasia-mortfontanensis",
+        display_name="알로카시아",
+        scientific_name="Alocasia × mortfontanensis",
+        gbif_id=5532250,
+        category=PlantCategory.FOLIAGE,
+        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
+        active=True,
+    )
+    repository.guides = {"gbif:5532250": guide}
+    provider = FakeProvider(
+        [
+            PlantNetCandidate(
+                scientific_name="Alocasia mortfontanensis",
+                common_names=("African mask plant",),
+                confidence=0.88,
+                gbif_id=5532250,
+            )
+        ]
+    )
+
+    await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(make_job())
+
+    assert repository.completed[0][1][0].reference_id == guide.species_reference_id
 
 
 async def test_species_handler_marks_permanent_provider_failure() -> None:

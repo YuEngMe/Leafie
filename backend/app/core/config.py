@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     plantnet_api_key: str | None = None
     plantnet_base_url: str = "https://my-api.plantnet.org/v2"
     plantnet_project: str = "all"
-    plantnet_language: str = "ko"
+    plantnet_language: str = "en"
     plantnet_result_limit: int = Field(default=5, ge=1, le=20)
     plantnet_timeout_seconds: float = Field(default=20.0, gt=0)
 

@@ -40,6 +40,7 @@ class FakeSpeciesRepository:
             guide
             for guide in self.guides
             if query.casefold() in guide.display_name.casefold()
+            or any(query.casefold() in alias.casefold() for alias in (guide.aliases or []))
             or (
                 guide.scientific_name is not None
                 and query.casefold() in guide.scientific_name.casefold()
@@ -98,6 +99,7 @@ def make_guide(index: int) -> SpeciesCareGuide:
         species_reference_id=f"catalog:basil-{index}",
         display_name=f"바질 {index}",
         scientific_name=f"Ocimum basilicum {index}",
+        aliases=["스위트 바질"],
         category=PlantCategory.HERB,
         recommended_water_min_ml=150,
         recommended_water_max_ml=250,
@@ -142,6 +144,15 @@ async def test_search_returns_shared_candidate_contract_and_cursor() -> None:
     assert first.items[0].recommended_water.min_ml == 150
     assert [item.display_name for item in second.items] == ["바질 2"]
     assert second.has_next is False
+
+
+async def test_search_matches_catalog_alias() -> None:
+    repository = FakeSpeciesRepository()
+    repository.guides = [make_guide(0)]
+
+    result = await SpeciesService(repository).search("스위트", None, 20)
+
+    assert [item.display_name for item in result.items] == ["바질 0"]
 
 
 @pytest.mark.parametrize("query", ["", " ", "바"])

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -60,6 +60,7 @@ class SQLAlchemySpeciesRepository:
                 or_(
                     SpeciesCareGuide.display_name.ilike(pattern, escape="\\"),
                     SpeciesCareGuide.scientific_name.ilike(pattern, escape="\\"),
+                    cast(SpeciesCareGuide.aliases, String).ilike(pattern, escape="\\"),
                 ),
             )
             .order_by(SpeciesCareGuide.display_name, SpeciesCareGuide.species_reference_id)

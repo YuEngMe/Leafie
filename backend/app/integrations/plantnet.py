@@ -10,6 +10,8 @@ class PlantNetCandidate:
     scientific_name: str
     common_names: tuple[str, ...]
     confidence: float
+    gbif_id: int | None = None
+    powo_id: str | None = None
 
 
 class PlantNetPermanentError(Exception):
@@ -69,6 +71,8 @@ class PlantNetProvider:
                     scientific_name=result["species"]["scientificNameWithoutAuthor"],
                     common_names=tuple(result["species"].get("commonNames") or ()),
                     confidence=float(result["score"]),
+                    gbif_id=_parse_optional_int((result.get("gbif") or {}).get("id")),
+                    powo_id=_parse_optional_string((result.get("powo") or {}).get("id")),
                 )
                 for result in raw_results
             ]
@@ -81,3 +85,16 @@ class PlantNetProvider:
     async def close(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+
+def _parse_optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def _parse_optional_string(value: object) -> str | None:
+    if value is None:
+        return None
+    parsed = str(value).strip()
+    return parsed or None
