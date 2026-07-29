@@ -124,6 +124,10 @@ class SupabaseStorageGateway:
     async def delete_object(self, object_path: str) -> None:
         try:
             await self._bucket().remove([object_path])
+        except StorageApiError as exc:
+            if str(exc.status) == "404":
+                return
+            raise self._unavailable_error() from exc
         except (httpx.HTTPError, StorageException) as exc:
             raise self._unavailable_error() from exc
 

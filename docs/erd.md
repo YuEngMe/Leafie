@@ -67,6 +67,7 @@ erDiagram
         text bio
         varchar timezone
         uuid selected_plant_id FK
+        varchar deletion_status
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at
@@ -417,7 +418,7 @@ erDiagram
 
 | 테이블 | 제약조건 |
 |---|---|
-| `user_profiles` | `user_id`는 Supabase `auth.users.id`, `selected_plant_id`는 본인 소유 식물 |
+| `user_profiles` | `user_id`는 Supabase `auth.users.id`, `selected_plant_id`는 본인 소유 식물, `deletion_status`는 null·`PENDING`·`FAILED` |
 | `species_identifications` | `media_file_id` unique, 사진 한 장당 식별 작업 하나, 원자적 `PENDING -> PROCESSING` 전이, 완료 후보 저장 |
 | `species_care_guides` | 운영팀 관리, GBIF ID 우선 매칭, 별칭 검색, 기본 일정은 양수 또는 null, 관리·진단 데이터에는 버전과 출처 저장 |
 | `plants` | `category`는 확정된 7개 Enum, `name`, `species_name`, `species_reference_id`, `species_selection_method` 필수 |
@@ -449,6 +450,7 @@ Tool 인자는 Pydantic schema로 검증합니다. `AI_TOOL_CALLS.arguments`와
 
 ```text
 user_profiles(selected_plant_id)
+user_profiles(deletion_status)
 plants(user_id, deleted_at)
 species_care_guides(display_name)
 species_care_guides(gbif_id) UNIQUE
@@ -483,13 +485,14 @@ device_tokens(user_id, revoked_at)
 - 앱은 업무 테이블을 직접 수정하지 않고 FastAPI를 호출합니다.
 - Data API가 활성화된 업무 테이블에는 RLS를 적용해 본인 행만 접근하도록 방어합니다.
 - Queue schema는 Flutter에 노출하지 않고 FastAPI, Worker, Cron만 접근합니다.
-- FastAPI는 Supabase JWT 검증 후 모든 리소스의 소유권을 다시 검사합니다.
+- FastAPI는 Supabase JWT 검증 후 `auth.users` 존재·계정 삭제 상태와 모든 리소스의 소유권을 다시 검사합니다.
 
 ## 6. 삭제 정책
 
 - 화면의 삭제는 우선 `deleted_at`을 기록하는 soft delete로 처리합니다.
 - 계정 탈퇴 시 FastAPI가 세션의 최근 인증 여부를 확인하고 삭제 작업을 Queue에 넣습니다.
 - Worker가 Supabase Storage 객체와 업무 데이터를 제거한 뒤 Auth Admin API로 사용자를 삭제합니다.
+- 삭제 재시도가 소진되면 일부 Storage 객체가 이미 제거됐을 수 있으므로 계정을 복구하지 않고 `FAILED`로 유지해 관리자가 재처리합니다.
 - AI 품질 개선에 사용자 사진이나 대화를 재사용하려면 별도의 명시적 동의와 철회 경로가 필요합니다.
 - Tool Call 감사 로그는 개인정보를 제거한 최소 정보만 제한된 기간 동안 보관합니다.
 

@@ -113,7 +113,8 @@ backend/
 6. 동일 검증 이메일의 identity 연결 정책은 Provider별 실기기 테스트로 검증합니다.
 7. Flutter 앱은 Supabase Access Token을 FastAPI의 Bearer Token으로 전달합니다.
 8. FastAPI는 로그인 방식과 무관하게 Supabase JWKS로 JWT의 서명, 만료, 발급자, 대상을 검증합니다.
-9. JWT의 `sub`를 현재 사용자 ID로 사용하고 모든 사용자 리소스의 소유권을 확인합니다.
+9. JWT 검증 후 매 요청에서 `auth.users` 존재와 계정 삭제 상태를 확인해 삭제된 사용자의 기존 JWT를 차단합니다.
+10. JWT의 `sub`를 현재 사용자 ID로 사용하고 모든 사용자 리소스의 소유권을 확인합니다.
 
 Supabase `service_role` 키와 OpenAI API Key는 Worker와 FastAPI 환경변수에만
 저장합니다. 각 OAuth Client Secret은 Supabase Provider 설정에만 저장합니다.

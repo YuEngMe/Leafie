@@ -136,6 +136,21 @@ class QueueWorker:
                             job.resource_id,
                             job.trace_id,
                         )
+                        try:
+                            await self._queue.set_visibility_timeout(
+                                received.message_id,
+                                visibility_timeout_seconds=self._retry_max_seconds,
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Task exhaustion callback retry scheduling failed "
+                                "message_id=%s job_type=%s resource_id=%s trace_id=%s",
+                                received.message_id,
+                                job.job_type,
+                                job.resource_id,
+                                job.trace_id,
+                            )
+                        return
                 await self._archive(received.message_id)
                 return
 

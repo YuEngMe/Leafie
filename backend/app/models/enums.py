@@ -1,6 +1,11 @@
 from enum import StrEnum
 
 
+class AccountDeletionStatus(StrEnum):
+    PENDING = "PENDING"
+    FAILED = "FAILED"
+
+
 class PlantCategory(StrEnum):
     FOLIAGE = "FOLIAGE"
     FLOWER = "FLOWER"

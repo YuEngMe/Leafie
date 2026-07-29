@@ -6,12 +6,21 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import DevicePlatform, enum_values
+from app.models.enums import AccountDeletionStatus, DevicePlatform, enum_values
 
 
 class UserProfile(Base, TimestampMixin):
     __tablename__ = "user_profiles"
-    __table_args__ = (Index("ix_user_profiles_selected_plant_id", "selected_plant_id"),)
+    __table_args__ = (
+        CheckConstraint(
+            "(deleted_at IS NULL AND deletion_status IS NULL) OR "
+            f"(deleted_at IS NOT NULL AND deletion_status IN "
+            f"({enum_values(AccountDeletionStatus)}))",
+            name="deletion_state",
+        ),
+        Index("ix_user_profiles_selected_plant_id", "selected_plant_id"),
+        Index("ix_user_profiles_deletion_status", "deletion_status"),
+    )
 
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -31,6 +40,7 @@ class UserProfile(Base, TimestampMixin):
         PG_UUID(as_uuid=True),
         ForeignKey("plants.id", ondelete="SET NULL", use_alter=True),
     )
+    deletion_status: Mapped[str | None] = mapped_column(String(16))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

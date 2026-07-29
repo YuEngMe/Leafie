@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     supabase_storage_bucket: str = "leafie-media"
     media_download_url_expires_seconds: int = 300
     supabase_queue_name: str = "leafie_jobs"
+    account_deletion_reauth_max_age_seconds: int = Field(default=300, ge=60, le=3600)
 
     plantnet_api_key: str | None = None
     plantnet_base_url: str = "https://my-api.plantnet.org/v2"

@@ -192,7 +192,9 @@ async def test_max_attempt_failure_is_archived() -> None:
         ),
     ],
 )
-async def test_exhaustion_callback_cannot_block_archiving(handler: RecordingHandler) -> None:
+async def test_exhaustion_callback_failure_keeps_message_for_recovery(
+    handler: RecordingHandler,
+) -> None:
     message = make_message(read_count=3)
     queue = FakeQueue([message])
     registry = TaskRegistry()
@@ -204,8 +206,8 @@ async def test_exhaustion_callback_cannot_block_archiving(handler: RecordingHand
         visibility_timeout_seconds=0.02,
     ).run_once()
 
-    assert queue.archived == [message.message_id]
-    assert queue.visibility_updates == []
+    assert queue.archived == []
+    assert queue.visibility_updates == [(message.message_id, 60)]
 
 
 async def test_permanent_failure_is_archived_without_retry() -> None:

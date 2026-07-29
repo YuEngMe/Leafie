@@ -79,11 +79,13 @@ class SQLAlchemySpeciesRepository:
 
     async def get_media_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None:
         return await self._session.scalar(
-            select(MediaFile).where(
+            select(MediaFile)
+            .where(
                 MediaFile.id == media_file_id,
                 MediaFile.user_id == user_id,
                 MediaFile.deleted_at.is_(None),
-            ).with_for_update()
+            )
+            .with_for_update()
         )
 
     async def get_identification_by_media_owned(

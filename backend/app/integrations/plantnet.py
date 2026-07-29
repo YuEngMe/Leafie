@@ -13,9 +13,7 @@ class _PlantNetSecretFilter(logging.Filter):
         if isinstance(record.args, tuple):
             record.args = tuple(_redact_api_key(value) for value in record.args)
         elif isinstance(record.args, dict):
-            record.args = {
-                key: _redact_api_key(value) for key, value in record.args.items()
-            }
+            record.args = {key: _redact_api_key(value) for key, value in record.args.items()}
         return True
 
 
