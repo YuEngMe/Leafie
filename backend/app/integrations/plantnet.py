@@ -1,5 +1,7 @@
 import logging
+import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import httpx
@@ -88,17 +90,12 @@ class PlantNetProvider:
 
         try:
             payload = response.json()
+            if not isinstance(payload, Mapping):
+                raise TypeError("Pl@ntNet payload must be an object")
             raw_results = payload.get("results", [])
-            candidates = [
-                PlantNetCandidate(
-                    scientific_name=result["species"]["scientificNameWithoutAuthor"],
-                    common_names=tuple(result["species"].get("commonNames") or ()),
-                    confidence=float(result["score"]),
-                    gbif_id=_parse_optional_int((result.get("gbif") or {}).get("id")),
-                    powo_id=_parse_optional_string((result.get("powo") or {}).get("id")),
-                )
-                for result in raw_results
-            ]
+            if not isinstance(raw_results, list):
+                raise TypeError("Pl@ntNet results must be a list")
+            candidates = [_parse_candidate(result) for result in raw_results]
         except (KeyError, TypeError, ValueError) as exc:
             raise PlantNetPermanentError("PLANTNET_INVALID_RESPONSE") from exc
 
@@ -110,6 +107,42 @@ class PlantNetProvider:
             await self._client.aclose()
 
 
+def _parse_candidate(result: object) -> PlantNetCandidate:
+    if not isinstance(result, Mapping):
+        raise TypeError("Pl@ntNet result must be an object")
+
+    species = result.get("species")
+    if not isinstance(species, Mapping):
+        raise TypeError("Pl@ntNet species must be an object")
+
+    scientific_name = species.get("scientificNameWithoutAuthor")
+    if not isinstance(scientific_name, str) or not scientific_name.strip():
+        raise ValueError("Pl@ntNet scientific name is missing")
+
+    raw_common_names = species.get("commonNames") or []
+    if not isinstance(raw_common_names, list) or not all(
+        isinstance(name, str) for name in raw_common_names
+    ):
+        raise TypeError("Pl@ntNet common names must be a string list")
+
+    confidence = float(result["score"])
+    if not math.isfinite(confidence) or not 0 <= confidence <= 1:
+        raise ValueError("Pl@ntNet score must be between 0 and 1")
+
+    gbif = result.get("gbif") or {}
+    powo = result.get("powo") or {}
+    if not isinstance(gbif, Mapping) or not isinstance(powo, Mapping):
+        raise TypeError("Pl@ntNet taxonomy references must be objects")
+
+    return PlantNetCandidate(
+        scientific_name=scientific_name.strip(),
+        common_names=tuple(name.strip() for name in raw_common_names if name.strip()),
+        confidence=confidence,
+        gbif_id=_parse_optional_int(gbif.get("id")),
+        powo_id=_parse_optional_string(powo.get("id")),
+    )
+
+
 def _parse_optional_int(value: object) -> int | None:
     if value is None:
         return None
@@ -119,5 +152,7 @@ def _parse_optional_int(value: object) -> int | None:
 def _parse_optional_string(value: object) -> str | None:
     if value is None:
         return None
-    parsed = str(value).strip()
+    if not isinstance(value, str):
+        raise TypeError("Pl@ntNet identifier must be a string")
+    parsed = value.strip()
     return parsed or None

@@ -106,7 +106,104 @@ async def test_plantnet_maps_rejected_image() -> None:
 
 async def test_plantnet_maps_invalid_response() -> None:
     async def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"results": [{"score": "bad"}]})
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "score": "bad",
+                        "species": {
+                            "scientificNameWithoutAuthor": "Ocimum basilicum",
+                            "commonNames": ["바질"],
+                        },
+                    }
+                ]
+            },
+        )
+
+    with pytest.raises(PlantNetPermanentError) as error:
+        await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
+
+    assert error.value.failure_code == "PLANTNET_INVALID_RESPONSE"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        {"results": {}},
+        {"results": ["not-an-object"]},
+        {"results": [{"score": 0.8}]},
+        {"results": [{"score": 0.8, "species": "not-an-object"}]},
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {"commonNames": ["바질"]},
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 1.2,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                        "commonNames": ["바질"],
+                    },
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                        "commonNames": "바질",
+                    },
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "gbif": "not-an-object",
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "powo": "not-an-object",
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "powo": {"id": {"unexpected": "object"}},
+                }
+            ]
+        },
+    ],
+)
+async def test_plantnet_rejects_malformed_payload_shapes(payload: object) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
 
     with pytest.raises(PlantNetPermanentError) as error:
         await make_provider(handler).identify(b"\xff\xd8\xffimage", "image/jpeg")
