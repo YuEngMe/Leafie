@@ -179,6 +179,7 @@ async def test_species_handler_marks_empty_candidates_as_failed() -> None:
     await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(job)
 
     assert repository.failures == [(job.resource_id, "SPECIES_NO_CANDIDATES")]
+    assert repository.released == []
     assert repository.completed == []
 
 
