@@ -15,6 +15,7 @@ from app.tasks.base import PermanentTaskError
 from app.tasks.species import (
     IdentificationWork,
     SpeciesIdentificationHandler,
+    SpeciesIdentificationInProgressError,
     find_matching_guide,
 )
 
@@ -30,8 +31,11 @@ class FakeRepository:
         self.failures: list[tuple[object, str]] = []
         self.released: list[object] = []
         self.started: set[object] = set()
+        self.start_error: Exception | None = None
 
     async def start(self, identification_id):
+        if self.start_error is not None:
+            raise self.start_error
         if identification_id in self.started:
             return None
         self.started.add(identification_id)
@@ -167,6 +171,17 @@ async def test_species_handler_marks_permanent_provider_failure() -> None:
     assert repository.failures == [(job.resource_id, "PLANTNET_AUTH_FAILED")]
 
 
+async def test_species_handler_marks_empty_candidates_as_failed() -> None:
+    repository = FakeRepository()
+    provider = FakeProvider([])
+    job = make_job()
+
+    await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(job)
+
+    assert repository.failures == [(job.resource_id, "SPECIES_NO_CANDIDATES")]
+    assert repository.completed == []
+
+
 async def test_species_handler_releases_transient_failure_for_retry() -> None:
     repository = FakeRepository()
     provider = FakeProvider(error=PlantNetTransientError("temporary"))
@@ -247,6 +262,19 @@ async def test_species_handler_ignores_duplicate_message_delivery() -> None:
 
     assert provider.calls == 1
     assert len(repository.completed) == 1
+
+
+async def test_species_handler_retries_duplicate_processing_delivery() -> None:
+    repository = FakeRepository()
+    repository.start_error = SpeciesIdentificationInProgressError(
+        "식물 인식 작업이 이미 처리 중입니다."
+    )
+    provider = FakeProvider()
+
+    with pytest.raises(SpeciesIdentificationInProgressError):
+        await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(make_job())
+
+    assert provider.calls == 0
 
 
 def test_species_candidate_matches_catalog_alias_case_insensitively() -> None:

@@ -152,5 +152,7 @@ def _parse_optional_int(value: object) -> int | None:
 def _parse_optional_string(value: object) -> str | None:
     if value is None:
         return None
-    parsed = str(value).strip()
+    if not isinstance(value, str):
+        raise TypeError("Pl@ntNet identifier must be a string")
+    parsed = value.strip()
     return parsed or None

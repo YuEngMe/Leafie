@@ -134,6 +134,16 @@ async def test_plantnet_maps_invalid_response() -> None:
         [],
         {"results": {}},
         {"results": ["not-an-object"]},
+        {"results": [{"score": 0.8}]},
+        {"results": [{"score": 0.8, "species": "not-an-object"}]},
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {"commonNames": ["바질"]},
+                }
+            ]
+        },
         {
             "results": [
                 {
@@ -153,6 +163,39 @@ async def test_plantnet_maps_invalid_response() -> None:
                         "scientificNameWithoutAuthor": "Ocimum basilicum",
                         "commonNames": "바질",
                     },
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "gbif": "not-an-object",
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "powo": "not-an-object",
+                }
+            ]
+        },
+        {
+            "results": [
+                {
+                    "score": 0.8,
+                    "species": {
+                        "scientificNameWithoutAuthor": "Ocimum basilicum",
+                    },
+                    "powo": {"id": {"unexpected": "object"}},
                 }
             ]
         },
