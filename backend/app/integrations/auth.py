@@ -1,3 +1,4 @@
+import logging
 from typing import Protocol
 from uuid import UUID
 
@@ -5,6 +6,8 @@ import httpx
 
 from app.core.config import Settings
 from app.core.errors import AppError
+
+logger = logging.getLogger(__name__)
 
 
 class AuthAdminGateway(Protocol):
@@ -21,6 +24,7 @@ class SupabaseAuthAdminGateway:
         self._url = settings.supabase_url
         self._secret_key = settings.supabase_secret_key
         self._http_client = http_client
+        self._owns_client = http_client is None
 
     async def delete_user(self, user_id: UUID) -> None:
         if not self._url or not self._secret_key:
@@ -31,6 +35,7 @@ class SupabaseAuthAdminGateway:
             )
         if self._http_client is None:
             self._http_client = httpx.AsyncClient(timeout=10.0)
+            self._owns_client = True
 
         try:
             response = await self._http_client.request(
@@ -48,10 +53,15 @@ class SupabaseAuthAdminGateway:
         if response.status_code == 404:
             return
         if response.is_error:
+            logger.error(
+                "Supabase Auth Admin delete failed user_id=%s status_code=%s",
+                user_id,
+                response.status_code,
+            )
             raise self._unavailable_error()
 
     async def close(self) -> None:
-        if self._http_client is not None:
+        if self._http_client is not None and self._owns_client:
             await self._http_client.aclose()
             self._http_client = None
 

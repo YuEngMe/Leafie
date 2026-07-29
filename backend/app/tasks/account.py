@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from app.db.session import Database
 from app.integrations.auth import AuthAdminGateway
 from app.integrations.storage import StorageGateway
+from app.models.enums import AccountDeletionStatus
 from app.models.media import MediaFile
 from app.models.user import UserProfile
 from app.schemas.queue import QueueJob
@@ -14,7 +15,7 @@ from app.schemas.queue import QueueJob
 class AccountCleanupRepository(Protocol):
     async def list_media_paths(self, user_id: UUID) -> list[str]: ...
 
-    async def restore_deletion(self, user_id: UUID) -> None: ...
+    async def mark_deletion_failed(self, user_id: UUID) -> None: ...
 
 
 class SQLAlchemyAccountCleanupRepository:
@@ -28,15 +29,16 @@ class SQLAlchemyAccountCleanupRepository:
             )
             return list(result)
 
-    async def restore_deletion(self, user_id: UUID) -> None:
+    async def mark_deletion_failed(self, user_id: UUID) -> None:
         async with self._database.session_context() as session:
             await session.execute(
                 update(UserProfile)
                 .where(
                     UserProfile.user_id == user_id,
                     UserProfile.deleted_at.is_not(None),
+                    UserProfile.deletion_status == AccountDeletionStatus.PENDING,
                 )
-                .values(deleted_at=None)
+                .values(deletion_status=AccountDeletionStatus.FAILED.value)
             )
 
 
@@ -58,5 +60,5 @@ class AccountDeleteHandler:
         await self._auth_admin.delete_user(job.resource_id)
 
     async def on_exhausted(self, job: QueueJob) -> None:
-        # 최종 실패한 삭제 요청을 다시 시도할 수 있도록 프로필 잠금을 복구합니다.
-        await self._repository.restore_deletion(job.resource_id)
+        # 일부 파일이 이미 삭제됐을 수 있으므로 계정을 복구하지 않고 관리자 재처리 대상으로 둡니다.
+        await self._repository.mark_deletion_failed(job.resource_id)

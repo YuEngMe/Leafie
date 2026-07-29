@@ -338,3 +338,26 @@ async def test_storage_delete_treats_missing_object_as_success(
     monkeypatch.setattr(gateway, "_bucket", lambda: MissingObjectBucket())
 
     await gateway.delete_object("already-deleted.jpg")
+
+
+async def test_storage_delete_maps_non_404_error_to_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingBucket:
+        async def remove(self, _paths: list[str]) -> None:
+            raise StorageApiError("server error", "500", 500)
+
+    gateway = SupabaseStorageGateway(
+        Settings(
+            _env_file=None,
+            supabase_url="https://leafie-test.supabase.co",
+            supabase_secret_key="test-secret",
+        )
+    )
+    monkeypatch.setattr(gateway, "_bucket", lambda: FailingBucket())
+
+    with pytest.raises(AppError) as error:
+        await gateway.delete_object("still-there.jpg")
+
+    assert error.value.code == "STORAGE_UNAVAILABLE"
+    assert error.value.status_code == 503

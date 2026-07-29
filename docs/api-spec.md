@@ -50,6 +50,8 @@
 | 403 | `RESOURCE_FORBIDDEN` | 다른 사용자의 리소스 접근 |
 | 404 | `*_NOT_FOUND` | 리소스 없음 |
 | 409 | `EMAIL_ALREADY_EXISTS` | 이메일 중복 |
+| 409 | `ACCOUNT_DELETION_PENDING` | 계정 삭제 진행 중 |
+| 409 | `ACCOUNT_DELETION_FAILED` | 계정 삭제 실패, 관리자 재처리 필요 |
 | 409 | `INVALID_STATE_TRANSITION` | 허용되지 않는 상태 변경 |
 | 413 | `FILE_TOO_LARGE` | 파일 크기 초과 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 지원하지 않는 이미지 형식 |
@@ -61,6 +63,7 @@
 
 | 이름 | 값 |
 |---|---|
+| `AccountDeletionStatus` | `PENDING`, `FAILED` |
 | `PlantCategory` | `FOLIAGE`, `FLOWER`, `SUCCULENT_CACTUS`, `TREE`, `HERB`, `FRUIT`, `VINE` |
 | `WaterRecommendationSource` | `SPECIES_GUIDE` |
 | `SpeciesSelectionMethod` | `SEARCH`, `PHOTO` |
@@ -152,8 +155,10 @@ OAuth 오류는 FastAPI 공통 에러가 아니라 Flutter 인증 화면 상태�
 | `SOCIAL_EMAIL_REQUIRED` | Provider 이메일 동의가 없어 가입 중단, 이메일 로그인 안내 |
 
 Flutter는 Supabase Access Token을 FastAPI에 전달합니다. FastAPI는 Supabase
-JWKS로 JWT를 검증하고 `sub` claim을 현재 사용자 ID로 사용합니다. 만료된
-Access Token의 갱신은 Supabase SDK가 담당합니다.
+JWKS로 JWT를 검증하고 `sub` claim을 현재 사용자 ID로 사용합니다. 서명 검증 후
+매 요청에서 `auth.users` 존재 여부와 계정 삭제 상태를 추가로 확인해, 삭제된
+사용자의 만료 전 Access Token도 API 접근에 사용할 수 없게 합니다. 만료된 Access
+Token의 갱신은 Supabase SDK가 담당합니다.
 
 ## 4. 사용자
 
@@ -182,7 +187,8 @@ Access Token의 갱신은 Supabase SDK가 담당합니다.
 방식에서 Supabase Auth SDK를 사용합니다. 회원 탈퇴 직전에는 현재 로그인
 Provider로 다시 인증해 최근 발급된 Access Token을 사용해야 합니다. FastAPI가
 업무 데이터와 Storage 삭제를 예약한 뒤 서버 권한으로 Supabase Auth 사용자를
-삭제합니다.
+삭제합니다. 삭제 작업이 재시도 한도를 넘으면 계정을 복구하지 않고
+`ACCOUNT_DELETION_FAILED` 상태로 유지해 관리자가 멱등하게 재처리합니다.
 
 ## 5. 미디어 업로드
 

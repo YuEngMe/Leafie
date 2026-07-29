@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
 from app.models.diagnosis import Diagnosis
-from app.models.enums import MediaPurpose, MediaStatus
+from app.models.enums import AccountDeletionStatus, MediaPurpose, MediaStatus
 from app.models.media import MediaFile
 from app.models.plant import Plant, PlantDiary
 from app.models.user import UserProfile
@@ -171,8 +171,12 @@ class SQLAlchemyUserRepository:
             .where(
                 UserProfile.user_id == user_id,
                 UserProfile.deleted_at.is_(None),
+                UserProfile.deletion_status.is_(None),
             )
-            .values(deleted_at=datetime.now(UTC))
+            .values(
+                deleted_at=datetime.now(UTC),
+                deletion_status=AccountDeletionStatus.PENDING.value,
+            )
             .returning(UserProfile.user_id)
         )
         return await self._session.scalar(statement) is not None
@@ -257,7 +261,13 @@ class UserService:
 
     async def _get_active_user(self, user_id: UUID) -> tuple[AuthUserRecord, UserProfile]:
         auth_user, profile = await self._get_user(user_id)
-        if profile.deleted_at is not None:
+        if profile.deletion_status == AccountDeletionStatus.FAILED:
+            raise AppError(
+                code="ACCOUNT_DELETION_FAILED",
+                message="계정 삭제를 완료하지 못했습니다. 관리자 확인이 필요합니다.",
+                status_code=409,
+            )
+        if profile.deleted_at is not None or profile.deletion_status is not None:
             raise AppError(
                 code="ACCOUNT_DELETION_PENDING",
                 message="계정 삭제가 진행 중입니다.",

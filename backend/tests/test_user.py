@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -7,10 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.api.v1 import users as users_api
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.integrations.auth import SupabaseAuthAdminGateway
 from app.main import create_app
+from app.models.enums import AccountDeletionStatus
 from app.models.user import UserProfile
 from app.schemas.queue import JobType, QueueJob
 from app.schemas.user import UserProfileUpdate
@@ -58,6 +61,7 @@ class FakeUserRepository:
         if self.profile.deleted_at is not None:
             return False
         self.profile.deleted_at = datetime.now(UTC)
+        self.profile.deletion_status = AccountDeletionStatus.PENDING.value
         return True
 
 
@@ -87,13 +91,13 @@ class FakeAuthAdmin:
 class FakeAccountRepository:
     def __init__(self, paths: list[str]) -> None:
         self.paths = paths
-        self.restored: list[UUID] = []
+        self.failed: list[UUID] = []
 
     async def list_media_paths(self, _user_id: UUID) -> list[str]:
         return self.paths
 
-    async def restore_deletion(self, user_id: UUID) -> None:
-        self.restored.append(user_id)
+    async def mark_deletion_failed(self, user_id: UUID) -> None:
+        self.failed.append(user_id)
 
 
 def make_auth_user(**overrides: object) -> AuthUserRecord:
@@ -115,6 +119,22 @@ def build_service(
     repository = FakeUserRepository(auth_user or make_auth_user())
     storage = FakeStorage()
     return UserService(repository, storage), repository, storage
+
+
+def test_api_service_uses_configured_expiry_and_reauthentication_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = Settings(
+        _env_file=None,
+        media_download_url_expires_seconds=123,
+        account_deletion_reauth_max_age_seconds=600,
+    )
+    monkeypatch.setattr(users_api, "settings", configured)
+
+    service = users_api.build_service(object(), FakeStorage())
+
+    assert service._profile_url_expires_seconds == 123
+    assert service._reauth_max_age_seconds == 600
 
 
 async def test_get_me_idempotently_creates_profile_from_auth_identity() -> None:
@@ -202,7 +222,22 @@ async def test_account_deletion_requires_recent_token_and_is_idempotent() -> Non
     recent_auth_time = int(datetime.now(UTC).timestamp())
     recent_claims = {"amr": [{"method": "password", "timestamp": recent_auth_time}]}
     assert await service.request_account_deletion(repository.auth_user.id, recent_claims)
+    assert repository.profile is not None
+    assert repository.profile.deletion_status == AccountDeletionStatus.PENDING
     assert not await service.request_account_deletion(repository.auth_user.id, recent_claims)
+
+
+async def test_failed_account_deletion_does_not_reactivate_profile() -> None:
+    service, repository, _ = build_service()
+    await service.get_me(repository.auth_user.id)
+    assert repository.profile is not None
+    repository.profile.deleted_at = datetime.now(UTC)
+    repository.profile.deletion_status = AccountDeletionStatus.FAILED.value
+
+    with pytest.raises(AppError) as error:
+        await service.get_me(repository.auth_user.id)
+
+    assert error.value.code == "ACCOUNT_DELETION_FAILED"
 
 
 async def test_concurrent_account_deletion_requests_only_schedule_once() -> None:
@@ -260,7 +295,7 @@ async def test_account_delete_handler_removes_storage_then_auth_user() -> None:
     assert auth_admin.deleted == [user_id]
 
 
-async def test_account_delete_handler_unlocks_profile_after_retry_exhaustion() -> None:
+async def test_account_delete_handler_marks_failure_after_retry_exhaustion() -> None:
     user_id = uuid4()
     repository = FakeAccountRepository([])
     handler = AccountDeleteHandler(repository, FakeStorage(), FakeAuthAdmin())
@@ -273,7 +308,36 @@ async def test_account_delete_handler_unlocks_profile_after_retry_exhaustion() -
         )
     )
 
-    assert repository.restored == [user_id]
+    assert repository.failed == [user_id]
+
+
+async def test_account_delete_handler_stops_before_auth_when_storage_fails() -> None:
+    class FailingStorage(FakeStorage):
+        async def delete_object(self, _object_path: str) -> None:
+            raise AppError(
+                code="STORAGE_UNAVAILABLE",
+                message="파일 저장소를 사용할 수 없습니다.",
+                status_code=503,
+            )
+
+    auth_admin = FakeAuthAdmin()
+    handler = AccountDeleteHandler(
+        FakeAccountRepository(["one.jpg"]),
+        FailingStorage(),
+        auth_admin,
+    )
+
+    with pytest.raises(AppError) as error:
+        await handler(
+            QueueJob(
+                job_type=JobType.ACCOUNT_DELETE,
+                resource_id=uuid4(),
+                trace_id="req_account_delete_storage_fail",
+            )
+        )
+
+    assert error.value.code == "STORAGE_UNAVAILABLE"
+    assert auth_admin.deleted == []
 
 
 async def test_auth_admin_delete_uses_server_secret_and_treats_missing_as_success() -> None:
@@ -283,20 +347,70 @@ async def test_auth_admin_delete_uses_server_secret_and_treats_missing_as_succes
         assert request.headers["apikey"] == "test-secret"
         assert request.headers["Authorization"] == "Bearer test-secret"
         assert str(request.url).endswith(f"/auth/v1/admin/users/{user_id}")
-        assert request.content == b'{"should_soft_delete":false}'
+        assert json.loads(request.content) == {"should_soft_delete": False}
         return httpx.Response(404)
 
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     gateway = SupabaseAuthAdminGateway(
         Settings(
             _env_file=None,
             supabase_url="https://leafie-test.supabase.co",
             supabase_secret_key="test-secret",
         ),
-        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        http_client=client,
     )
 
     await gateway.delete_user(user_id)
     await gateway.close()
+    assert not client.is_closed
+    await client.aclose()
+
+
+async def test_auth_admin_delete_maps_server_error_to_unavailable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = SupabaseAuthAdminGateway(
+        Settings(
+            _env_file=None,
+            supabase_url="https://leafie-test.supabase.co",
+            supabase_secret_key="test-secret",
+        ),
+        http_client=client,
+    )
+
+    with pytest.raises(AppError) as error:
+        await gateway.delete_user(uuid4())
+
+    assert error.value.code == "AUTH_ADMIN_UNAVAILABLE"
+    assert error.value.status_code == 503
+    assert "status_code=500" in caplog.text
+    await client.aclose()
+
+
+async def test_auth_admin_delete_maps_timeout_to_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = SupabaseAuthAdminGateway(
+        Settings(
+            _env_file=None,
+            supabase_url="https://leafie-test.supabase.co",
+            supabase_secret_key="test-secret",
+        ),
+        http_client=client,
+    )
+
+    with pytest.raises(AppError) as error:
+        await gateway.delete_user(uuid4())
+
+    assert error.value.code == "AUTH_ADMIN_UNAVAILABLE"
+    assert error.value.status_code == 503
+    await client.aclose()
 
 
 def test_user_routes_require_authentication_and_are_in_openapi() -> None:
