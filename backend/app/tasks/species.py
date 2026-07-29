@@ -28,6 +28,10 @@ class IdentificationWork:
     content_type: str
 
 
+class SpeciesIdentificationInProgressError(Exception):
+    pass
+
+
 class SpeciesIdentificationRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
@@ -48,6 +52,15 @@ class SpeciesIdentificationRepository:
                 .returning(SpeciesIdentification.media_file_id)
             )
             if media_file_id is None:
+                current_status = await session.scalar(
+                    select(SpeciesIdentification.status).where(
+                        SpeciesIdentification.id == identification_id
+                    )
+                )
+                if current_status == SpeciesIdentificationStatus.PROCESSING:
+                    raise SpeciesIdentificationInProgressError(
+                        "식물 인식 작업이 이미 처리 중입니다."
+                    )
                 return None
 
             media_file = await session.get(MediaFile, media_file_id)
@@ -56,6 +69,20 @@ class SpeciesIdentificationRepository:
             return IdentificationWork(
                 object_path=media_file.object_path,
                 content_type=media_file.content_type,
+            )
+
+    async def release_for_retry(self, identification_id: UUID) -> None:
+        async with self._database.session_context() as session:
+            await session.execute(
+                update(SpeciesIdentification)
+                .where(
+                    SpeciesIdentification.id == identification_id,
+                    SpeciesIdentification.status == SpeciesIdentificationStatus.PROCESSING,
+                )
+                .values(
+                    status=SpeciesIdentificationStatus.PENDING.value,
+                    failure_code=None,
+                )
             )
 
     async def find_guides(
@@ -132,6 +159,16 @@ class SpeciesIdentificationHandler:
         try:
             image = await self._storage.download_object(work.object_path)
             provider_candidates = await self._provider.identify(image, work.content_type)
+            if not provider_candidates:
+                await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
+                return
+
+            guides = await self._repository.find_guides(provider_candidates)
+            candidates = [
+                normalize_candidate(candidate, find_matching_guide(candidate, guides))
+                for candidate in provider_candidates
+            ]
+            await self._repository.complete(job.resource_id, candidates)
         except PlantNetPermanentError as exc:
             await self._repository.fail(job.resource_id, exc.failure_code)
             raise PermanentTaskError(
@@ -142,18 +179,11 @@ class SpeciesIdentificationHandler:
             if exc.code == "MEDIA_UPLOAD_NOT_FOUND":
                 await self._repository.fail(job.resource_id, exc.code)
                 raise PermanentTaskError(exc.code, exc.message) from exc
+            await self._repository.release_for_retry(job.resource_id)
             raise
-
-        if not provider_candidates:
-            await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
-            return
-
-        guides = await self._repository.find_guides(provider_candidates)
-        candidates = [
-            normalize_candidate(candidate, find_matching_guide(candidate, guides))
-            for candidate in provider_candidates
-        ]
-        await self._repository.complete(job.resource_id, candidates)
+        except Exception:
+            await self._repository.release_for_retry(job.resource_id)
+            raise
 
     async def on_exhausted(self, job: QueueJob) -> None:
         await self._repository.fail(job.resource_id, "SPECIES_PROVIDER_UNAVAILABLE")

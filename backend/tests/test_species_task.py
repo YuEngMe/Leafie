@@ -3,7 +3,11 @@ from uuid import uuid4
 import pytest
 
 from app.core.errors import AppError
-from app.integrations.plantnet import PlantNetCandidate, PlantNetPermanentError
+from app.integrations.plantnet import (
+    PlantNetCandidate,
+    PlantNetPermanentError,
+    PlantNetTransientError,
+)
 from app.models.enums import PlantCategory, WaterRecommendationSource
 from app.models.plant import SpeciesCareGuide
 from app.schemas.queue import JobType, QueueJob
@@ -24,6 +28,7 @@ class FakeRepository:
         self.guides: dict[str, SpeciesCareGuide] = {}
         self.completed = []
         self.failures: list[tuple[object, str]] = []
+        self.released: list[object] = []
         self.started: set[object] = set()
 
     async def start(self, identification_id):
@@ -37,6 +42,10 @@ class FakeRepository:
 
     async def complete(self, identification_id, candidates):
         self.completed.append((identification_id, candidates))
+
+    async def release_for_retry(self, identification_id):
+        self.released.append(identification_id)
+        self.started.discard(identification_id)
 
     async def fail(self, identification_id, failure_code):
         self.failures.append((identification_id, failure_code))
@@ -156,6 +165,49 @@ async def test_species_handler_marks_permanent_provider_failure() -> None:
         await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(job)
 
     assert repository.failures == [(job.resource_id, "PLANTNET_AUTH_FAILED")]
+
+
+async def test_species_handler_releases_transient_failure_for_retry() -> None:
+    repository = FakeRepository()
+    provider = FakeProvider(error=PlantNetTransientError("temporary"))
+    handler = SpeciesIdentificationHandler(repository, FakeStorage(), provider)
+    job = make_job()
+
+    with pytest.raises(PlantNetTransientError):
+        await handler(job)
+
+    assert repository.released == [job.resource_id]
+
+    provider.error = None
+    provider.result = [
+        PlantNetCandidate(
+            scientific_name="Ocimum basilicum",
+            common_names=("Sweet basil",),
+            confidence=0.93,
+        )
+    ]
+    await handler(job)
+
+    assert provider.calls == 2
+    assert len(repository.completed) == 1
+
+
+async def test_species_handler_releases_storage_outage_for_retry() -> None:
+    repository = FakeRepository()
+    storage = FakeStorage(
+        AppError(
+            code="STORAGE_UNAVAILABLE",
+            message="저장소를 사용할 수 없습니다.",
+            status_code=503,
+        )
+    )
+    job = make_job()
+
+    with pytest.raises(AppError) as error:
+        await SpeciesIdentificationHandler(repository, storage, FakeProvider())(job)
+
+    assert error.value.code == "STORAGE_UNAVAILABLE"
+    assert repository.released == [job.resource_id]
 
 
 async def test_species_handler_marks_missing_uploaded_media_as_permanent() -> None:
