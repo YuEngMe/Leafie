@@ -21,6 +21,12 @@ class SpeciesSelectionMethod(StrEnum):
     PHOTO = "PHOTO"
 
 
+class RepottingHistoryStatus(StrEnum):
+    KNOWN = "KNOWN"
+    NEVER = "NEVER"
+    UNKNOWN = "UNKNOWN"
+
+
 class SpeciesIdentificationStatus(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
