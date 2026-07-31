@@ -8,8 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
+from app.models.chat import AIMessage
+from app.models.diagnosis import Diagnosis
 from app.models.enums import MediaPurpose, MediaStatus
-from app.models.media import MediaFile
+from app.models.media import MediaFile, SpeciesIdentification
+from app.models.plant import Plant, PlantDiary
 from app.schemas.media import (
     MediaCompleteResponse,
     MediaDownloadResponse,
@@ -44,6 +47,8 @@ class MediaRepository(Protocol):
 
     async def get_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None: ...
 
+    async def is_linked(self, media_file_id: UUID) -> bool: ...
+
 
 class SQLAlchemyMediaRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -60,6 +65,20 @@ class SQLAlchemyMediaRepository:
             MediaFile.deleted_at.is_(None),
         )
         return await self._session.scalar(statement)
+
+    async def is_linked(self, media_file_id: UUID) -> bool:
+        reference_columns = (
+            Plant.primary_media_file_id,
+            PlantDiary.media_file_id,
+            SpeciesIdentification.media_file_id,
+            Diagnosis.media_file_id,
+            AIMessage.media_file_id,
+        )
+        for column in reference_columns:
+            statement = select(column).where(column == media_file_id).limit(1)
+            if await self._session.scalar(statement) is not None:
+                return True
+        return False
 
 
 class MediaService:
@@ -192,6 +211,12 @@ class MediaService:
 
     async def soft_delete(self, user_id: UUID, media_file_id: UUID) -> None:
         media_file = await self._get_owned(media_file_id, user_id)
+        if await self._repository.is_linked(media_file_id):
+            raise AppError(
+                code="MEDIA_FILE_IN_USE",
+                message="사용 중인 파일은 직접 삭제할 수 없습니다.",
+                status_code=409,
+            )
         media_file.status = MediaStatus.DELETED.value
         media_file.deleted_at = datetime.now(UTC)
 

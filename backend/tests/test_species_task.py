@@ -89,12 +89,13 @@ def make_job() -> QueueJob:
     )
 
 
-async def test_species_handler_applies_catalog_metadata() -> None:
-    repository = FakeRepository()
-    guide = SpeciesCareGuide(
+def make_basil_guide() -> SpeciesCareGuide:
+    return SpeciesCareGuide(
         species_reference_id="catalog:ocimum-basilicum",
         display_name="바질",
         scientific_name="Ocimum basilicum",
+        family_name="Lamiaceae",
+        flowering_period="여름",
         category=PlantCategory.HERB,
         recommended_water_min_ml=150,
         recommended_water_max_ml=250,
@@ -102,6 +103,11 @@ async def test_species_handler_applies_catalog_metadata() -> None:
         default_repotting_interval_days=365,
         active=True,
     )
+
+
+async def test_species_handler_applies_catalog_metadata() -> None:
+    repository = FakeRepository()
+    guide = make_basil_guide()
     repository.guides = {
         "gbif:2927096": guide,
         "name:ocimum basilicum": guide,
@@ -123,7 +129,9 @@ async def test_species_handler_applies_catalog_metadata() -> None:
     _, candidates = repository.completed[0]
     assert candidates[0].reference_id == "catalog:ocimum-basilicum"
     assert candidates[0].display_name == "바질"
-    assert candidates[0].category_suggestion == PlantCategory.HERB
+    assert candidates[0].category == PlantCategory.HERB
+    assert candidates[0].family_name == "Lamiaceae"
+    assert candidates[0].flowering_period == "여름"
     assert candidates[0].recommended_water.min_ml == 150
     assert candidates[0].default_care is not None
     assert candidates[0].default_care.watering_interval_days == 3
@@ -181,8 +189,29 @@ async def test_species_handler_marks_empty_candidates_as_failed() -> None:
     assert repository.completed == []
 
 
+async def test_species_handler_filters_unsupported_candidates() -> None:
+    repository = FakeRepository()
+    provider = FakeProvider(
+        [
+            PlantNetCandidate(
+                scientific_name="Unknown plant",
+                common_names=(),
+                confidence=0.99,
+            )
+        ]
+    )
+    job = make_job()
+
+    await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(job)
+
+    assert repository.failures == [(job.resource_id, "SPECIES_NO_CANDIDATES")]
+    assert repository.completed == []
+
+
 async def test_species_handler_releases_transient_failure_for_retry() -> None:
     repository = FakeRepository()
+    guide = make_basil_guide()
+    repository.guides = {"name:ocimum basilicum": guide}
     provider = FakeProvider(error=PlantNetTransientError("temporary"))
     handler = SpeciesIdentificationHandler(repository, FakeStorage(), provider)
     job = make_job()
@@ -244,6 +273,8 @@ async def test_species_handler_marks_missing_uploaded_media_as_permanent() -> No
 
 async def test_species_handler_ignores_duplicate_message_delivery() -> None:
     repository = FakeRepository()
+    guide = make_basil_guide()
+    repository.guides = {"name:ocimum basilicum": guide}
     provider = FakeProvider(
         [
             PlantNetCandidate(

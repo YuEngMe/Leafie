@@ -1,4 +1,3 @@
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -164,10 +163,17 @@ class SpeciesIdentificationHandler:
                 return
 
             guides = await self._repository.find_guides(provider_candidates)
-            candidates = [
-                normalize_candidate(candidate, find_matching_guide(candidate, guides))
-                for candidate in provider_candidates
-            ]
+            candidates: list[SpeciesCandidate] = []
+            seen_reference_ids: set[str] = set()
+            for provider_candidate in provider_candidates:
+                guide = find_matching_guide(provider_candidate, guides)
+                if guide is None or guide.species_reference_id in seen_reference_ids:
+                    continue
+                seen_reference_ids.add(guide.species_reference_id)
+                candidates.append(normalize_candidate(provider_candidate, guide))
+            if not candidates:
+                await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
+                return
             await self._repository.complete(job.resource_id, candidates)
         except PlantNetPermanentError as exc:
             await self._repository.fail(job.resource_id, exc.failure_code)
@@ -191,22 +197,10 @@ class SpeciesIdentificationHandler:
 
 def normalize_candidate(
     candidate: PlantNetCandidate,
-    guide: SpeciesCareGuide | None,
+    guide: SpeciesCareGuide,
 ) -> SpeciesCandidate:
-    if guide is not None:
-        guide_candidate = guide_to_candidate(guide)
-        return guide_candidate.model_copy(update={"confidence": candidate.confidence})
-
-    display_name = (
-        candidate.common_names[0] if candidate.common_names else candidate.scientific_name
-    )
-    reference_slug = re.sub(r"[^a-z0-9]+", "-", candidate.scientific_name.casefold()).strip("-")
-    return SpeciesCandidate(
-        reference_id=f"plantnet:{reference_slug}",
-        display_name=display_name,
-        scientific_name=candidate.scientific_name,
-        confidence=candidate.confidence,
-    )
+    guide_candidate = guide_to_candidate(guide)
+    return guide_candidate.model_copy(update={"confidence": candidate.confidence})
 
 
 def find_matching_guide(

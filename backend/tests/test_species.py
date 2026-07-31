@@ -119,6 +119,8 @@ def make_guide(index: int) -> SpeciesCareGuide:
         display_name=f"바질 {index}",
         scientific_name=f"Ocimum basilicum {index}",
         aliases=["스위트 바질"],
+        family_name="Lamiaceae",
+        flowering_period="여름",
         category=PlantCategory.HERB,
         recommended_water_min_ml=150,
         recommended_water_max_ml=250,
@@ -159,7 +161,9 @@ async def test_search_returns_shared_candidate_contract_and_cursor() -> None:
     assert first.has_next is True
     assert first.next_cursor is not None
     assert decode_cursor(first.next_cursor) == 2
-    assert first.items[0].category_suggestion == PlantCategory.HERB
+    assert first.items[0].category == PlantCategory.HERB
+    assert first.items[0].family_name == "Lamiaceae"
+    assert first.items[0].flowering_period == "여름"
     assert first.items[0].recommended_water is not None
     assert first.items[0].recommended_water.min_ml == 150
     assert first.items[0].default_care is not None
@@ -243,7 +247,7 @@ async def test_create_identification_reuses_result_for_same_media() -> None:
 
     assert first.created is True
     assert second.created is False
-    assert second.response.id == first.response.id
+    assert second.response.identification_id == first.response.identification_id
     assert len(repository.identifications) == 1
 
 
@@ -256,18 +260,18 @@ async def test_create_and_get_identification() -> None:
 
     creation = await service.create_identification(user_id, media_file.id)
     created = creation.response
-    stored = repository.identifications[created.id]
+    stored = repository.identifications[created.identification_id]
     stored.status = SpeciesIdentificationStatus.COMPLETED
     stored.candidates = [
         {
-            "reference_id": "plantnet:ocimum-basilicum",
+            "reference_id": "catalog:ocimum-basilicum",
             "display_name": "바질",
             "scientific_name": "Ocimum basilicum",
             "confidence": 0.91,
         }
     ]
     stored.completed_at = datetime.now(UTC)
-    result = await service.get_identification(user_id, created.id)
+    result = await service.get_identification(user_id, created.identification_id)
 
     assert created.status == SpeciesIdentificationStatus.PENDING
     assert result.status == SpeciesIdentificationStatus.COMPLETED
@@ -304,13 +308,13 @@ async def test_create_route_enqueues_identification_in_same_session() -> None:
         reset_request_id(token)
 
     assert len(session.added) == 1
-    assert session.added[0].id == response.id
-    assert duplicate_response.id == response.id
+    assert session.added[0].id == response.identification_id
+    assert duplicate_response.identification_id == response.identification_id
     assert queue.sessions == [session]
     assert queue.jobs == [
         QueueJob(
             job_type=JobType.SPECIES_IDENTIFICATION_RUN,
-            resource_id=response.id,
+            resource_id=response.identification_id,
             trace_id="req_species_create",
         )
     ]
@@ -320,7 +324,7 @@ def test_species_routes_require_authentication_before_database_access() -> None:
     application = create_app()
 
     with TestClient(application) as client:
-        response = client.get("/api/v1/plant-species/search", params={"query": "바질"})
+        response = client.get("/api/v1/species", params={"query": "바질"})
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AUTH_REQUIRED"

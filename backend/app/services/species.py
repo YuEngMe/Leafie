@@ -192,7 +192,7 @@ class SpeciesService:
         if existing is not None:
             return SpeciesIdentificationCreation(
                 response=SpeciesIdentificationCreatedResponse(
-                    id=existing.id,
+                    identification_id=existing.id,
                     status=existing.status,
                     created_at=existing.created_at,
                 ),
@@ -210,7 +210,7 @@ class SpeciesService:
         await self._repository.add_identification(identification)
         return SpeciesIdentificationCreation(
             response=SpeciesIdentificationCreatedResponse(
-                id=identification.id,
+                identification_id=identification.id,
                 status=SpeciesIdentificationStatus.PENDING,
                 created_at=created_at,
             ),
@@ -260,7 +260,9 @@ def guide_to_candidate(guide: SpeciesCareGuide) -> SpeciesCandidate:
         reference_id=guide.species_reference_id,
         display_name=guide.display_name,
         scientific_name=guide.scientific_name,
-        category_suggestion=guide.category,
+        family_name=guide.family_name,
+        flowering_period=guide.flowering_period,
+        category=guide.category,
         recommended_water=recommended_water,
         default_care=default_care,
     )
