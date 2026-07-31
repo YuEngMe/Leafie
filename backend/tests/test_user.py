@@ -25,7 +25,6 @@ class FakeUserRepository:
     def __init__(self, auth_user: AuthUserRecord) -> None:
         self.auth_user = auth_user
         self.profile: UserProfile | None = None
-        self.profile_media: dict[UUID, str] = {}
         self.owned_plants: set[UUID] = set()
         self.stats = UserStats(plant_count=2, diary_count=5, diagnosis_count=1)
         self.create_calls = 0
@@ -42,11 +41,6 @@ class FakeUserRepository:
         self.create_calls += 1
         if self.profile is None:
             self.profile = profile
-
-    async def get_profile_media_path(self, media_file_id: UUID, user_id: UUID) -> str | None:
-        if user_id != self.auth_user.id:
-            return None
-        return self.profile_media.get(media_file_id)
 
     async def plant_is_owned(self, plant_id: UUID, user_id: UUID) -> bool:
         return user_id == self.auth_user.id and plant_id in self.owned_plants
@@ -107,7 +101,7 @@ def make_auth_user(**overrides: object) -> AuthUserRecord:
         "email_verified_at": datetime.now(UTC),
         "created_at": datetime.now(UTC) - timedelta(days=10),
         "raw_user_meta_data": {"full_name": "잎새 집사"},
-        "auth_providers": ("google", "email"),
+        "auth_providers": ("apple", "email"),
     }
     values.update(overrides)
     return AuthUserRecord(**values)
@@ -118,7 +112,7 @@ def build_service(
 ) -> tuple[UserService, FakeUserRepository, FakeStorage]:
     repository = FakeUserRepository(auth_user or make_auth_user())
     storage = FakeStorage()
-    return UserService(repository, storage), repository, storage
+    return UserService(repository), repository, storage
 
 
 def test_api_service_uses_configured_expiry_and_reauthentication_window(
@@ -131,9 +125,8 @@ def test_api_service_uses_configured_expiry_and_reauthentication_window(
     )
     monkeypatch.setattr(users_api, "settings", configured)
 
-    service = users_api.build_service(object(), FakeStorage())
+    service = users_api.build_service(object())
 
-    assert service._profile_url_expires_seconds == 123
     assert service._reauth_max_age_seconds == 600
 
 
@@ -144,40 +137,33 @@ async def test_get_me_idempotently_creates_profile_from_auth_identity() -> None:
     second = await service.get_me(repository.auth_user.id)
 
     assert first.nickname == "잎새 집사"
-    assert first.auth_providers == ["email", "google"]
+    assert first.auth_providers == ["apple", "email"]
     assert first.can_change_password is True
     assert first.gardener_days == 10
     assert second.user_id == first.user_id
     assert repository.create_calls == 1
 
 
-async def test_update_profile_requires_owned_ready_profile_media() -> None:
-    service, repository, storage = build_service()
+async def test_update_profile_changes_only_nickname() -> None:
+    service, repository, _ = build_service()
     await service.get_me(repository.auth_user.id)
-    media_file_id = uuid4()
-
-    with pytest.raises(AppError) as error:
-        await service.update_me(
-            repository.auth_user.id,
-            UserProfileUpdate(profile_media_file_id=media_file_id),
-        )
-    assert error.value.code == "MEDIA_FILE_NOT_FOUND"
-
-    repository.profile_media[media_file_id] = f"user-profile/{media_file_id}.jpg"
     response = await service.update_me(
         repository.auth_user.id,
-        UserProfileUpdate(
-            nickname="  초록이  ",
-            bio="반가워요",
-            profile_media_file_id=media_file_id,
-            timezone="Asia/Seoul",
-        ),
+        UserProfileUpdate(nickname="  초록이  "),
     )
 
     assert response.nickname == "초록이"
-    assert response.profile_media_file_id == media_file_id
-    assert response.profile_image_url is not None
-    assert storage.signed == [(repository.profile_media[media_file_id], 300)]
+    assert response.profile_completed is True
+
+
+async def test_update_push_notification_setting() -> None:
+    service, repository, _ = build_service()
+
+    response = await service.update_push_enabled(repository.auth_user.id, False)
+
+    assert response.push_enabled is False
+    assert repository.profile is not None
+    assert repository.profile.push_enabled is False
 
 
 async def test_selected_plant_must_belong_to_current_user() -> None:
@@ -266,11 +252,11 @@ async def test_account_deletion_does_not_treat_token_refresh_as_reauthentication
     assert error.value.code == "RECENT_AUTH_REQUIRED"
 
 
-def test_profile_update_validates_required_fields_and_timezone() -> None:
+def test_profile_update_rejects_blank_and_extra_fields() -> None:
     with pytest.raises(ValidationError):
-        UserProfileUpdate.model_validate({"nickname": None})
+        UserProfileUpdate.model_validate({"nickname": "  "})
     with pytest.raises(ValidationError):
-        UserProfileUpdate.model_validate({"timezone": "Not/A-Timezone"})
+        UserProfileUpdate.model_validate({"nickname": "초록이", "bio": "없어진 필드"})
 
 
 async def test_account_delete_handler_removes_storage_then_auth_user() -> None:

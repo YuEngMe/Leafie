@@ -148,7 +148,7 @@ async def test_presign_rejects_purpose_size_limit() -> None:
         await service.create_upload(
             uuid4(),
             build_request(
-                purpose=MediaPurpose.USER_PROFILE,
+                purpose=MediaPurpose.PLANT_PROFILE,
                 size_bytes=5 * 1024 * 1024 + 1,
             ),
         )

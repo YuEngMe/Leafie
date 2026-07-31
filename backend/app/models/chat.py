@@ -9,7 +9,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -26,35 +25,22 @@ from app.models.enums import (
 )
 
 
-class AIChat(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
-    __tablename__ = "ai_chats"
-    __table_args__ = (UniqueConstraint("plant_id", name="uq_ai_chats_plant_id"),)
-
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("auth.users.id", ondelete="CASCADE"), nullable=False
-    )
-    plant_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
-    )
-
-
 class AIConversation(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "ai_conversations"
     __table_args__ = (
         CheckConstraint("summary_version >= 0", name="summary_version"),
         Index(
-            "ix_ai_conversations_chat_id_last_message_at",
-            "chat_id",
+            "ix_ai_conversations_plant_id_last_message_at",
+            "plant_id",
             text("last_message_at DESC"),
         ),
-        Index("ix_ai_conversations_chat_id_title", "chat_id", "title"),
+        Index("ix_ai_conversations_plant_id_title", "plant_id", "title"),
     )
 
-    chat_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("ai_chats.id", ondelete="CASCADE"), nullable=False
+    plant_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    provider_conversation_id: Mapped[str | None] = mapped_column(String(255))
     context_summary: Mapped[str | None] = mapped_column(Text)
     summarized_through_message_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -132,7 +118,6 @@ class AIAction(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "ai_actions"
     __table_args__ = (
         CheckConstraint(f"status IN ({enum_values(AIActionStatus)})", name="status"),
-        CheckConstraint("version > 0", name="version"),
         Index("ix_ai_actions_user_id_status_expires_at", "user_id", "status", "expires_at"),
     )
 
@@ -150,7 +135,6 @@ class AIAction(Base, UUIDPrimaryKeyMixin):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, server_default=text("'PENDING_CONFIRMATION'")
     )
-    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

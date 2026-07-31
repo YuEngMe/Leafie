@@ -9,7 +9,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    Text,
     UniqueConstraint,
     text,
 )
@@ -18,6 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.enums import (
+    CareEventSource,
     CareEventStatus,
     CareEventType,
     CareScheduleType,
@@ -38,9 +38,9 @@ class CareSchedule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             name="water_amount_range",
         ),
         CheckConstraint(
-            "water_recommendation_source IS NULL OR "
-            f"water_recommendation_source IN ({enum_values(WaterRecommendationSource)})",
-            name="water_recommendation_source",
+            "recommendation_source IS NULL OR "
+            f"recommendation_source IN ({enum_values(WaterRecommendationSource)})",
+            name="recommendation_source",
         ),
         UniqueConstraint("plant_id", "type", name="uq_care_schedules_plant_type"),
         Index("ix_care_schedules_enabled_next_due_date", "enabled", "next_due_date"),
@@ -54,7 +54,7 @@ class CareSchedule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     next_due_date: Mapped[date] = mapped_column(Date, nullable=False)
     recommended_water_min_ml: Mapped[int | None] = mapped_column(Integer)
     recommended_water_max_ml: Mapped[int | None] = mapped_column(Integer)
-    water_recommendation_source: Mapped[str | None] = mapped_column(String(32))
+    recommendation_source: Mapped[str | None] = mapped_column(String(32))
     enabled: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
 
 
@@ -63,12 +63,19 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __table_args__ = (
         CheckConstraint(f"type IN ({enum_values(CareEventType)})", name="type"),
         CheckConstraint(f"status IN ({enum_values(CareEventStatus)})", name="status"),
+        CheckConstraint(f"source IN ({enum_values(CareEventSource)})", name="source"),
         CheckConstraint(
-            "(type <> 'CUSTOM') OR (title IS NOT NULL AND schedule_id IS NULL)",
+            "(status = 'COMPLETED' AND performed_on IS NOT NULL AND recorded_at IS NOT NULL) OR "
+            "(status <> 'COMPLETED' AND performed_on IS NULL AND recorded_at IS NULL)",
+            name="completion_fields",
+        ),
+        CheckConstraint(
+            "type <> 'CUSTOM' OR (title IS NOT NULL AND schedule_id IS NULL)",
             name="custom_event",
         ),
-        Index("ix_care_events_plant_id_scheduled_at", "plant_id", "scheduled_at"),
-        Index("ix_care_events_status_scheduled_at", "status", "scheduled_at"),
+        Index("ix_care_events_plant_id_due_date", "plant_id", "due_date"),
+        Index("ix_care_events_plant_id_performed_on", "plant_id", "performed_on"),
+        Index("ix_care_events_status_due_date", "status", "due_date"),
     )
 
     plant_id: Mapped[UUID] = mapped_column(
@@ -86,6 +93,7 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'SCHEDULED'")
     )
-    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    note: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(24), nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    performed_on: Mapped[date | None] = mapped_column(Date)
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

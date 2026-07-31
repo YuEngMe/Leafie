@@ -24,7 +24,6 @@ MIME_EXTENSIONS = {
     "image/webp": "webp",
 }
 PURPOSE_PATHS = {
-    MediaPurpose.USER_PROFILE: "user-profile",
     MediaPurpose.PLANT_PROFILE: "plant-profile",
     MediaPurpose.SPECIES_IDENTIFICATION: "species-identification",
     MediaPurpose.DIARY: "diary",
@@ -32,7 +31,6 @@ PURPOSE_PATHS = {
     MediaPurpose.CHAT: "chat",
 }
 PURPOSE_MAX_BYTES = {
-    MediaPurpose.USER_PROFILE: 5 * 1024 * 1024,
     MediaPurpose.PLANT_PROFILE: 5 * 1024 * 1024,
     MediaPurpose.SPECIES_IDENTIFICATION: 10 * 1024 * 1024,
     MediaPurpose.DIARY: 10 * 1024 * 1024,

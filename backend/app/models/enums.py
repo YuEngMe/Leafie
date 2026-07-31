@@ -28,12 +28,6 @@ class SpeciesIdentificationStatus(StrEnum):
     FAILED = "FAILED"
 
 
-class TaxonRank(StrEnum):
-    SPECIES = "SPECIES"
-    GENUS = "GENUS"
-    FAMILY = "FAMILY"
-
-
 class WaterRecommendationSource(StrEnum):
     SPECIES_GUIDE = "SPECIES_GUIDE"
 
@@ -47,12 +41,22 @@ class PersonalityType(StrEnum):
     CHUNGCHEONG = "CHUNGCHEONG"
 
 
-class ConditionLevel(StrEnum):
-    VERY_BAD = "VERY_BAD"
-    BAD = "BAD"
-    NORMAL = "NORMAL"
-    GOOD = "GOOD"
-    VERY_GOOD = "VERY_GOOD"
+class PotType(StrEnum):
+    TERRACOTTA = "TERRACOTTA"
+    PLASTIC = "PLASTIC"
+    GLASS = "GLASS"
+    CERAMIC = "CERAMIC"
+    HYDROPONIC = "HYDROPONIC"
+    OTHER = "OTHER"
+
+
+class Placement(StrEnum):
+    VERANDA = "VERANDA"
+    WINDOW = "WINDOW"
+    LIVING_ROOM = "LIVING_ROOM"
+    BEDROOM = "BEDROOM"
+    DESK = "DESK"
+    OTHER = "OTHER"
 
 
 class CareScheduleType(StrEnum):
@@ -70,13 +74,17 @@ class CareEventType(StrEnum):
 
 class CareEventStatus(StrEnum):
     SCHEDULED = "SCHEDULED"
-    OVERDUE = "OVERDUE"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
 
 
+class CareEventSource(StrEnum):
+    AUTO_SCHEDULE = "AUTO_SCHEDULE"
+    USER_CREATED = "USER_CREATED"
+    AI_RECOMMENDED = "AI_RECOMMENDED"
+
+
 class MediaPurpose(StrEnum):
-    USER_PROFILE = "USER_PROFILE"
     PLANT_PROFILE = "PLANT_PROFILE"
     SPECIES_IDENTIFICATION = "SPECIES_IDENTIFICATION"
     DIARY = "DIARY"
@@ -131,28 +139,6 @@ class AIActionStatus(StrEnum):
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
-    FAILED = "FAILED"
-
-
-class BatchJobStatus(StrEnum):
-    CREATED = "CREATED"
-    SUBMITTED = "SUBMITTED"
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-
-
-class BatchItemStatus(StrEnum):
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-
-
-class MonthlyReportStatus(StrEnum):
-    PENDING = "PENDING"
-    COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
 
