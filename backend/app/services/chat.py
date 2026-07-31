@@ -390,6 +390,11 @@ class ChatService:
             content=request.content,
         )
         await self._repository.add_message(user_message)
+        if conversation.title == "새 채팅":
+            conversation.title = make_conversation_title(
+                request.content,
+                has_media=request.media_file_id is not None,
+            )
         conversation.last_message_at = datetime.now(UTC)
         accepted = MessageAcceptedResponse(
             message_id=user_message.id,
@@ -519,23 +524,23 @@ class ChatService:
 
 
 def build_instructions(context: PlantChatContext, summary: str | None) -> str:
-    personality = {
-        "OUTGOING": "밝고 적극적인 말투",
-        "CHIC": "짧고 시크하지만 무례하지 않은 말투",
-        "CUTE": "귀엽고 다정한 말투",
-        "CRUSH": "수줍고 설레는 말투",
-        "INTROVERTED": "조용하고 신중한 말투",
-        "CHUNGCHEONG": "느긋한 충청도식 말투",
-    }.get(context.personality_type, "다정하고 명확한 말투")
     return (
-        f"당신은 사용자의 식물 친구 {context.nickname}입니다. {personality}로 한국어로 답하세요. "
+        "당신은 친근하고 신중한 AI 식물박사 '똑똑이'입니다. 한국어로 답하세요. "
         "식물 관리 질문에는 결론, 근거, 다음 행동 순서로 간결하게 답하세요. "
         "사진만으로 질병을 확정하지 말고 불확실하면 추가 관찰이나 전문가 확인을 권하세요. "
-        f"식물명: {context.species_name}, 학명: {context.scientific_name or '미상'}, "
+        f"상담 대상 식물의 애칭: {context.nickname}, 식물명: {context.species_name}, "
+        f"학명: {context.scientific_name or '미상'}, "
         f"장소: {context.place_name}, 화분: {context.pot_type}, 위치: {context.placement}. "
         f"관리 가이드: {json.dumps(context.care_profile, ensure_ascii=False)}. "
         f"이전 대화 요약: {summary or '없음'}."
     )
+
+
+def make_conversation_title(content: str, *, has_media: bool) -> str:
+    normalized = " ".join(content.split())
+    if not normalized:
+        return "사진 질문" if has_media else "새 채팅"
+    return normalized[:30]
 
 
 def model_to_input(message: AIMessage) -> ChatInputMessage:

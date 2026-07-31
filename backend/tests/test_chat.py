@@ -9,7 +9,13 @@ from app.core.errors import AppError
 from app.integrations.openai_chat import OpenAIChatProvider
 from app.main import create_app
 from app.schemas.chat import MessageCreateRequest
-from app.services.chat import decode_cursor, encode_cursor
+from app.services.chat import (
+    PlantChatContext,
+    build_instructions,
+    decode_cursor,
+    encode_cursor,
+    make_conversation_title,
+)
 
 
 def test_message_requires_text_or_photo() -> None:
@@ -70,3 +76,32 @@ async def test_chat_rejects_unowned_plant() -> None:
         await service.create_conversation(uuid4(), uuid4(), "새 채팅")
 
     assert error.value.code == "PLANT_NOT_FOUND"
+
+
+def test_chat_prompt_uses_ai_doctor_identity() -> None:
+    context = PlantChatContext(
+        user_id=uuid4(),
+        plant_id=uuid4(),
+        nickname="새싹이",
+        personality_type="CHIC",
+        place_name="우리 집",
+        pot_type="PLASTIC",
+        placement="WINDOW",
+        species_name="바질",
+        scientific_name="Ocimum basilicum",
+        care_profile={},
+    )
+
+    instructions = build_instructions(context, None)
+
+    assert "AI 식물박사 '똑똑이'" in instructions
+    assert "상담 대상 식물의 애칭: 새싹이" in instructions
+    assert "시크" not in instructions
+
+
+def test_first_message_creates_conversation_list_title() -> None:
+    assert make_conversation_title("  물은   얼마나 줘야 하나요?  ", has_media=False) == (
+        "물은 얼마나 줘야 하나요?"
+    )
+    assert make_conversation_title("", has_media=True) == "사진 질문"
+    assert len(make_conversation_title("가" * 50, has_media=False)) == 30
