@@ -89,7 +89,6 @@ class SQLAlchemyChatImageRepository:
                 user_id=plant.user_id,
                 plant_id=plant.id,
                 nickname=plant.nickname,
-                personality_type=plant.personality_type,
                 place_name=plant.place_name,
                 pot_type=plant.pot_type,
                 placement=plant.placement,

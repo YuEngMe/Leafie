@@ -37,7 +37,6 @@ class PlantChatContext:
     user_id: UUID
     plant_id: UUID
     nickname: str
-    personality_type: str
     place_name: str
     pot_type: str
     placement: str
@@ -127,7 +126,6 @@ class SQLAlchemyChatRepository:
             user_id=user_id,
             plant_id=plant.id,
             nickname=plant.nickname,
-            personality_type=plant.personality_type,
             place_name=plant.place_name,
             pot_type=plant.pot_type,
             placement=plant.placement,

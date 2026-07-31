@@ -83,7 +83,6 @@ def test_chat_prompt_uses_ai_doctor_identity() -> None:
         user_id=uuid4(),
         plant_id=uuid4(),
         nickname="새싹이",
-        personality_type="CHIC",
         place_name="우리 집",
         pot_type="PLASTIC",
         placement="WINDOW",
@@ -96,7 +95,6 @@ def test_chat_prompt_uses_ai_doctor_identity() -> None:
 
     assert "AI 식물박사 '똑똑이'" in instructions
     assert "상담 대상 식물의 애칭: 새싹이" in instructions
-    assert "시크" not in instructions
 
 
 def test_first_message_creates_conversation_list_title() -> None:
