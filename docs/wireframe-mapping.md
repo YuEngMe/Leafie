@@ -7,7 +7,7 @@
 | 영역 | 화면과 동작 | 서버 기준 |
 |---|---|---|
 | 온보딩 | 시작 화면 후 로그인 이동 | 서버 데이터 없음 |
-| 로그인 | 이메일·비밀번호, Naver·Kakao·Apple | Supabase Auth SDK |
+| 로그인 | 이메일·비밀번호, Naver·Kakao·Apple | Supabase Auth SDK, Naver Custom OAuth2 |
 | 회원가입 | 이메일, 비밀번호·확인, 닉네임, 인증 링크 | Supabase Auth + `leafie_nickname` |
 | 비밀번호 찾기 | 현재 이메일로 링크, 앱에서 새 비밀번호 입력 | Supabase recovery 딥링크 |
 | OAuth 최초 로그인 | 이메일 필수, 닉네임 추가 입력 | `user_profiles.profile_completed_at` |
@@ -20,7 +20,7 @@
 | 성격 | 외향적·시크·귀여움·짝사랑·내성적·충청도 | `plants.personality_type` |
 | 꾸미기 | 컬러·헤어·장식 선택 | `color_id`, `hair_id`, `accessory_id` |
 | 등록 완료 | 식물·일정·첫 대화 세션을 한 번에 생성 | 등록 트랜잭션 |
-| 홈 | 현재 식물의 방, D+, 대사, 오늘·지연 할 일 | `GET /home` |
+| 홈 | 현재 식물의 방, D+, 대사, 오늘 할 일 | `GET /home` |
 | 식물 전환 | 좌우 스와이프로 선택 식물 변경 | `PATCH /users/me/selected-plant` |
 | 홈 컨디션 | 오늘 다이어리가 있으면 읽기 전용, 없으면 작성 이동 | `plant_diaries.condition_score` |
 | 홈 메모 | 식물별 오늘 메모 한 개, 완료 체크 없음 | `plant_daily_memos` |

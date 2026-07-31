@@ -101,7 +101,8 @@ Flutter가 Supabase `signUp`을 호출합니다.
 
 ### OAuth
 
-지원 Provider는 Naver, Kakao, Apple입니다. OAuth 계정은 이메일 제공이 필수이며
+지원 Provider는 Naver, Kakao, Apple입니다. Kakao와 Apple은 Supabase 기본 Provider,
+Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 제공이 필수이며
 `GET /users/me`의 `profile_completed=false`이면 닉네임 입력 화면으로 이동합니다.
 
 ### 비밀번호 재설정·변경
@@ -317,7 +318,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ## 8. 홈
 
-### `GET /home?plant_id={optional}&date=2026-07-31`
+### `GET /home?plant_id={optional}`
 
 `plant_id`가 없으면 현재 선택 식물을 사용합니다.
 
@@ -339,7 +340,6 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
   },
   "condition": {"recorded": true, "score": 74, "level": 4},
   "today_events": [],
-  "overdue_events": [],
   "daily_memo": {"content": "새잎이 보였다."},
   "unread_notification_count": 2
 }
@@ -356,7 +356,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 {"content": "오늘 새잎이 보였다."}
 ```
 
-완료 상태는 없으며 미래 날짜는 허용하지 않습니다.
+완료 상태는 없으며 `date`는 사용자 시간대의 오늘만 허용합니다.
 
 ## 9. 관리 일정과 캘린더
 

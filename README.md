@@ -40,7 +40,7 @@
 
 - Frontend: Flutter
 - API: FastAPI, Pydantic v2, SQLAlchemy 2.x
-- Auth: Supabase Auth (Email/Password, Naver/Kakao/Apple OAuth)
+- Auth: Supabase Auth (Email/Password, Kakao/Apple OAuth, Naver Custom OAuth2)
 - Database: Supabase PostgreSQL
 - Storage: Supabase Storage
 - Queue: Supabase Queues (`pgmq`)

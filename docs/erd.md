@@ -394,7 +394,7 @@ device_tokens(user_id, revoked_at)
 
 ## 6. 인증과 보안
 
-- 이메일·비밀번호와 Naver·Kakao·Apple OAuth를 Supabase Auth로 처리합니다.
+- 이메일·비밀번호, Kakao·Apple OAuth와 Naver Custom OAuth2를 Supabase Auth로 처리합니다.
 - 이메일 가입자는 인증 링크 확인 전 로그인할 수 없습니다.
 - Flutter에는 publishable key만 포함하고 `service_role`과 외부 API Key는 FastAPI와
   Worker 환경변수에만 저장합니다.
@@ -412,7 +412,7 @@ device_tokens(user_id, revoked_at)
 - 다이어리 자체 삭제는 지원하지 않으며 수정만 허용합니다.
 - 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 업무 데이터와 Storage를 삭제하고
   마지막에 Supabase Auth 계정을 제거합니다.
-- 계정 삭제 재시도가 소진되면 `FAILED`와 실패 코드를 남겨 운영자가 재처리합니다.
+- 계정 삭제 재시도가 소진되면 `FAILED` 상태와 Worker 로그를 기준으로 운영자가 재처리합니다.
 - 사용자 사진과 대화를 품질 개선이나 모델 학습에 재사용하려면 별도 동의가 필요합니다.
 
 ## 8. 파생 데이터
