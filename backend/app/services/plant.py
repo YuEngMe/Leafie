@@ -194,10 +194,10 @@ class PlantRegistrationService:
             updated_at=now,
         )
 
-        entities: list[object] = [plant, watering_schedule, watering_event, conversation]
+        care_events: list[CareEvent] = [watering_event]
         if request.repotting_history.status == RepottingHistoryStatus.KNOWN:
             assert request.repotting_history.date is not None
-            entities.append(
+            care_events.append(
                 completed_care_event(
                     plant_id=plant.id,
                     schedule_id=None,
@@ -207,7 +207,12 @@ class PlantRegistrationService:
                 )
             )
 
-        await self._repository.add_registration(*entities)
+        # These models use explicit UUID foreign keys without ORM relationships.
+        # Flush parents first so PostgreSQL never receives child INSERTs before
+        # their referenced plant and schedule rows exist.
+        await self._repository.add_registration(plant)
+        await self._repository.add_registration(watering_schedule, conversation)
+        await self._repository.add_registration(*care_events)
         profile.selected_plant_id = plant.id
         await self._repository.flush()
         return PlantCreateResponse(id=plant.id, created_at=now)

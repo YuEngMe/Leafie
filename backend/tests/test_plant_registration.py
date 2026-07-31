@@ -44,6 +44,7 @@ class FakePlantRegistrationRepository:
         self.media: dict[UUID, MediaFile] = {}
         self.used_identifications: set[UUID] = set()
         self.added: list[object] = []
+        self.added_batches: list[tuple[object, ...]] = []
         self.flush_count = 0
 
     async def get_profile_for_update(self, user_id: UUID) -> UserProfile | None:
@@ -79,6 +80,7 @@ class FakePlantRegistrationRepository:
         return media_file
 
     async def add_registration(self, *entities: object) -> None:
+        self.added_batches.append(entities)
         self.added.extend(entities)
 
     async def flush(self) -> None:
@@ -203,6 +205,11 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert repotting_event.performed_on == date(2026, 3, 1)
     assert conversation.plant_id == plant.id
     assert conversation.title == "새 채팅"
+    assert [[type(entity) for entity in batch] for batch in repository.added_batches] == [
+        [Plant],
+        [CareSchedule, AIConversation],
+        [CareEvent, CareEvent],
+    ]
 
 
 @pytest.mark.parametrize(
