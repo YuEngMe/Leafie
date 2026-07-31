@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
+from app.integrations.openai_chat import OpenAIChatProvider
 from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.models.enums import AccountDeletionStatus
@@ -87,6 +88,10 @@ def get_storage_gateway(request: Request) -> StorageGateway:
 
 def get_job_queue(request: Request) -> JobQueue:
     return request.app.state.queue
+
+
+def get_openai_chat_provider(request: Request) -> OpenAIChatProvider:
+    return request.app.state.openai_chat
 
 
 def ensure_resource_owner(

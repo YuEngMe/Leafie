@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     plantnet_result_limit: int = Field(default=5, ge=1, le=20)
     plantnet_timeout_seconds: float = Field(default=20.0, gt=0)
 
+    openai_api_key: str | None = None
+    openai_chat_model: str = "gpt-5.6-luna"
+    openai_timeout_seconds: float = Field(default=45.0, gt=0)
+    openai_chat_max_output_tokens: int = Field(default=800, ge=100, le=4000)
+    ai_chat_context_message_limit: int = Field(default=20, ge=4, le=100)
+    ai_chat_summary_trigger_count: int = Field(default=30, ge=10, le=200)
+    ai_chat_summary_batch_size: int = Field(default=20, ge=5, le=100)
+
     worker_poll_interval_seconds: float = Field(default=1.0, gt=0)
     worker_visibility_timeout_seconds: int = Field(default=60, ge=1)
     worker_max_attempts: int = Field(default=3, ge=1)

@@ -6,12 +6,14 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.session import Database
 from app.integrations.auth import SupabaseAuthAdminGateway
+from app.integrations.openai_chat import OpenAIChatProvider
 from app.integrations.plantnet import PlantNetProvider
 from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 from app.schemas.queue import JobType
 from app.services.worker import QueueWorker
 from app.tasks.account import AccountDeleteHandler, SQLAlchemyAccountCleanupRepository
+from app.tasks.chat import ChatImageAnalysisHandler, SQLAlchemyChatImageRepository
 from app.tasks.registry import TaskRegistry
 from app.tasks.species import (
     SpeciesIdentificationHandler,
@@ -31,6 +33,7 @@ async def run_worker() -> None:
     storage = SupabaseStorageGateway(settings)
     auth_admin = SupabaseAuthAdminGateway(settings)
     plantnet = PlantNetProvider(settings)
+    openai_chat = OpenAIChatProvider(settings)
     queue = PgmqQueue(database, settings)
     registry = TaskRegistry()
     registry.register(
@@ -56,6 +59,17 @@ async def run_worker() -> None:
             plantnet,
         ),
     )
+    registry.register(
+        JobType.CHAT_IMAGE_ANALYSIS,
+        ChatImageAnalysisHandler(
+            SQLAlchemyChatImageRepository(
+                database,
+                context_limit=settings.ai_chat_context_message_limit,
+            ),
+            storage,
+            openai_chat,
+        ),
+    )
     worker = QueueWorker(
         queue,
         registry,
@@ -76,6 +90,7 @@ async def run_worker() -> None:
     finally:
         await auth_admin.close()
         await plantnet.close()
+        await openai_chat.close()
         await storage.close()
         await database.close()
 
