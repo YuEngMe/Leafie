@@ -1,7 +1,7 @@
-from datetime import datetime, time
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, Time, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,12 +27,7 @@ class UserProfile(Base, TimestampMixin):
         ForeignKey("auth.users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    profile_media_file_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("media_files.id", ondelete="SET NULL", use_alter=True),
-    )
     nickname: Mapped[str] = mapped_column(String(100), nullable=False)
-    bio: Mapped[str | None] = mapped_column(String(500))
     timezone: Mapped[str] = mapped_column(
         String(64), nullable=False, server_default=text("'Asia/Seoul'")
     )
@@ -40,38 +35,12 @@ class UserProfile(Base, TimestampMixin):
         PG_UUID(as_uuid=True),
         ForeignKey("plants.id", ondelete="SET NULL", use_alter=True),
     )
+    push_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    profile_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deletion_status: Mapped[str | None] = mapped_column(String(16))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
-class NotificationSetting(Base):
-    __tablename__ = "notification_settings"
-    __table_args__ = (
-        CheckConstraint(
-            "(quiet_hours_start IS NULL) = (quiet_hours_end IS NULL)",
-            name="quiet_hours_pair",
-        ),
-    )
-
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("auth.users.id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    care_reminder_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("true")
-    )
-    diagnosis_complete_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("true")
-    )
-    monthly_report_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("true")
-    )
-    quiet_hours_start: Mapped[time | None] = mapped_column(Time(timezone=False))
-    quiet_hours_end: Mapped[time | None] = mapped_column(Time(timezone=False))
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=text("now()")
-    )
 
 
 class DeviceToken(Base, UUIDPrimaryKeyMixin):

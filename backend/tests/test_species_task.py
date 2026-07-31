@@ -8,7 +8,7 @@ from app.integrations.plantnet import (
     PlantNetPermanentError,
     PlantNetTransientError,
 )
-from app.models.enums import PlantCategory, WaterRecommendationSource
+from app.models.enums import PlantCategory
 from app.models.plant import SpeciesCareGuide
 from app.schemas.queue import JobType, QueueJob
 from app.tasks.base import PermanentTaskError
@@ -100,7 +100,6 @@ async def test_species_handler_applies_catalog_metadata() -> None:
         recommended_water_max_ml=250,
         default_watering_interval_days=3,
         default_repotting_interval_days=365,
-        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
     repository.guides = {
@@ -140,7 +139,6 @@ async def test_species_handler_prefers_gbif_match_over_scientific_name() -> None
         scientific_name="Alocasia × mortfontanensis",
         gbif_id=5532250,
         category=PlantCategory.FOLIAGE,
-        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
     repository.guides = {"gbif:5532250": guide}
@@ -285,7 +283,6 @@ def test_species_candidate_matches_catalog_alias_case_insensitively() -> None:
         scientific_name="Dracaena trifasciata",
         aliases=["Snake Plant", "Sansevieria trifasciata"],
         category=PlantCategory.FOLIAGE,
-        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
     guides = {

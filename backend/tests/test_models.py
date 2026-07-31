@@ -3,9 +3,6 @@ from app.db.base import Base
 
 EXPECTED_APP_TABLES = {
     "ai_actions",
-    "ai_batch_items",
-    "ai_batch_jobs",
-    "ai_chats",
     "ai_conversations",
     "ai_messages",
     "ai_tool_calls",
@@ -13,14 +10,10 @@ EXPECTED_APP_TABLES = {
     "care_schedules",
     "device_tokens",
     "diagnoses",
-    "diagnosis_images",
     "media_files",
-    "monthly_reports",
-    "notification_settings",
     "notifications",
-    "plant_characters",
+    "plant_daily_memos",
     "plant_diaries",
-    "plant_environments",
     "plants",
     "species_care_guides",
     "species_identifications",
@@ -52,30 +45,24 @@ def test_one_diary_per_plant_and_day() -> None:
     assert ("plant_id", "diary_date") in unique_columns
 
 
-def test_one_permanent_chat_per_plant() -> None:
-    chats = Base.metadata.tables["ai_chats"]
-    unique_columns = {
-        tuple(column.name for column in constraint.columns)
-        for constraint in chats.constraints
-        if constraint.__class__.__name__ == "UniqueConstraint"
-    }
+def test_conversations_belong_directly_to_a_plant() -> None:
+    conversations = Base.metadata.tables["ai_conversations"]
 
-    assert ("plant_id",) in unique_columns
+    assert "plant_id" in conversations.columns
+    assert "chat_id" not in conversations.columns
 
 
 def test_diagnosis_accepts_only_one_image() -> None:
-    diagnosis_images = Base.metadata.tables["diagnosis_images"]
+    diagnoses = Base.metadata.tables["diagnoses"]
 
-    assert [column.name for column in diagnosis_images.primary_key.columns] == ["diagnosis_id"]
+    assert diagnoses.columns["media_file_id"].nullable is False
 
 
 def test_user_owned_tables_reference_supabase_auth_users() -> None:
     user_owned_tables = {
         "ai_actions",
-        "ai_chats",
         "device_tokens",
         "media_files",
-        "notification_settings",
         "notifications",
         "plants",
         "species_identifications",

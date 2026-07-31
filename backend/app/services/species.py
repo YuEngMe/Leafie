@@ -9,7 +9,12 @@ from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.models.enums import MediaPurpose, MediaStatus, SpeciesIdentificationStatus
+from app.models.enums import (
+    MediaPurpose,
+    MediaStatus,
+    SpeciesIdentificationStatus,
+    WaterRecommendationSource,
+)
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import SpeciesCareGuide
 from app.schemas.species import (
@@ -242,14 +247,14 @@ def guide_to_candidate(guide: SpeciesCareGuide) -> SpeciesCandidate:
         recommended_water = RecommendedWater(
             min_ml=guide.recommended_water_min_ml,
             max_ml=guide.recommended_water_max_ml,
-            source=guide.water_recommendation_source,
+            source=WaterRecommendationSource.SPECIES_GUIDE,
         )
     default_care = None
     if guide.default_watering_interval_days is not None:
         default_care = DefaultCareSchedule(
             watering_interval_days=guide.default_watering_interval_days,
             repotting_interval_days=guide.default_repotting_interval_days,
-            source=guide.water_recommendation_source,
+            source=WaterRecommendationSource.SPECIES_GUIDE,
         )
     return SpeciesCandidate(
         reference_id=guide.species_reference_id,

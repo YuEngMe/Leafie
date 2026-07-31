@@ -25,7 +25,7 @@
 
 ## MVP 범위
 
-- 인증 메일 기반 이메일 로그인과 Google·Kakao·Naver 소셜 로그인
+- 인증 메일 기반 이메일 로그인과 Naver·Kakao·Apple 소셜 로그인
 - 식물명칭 검색·사진 인식과 반려식물 등록
 - 다이어리와 관리 일정 기록
 - 물 권장량, 자동 반복 관리와 사용자 자유 할 일
@@ -34,14 +34,13 @@
 - 식물별 영구 채팅방, 새 채팅·대화 목록과 Tool Calling 기반 AI 상담
 - 식물별 전체 진단 이력과 진단 상세
 - 사용자 확인을 거치는 AI 일정 변경 제안
-- OpenAI Batch API 기반 월간 AI 케어 리포트
-- 푸시 알림을 위한 기기 토큰 및 사용자 설정
+- 푸시 알림을 위한 기기 토큰과 전체 ON/OFF 설정
 
 ## 권장 기술 스택
 
 - Frontend: Flutter
 - API: FastAPI, Pydantic v2, SQLAlchemy 2.x
-- Auth: Supabase Auth (Email/Password, Google/Kakao OAuth, Naver Custom OAuth2)
+- Auth: Supabase Auth (Email/Password, Naver/Kakao/Apple OAuth)
 - Database: Supabase PostgreSQL
 - Storage: Supabase Storage
 - Queue: Supabase Queues (`pgmq`)
@@ -49,7 +48,6 @@
 - Migration: Alembic
 - Background worker: 독립 Python Worker
 - AI realtime: OpenAI Responses API + Tool Calling
-- AI offline: OpenAI Batch API
 - Deployment: 같은 저장소에서 FastAPI API와 Worker를 별도 프로세스로 실행
 
 Docker는 필수가 아니며 배포 환경 통일이 필요해질 때 추가합니다. 구현 전

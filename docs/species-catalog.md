@@ -3,8 +3,7 @@
 ## 기준
 
 - 초기 지원 범위는 23개 항목입니다.
-- Pl@ntNet `/v2/species`에서 2026-07-29에 조회한 내부 ID, GBIF ID, POWO ID를
-  저장합니다.
+- Pl@ntNet에서 조회한 내부 ID와 GBIF ID를 저장하고 POWO는 출처 링크로만 관리합니다.
 - 사진 인식 후보는 `GBIF ID -> 학명` 순서로 카탈로그와 매칭합니다.
 - `선인장`은 특정 종이 아닌 `Cactaceae` 과 수준 항목이므로 Pl@ntNet species ID와
   POWO ID를 저장하지 않습니다.
@@ -14,7 +13,7 @@
 
 ## 목록
 
-| 종류 | 표시명 | 학명 | Pl@ntNet ID | GBIF ID | POWO ID |
+| 종류 | 표시명 | 학명 | Pl@ntNet ID | GBIF ID | POWO 참고 ID |
 |---|---|---|---:|---:|---|
 | 관엽식물 | 몬스테라 | `Monstera deliciosa` | 1385965 | 2868241 | 87478-1 |
 | 관엽식물 | 스킨답서스 | `Epipremnum aureum` | 1409602 | 2868323 | 87014-1 |

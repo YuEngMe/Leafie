@@ -14,7 +14,6 @@ from app.models.enums import (
     MediaStatus,
     PlantCategory,
     SpeciesIdentificationStatus,
-    WaterRecommendationSource,
 )
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import SpeciesCareGuide
@@ -125,7 +124,6 @@ def make_guide(index: int) -> SpeciesCareGuide:
         recommended_water_max_ml=250,
         default_watering_interval_days=3,
         default_repotting_interval_days=365,
-        water_recommendation_source=WaterRecommendationSource.SPECIES_GUIDE,
         active=True,
     )
 

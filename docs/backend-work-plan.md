@@ -1,233 +1,139 @@
-# 백엔드 기능별 작업 계획
+# 백엔드 작업 계획
 
-이 문서는 [API 명세](api-spec.md), [ERD](erd.md), [시스템 아키텍처](architecture.md)의
-전체 구현 범위를 기능 브랜치로 나눈 작업 기준입니다.
+## 1. 역할
 
-## 역할
-
-| 담당 | 주 책임 |
+| 담당 | 범위 |
 |---|---|
-| 백엔드 A | 사용자·식물 가이드·식물·다이어리·관리 일정·자유 할 일·홈·캘린더·알림 설정과 알림함 |
-| 백엔드 B | Storage·Queue·Worker·식물 사진 인식·영구 채팅방·대화·진단·AI·Batch·푸시 발송 |
-| 공동 | 공통 기반, migration 리뷰, API 계약, 통합 테스트, 배포 |
+| 백엔드 A | Auth·프로필, 식물·캐릭터, 다이어리, 관리 일정, 홈·캘린더 |
+| 백엔드 B | Storage, Queue·Worker, 식물 사진 인식, 진단, AI 채팅, Tool Calling, 푸시 발송 |
+| 공통 | API 계약, ERD, migration·RLS, CI, 배포와 통합 테스트 |
 
-담당은 코드 소유권을 의미합니다. 모든 PR은 다른 백엔드 담당자가 리뷰합니다.
-공통 기반은 백엔드 B가 첫 구현을 맡고 백엔드 A가 필수 리뷰합니다. 알림은
-사용자 데이터와 API를 A가, Queue 소비와 외부 푸시 전송을 B가 맡습니다.
+공통 기반은 숙련 담당자가 먼저 정리하되 기능 코드는 각 담당자가 소유합니다. 공통
+변경은 반드시 다른 백엔드 담당자의 PR 리뷰를 받습니다.
 
-## 기능 브랜치
+## 2. 작업 순서
 
-| 순서 | 브랜치 | 담당 | 구현 범위 | 선행 작업 |
-|---:|---|---|---|---|
-| 1 | `backend/feat-project-foundation` | B 구현·A 리뷰 | 설정, DB session, JWT 검증, 공통 에러, pagination, 소유권 검사, 테스트 fixture, 로깅 | 없음 |
-| 2 | `backend/feat-auth-profile` | A | `/users/me`, 프로필 수정, 선택 식물, 사용자 통계, 계정 탈퇴 예약 | 1 |
-| 3 | `backend/feat-media-storage` | B | Signed Upload URL, 업로드 완료 검증, Signed Download URL, 파일 삭제 작업 | 1 |
-| 4 | `backend/feat-queue-worker` | B | Supabase Queues adapter, Worker loop, visibility timeout, 재시도, 멱등성 | 1 |
-| 5 | `backend/feat-species-identification` | B | 식물명칭 검색, 사진 인식 작업, 후보 조회와 선택 검증 | 3, 4 |
-| 6 | `backend/feat-plant-character` | A | 식물 CRUD, 캐릭터·성격, 환경, 캐릭터 옵션 | 1, 2, 5 |
-| 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 컨디션 점수, 월간 통계 | 3, 6 |
-| 8 | `backend/feat-care-schedule` | A | 물주기·분갈이 반복 규칙, 물 권장량, 자유 할 일, 관리 이벤트, 완료·지연 | 6 |
-| 9 | `backend/feat-home-calendar` | A | 홈 집계, 식물 전환 데이터, 월간 캘린더, agenda, 기간 통계 | 7, 8 |
-| 10 | `backend/feat-diagnosis` | B | 사진 1장 진단 생성·조회·재시도·취소·삭제, 비동기 분석 | 3, 4, 6 |
-| 11 | `backend/feat-ai-chat` | B | 식물별 영구 채팅방, 대화 세션·목록·검색, 메시지, 누적 요약, 사진 첨부 | 3, 4, 6 |
-| 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool registry, Tool 실행 loop, 감사 로그, `AI_ACTIONS` 승인·취소 | 8, 10, 11 |
-| 13 | `backend/feat-monthly-batch` | B | OpenAI Batch 제출·수집, 월간 AI 리포트 목록·상세 | 4, 7, 8 |
-| 14 | `backend/feat-notifications` | A | 알림 설정, 알림함, 읽음 처리, 도메인 이벤트별 알림 레코드 생성 | 2, 8, 10, 11, 13 |
-| 15 | `backend/feat-push-delivery` | B | 기기 토큰, Queue 기반 FCM/APNs 발송, 재시도와 전송 결과 기록 | 4, 14 |
+| 순서 | 브랜치 | 담당 | 완료 조건 |
+|---:|---|---|---|
+| 1 | `backend/feat-project-foundation` | 공통 | FastAPI, 설정, DB 세션, 오류·로깅, health |
+| 2 | `backend/feat-auth-profile` | A | Supabase JWT, 프로필, 닉네임, 선택 식물, 탈퇴 |
+| 3 | `backend/feat-media-storage` | B | Signed upload/download, 소유권, 비공개 버킷 |
+| 4 | `backend/feat-queue-worker` | B | Queue 소비, 재시도, heartbeat, 멱등성 |
+| 5 | `backend/feat-species-identification` | B | 23종 검색, Pl@ntNet 인식, 후보 확정 |
+| 6 | `backend/feat-plant-registration` | A | 최종 등록 트랜잭션, 환경·성격·외형, 최초 일정 |
+| 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리, 사진 한 장, 0~100 점수, 월 평균 |
+| 8 | `backend/feat-care-schedule` | A | 반복 일정, 소급 완료, 일회성 일정, 홈 메모 |
+| 9 | `backend/feat-home-calendar` | A | 홈 통합 조회, 일정 범위 조회, 식물 전환·삭제 |
+| 10 | `backend/feat-diagnosis` | B | 사진 한 장 진단, Provider 표준화, 이력·상세 |
+| 11 | `backend/feat-ai-chat` | B | 식물별 대화 세션, 메시지·사진·요약·검색 |
+| 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool, 감사 로그, 일정 제안 승인·취소 |
+| 13 | `backend/feat-notifications` | 공통 | 알림함, 읽음, 전체 푸시 설정, 기기 토큰 |
+| 14 | `backend/feat-push-delivery` | B | FCM/APNs Worker와 실패 토큰 폐기 |
+| 15 | `backend/test-release-flow` | 공통 | 핵심 E2E, 부하·비용·장애·보안 점검 |
 
-모든 브랜치는 생성 시점의 `main`에서 시작합니다. 선행 작업이 merge되면 작업
-브랜치에서 최신 `main`을 반영한 뒤 구현을 계속합니다.
+OpenAI Batch API와 월간 AI 리포트 브랜치는 현재 MVP에서 만들지 않습니다.
 
-두 담당자의 권장 진행 순서는 다음과 같습니다.
+## 3. 기능별 완료 조건
 
-| 단계 | 백엔드 A | 백엔드 B |
-|---:|---|---|
-| 0 | `backend/feat-project-foundation` 리뷰 | `backend/feat-project-foundation` 구현 |
-| 1 | `backend/feat-auth-profile` | `backend/feat-media-storage` |
-| 2 | API·migration 리뷰 | `backend/feat-queue-worker` |
-| 3 | 식물 등록 연동 검토 | `backend/feat-species-identification` |
-| 4 | `backend/feat-plant-character` | 진단 Provider 인터페이스와 평가 fixture 준비 |
-| 5 | `backend/feat-diary-condition` | `backend/feat-diagnosis` |
-| 6 | `backend/feat-care-schedule` | `backend/feat-ai-chat` |
-| 7 | `backend/feat-home-calendar` | `backend/feat-ai-tool-calling` |
-| 8 | 통합 테스트·리뷰 | `backend/feat-monthly-batch` |
-| 9 | `backend/feat-notifications` | 알림 이벤트 통합 리뷰 |
-| 10 | 통합 테스트·리뷰 | `backend/feat-push-delivery` |
+### Auth·프로필
 
-서로 다른 기능 브랜치에서 동시에 공통 모델을 임의로 수정하지 않습니다. 공통
-테이블이나 schema 변경이 필요하면 migration PR을 먼저 합의하고, 기능 브랜치는
-병합된 최신 `main`을 반영한 뒤 계속합니다.
+- 인증 전 이메일 로그인 차단
+- Email, Naver, Kakao, Apple identity 검증
+- OAuth 신규 사용자의 닉네임 완료 상태
+- 닉네임만 수정 가능
+- 전체 푸시 ON/OFF
+- 최근 재인증 후 비동기 계정 삭제
 
-## 브랜치별 완료 조건
+### 미디어·Worker
 
-### `backend/feat-project-foundation`
+- JPEG·PNG와 용도별 크기 제한
+- 업로드 완료 전 리소스 연결 차단
+- Queue에는 리소스 ID만 저장
+- 원자적 상태 선점, visibility heartbeat, 지수 backoff
+- 영구 오류와 재시도 소진 분리
+- 중복 메시지에서 외부 API 재호출 방지
 
-- Supabase JWT의 서명·만료·issuer·audience 검증
-- 이메일·Google·Kakao·Naver 로그인에서 발급된 JWT를 같은 인증 dependency로 처리
-- SQLAlchemy async session과 transaction 경계
-- 표준 에러 응답과 request ID
-- 공통 pagination schema
-- 사용자와 식물 소유권 검사 dependency
-- pytest, Ruff 실행 환경
+### 식물 검색·등록
 
-### `backend/feat-auth-profile`
+- 내부 23종 이름·별칭 검색
+- GBIF ID 우선, 학명 차순 인식 후보 매칭
+- 지원하지 않는 후보 제외
+- `맞아요`, `다시 검색`, 후보 소진 처리
+- 등록 인식 사진을 대표 사진으로 재사용
+- 식물·일정·첫 대화 세션을 한 트랜잭션에서 생성
 
-- Supabase `auth.users`와 `USER_PROFILES` 연결
-- 이메일·Google·Kakao·Naver 최초 로그인 시 프로필 멱등 생성
-- 연결된 `auth.identities` 기반 로그인 방식과 비밀번호 메뉴 제공 여부 조회
-- 사용자 프로필 조회·수정
-- 선택 식물 소유권 검증
-- 가입일 기준 식집사 일수 계산
-- 계정 삭제 Queue 작업과 재인증 검사
+### 다이어리·홈·캘린더
 
-### `backend/feat-media-storage`
+- 식물별 하루 다이어리와 홈 메모 각각 한 개
+- 다이어리 본문·0~100 점수 필수, 사진 최대 한 장
+- 오늘·과거 작성, 미래 차단, 수정만 허용
+- 월 평균은 SQL 집계, 기록 없음은 null
+- 홈은 오늘·지연 일정, 상세는 지연·오늘·미래 일정
+- 월·주 범위 조회와 다중 필터
 
-- 목적별 Storage 경로와 MIME·크기 제한
-- 비공개 버킷 Signed URL
-- 업로드 완료 후 object 검증
-- 다른 사용자 파일 참조 차단
-- soft delete와 실제 Storage 삭제 분리
+### 관리 자동화
 
-### `backend/feat-plant-character`
+- 물주기·분갈이만 반복
+- `performed_on`과 서버 `recorded_at` 분리
+- 과거 수행일 허용, 미래 수행일 차단
+- 실제 수행일을 기준으로 다음 일정 생성
+- 중복 완료 요청 멱등 처리
+- 비료·가지치기·자유 할 일은 일회성
 
-- 확정된 식물 종류 7개
-- 검색 또는 사진 인식에서 선택한 식물명칭 필수
-- 선택 출처와 사진 인식 후보의 서버 검증
-- 캐릭터 외형과 성격 6개
-- 환경과 초기 물주기·분갈이 정보
-- 식물 생성 시 영구 AI 채팅방 함께 생성
-- 식물 삭제 시 연결 데이터 처리
+### 진단
 
-### `backend/feat-diary-condition`
+- 사진 정확히 한 장
+- `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED`
+- 식물 존재·흐림·밝기·증상 부위 품질 검사
+- `DiagnosisProvider` 응답을 내부 schema로 표준화
+- 관찰 증상, Provider 원인 TOP 3와 추천 관리
+- 건강점수와 LLM 생성 확률 금지
+- 식물별 최신순 이력과 상세
+- Provider·모델·프롬프트·규칙 버전과 비용 기록
 
-- 식물별 하루 다이어리 1개 unique
-- 글과 컨디션 필수, 사진은 선택 한 장
-- 컨디션 단계의 서버 점수 변환
-- 작성하지 않은 날을 제외한 월평균
-- 오늘 다이어리 유무와 컨디션 조회
+### AI 채팅·Tool Calling
 
-### `backend/feat-care-schedule`
+- `ai_conversations.plant_id`로 식물별 대화 세션 관리
+- 새 채팅, 목록·검색·soft delete
+- 텍스트 스트리밍과 사진 비동기 처리
+- 최근 메시지와 누적 요약 기반 컨텍스트
+- Tool 인자 schema 검증과 서버 식물·사용자 ID 주입
+- 읽기 Tool은 즉시 실행
+- 비료·가지치기 변경은 사용자 승인 후 실행
 
-- 물주기·분갈이만 자동 반복
-- 완료 API의 서버 현재 시각 저장
-- 실제 완료일 기준 다음 일정 생성
-- 미완료 일정 `OVERDUE` 유지
-- 진단 기반 비료·가지치기 일회성 일정
-- 운영팀 종별 가이드의 읽기 전용 물 권장량
-- 제목 필수 `CUSTOM` 자유 할 일과 기타 캘린더 필터
+### 알림
 
-### `backend/feat-home-calendar`
+- 물주기·분갈이·지연·진단 완료 알림
+- 모든 식물 알림함과 읽음 처리
+- 사용자 전체 푸시 ON/OFF
+- 활성 기기 토큰 unique
+- 무효 토큰 폐기와 발송 재시도
 
-- 선택 식물의 캐릭터 방 집계
-- 기록된 컨디션과 빈 아이콘 상태 구분
-- 오늘 할 일과 지연 일정을 한 번에 반환
-- 월간 캘린더와 주간 agenda
-- 날짜별 컨디션 점수 추이
+## 4. 테스트 기준
 
-### `backend/feat-queue-worker`
+각 기능 PR은 정상 경로와 함께 다음을 검증합니다.
 
-- Queue 메시지 enqueue, read, archive
-- visibility timeout과 최대 재시도
-- `job_type`, `resource_id`, `trace_id` 계약
-- 중복 처리 방지를 위한 멱등성 검사
-- 실패 코드와 작업 로그
+- 인증 실패와 이메일 미인증
+- 다른 사용자의 리소스 접근
+- 중복 요청과 잘못된 상태 전이
+- 외부 API 일시·영구 실패
+- Queue 재전달과 재시도 소진
+- 미래 날짜와 날짜 경계
+- Storage 업로드 미완료·삭제 실패
 
-### `backend/feat-species-identification`
+공통 PR 병합 전 실행:
 
-- 이름 검색과 사진 인식이 동일한 후보 응답 계약 사용
-- 사진 인식용 `READY` 미디어와 사용자 소유권 검증
-- 사진 인식 작업의 Queue 상태 전이와 실패 처리
-- 신뢰도 순 후보 제공, 결과 자동 확정 금지
-- 화면에는 최상위 후보 하나를 우선 표시하고 `맞아요`·`다시 검색` 지원
-- Pl@ntNet Provider 격리와 종별 물 권장량 가이드 연결
-- 검색 또는 완료된 인식 후보를 선택했는지 식물 등록 시 검증
+```bash
+cd backend
+ruff check .
+pytest
+alembic upgrade head
+```
 
-### `backend/feat-diagnosis`
+## 5. 브랜치와 PR
 
-- 진단 사진 정확히 한 장
-- `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED` 상태 전이 검증
-- 식물 존재 여부, 흐림, 밝기와 증상 부위 노출을 검사하는 사진 품질 단계
-- 전문 진단 API를 `DiagnosisProvider` 인터페이스 뒤에 격리
-- 제공자 응답을 내부 `DiagnosisResult` schema로 표준화
-- 최근 식물·환경·관리 기록 스냅샷을 자체 관리 규칙 입력에 포함
-- 식물별 최근 진단과 전체 이력 최신순 조회
-- 종합 상태는 `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` 중 하나
-- 관찰 증상과 의심 원인 TOP 3 제공
-- 원인별 확률은 전문 진단 제공자가 반환한 값만 사용
-- 사용자용 상태 문구, 관찰 증상, 원인 TOP 3와 추천 관리 구조화
-- 관련 대화 이동을 위한 `related_conversation_id` 제공
-- LLM은 진단 원인이나 확률을 만들지 않고 한국어 설명만 생성
-- 설명 결과의 Pydantic schema와 금지 표현 검증
-- 단일 AI 신뢰도와 임의 건강점수 생성·저장 금지
-- 진단 결과만으로 물주기·분갈이 반복 일정 변경 금지
-- 진단 제공자·모델, 설명 모델·프롬프트, 관리 규칙 버전을 분리해 저장
-- 중복 요청 방지, 외부 API 지연 시간·사용량·비용 기록
-
-### `backend/feat-ai-chat`
-
-- 식물 등록 시 채팅방 자동 생성과 기존 식물 backfill
-- `ai_chats.plant_id` unique로 식물별 영구 채팅방 하나 보장
-- 영구 채팅방 안의 대화 세션 생성·목록·검색·삭제
-- 현재 식물의 마지막 활성 대화 자동 선택
-- 식물 태그 변경 API는 만들지 않음
-- 텍스트 메시지 실시간 응답
-- 사진 메시지 Queue 기반 비동기 처리
-- 대화 세션별 최근 메시지와 누적 요약 기반 모델 컨텍스트 구성
-- 대화 삭제 시 영구 채팅방 유지
-- 식물·대화·메시지 소유권 검사
-
-### `backend/feat-ai-tool-calling`
-
-- 읽기 도구 8개 구현과 Pydantic 인자 검증
-- `user_id`, `plant_id` 서버 주입
-- Tool Call 감사 로그
-- 비료·가지치기 일정 제안 카드
-- 사용자 승인 전 데이터 변경 금지
-
-### `backend/feat-monthly-batch`
-
-- 식물·월별 JSONL 생성
-- OpenAI Batch 제출과 상태 수집
-- `custom_id` 기반 결과 매핑
-- 식물·연·월 리포트 중복 방지
-- 실시간 채팅·진단에서 Batch 사용 금지
-
-### `backend/feat-notifications`
-
-- 알림 설정 조회·수정과 quiet hours
-- 알림함과 읽음 상태
-- 물주기·분갈이·지연·진단·사진 채팅·월간 리포트 이벤트를 알림 레코드로 생성
-- 같은 원인 이벤트의 알림 중복 생성 방지
-
-### `backend/feat-push-delivery`
-
-- FCM/APNs 기기 토큰 등록·갱신·폐기
-- `PUSH_NOTIFICATION_SEND` Queue 소비
-- 사용자 알림 설정과 quiet hours 재검증
-- FCM/APNs 발송, 일시 오류 재시도와 영구 실패 토큰 폐기
-- 제공자 응답 ID, 지연 시간과 전송 결과 기록
-- 같은 알림의 중복 푸시 발송 방지
-
-## API 범위 확인
-
-| API 명세 영역 | 담당 브랜치 |
-|---|---|
-| Supabase Auth·JWT | `backend/feat-project-foundation` |
-| 사용자 | `backend/feat-auth-profile` |
-| 미디어 | `backend/feat-media-storage` |
-| 식물명칭 검색·사진 인식 | `backend/feat-species-identification` |
-| 식물·캐릭터·환경 | `backend/feat-plant-character` |
-| 홈 | `backend/feat-home-calendar` |
-| 다이어리·컨디션 | `backend/feat-diary-condition` |
-| 관리 일정 | `backend/feat-care-schedule` |
-| 캘린더·통계 | `backend/feat-home-calendar` |
-| 사진 진단 | `backend/feat-diagnosis` |
-| AI 대화 | `backend/feat-ai-chat` |
-| Tool Calling·AI Action | `backend/feat-ai-tool-calling` |
-| 월간 리포트·Batch | `backend/feat-monthly-batch` |
-| 알림 설정·알림함 | `backend/feat-notifications` |
-| 기기 토큰·FCM/APNs 발송 | `backend/feat-push-delivery` |
-| Queue·Worker 내부 작업 | `backend/feat-queue-worker` |
-
-이 표의 모든 영역이 구현되고 각 브랜치 완료 조건을 통과하면 현재 백엔드 명세의
-기능 범위가 모두 충족됩니다.
+- 기능 브랜치는 최신 `main`에서 생성합니다.
+- 커밋 메시지는 `feat: 한국어 설명`, `fix: 한국어 설명` 형식을 사용합니다.
+- 한 PR에는 한 기능 또는 하나의 공통 계약 변경만 포함합니다.
+- DB 변경은 ORM, Alembic, ERD와 API 문서를 같은 PR에서 갱신합니다.
+- PR 본문에 테스트 결과와 migration 적용 여부를 기록합니다.
