@@ -22,6 +22,11 @@ visibility timeout, 최대 재시도와 batch 크기를 설정합니다. Worker�
 `FAILED`로 종료되며 `failure_code`로 원인을 반환합니다. Pl@ntNet이 지원하는
 JPEG와 PNG만 인식 입력으로 사용합니다.
 
+AI 채팅에는 `OPENAI_API_KEY`가 필요합니다. 텍스트 답변은 FastAPI에서 SSE로
+스트리밍하고 사진 첨부 답변은 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
+모델과 응답 한도는 `OPENAI_CHAT_MODEL`, `OPENAI_CHAT_MAX_OUTPUT_TOKENS`로
+조정합니다. 실제 키는 `.env`에만 넣고 커밋하지 않습니다.
+
 ## 로컬 실행
 
 ```bash

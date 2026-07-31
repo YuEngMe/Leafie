@@ -488,11 +488,17 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 {"title": "새 채팅"}
 ```
 
+제목이 `새 채팅`인 세션은 첫 질문을 최대 30자로 정리해 대화목록 제목으로 사용합니다.
+글 없이 사진만 보낸 첫 질문은 `사진 질문`으로 표시합니다.
+
 ### `DELETE /conversations/{conversation_id}`
 
 대화 세션만 soft delete합니다. 식물의 다른 대화는 유지합니다.
 
 ### `GET /conversations/{conversation_id}/messages?cursor=`
+
+메시지를 생성일 순으로 반환합니다. 사진 메시지는 `PENDING`, `PROCESSING`,
+`COMPLETED`, `FAILED` 상태로 처리 진행 상황을 표시합니다.
 
 ### `POST /conversations/{conversation_id}/messages`
 
@@ -503,8 +509,29 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 }
 ```
 
-텍스트 응답은 SSE로 스트리밍합니다. 사진 메시지는 `202`로 접수한 뒤 Worker가
-처리하며 메시지 상태를 조회합니다.
+텍스트와 사진 중 하나는 필수이며 사진은 미리 `CHAT` 용도로 업로드를 완료해야 합니다.
+한 대화에서 응답은 한 번에 하나만 생성합니다.
+
+텍스트 응답은 `text/event-stream`으로 반환합니다.
+
+```text
+event: message.started
+data: {"message_id":"assistant-message-uuid"}
+
+event: message.delta
+data: {"delta":"답변 일부"}
+
+event: message.completed
+data: {"message_id":"assistant-message-uuid","content":"전체 답변"}
+```
+
+생성 실패 시 `message.failed` 이벤트와 `error_code`를 반환합니다. 사진 메시지는
+`202`와 사용자 메시지 ID를 반환한 뒤 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
+클라이언트는 메시지 목록을 다시 조회해 처리 상태와 생성된 답변을 확인합니다.
+
+AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니다. 모델 입력은 식물명,
+애칭, 장소·화분·위치, 종별 관리 가이드, 현재 대화의 누적 요약과
+최근 메시지만 사용합니다. 다른 식물이나 다른 대화 세션의 메시지는 섞지 않습니다.
 
 읽기 Tool은 서버가 실행합니다. 비료·가지치기 일정 변경은 `AI_ACTIONS` 제안만
 만들고 승인 전에는 실행하지 않습니다.

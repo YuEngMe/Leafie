@@ -18,6 +18,7 @@ from app.core.request_context import (
 )
 from app.core.security import SupabaseJWTVerifier
 from app.db.session import Database
+from app.integrations.openai_chat import OpenAIChatProvider
 from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 
@@ -44,7 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.queue = PgmqQueue(app.state.database, settings)
     app.state.jwt_verifier = SupabaseJWTVerifier(settings)
     app.state.storage = SupabaseStorageGateway(settings)
+    app.state.openai_chat = OpenAIChatProvider(settings)
     yield
+    await app.state.openai_chat.close()
     await app.state.storage.close()
     await app.state.jwt_verifier.close()
     await app.state.database.close()
