@@ -27,6 +27,7 @@ CHECKSUM = hashlib.sha256(JPEG_BYTES).hexdigest()
 class FakeMediaRepository:
     def __init__(self) -> None:
         self.items: dict[UUID, MediaFile] = {}
+        self.linked_ids: set[UUID] = set()
 
     async def add(self, media_file: MediaFile) -> None:
         self.items[media_file.id] = media_file
@@ -36,6 +37,9 @@ class FakeMediaRepository:
         if media_file is None or media_file.user_id != user_id or media_file.deleted_at is not None:
             return None
         return media_file
+
+    async def is_linked(self, media_file_id: UUID) -> bool:
+        return media_file_id in self.linked_ids
 
 
 class FakeStorageGateway:
@@ -91,15 +95,16 @@ class FakeQueue:
 class FakeSession:
     def __init__(self, media_file: MediaFile) -> None:
         self.media_file = media_file
+        self.scalar_calls = 0
 
-    async def scalar(self, _statement) -> MediaFile:
-        return self.media_file
+    async def scalar(self, _statement) -> MediaFile | None:
+        self.scalar_calls += 1
+        return self.media_file if self.scalar_calls == 1 else None
 
 
 def build_request(**overrides: object) -> MediaPresignRequest:
     values = {
         "purpose": MediaPurpose.DIAGNOSIS,
-        "file_name": "../../unsafe-name.exe",
         "content_type": "image/jpeg",
         "size_bytes": 1024,
         "checksum_sha256": CHECKSUM,
@@ -261,6 +266,20 @@ async def test_delete_is_soft_delete_only() -> None:
 
     assert media_file.status == MediaStatus.DELETED
     assert media_file.deleted_at is not None
+    assert storage.deleted_paths == []
+
+
+async def test_delete_rejects_linked_media() -> None:
+    service, repository, storage = build_service()
+    user_id = uuid4()
+    presigned = await service.create_upload(user_id, build_request())
+    repository.linked_ids.add(presigned.media_file_id)
+
+    with pytest.raises(AppError) as error:
+        await service.soft_delete(user_id, presigned.media_file_id)
+
+    assert error.value.code == "MEDIA_FILE_IN_USE"
+    assert repository.items[presigned.media_file_id].status == MediaStatus.PENDING
     assert storage.deleted_paths == []
 
 

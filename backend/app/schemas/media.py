@@ -9,7 +9,6 @@ from app.models.enums import MediaPurpose, MediaStatus
 
 class MediaPresignRequest(BaseModel):
     purpose: MediaPurpose
-    file_name: str = Field(min_length=1, max_length=255)
     content_type: Literal["image/jpeg", "image/png", "image/webp"]
     size_bytes: int = Field(gt=0)
     checksum_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")

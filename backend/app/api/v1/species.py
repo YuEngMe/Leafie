@@ -17,7 +17,7 @@ from app.schemas.species import (
 )
 from app.services.species import SpeciesService, SQLAlchemySpeciesRepository
 
-router = APIRouter(prefix="/plant-species", tags=["plant-species"])
+router = APIRouter(prefix="/species", tags=["species"])
 
 DatabaseSession = Annotated[AsyncSession, Depends(get_database_session)]
 CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
@@ -28,7 +28,7 @@ def build_service(session: AsyncSession) -> SpeciesService:
     return SpeciesService(SQLAlchemySpeciesRepository(session))
 
 
-@router.get("/search", response_model=SpeciesSearchResponse)
+@router.get("", response_model=SpeciesSearchResponse)
 async def search_species(
     current_user: CurrentUser,
     session: DatabaseSession,
@@ -59,7 +59,7 @@ async def create_species_identification(
         await queue.enqueue(
             QueueJob(
                 job_type=JobType.SPECIES_IDENTIFICATION_RUN,
-                resource_id=creation.response.id,
+                resource_id=creation.response.identification_id,
                 trace_id=get_request_id() or create_request_id(),
             ),
             session=session,

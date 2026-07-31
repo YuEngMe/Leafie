@@ -172,7 +172,8 @@ Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 �
 {
   "purpose": "DIARY",
   "content_type": "image/jpeg",
-  "size_bytes": 1048576
+  "size_bytes": 1048576,
+  "checksum_sha256": "64자리-sha256-hex"
 }
 ```
 
@@ -180,6 +181,8 @@ Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 �
 {
   "media_file_id": "uuid",
   "upload_url": "https://...",
+  "upload_method": "PUT",
+  "upload_headers": {"Content-Type": "image/jpeg"},
   "expires_at": "2026-07-31T10:05:00Z"
 }
 ```
@@ -194,7 +197,8 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ### `DELETE /media/{media_file_id}`
 
-리소스에 연결되지 않은 업로드를 삭제합니다. 응답은 `204`입니다.
+리소스에 연결되지 않은 업로드를 삭제합니다. 식물·다이어리·식물 인식·진단·채팅에
+연결된 파일은 `MEDIA_FILE_IN_USE`로 거부합니다. 응답은 `204`입니다.
 
 ## 6. 지원 식물 검색·사진 인식
 
@@ -212,10 +216,16 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
       "family_name": "Lamiaceae",
       "flowering_period": "여름",
       "category": "HERB",
-      "recommended_water": {"min_ml": 150, "max_ml": 250},
+      "recommended_water": {
+        "min_ml": 150,
+        "max_ml": 250,
+        "source": "SPECIES_GUIDE"
+      },
       "default_care": {
         "watering_interval_days": 3,
-        "repotting_interval_days": 365
+        "repotting_interval_days": 365,
+        "source": "SPECIES_GUIDE",
+        "derived": true
       }
     }
   ],
@@ -233,13 +243,18 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 응답 `202`:
 
 ```json
-{"identification_id": "uuid", "status": "PENDING"}
+{
+  "identification_id": "uuid",
+  "status": "PENDING",
+  "created_at": "2026-07-31T10:05:00Z"
+}
 ```
 
 ### `GET /species/identifications/{identification_id}`
 
 후보는 확률순이며 지원 23종과 매칭된 값만 반환합니다. 사용자가 `맞아요`를 누르면
 해당 `reference_id`로 등록하고 `다시 검색`은 앱이 다음 후보를 보여줍니다.
+지원 종과 매칭되는 후보가 없으면 `FAILED`와 `SPECIES_NO_CANDIDATES`를 반환합니다.
 
 ## 7. 식물 등록·조회·수정
 
@@ -580,11 +595,11 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 외부에 노출하지 않는 Queue job type:
 
 ```text
-SPECIES_IDENTIFY
+SPECIES_IDENTIFICATION_RUN
 DIAGNOSIS_RUN
-CHAT_IMAGE_PROCESS
-PUSH_DELIVER
-MEDIA_DELETE
+CHAT_IMAGE_ANALYSIS
+PUSH_NOTIFICATION_SEND
+STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
 ```
 

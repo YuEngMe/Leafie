@@ -28,7 +28,9 @@ class SpeciesCandidate(BaseModel):
     reference_id: str
     display_name: str
     scientific_name: str | None = None
-    category_suggestion: PlantCategory | None = None
+    family_name: str | None = None
+    flowering_period: str | None = None
+    category: PlantCategory | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     recommended_water: RecommendedWater | None = None
     default_care: DefaultCareSchedule | None = None
@@ -43,7 +45,7 @@ class SpeciesIdentificationCreateRequest(BaseModel):
 
 
 class SpeciesIdentificationCreatedResponse(BaseModel):
-    id: UUID
+    identification_id: UUID
     status: SpeciesIdentificationStatus
     created_at: datetime
 
