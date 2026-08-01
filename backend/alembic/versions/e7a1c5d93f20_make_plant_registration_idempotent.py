@@ -1,6 +1,6 @@
 """make plant registration idempotent
 
-Revision ID: d2f4a8c91b73
+Revision ID: e7a1c5d93f20
 Revises: c9e2f7a1d640
 Create Date: 2026-08-01 18:00:00.000000
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "d2f4a8c91b73"
+revision: str = "e7a1c5d93f20"
 down_revision: str | Sequence[str] | None = "c9e2f7a1d640"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
