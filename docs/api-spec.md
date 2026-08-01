@@ -41,7 +41,7 @@ SDK가 직접 처리하는 인증 동작은 이 문서의 Auth 절을 따릅니�
 | 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `RECENT_AUTH_REQUIRED` |
 | 403 | `EMAIL_NOT_VERIFIED`, `RESOURCE_FORBIDDEN` |
 | 404 | `*_NOT_FOUND` |
-| 409 | `INVALID_STATE_TRANSITION`, `ACCOUNT_DELETION_PENDING` |
+| 409 | `INVALID_STATE_TRANSITION`, `ACCOUNT_DELETION_PENDING`, `PLANT_REGISTRATION_ID_REUSED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 422 | `VALIDATION_ERROR` |
@@ -264,6 +264,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ```json
 {
+  "client_registration_id": "uuid",
   "nickname": "새싹이",
   "species_reference_id": "catalog:ocimum-basilicum",
   "species_selection_method": "PHOTO",
@@ -285,16 +286,51 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 }
 ```
 
+- Flutter는 등록 흐름을 시작할 때 `client_registration_id` UUID를 한 번 생성하고 등록
+  결과를 받을 때까지 로컬에 보관합니다. 네트워크 오류나 타임아웃으로 재전송할 때는
+  반드시 같은 UUID와 같은 요청 내용을 사용합니다. 새로운 식물을 등록할 때는 새 UUID를
+  생성합니다.
+- 같은 사용자의 동일한 `client_registration_id`와 동일한 요청은 식물·일정·대화를 다시
+  만들지 않고 최초 `201 Created` 응답을 반환합니다. 같은 ID를 다른 요청 내용에 재사용하면
+  `409 PLANT_REGISTRATION_ID_REUSED`를 반환합니다.
+- `SEARCH` 등록은 `species_identification_id`와 `primary_media_file_id`를 null로
+  보냅니다.
+- `PHOTO` 등록은 두 ID가 모두 필요하며, `primary_media_file_id`는 해당 인식 작업에
+  사용한 사진 ID와 같아야 합니다.
+- 캐릭터 외형 ID 목록은 디자인 확정 전까지 공백과 최대 길이만 검증합니다. 확정 목록을
+  전달받은 뒤 `color_id`, `hair_id`, `accessory_id` 허용 목록 검증을 추가합니다.
+
 서버는 다음을 한 트랜잭션에서 처리합니다.
 
+- `(user_id, client_registration_id)` 멱등성 확인과 요청 해시 검증
 - 식물과 외형·환경 저장
-- 최초 물주기·분갈이 일정 계산
-- 필요한 초기 완료 이력 저장
+- 마지막 물 준 날짜를 기준으로 최초 물주기 일정 계산
+- 마지막 물주기 완료 이력 저장
+- 분갈이 상태가 `KNOWN`이면 입력 날짜를 완료 이력으로 저장하고 최초 반복 일정 계산
+- 분갈이 상태가 `NEVER`이면 사용자가 입력한 `started_on`을 기준으로 최초 반복 일정 계산
 - 첫 AI 대화 세션 생성
 - 선택 식물 갱신
 
 `started_on`, 마지막 관리일과 분갈이 날짜는 미래일 수 없습니다. 사진 인식으로 등록한
-경우 인식 사진을 대표 사진으로 재사용합니다.
+경우 인식 사진을 대표 사진으로 재사용합니다. 검색 등록은 대표 사진 없이 등록하며,
+종별 분갈이 주기가 있으면 `KNOWN`과 `NEVER`에 최초 분갈이 반복 일정을 생성합니다.
+계산된 예정일이 과거이면 주기 단위로 더해 오늘 이후의 첫 예정일로 이동합니다.
+`NEVER`는 완료 이력을 만들지 않고 `UNKNOWN`은 기준 날짜가 없어 최초 일정과 완료
+이력을 모두 만들지 않습니다. 종별 분갈이 주기가 없으면 `KNOWN` 날짜는 완료 이력으로만
+저장합니다.
+
+성공 응답은 `201 Created`입니다.
+
+```json
+{
+  "id": "uuid",
+  "created_at": "2026-08-01T12:30:00Z"
+}
+```
+
+클라이언트는 반환된 `id`를 사용해 `GET /home?plant_id={id}`로 등록한 식물의 홈을
+조회합니다. 첫 AI 대화 세션 ID는 등록 응답에 포함하지 않으며 대화 목록 API에서
+조회합니다.
 
 ### `GET /plants`
 
