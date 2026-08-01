@@ -276,6 +276,21 @@ class DiagnosisService:
 
         existing = await self._repository.diagnosis_by_media_owned(request.media_file_id, user_id)
         if existing is not None:
+            if existing.status == DiagnosisStatus.CANCELLED:
+                existing.status = DiagnosisStatus.PENDING.value
+                existing.failure_code = None
+                existing.started_at = None
+                existing.completed_at = None
+                return _created_response(existing), True
+            if (
+                existing.status == DiagnosisStatus.FAILED
+                and existing.failure_code not in RETRYABLE_FAILURE_CODES
+            ):
+                raise AppError(
+                    code="DIAGNOSIS_NEW_PHOTO_REQUIRED",
+                    message="새 사진을 촬영해 다시 진단해 주세요.",
+                    status_code=409,
+                )
             return _created_response(existing), False
 
         diagnosis = Diagnosis(

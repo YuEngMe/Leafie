@@ -602,7 +602,9 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ```
 
 동일한 `media_file_id`로 다시 요청하면 외부 API를 중복 호출하지 않고 기존 진단 ID를
-반환합니다. 사진은 `DIAGNOSIS` 용도로 업로드 완료된 JPEG·PNG·WebP 한 장이어야 합니다.
+반환합니다. 취소된 진단은 같은 ID를 `PENDING`으로 되돌려 다시 처리하고, 재시도할 수
+없는 실패는 `409 DIAGNOSIS_NEW_PHOTO_REQUIRED`를 반환합니다. 사진은 `DIAGNOSIS`
+용도로 업로드 완료된 JPEG·PNG·WebP 한 장이어야 합니다.
 
 ### `GET /plants/{plant_id}/diagnoses?cursor=`
 

@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 from collections.abc import Mapping
@@ -37,7 +38,7 @@ class KindwiseDiagnosisProvider:
         if not self._api_key:
             raise DiagnosisPermanentError("KINDWISE_NOT_CONFIGURED")
 
-        normalized_image = _normalize_image(image)
+        normalized_image = await asyncio.to_thread(_normalize_image, image)
         started_at = time.perf_counter()
         try:
             response = await self._client.post(
@@ -84,7 +85,7 @@ def _normalize_image(image: bytes) -> bytes:
             output = BytesIO()
             normalized.save(output, format="JPEG", quality=85, optimize=True)
             return output.getvalue()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError) as exc:
         raise DiagnosisPermanentError("KINDWISE_IMAGE_REJECTED") from exc
 
 
@@ -169,9 +170,11 @@ def _treatment_items(value: object) -> list[str]:
     for key in ("prevention", "biological"):
         content = value.get(key)
         if isinstance(content, str) and content.strip():
-            items.append(content.strip())
+            items.append(content.strip()[:1000])
         elif isinstance(content, list):
-            items.extend(item.strip() for item in content if isinstance(item, str) and item.strip())
+            items.extend(
+                item.strip()[:1000] for item in content if isinstance(item, str) and item.strip()
+            )
     return items
 
 

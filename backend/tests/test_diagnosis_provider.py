@@ -153,3 +153,28 @@ async def test_local_quality_checker_rejects_dark_image() -> None:
     assert result.acceptable is False
     assert result.brightness_acceptable is False
     assert result.retake_reason_code == "IMAGE_TOO_DARK"
+
+
+@pytest.mark.parametrize(
+    ("image", "content_type", "reason_code"),
+    [
+        (_image_bytes((120, 180, 100), textured=True), "image/gif", "IMAGE_TYPE_UNSUPPORTED"),
+        (Image.new("RGB", (256, 256), (120, 180, 100)), "image/jpeg", "IMAGE_TOO_SMALL"),
+        (Image.new("RGB", (640, 640), (120, 180, 100)), "image/png", "IMAGE_BLURRY"),
+        (b"not-an-image", "image/jpeg", "IMAGE_INVALID"),
+    ],
+)
+async def test_local_quality_checker_rejects_invalid_inputs(
+    image: bytes | Image.Image,
+    content_type: str,
+    reason_code: str,
+) -> None:
+    if isinstance(image, Image.Image):
+        output = BytesIO()
+        image.save(output, format="PNG")
+        image = output.getvalue()
+
+    result = await LocalDiagnosisImageQualityChecker().check(image, content_type)
+
+    assert result.acceptable is False
+    assert result.retake_reason_code == reason_code

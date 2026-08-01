@@ -105,21 +105,56 @@ async def test_kindwise_provider_requests_retake_when_plant_is_not_visible() -> 
 
 
 @pytest.mark.parametrize(
-    ("status_code", "error_type"),
+    ("status_code", "error_type", "failure_code"),
     [
-        (401, DiagnosisPermanentError),
-        (429, DiagnosisTransientError),
-        (503, DiagnosisTransientError),
+        (400, DiagnosisPermanentError, "KINDWISE_IMAGE_REJECTED"),
+        (401, DiagnosisPermanentError, "KINDWISE_AUTH_FAILED"),
+        (429, DiagnosisTransientError, None),
+        (503, DiagnosisTransientError, None),
     ],
 )
 async def test_kindwise_provider_maps_http_failures(
-    status_code: int, error_type: type[Exception]
+    status_code: int, error_type: type[Exception], failure_code: str | None
 ) -> None:
     client = httpx.AsyncClient(
         transport=httpx.MockTransport(lambda _request: httpx.Response(status_code))
     )
     provider = KindwiseDiagnosisProvider(_settings(), client)
 
-    with pytest.raises(error_type):
+    with pytest.raises(error_type) as error:
         await provider.diagnose(_image(), "image/png", {})
+    if failure_code is not None:
+        assert error.value.failure_code == failure_code
+    await client.aclose()
+
+
+async def test_kindwise_provider_rejects_invalid_response() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
+    )
+    provider = KindwiseDiagnosisProvider(_settings(), client)
+
+    with pytest.raises(DiagnosisPermanentError) as error:
+        await provider.diagnose(_image(), "image/png", {})
+
+    assert error.value.failure_code == "KINDWISE_INVALID_RESPONSE"
+    await client.aclose()
+
+
+async def test_kindwise_provider_requires_api_key_without_request() -> None:
+    requested = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requested
+        requested = True
+        return httpx.Response(200)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = KindwiseDiagnosisProvider(Settings(_env_file=None), client)
+
+    with pytest.raises(DiagnosisPermanentError) as error:
+        await provider.diagnose(_image(), "image/png", {})
+
+    assert error.value.failure_code == "KINDWISE_NOT_CONFIGURED"
+    assert requested is False
     await client.aclose()

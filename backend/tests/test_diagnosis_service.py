@@ -136,6 +136,27 @@ async def test_create_diagnosis_is_idempotent_for_same_photo() -> None:
     assert repository.diagnoses[0].input_context_snapshot["species_name"] == "바질"
 
 
+async def test_create_diagnosis_restarts_cancelled_photo() -> None:
+    user_id = uuid4()
+    plant_id = uuid4()
+    repository = FakeRepository(user_id, plant_id)
+    request = DiagnosisCreateRequest(
+        conversation_id=repository.conversation.id,
+        media_file_id=repository.media.id,
+    )
+    first, _ = await _service(repository).create(user_id, plant_id, request)
+    diagnosis = repository.diagnoses[0]
+    diagnosis.status = DiagnosisStatus.CANCELLED.value
+    diagnosis.completed_at = datetime.now(UTC)
+
+    restarted, created = await _service(repository).create(user_id, plant_id, request)
+
+    assert restarted.diagnosis_id == first.diagnosis_id
+    assert restarted.status == DiagnosisStatus.PENDING
+    assert created is True
+    assert diagnosis.completed_at is None
+
+
 async def test_create_diagnosis_rejects_wrong_media_purpose() -> None:
     user_id = uuid4()
     plant_id = uuid4()
@@ -186,6 +207,37 @@ async def test_retry_only_allows_retryable_failures() -> None:
 
     assert response.status == DiagnosisStatus.PENDING
     assert diagnosis.failure_code is None
+
+
+@pytest.mark.parametrize(
+    ("status", "failure_code"),
+    [
+        (DiagnosisStatus.COMPLETED, None),
+        (DiagnosisStatus.FAILED, "KINDWISE_AUTH_FAILED"),
+    ],
+)
+async def test_retry_rejects_non_retryable_diagnosis(
+    status: DiagnosisStatus,
+    failure_code: str | None,
+) -> None:
+    user_id = uuid4()
+    plant_id = uuid4()
+    repository = FakeRepository(user_id, plant_id)
+    diagnosis = Diagnosis(
+        id=uuid4(),
+        plant_id=plant_id,
+        media_file_id=repository.media.id,
+        status=status.value,
+        failure_code=failure_code,
+        created_at=datetime.now(UTC),
+    )
+    repository.diagnoses.append(diagnosis)
+
+    with pytest.raises(AppError) as error:
+        await _service(repository).retry(user_id, diagnosis.id)
+
+    assert error.value.code == "DIAGNOSIS_NOT_RETRYABLE"
+    assert diagnosis.status == status
 
 
 async def test_diagnosis_detail_rejects_another_user() -> None:

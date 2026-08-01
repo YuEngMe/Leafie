@@ -16,6 +16,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.execute(
+        """
+        DELETE FROM diagnoses AS duplicate
+        USING diagnoses AS keeper
+        WHERE duplicate.media_file_id = keeper.media_file_id
+          AND (duplicate.created_at, duplicate.id) > (keeper.created_at, keeper.id)
+        """
+    )
     op.create_unique_constraint(
         "uq_diagnoses_media_file_id",
         "diagnoses",

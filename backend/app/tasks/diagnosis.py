@@ -96,7 +96,10 @@ class SQLAlchemyDiagnosisRepository:
             if media is None:
                 await session.execute(
                     update(Diagnosis)
-                    .where(Diagnosis.id == diagnosis_id)
+                    .where(
+                        Diagnosis.id == diagnosis_id,
+                        Diagnosis.status == DiagnosisStatus.PROCESSING,
+                    )
                     .values(
                         status=DiagnosisStatus.FAILED.value,
                         failure_code="MEDIA_UPLOAD_NOT_FOUND",

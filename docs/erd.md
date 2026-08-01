@@ -18,7 +18,7 @@ erDiagram
     MEDIA_FILES ||--o{ SPECIES_IDENTIFICATIONS : identifies
     MEDIA_FILES ||--o{ PLANTS : primary_photo
     MEDIA_FILES ||--o{ PLANT_DIARIES : diary_photo
-    MEDIA_FILES ||--o{ DIAGNOSES : diagnosis_photo
+    MEDIA_FILES ||--o| DIAGNOSES : diagnosis_photo
     MEDIA_FILES ||--o{ AI_MESSAGES : chat_attachment
 
     SPECIES_CARE_GUIDES ||--o{ PLANTS : classifies
@@ -188,7 +188,7 @@ erDiagram
         uuid id PK
         uuid plant_id FK
         uuid related_conversation_id FK
-        uuid media_file_id FK
+        uuid media_file_id FK,UK
         varchar status
         varchar overall_condition
         jsonb input_context_snapshot

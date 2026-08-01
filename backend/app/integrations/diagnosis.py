@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from io import BytesIO
 from typing import Annotated, Protocol
@@ -111,12 +112,19 @@ class LocalDiagnosisImageQualityChecker:
         image: bytes,
         content_type: str,
     ) -> DiagnosisImageQualityResult:
+        return await asyncio.to_thread(self._check_sync, image, content_type)
+
+    def _check_sync(
+        self,
+        image: bytes,
+        content_type: str,
+    ) -> DiagnosisImageQualityResult:
         try:
             with Image.open(BytesIO(image)) as source:
                 source.verify()
             with Image.open(BytesIO(image)) as source:
                 grayscale = source.convert("L")
-        except (UnidentifiedImageError, OSError):
+        except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
             return _rejected_quality("IMAGE_INVALID")
 
         if content_type not in {"image/jpeg", "image/png", "image/webp"}:
@@ -134,7 +142,9 @@ class LocalDiagnosisImageQualityChecker:
         inner = grayscale.crop(
             (margin, margin, grayscale.width - margin, grayscale.height - margin)
         )
-        sharpness = float(ImageStat.Stat(inner.filter(ImageFilter.FIND_EDGES)).var[0])
+        edges = inner.filter(ImageFilter.FIND_EDGES)
+        edges = edges.crop((1, 1, edges.width - 1, edges.height - 1))
+        sharpness = float(ImageStat.Stat(edges).var[0])
         if sharpness < self._sharpness_threshold:
             return _rejected_quality("IMAGE_BLURRY", sharp_enough=False)
 
