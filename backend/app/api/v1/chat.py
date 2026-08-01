@@ -21,6 +21,7 @@ from app.core.security import AuthenticatedUser
 from app.integrations.openai_chat import OpenAIChatPermanentError, OpenAIChatProvider
 from app.integrations.queue import JobQueue
 from app.schemas.chat import (
+    AIActionResponse,
     ConversationCreateRequest,
     ConversationListResponse,
     ConversationResponse,
@@ -28,6 +29,7 @@ from app.schemas.chat import (
     MessageListResponse,
 )
 from app.schemas.queue import JobType, QueueJob
+from app.services.ai_tools import AIActionService, AIToolService, SQLAlchemyAIToolRepository
 from app.services.chat import ChatService, SQLAlchemyChatRepository
 
 router = APIRouter(tags=["chat"])
@@ -39,12 +41,14 @@ ChatProvider = Annotated[OpenAIChatProvider, Depends(get_openai_chat_provider)]
 
 
 def build_service(session: AsyncSession, provider: OpenAIChatProvider) -> ChatService:
+    tool_repository = SQLAlchemyAIToolRepository(session)
     return ChatService(
         SQLAlchemyChatRepository(session),
         provider,
         context_message_limit=settings.ai_chat_context_message_limit,
         summary_trigger_count=settings.ai_chat_summary_trigger_count,
         summary_batch_size=settings.ai_chat_summary_batch_size,
+        tool_service=AIToolService(tool_repository),
     )
 
 
@@ -148,6 +152,8 @@ async def create_message(
             ):
                 if event.delta is not None:
                     yield _sse("message.delta", {"delta": event.delta})
+                if event.action is not None:
+                    yield _sse("action.proposed", event.action)
                 if event.completion is not None:
                     await session.commit()
                     yield _sse(
@@ -170,6 +176,26 @@ async def create_message(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/ai-actions/{action_id}/confirm", response_model=AIActionResponse)
+async def confirm_ai_action(
+    action_id: UUID,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> AIActionResponse:
+    service = AIActionService(SQLAlchemyAIToolRepository(session))
+    return await service.confirm(current_user.id, action_id)
+
+
+@router.post("/ai-actions/{action_id}/cancel", response_model=AIActionResponse)
+async def cancel_ai_action(
+    action_id: UUID,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> AIActionResponse:
+    service = AIActionService(SQLAlchemyAIToolRepository(session))
+    return await service.cancel(current_user.id, action_id)
 
 
 def _sse(event: str, data: dict) -> str:

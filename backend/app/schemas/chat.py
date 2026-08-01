@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.enums import AIMessageStatus, ChatRole
+from app.models.enums import AIActionStatus, AIMessageStatus, ChatRole
 
 
 class ConversationCreateRequest(BaseModel):
@@ -40,6 +40,18 @@ class MessageCreateRequest(BaseModel):
         return self
 
 
+class AIActionResponse(BaseModel):
+    id: UUID
+    plant_id: UUID
+    action_type: str
+    payload: dict
+    status: AIActionStatus
+    expires_at: datetime | None
+    confirmed_at: datetime | None
+    executed_at: datetime | None
+    created_at: datetime
+
+
 class MessageResponse(BaseModel):
     id: UUID
     conversation_id: UUID
@@ -51,6 +63,7 @@ class MessageResponse(BaseModel):
     provider: str | None
     model_name: str | None
     created_at: datetime
+    actions: list[AIActionResponse] = Field(default_factory=list)
 
 
 class MessageListResponse(BaseModel):

@@ -2,6 +2,7 @@ import base64
 import hashlib
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from openai import (
     APIConnectionError,
@@ -37,6 +38,25 @@ class ChatCompletion:
 class ChatStreamEvent:
     delta: str | None = None
     completion: ChatCompletion | None = None
+    action: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ChatToolCall:
+    call_id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChatToolTurn:
+    content: str
+    response_id: str
+    model_name: str
+    input_tokens: int
+    output_tokens: int
+    output_items: list[dict[str, Any]]
+    tool_calls: list[ChatToolCall]
 
 
 class OpenAIChatPermanentError(Exception):
@@ -112,6 +132,51 @@ class OpenAIChatProvider:
             )
         except Exception as exc:
             raise _map_provider_error(exc) from exc
+
+    async def create_tool_turn(
+        self,
+        *,
+        instructions: str,
+        input_items: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        safety_user_id: str,
+    ) -> ChatToolTurn:
+        self.ensure_configured()
+        assert self._client is not None
+        try:
+            response = await self._client.responses.create(
+                model=self.model_name,
+                instructions=instructions,
+                input=input_items,
+                include=["reasoning.encrypted_content"],
+                tools=tools,
+                tool_choice="auto",
+                parallel_tool_calls=True,
+                max_output_tokens=self._max_output_tokens,
+                reasoning={"effort": "minimal"},
+                safety_identifier=_safety_identifier(safety_user_id),
+                store=False,
+                text={"verbosity": "low"},
+            )
+        except Exception as exc:
+            raise _map_provider_error(exc) from exc
+
+        usage = response.usage
+        output_items = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+        tool_calls = [
+            ChatToolCall(call_id=item.call_id, name=item.name, arguments=item.arguments)
+            for item in response.output
+            if item.type == "function_call"
+        ]
+        return ChatToolTurn(
+            content=response.output_text,
+            response_id=response.id,
+            model_name=response.model,
+            input_tokens=usage.input_tokens if usage else 0,
+            output_tokens=usage.output_tokens if usage else 0,
+            output_items=output_items,
+            tool_calls=tool_calls,
+        )
 
     async def reply_with_image(
         self,
