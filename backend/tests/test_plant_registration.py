@@ -252,6 +252,23 @@ async def test_registration_retry_returns_existing_result_without_duplicates() -
     assert repository.flush_count == 1
 
 
+async def test_deleted_registration_id_cannot_be_replayed() -> None:
+    service, repository, user_id = build_service()
+    request = make_request()
+    await service.create_plant(user_id, request)
+    added_after_first_request = list(repository.added)
+    plant = next(entity for entity in repository.added if isinstance(entity, Plant))
+    plant.deleted_at = datetime.now(UTC)
+
+    with pytest.raises(AppError) as error:
+        await service.create_plant(user_id, request)
+
+    assert error.value.code == "PLANT_REGISTRATION_ID_REUSED"
+    assert error.value.status_code == 409
+    assert repository.added == added_after_first_request
+    assert repository.flush_count == 1
+
+
 async def test_registration_id_cannot_be_reused_with_different_payload() -> None:
     service, repository, user_id = build_service()
     request = make_request()
