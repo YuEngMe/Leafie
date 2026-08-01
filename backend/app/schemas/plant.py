@@ -31,6 +31,7 @@ class RepottingHistory(BaseModel):
 class PlantCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    client_registration_id: UUID
     nickname: str = Field(min_length=1, max_length=100)
     species_reference_id: str = Field(min_length=1, max_length=255)
     species_selection_method: SpeciesSelectionMethod

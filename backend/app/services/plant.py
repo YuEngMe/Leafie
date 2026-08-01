@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import UTC, date, datetime, timedelta
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -30,6 +32,12 @@ from app.schemas.plant import PlantCreateRequest, PlantCreateResponse
 class PlantRegistrationRepository(Protocol):
     async def get_profile_for_update(self, user_id: UUID) -> UserProfile | None: ...
 
+    async def get_by_client_registration_id(
+        self,
+        user_id: UUID,
+        client_registration_id: UUID,
+    ) -> Plant | None: ...
+
     async def get_active_guide(self, species_reference_id: str) -> SpeciesCareGuide | None: ...
 
     async def get_identification_for_update(
@@ -52,6 +60,18 @@ class SQLAlchemyPlantRegistrationRepository:
     async def get_profile_for_update(self, user_id: UUID) -> UserProfile | None:
         return await self._session.scalar(
             select(UserProfile).where(UserProfile.user_id == user_id).with_for_update()
+        )
+
+    async def get_by_client_registration_id(
+        self,
+        user_id: UUID,
+        client_registration_id: UUID,
+    ) -> Plant | None:
+        return await self._session.scalar(
+            select(Plant).where(
+                Plant.user_id == user_id,
+                Plant.client_registration_id == client_registration_id,
+            )
         )
 
     async def get_active_guide(self, species_reference_id: str) -> SpeciesCareGuide | None:
@@ -122,6 +142,23 @@ class PlantRegistrationService:
                 status_code=409,
             )
 
+        request_hash = registration_request_hash(request)
+        existing_plant = await self._repository.get_by_client_registration_id(
+            user_id,
+            request.client_registration_id,
+        )
+        if existing_plant is not None:
+            if existing_plant.registration_request_hash != request_hash:
+                raise AppError(
+                    code="PLANT_REGISTRATION_ID_REUSED",
+                    message="이미 다른 식물 등록에 사용한 client_registration_id입니다.",
+                    status_code=409,
+                )
+            return PlantCreateResponse(
+                id=existing_plant.id,
+                created_at=existing_plant.created_at,
+            )
+
         guide = await self._repository.get_active_guide(request.species_reference_id)
         if guide is None:
             raise AppError(
@@ -144,6 +181,8 @@ class PlantRegistrationService:
         plant = Plant(
             id=uuid4(),
             user_id=user_id,
+            client_registration_id=request.client_registration_id,
+            registration_request_hash=request_hash,
             species_reference_id=guide.species_reference_id,
             species_identification_id=(identification.id if identification is not None else None),
             primary_media_file_id=request.primary_media_file_id,
@@ -350,6 +389,17 @@ def completed_care_event(
         created_at=recorded_at,
         updated_at=recorded_at,
     )
+
+
+def registration_request_hash(request: PlantCreateRequest) -> str:
+    payload = request.model_dump(mode="json", exclude={"client_registration_id"})
+    canonical_json = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
 
 
 def candidate_contains_reference(candidates: list, species_reference_id: str) -> bool:

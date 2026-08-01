@@ -114,6 +114,8 @@ erDiagram
     PLANTS {
         uuid id PK
         uuid user_id FK
+        uuid client_registration_id
+        varchar registration_request_hash
         varchar species_reference_id FK
         uuid species_identification_id FK
         uuid primary_media_file_id FK
@@ -327,6 +329,7 @@ erDiagram
 | `species_care_guides` | `species_reference_id` 고정, GBIF ID 우선 매칭, 기본 주기는 양수 또는 null |
 | `plants` | `nickname`, `species_reference_id`, `species_selection_method`, `started_on`, 환경·성격·외형 필드 필수 |
 | `plants` | `started_on`은 미래 불가, 성격은 확정된 6개 Enum, 화분·위치는 확정 Enum만 허용 |
+| `plants` | `(user_id, client_registration_id)` unique, 같은 ID와 같은 요청은 기존 결과 반환, 다른 요청은 409 |
 | `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 내용 필수 |
 | `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문·0~100 컨디션 필수, 사진은 null 또는 한 장 |
 | `care_schedules` | `WATERING`·`REPOTTING` 반복, `(plant_id, type)` unique |
@@ -370,6 +373,7 @@ care_event_status:
 ```text
 user_profiles(deletion_status)
 plants(user_id, deleted_at)
+plants(user_id, client_registration_id) UNIQUE
 species_care_guides(display_name)
 species_care_guides(gbif_id) UNIQUE WHERE gbif_id IS NOT NULL
 species_care_guides(plantnet_species_id) UNIQUE WHERE plantnet_species_id IS NOT NULL

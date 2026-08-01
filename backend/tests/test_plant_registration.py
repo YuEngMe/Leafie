@@ -42,6 +42,7 @@ class FakePlantRegistrationRepository:
         self.identifications: dict[UUID, SpeciesIdentification] = {}
         self.media: dict[UUID, MediaFile] = {}
         self.used_identifications: set[UUID] = set()
+        self.registrations: dict[tuple[UUID, UUID], Plant] = {}
         self.added: list[object] = []
         self.added_batches: list[tuple[object, ...]] = []
         self.flush_count = 0
@@ -56,6 +57,13 @@ class FakePlantRegistrationRepository:
         if guide is None or not guide.active:
             return None
         return guide
+
+    async def get_by_client_registration_id(
+        self,
+        user_id: UUID,
+        client_registration_id: UUID,
+    ) -> Plant | None:
+        return self.registrations.get((user_id, client_registration_id))
 
     async def get_identification_for_update(
         self, identification_id: UUID, user_id: UUID
@@ -81,6 +89,9 @@ class FakePlantRegistrationRepository:
     async def add_registration(self, *entities: object) -> None:
         self.added_batches.append(entities)
         self.added.extend(entities)
+        for entity in entities:
+            if isinstance(entity, Plant):
+                self.registrations[(entity.user_id, entity.client_registration_id)] = entity
 
     async def flush(self) -> None:
         self.flush_count += 1
@@ -103,6 +114,7 @@ def make_guide() -> SpeciesCareGuide:
 
 def make_request(**overrides: object) -> PlantCreateRequest:
     payload: dict[str, object] = {
+        "client_registration_id": uuid4(),
         "nickname": "새싹이",
         "species_reference_id": "catalog:ocimum-basilicum",
         "species_selection_method": "SEARCH",
@@ -167,8 +179,9 @@ def build_service() -> tuple[PlantRegistrationService, FakePlantRegistrationRepo
 
 async def test_search_registration_creates_flat_plant_and_initial_resources() -> None:
     service, repository, user_id = build_service()
+    request = make_request()
 
-    response = await service.create_plant(user_id, make_request())
+    response = await service.create_plant(user_id, request)
 
     plant = next(entity for entity in repository.added if isinstance(entity, Plant))
     schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
@@ -180,6 +193,8 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert response.id == plant.id
     assert response.created_at == plant.created_at
     assert plant.user_id == user_id
+    assert plant.client_registration_id == request.client_registration_id
+    assert len(plant.registration_request_hash) == 64
     assert plant.species_identification_id is None
     assert plant.primary_media_file_id is None
     assert plant.place_name == "학교"
@@ -218,6 +233,43 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
         [CareSchedule, CareSchedule, AIConversation],
         [CareEvent, CareEvent],
     ]
+
+
+async def test_registration_retry_returns_existing_result_without_duplicates() -> None:
+    service, repository, user_id = build_service()
+    request = make_request()
+
+    first = await service.create_plant(user_id, request)
+    added_after_first_request = list(repository.added)
+    second = await service.create_plant(user_id, request)
+
+    assert second == first
+    assert repository.added == added_after_first_request
+    assert len([entity for entity in repository.added if isinstance(entity, Plant)]) == 1
+    assert len([entity for entity in repository.added if isinstance(entity, CareSchedule)]) == 2
+    assert len([entity for entity in repository.added if isinstance(entity, CareEvent)]) == 2
+    assert len([entity for entity in repository.added if isinstance(entity, AIConversation)]) == 1
+    assert repository.flush_count == 1
+
+
+async def test_registration_id_cannot_be_reused_with_different_payload() -> None:
+    service, repository, user_id = build_service()
+    request = make_request()
+    await service.create_plant(user_id, request)
+    added_after_first_request = list(repository.added)
+
+    with pytest.raises(AppError) as error:
+        await service.create_plant(
+            user_id,
+            make_request(
+                client_registration_id=request.client_registration_id,
+                nickname="다른 식물",
+            ),
+        )
+
+    assert error.value.code == "PLANT_REGISTRATION_ID_REUSED"
+    assert error.value.status_code == 409
+    assert repository.added == added_after_first_request
 
 
 async def test_never_repotted_uses_started_on_for_initial_schedule() -> None:
@@ -461,6 +513,35 @@ def test_plant_registration_route_returns_documented_created_response(
     assert response.status_code == 201
     assert response.json()["id"] == str(plant.id)
     assert response.json()["created_at"] == plant.created_at.isoformat().replace("+00:00", "Z")
+
+
+def test_plant_registration_http_retry_returns_same_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, repository, user_id = build_service()
+    payload = make_request().model_dump(mode="json")
+
+    def fake_session() -> Iterator[object]:
+        yield object()
+
+    application = create_app()
+    application.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id=user_id,
+        email="leafie@example.com",
+        role="authenticated",
+        claims={},
+    )
+    application.dependency_overrides[get_database_session] = fake_session
+    monkeypatch.setattr(plants_api, "build_service", lambda _session: service)
+
+    with TestClient(application) as client:
+        first = client.post("/api/v1/plants", json=payload)
+        second = client.post("/api/v1/plants", json=payload)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json() == first.json()
+    assert len([entity for entity in repository.added if isinstance(entity, Plant)]) == 1
 
 
 def test_photo_registration_succeeds_through_http_api(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -40,6 +40,7 @@ PROTECTED_REQUESTS: list[
         "POST",
         "/api/v1/plants",
         {
+            "client_registration_id": str(uuid4()),
             "nickname": "새싹이",
             "species_reference_id": "catalog:ocimum-basilicum",
             "species_selection_method": "SEARCH",

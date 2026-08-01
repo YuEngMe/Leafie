@@ -41,7 +41,7 @@ SDK가 직접 처리하는 인증 동작은 이 문서의 Auth 절을 따릅니�
 | 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `RECENT_AUTH_REQUIRED` |
 | 403 | `EMAIL_NOT_VERIFIED`, `RESOURCE_FORBIDDEN` |
 | 404 | `*_NOT_FOUND` |
-| 409 | `INVALID_STATE_TRANSITION`, `ACCOUNT_DELETION_PENDING` |
+| 409 | `INVALID_STATE_TRANSITION`, `ACCOUNT_DELETION_PENDING`, `PLANT_REGISTRATION_ID_REUSED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 422 | `VALIDATION_ERROR` |
@@ -264,6 +264,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ```json
 {
+  "client_registration_id": "uuid",
   "nickname": "새싹이",
   "species_reference_id": "catalog:ocimum-basilicum",
   "species_selection_method": "PHOTO",
@@ -285,6 +286,13 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 }
 ```
 
+- Flutter는 등록 흐름을 시작할 때 `client_registration_id` UUID를 한 번 생성하고 등록
+  결과를 받을 때까지 로컬에 보관합니다. 네트워크 오류나 타임아웃으로 재전송할 때는
+  반드시 같은 UUID와 같은 요청 내용을 사용합니다. 새로운 식물을 등록할 때는 새 UUID를
+  생성합니다.
+- 같은 사용자의 동일한 `client_registration_id`와 동일한 요청은 식물·일정·대화를 다시
+  만들지 않고 최초 `201 Created` 응답을 반환합니다. 같은 ID를 다른 요청 내용에 재사용하면
+  `409 PLANT_REGISTRATION_ID_REUSED`를 반환합니다.
 - `SEARCH` 등록은 `species_identification_id`와 `primary_media_file_id`를 null로
   보냅니다.
 - `PHOTO` 등록은 두 ID가 모두 필요하며, `primary_media_file_id`는 해당 인식 작업에
@@ -294,6 +302,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 서버는 다음을 한 트랜잭션에서 처리합니다.
 
+- `(user_id, client_registration_id)` 멱등성 확인과 요청 해시 검증
 - 식물과 외형·환경 저장
 - 마지막 물 준 날짜를 기준으로 최초 물주기 일정 계산
 - 마지막 물주기 완료 이력 저장

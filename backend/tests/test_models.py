@@ -45,6 +45,19 @@ def test_one_diary_per_plant_and_day() -> None:
     assert ("plant_id", "diary_date") in unique_columns
 
 
+def test_plant_registration_id_is_unique_per_user() -> None:
+    plants = Base.metadata.tables["plants"]
+    unique_columns = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in plants.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+
+    assert ("user_id", "client_registration_id") in unique_columns
+    assert plants.columns["client_registration_id"].nullable is False
+    assert plants.columns["registration_request_hash"].nullable is False
+
+
 def test_conversations_belong_directly_to_a_plant() -> None:
     conversations = Base.metadata.tables["ai_conversations"]
 
