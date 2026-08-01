@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/screens/signup_screen.dart';
+import 'package:yeso_plant/widgets/app_text_field.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/social_login_button.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -32,74 +34,33 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
 
-                // 아이디 입력
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: '아이디',
-                    labelStyle: const TextStyle(
-                      color: kLabelGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: kBorderGreen),
-                    ),
-                  ),
-                ),
+                const AppTextField(label: '이메일'),
                 const SizedBox(height: 16),
-
-                // 비밀번호 입력
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: '비밀번호',
-                    labelStyle: const TextStyle(
-                      color: kLabelGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: kBorderGreen),
-                    ),
-                  ),
-                ),
+                const AppTextField(label: '비밀번호', obscureText: true),
                 const SizedBox(height: 12),
 
-                // 회원가입 / 아이디·비밀번호 찾기 (양쪽 끝 정렬)
+                // 회원가입 / 비밀번호 찾기 (양쪽 끝 정렬)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextButton(onPressed: () {}, child: const Text('회원가입')),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SignupScreen(),
+                        ),
+                      ),
+                      child: const Text('회원가입'),
+                    ),
                     TextButton(
                       onPressed: () {},
-                      child: const Text('아이디/비밀번호 찾기'),
+                      child: const Text('비밀번호 찾기'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // 로그인 버튼
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kButtonGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50), // 알약 모양
-                      ),
-                    ),
-                    child: const Text(
-                      '로그인',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+                PrimaryButton(label: '로그인', onPressed: () {}),
                 const SizedBox(height: 40),
 
                 // 간편로그인 구분선
