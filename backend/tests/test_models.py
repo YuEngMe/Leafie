@@ -56,6 +56,8 @@ def test_one_diary_per_plant_and_day() -> None:
         "ck_plant_diaries_condition_score"
     ]
     assert "BETWEEN 1 AND 2000" in check_constraints["ck_plant_diaries_content_length"]
+    for escaped_whitespace in (r"\t", r"\n", r"\r", r"\f", r"\v"):
+        assert escaped_whitespace in check_constraints["ck_plant_diaries_content_length"]
 
 
 def test_plant_registration_id_is_unique_per_user() -> None:

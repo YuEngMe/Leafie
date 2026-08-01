@@ -26,7 +26,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         op.f("ck_plant_diaries_content_length"),
         "plant_diaries",
-        "char_length(btrim(content)) BETWEEN 1 AND 2000",
+        "char_length(btrim(content, E' \\t\\n\\r\\f\\v')) BETWEEN 1 AND 2000",
     )
     op.execute(
         "ALTER TABLE plant_diaries "

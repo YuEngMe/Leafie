@@ -168,7 +168,7 @@ class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "plant_diaries"
     __table_args__ = (
         CheckConstraint(
-            "char_length(btrim(content)) BETWEEN 1 AND 2000",
+            "char_length(btrim(content, E' \\t\\n\\r\\f\\v')) BETWEEN 1 AND 2000",
             name="content_length",
         ),
         CheckConstraint(

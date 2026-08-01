@@ -417,22 +417,17 @@ class DiaryService:
         media_response: DiaryMediaResponse | None = None
         if diary.media_file_id is not None:
             media_file = await self._repository.get_media(diary.media_file_id, user_id)
-            if media_file is None or media_file.deleted_at is not None:
-                raise AppError(
-                    code="MEDIA_FILE_NOT_FOUND",
-                    message="파일을 찾을 수 없습니다.",
-                    status_code=404,
+            if media_file is not None and media_file.deleted_at is None:
+                issued_at = datetime.now(UTC)
+                download_url = await self._storage.create_signed_download_url(
+                    media_file.object_path,
+                    expires_in=self._download_url_expires_seconds,
                 )
-            issued_at = datetime.now(UTC)
-            download_url = await self._storage.create_signed_download_url(
-                media_file.object_path,
-                expires_in=self._download_url_expires_seconds,
-            )
-            media_response = DiaryMediaResponse(
-                id=media_file.id,
-                download_url=download_url,
-                expires_at=issued_at + timedelta(seconds=self._download_url_expires_seconds),
-            )
+                media_response = DiaryMediaResponse(
+                    id=media_file.id,
+                    download_url=download_url,
+                    expires_at=issued_at + timedelta(seconds=self._download_url_expires_seconds),
+                )
 
         return DiaryResponse(
             id=diary.id,
@@ -485,7 +480,7 @@ def month_range(year: int, month: int) -> tuple[date, date]:
 def today_in_timezone(timezone_name: str) -> date:
     try:
         timezone = ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
+    except (ZoneInfoNotFoundError, ValueError):
         timezone = ZoneInfo("Asia/Seoul")
     return datetime.now(timezone).date()
 

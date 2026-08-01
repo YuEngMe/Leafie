@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -206,6 +207,9 @@ def test_diary_schema_accepts_only_confirmed_scores_and_two_thousand_characters(
             make_request(condition_score=invalid_score)
     with pytest.raises(ValidationError):
         make_request(content=" " * 10)
+    for whitespace_only in ("\t", "\n", "\r\n", "\f", "\v", " \t\n\r\f\v "):
+        with pytest.raises(ValidationError):
+            make_request(content=whitespace_only)
     with pytest.raises(ValidationError):
         make_request(content="가" * 2001)
 
@@ -253,6 +257,35 @@ async def test_photo_diary_returns_signed_url() -> None:
     assert result.response.media.id == media_file.id
     assert result.response.media.download_url.endswith(media_file.object_path)
     assert storage.download_requests == [(media_file.object_path, 300)]
+
+
+@pytest.mark.parametrize("media_state", ["missing", "deleted"])
+async def test_detail_omits_unavailable_photo_but_keeps_diary(media_state: str) -> None:
+    service, repository, storage, user_id, plant_id = build_service()
+    media_file = make_media(user_id)
+    if media_state == "deleted":
+        media_file.status = MediaStatus.DELETED.value
+        media_file.deleted_at = datetime.now(UTC)
+        repository.media[media_file.id] = media_file
+    now = datetime.now(UTC)
+    diary = PlantDiary(
+        id=uuid4(),
+        plant_id=plant_id,
+        media_file_id=media_file.id,
+        diary_date=date(2026, 7, 1),
+        content="사진 없이도 남아야 하는 기록",
+        condition_score=75,
+        created_at=now,
+        updated_at=now,
+    )
+    repository.diaries[diary.diary_date] = diary
+
+    response = await service.get_diary(user_id, plant_id, diary.diary_date)
+
+    assert response.content == diary.content
+    assert response.condition_score == 75
+    assert response.media is None
+    assert storage.download_requests == []
 
 
 @pytest.mark.parametrize(
@@ -497,6 +530,11 @@ def test_condition_level_helpers_use_confirmed_boundaries() -> None:
     assert average_condition_level(Decimal("62.5")) == 4
     assert average_condition_level(Decimal("87.5")) == 5
     assert monthly_statistics(2, Decimal("37.5")).average_score == 38
+
+
+@pytest.mark.parametrize("invalid_timezone", ["", "/invalid/timezone"])
+def test_invalid_timezone_format_falls_back_to_seoul(invalid_timezone: str) -> None:
+    assert today_in_timezone(invalid_timezone) == datetime.now(ZoneInfo("Asia/Seoul")).date()
 
 
 def test_diary_http_put_returns_created_then_ok(monkeypatch: pytest.MonkeyPatch) -> None:
