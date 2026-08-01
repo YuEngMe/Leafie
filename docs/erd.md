@@ -114,6 +114,8 @@ erDiagram
     PLANTS {
         uuid id PK
         uuid user_id FK
+        uuid client_registration_id
+        varchar registration_request_hash
         varchar species_reference_id FK
         uuid species_identification_id FK
         uuid primary_media_file_id FK
@@ -306,8 +308,9 @@ erDiagram
 - 홈 메모는 완료 상태가 없는 식물별 하루 한 개의 기록입니다. 관리 이벤트나
   다이어리에 섞지 않습니다.
 - 컨디션 단계는 `condition_score`에서 계산하며 중복 저장하지 않습니다.
-- 물주기와 분갈이만 `CARE_SCHEDULES`로 반복합니다. 비료, 가지치기, 자유 할 일은
-  `CARE_EVENTS`의 일회성 이벤트입니다.
+- MVP에서 물주기와 분갈이를 `CARE_SCHEDULES`로 반복합니다. 식물 등록 시 알려진
+  마지막 분갈이 날짜 또는 `NEVER`의 `started_on`을 기준으로 최초 일정을 계산하고,
+  비료, 가지치기, 자유 할 일은 `CARE_EVENTS`의 일회성 이벤트로 저장합니다.
 - 식물별 영구 채팅방은 제품 개념입니다. 데이터베이스에서는 값이 없는 `AI_CHATS`
   테이블을 만들지 않고 `AI_CONVERSATIONS.plant_id`로 직접 연결합니다.
 - 진단은 사진을 정확히 한 장 사용하므로 연결 테이블 없이
@@ -326,9 +329,10 @@ erDiagram
 | `species_care_guides` | `species_reference_id` 고정, GBIF ID 우선 매칭, 기본 주기는 양수 또는 null |
 | `plants` | `nickname`, `species_reference_id`, `species_selection_method`, `started_on`, 환경·성격·외형 필드 필수 |
 | `plants` | `started_on`은 미래 불가, 성격은 확정된 6개 Enum, 화분·위치는 확정 Enum만 허용 |
+| `plants` | `(user_id, client_registration_id)` unique, 같은 ID와 같은 요청은 기존 결과 반환, 다른 요청은 409 |
 | `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 내용 필수 |
 | `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문·0~100 컨디션 필수, 사진은 null 또는 한 장 |
-| `care_schedules` | `type`은 `WATERING` 또는 `REPOTTING`, `(plant_id, type)` unique |
+| `care_schedules` | `WATERING`·`REPOTTING` 반복, `(plant_id, type)` unique |
 | `care_events` | `source`는 `AUTO_SCHEDULE`·`USER_CREATED`·`AI_RECOMMENDED`, 사용자 일정은 제목 필수 |
 | `care_events` | 완료 시 `performed_on`과 `recorded_at` 필수, `performed_on`은 미래 불가, `recorded_at`은 서버 시각 |
 | `care_events` | 다음 반복 일정은 `recorded_at`이 아닌 `performed_on`을 기준으로 계산 |
@@ -369,6 +373,7 @@ care_event_status:
 ```text
 user_profiles(deletion_status)
 plants(user_id, deleted_at)
+plants(user_id, client_registration_id) UNIQUE
 species_care_guides(display_name)
 species_care_guides(gbif_id) UNIQUE WHERE gbif_id IS NOT NULL
 species_care_guides(plantnet_species_id) UNIQUE WHERE plantnet_species_id IS NOT NULL

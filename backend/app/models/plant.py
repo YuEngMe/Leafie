@@ -109,12 +109,23 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
             f"personality_type IN ({enum_values(PersonalityType)})",
             name="personality_type",
         ),
+        CheckConstraint(
+            "char_length(registration_request_hash) = 64",
+            name="registration_request_hash_length",
+        ),
+        UniqueConstraint(
+            "user_id",
+            "client_registration_id",
+            name="uq_plants_user_client_registration_id",
+        ),
         Index("ix_plants_user_id_deleted_at", "user_id", "deleted_at"),
     )
 
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("auth.users.id", ondelete="CASCADE"), nullable=False
     )
+    client_registration_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    registration_request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     species_reference_id: Mapped[str] = mapped_column(
         String(255),
         ForeignKey("species_care_guides.species_reference_id", ondelete="RESTRICT"),
