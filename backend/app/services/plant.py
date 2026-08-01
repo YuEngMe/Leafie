@@ -194,13 +194,44 @@ class PlantRegistrationService:
             updated_at=now,
         )
 
+        care_schedules: list[CareSchedule] = [watering_schedule]
         care_events: list[CareEvent] = [watering_event]
+        repotting_base_date: date | None = None
+        if request.repotting_history.status == RepottingHistoryStatus.KNOWN:
+            assert request.repotting_history.date is not None
+            repotting_base_date = request.repotting_history.date
+        elif request.repotting_history.status == RepottingHistoryStatus.NEVER:
+            repotting_base_date = request.started_on
+
+        repotting_schedule: CareSchedule | None = None
+        if repotting_base_date is not None and guide.default_repotting_interval_days is not None:
+            repotting_schedule = CareSchedule(
+                id=uuid4(),
+                plant_id=plant.id,
+                type=CareScheduleType.REPOTTING.value,
+                interval_days=guide.default_repotting_interval_days,
+                next_due_date=next_recurring_due_date(
+                    repotting_base_date,
+                    guide.default_repotting_interval_days,
+                    today,
+                ),
+                recommended_water_min_ml=None,
+                recommended_water_max_ml=None,
+                recommendation_source=None,
+                enabled=True,
+                created_at=now,
+                updated_at=now,
+            )
+            care_schedules.append(repotting_schedule)
+
         if request.repotting_history.status == RepottingHistoryStatus.KNOWN:
             assert request.repotting_history.date is not None
             care_events.append(
                 completed_care_event(
                     plant_id=plant.id,
-                    schedule_id=None,
+                    schedule_id=(
+                        repotting_schedule.id if repotting_schedule is not None else None
+                    ),
                     care_type=CareEventType.REPOTTING,
                     performed_on=request.repotting_history.date,
                     recorded_at=now,
@@ -211,7 +242,7 @@ class PlantRegistrationService:
         # Flush parents first so PostgreSQL never receives child INSERTs before
         # their referenced plant and schedule rows exist.
         await self._repository.add_registration(plant)
-        await self._repository.add_registration(watering_schedule, conversation)
+        await self._repository.add_registration(*care_schedules, conversation)
         await self._repository.add_registration(*care_events)
         profile.selected_plant_id = plant.id
         await self._repository.flush()
@@ -326,6 +357,16 @@ def candidate_contains_reference(candidates: list, species_reference_id: str) ->
         isinstance(candidate, dict) and candidate.get("reference_id") == species_reference_id
         for candidate in candidates
     )
+
+
+def next_recurring_due_date(base_date: date, interval_days: int, today: date) -> date:
+    next_due_date = base_date + timedelta(days=interval_days)
+    if next_due_date >= today:
+        return next_due_date
+
+    elapsed_days = (today - next_due_date).days
+    skipped_intervals = (elapsed_days + interval_days - 1) // interval_days
+    return next_due_date + timedelta(days=skipped_intervals * interval_days)
 
 
 def today_in_timezone(timezone_name: str) -> date:

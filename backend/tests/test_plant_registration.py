@@ -21,14 +21,13 @@ from app.models.enums import (
     MediaPurpose,
     MediaStatus,
     PlantCategory,
-    RepottingHistoryStatus,
     SpeciesIdentificationStatus,
 )
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantCreateRequest
-from app.services.plant import PlantRegistrationService
+from app.services.plant import PlantRegistrationService, next_recurring_due_date
 
 
 class FakePlantRegistrationRepository:
@@ -172,7 +171,7 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     response = await service.create_plant(user_id, make_request())
 
     plant = next(entity for entity in repository.added if isinstance(entity, Plant))
-    schedule = next(entity for entity in repository.added if isinstance(entity, CareSchedule))
+    schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
     conversation = next(
         entity for entity in repository.added if isinstance(entity, AIConversation)
@@ -189,11 +188,20 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert repository.profile.selected_plant_id == plant.id
     assert repository.flush_count == 1
 
-    assert schedule.type == CareScheduleType.WATERING
-    assert schedule.interval_days == 3
-    assert schedule.next_due_date == date(2026, 8, 2)
-    assert schedule.recommended_water_min_ml == 150
-    assert schedule.recommended_water_max_ml == 250
+    watering_schedule = next(
+        schedule for schedule in schedules if schedule.type == CareScheduleType.WATERING
+    )
+    repotting_schedule = next(
+        schedule for schedule in schedules if schedule.type == CareScheduleType.REPOTTING
+    )
+    assert watering_schedule.interval_days == 3
+    assert watering_schedule.next_due_date == date(2026, 8, 2)
+    assert watering_schedule.recommended_water_min_ml == 150
+    assert watering_schedule.recommended_water_max_ml == 250
+    assert repotting_schedule.interval_days == 365
+    assert repotting_schedule.next_due_date == date(2027, 3, 1)
+    assert repotting_schedule.recommended_water_min_ml is None
+    assert repotting_schedule.recommended_water_max_ml is None
 
     assert {event.type for event in events} == {
         CareEventType.WATERING,
@@ -201,35 +209,88 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     }
     assert all(event.status == CareEventStatus.COMPLETED for event in events)
     repotting_event = next(event for event in events if event.type == CareEventType.REPOTTING)
-    assert repotting_event.schedule_id is None
+    assert repotting_event.schedule_id == repotting_schedule.id
     assert repotting_event.performed_on == date(2026, 3, 1)
     assert conversation.plant_id == plant.id
     assert conversation.title == "새 채팅"
     assert [[type(entity) for entity in batch] for batch in repository.added_batches] == [
         [Plant],
-        [CareSchedule, AIConversation],
+        [CareSchedule, CareSchedule, AIConversation],
         [CareEvent, CareEvent],
     ]
 
 
-@pytest.mark.parametrize(
-    "repotting_history",
-    [
-        {"status": RepottingHistoryStatus.NEVER.value, "date": None},
-        {"status": RepottingHistoryStatus.UNKNOWN.value, "date": None},
-    ],
-)
-async def test_registration_without_known_repotting_date_does_not_create_repotting_event(
-    repotting_history: dict[str, object],
-) -> None:
+async def test_never_repotted_uses_started_on_for_initial_schedule() -> None:
     service, repository, user_id = build_service()
 
-    await service.create_plant(user_id, make_request(repotting_history=repotting_history))
+    await service.create_plant(
+        user_id,
+        make_request(repotting_history={"status": "NEVER", "date": None}),
+    )
+
+    events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
+    assert [event.type for event in events] == [CareEventType.WATERING]
+    schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
+    repotting_schedule = next(
+        schedule for schedule in schedules if schedule.type == CareScheduleType.REPOTTING
+    )
+    assert repotting_schedule.interval_days == 365
+    assert repotting_schedule.next_due_date == date(2027, 3, 1)
+
+
+async def test_unknown_repotting_history_does_not_create_initial_schedule_or_event() -> None:
+    service, repository, user_id = build_service()
+
+    await service.create_plant(
+        user_id,
+        make_request(repotting_history={"status": "UNKNOWN", "date": None}),
+    )
 
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
     assert [event.type for event in events] == [CareEventType.WATERING]
     schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
     assert [schedule.type for schedule in schedules] == [CareScheduleType.WATERING]
+
+
+async def test_known_repotting_without_catalog_interval_stores_history_only() -> None:
+    service, repository, user_id = build_service()
+    guide = next(iter(repository.guides.values()))
+    guide.default_repotting_interval_days = None
+
+    await service.create_plant(user_id, make_request())
+
+    schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
+    assert [schedule.type for schedule in schedules] == [CareScheduleType.WATERING]
+    repotting_event = next(
+        entity
+        for entity in repository.added
+        if isinstance(entity, CareEvent) and entity.type == CareEventType.REPOTTING
+    )
+    assert repotting_event.schedule_id is None
+
+
+def test_repotting_due_date_skips_past_intervals() -> None:
+    assert next_recurring_due_date(
+        date(2025, 1, 1),
+        180,
+        date(2026, 8, 1),
+    ) == date(2026, 12, 22)
+
+
+def test_repotting_due_date_keeps_today() -> None:
+    assert next_recurring_due_date(
+        date(2026, 2, 2),
+        180,
+        date(2026, 8, 1),
+    ) == date(2026, 8, 1)
+
+
+def test_repotting_due_date_keeps_today_after_skipping_exact_intervals() -> None:
+    assert next_recurring_due_date(
+        date(2025, 1, 1),
+        180,
+        date(2025, 12, 27),
+    ) == date(2025, 12, 27)
 
 
 async def test_photo_registration_reuses_completed_identification_image() -> None:
