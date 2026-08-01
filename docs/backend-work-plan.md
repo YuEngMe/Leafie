@@ -24,7 +24,7 @@
 | 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리, 사진 한 장, 0~100 점수, 월 평균 |
 | 8 | `backend/feat-care-schedule` | A | 반복 일정, 소급 완료, 일회성 일정, 홈 메모 |
 | 9 | `backend/feat-home-calendar` | A | 홈 통합 조회, 일정 범위 조회, 식물 전환·삭제 |
-| 10 | `backend/feat-diagnosis` | B | 사진 한 장 진단, Provider 표준화, 이력·상세 |
+| 10 | `backend/feat-kindwise-diagnosis` | B | Kindwise 사진 한 장 진단, 이력·상세, 재촬영·재시도 |
 | 11 | `backend/feat-ai-chat` | B | 식물별 대화 세션, 메시지·사진·요약·검색 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool, 감사 로그, 일정 제안 승인·취소 |
 | 13 | `backend/feat-notifications` | 공통 | 알림함, 읽음, 전체 푸시 설정, 기기 토큰 |

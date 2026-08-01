@@ -5,9 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 
-PROTECTED_REQUESTS: list[
-    tuple[str, str, dict[str, object] | None, dict[str, object] | None]
-] = [
+PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     (
         "POST",
         "/api/v1/media/presign",
@@ -64,6 +62,16 @@ PROTECTED_REQUESTS: list[
     ("DELETE", f"/api/v1/conversations/{uuid4()}", None, None),
     ("GET", f"/api/v1/conversations/{uuid4()}/messages", None, None),
     ("POST", f"/api/v1/conversations/{uuid4()}/messages", {"content": "안녕"}, None),
+    (
+        "POST",
+        f"/api/v1/plants/{uuid4()}/diagnoses",
+        {"conversation_id": str(uuid4()), "media_file_id": str(uuid4())},
+        None,
+    ),
+    ("GET", f"/api/v1/plants/{uuid4()}/diagnoses", None, None),
+    ("GET", f"/api/v1/diagnoses/{uuid4()}", None, None),
+    ("POST", f"/api/v1/diagnoses/{uuid4()}/retry", None, None),
+    ("POST", f"/api/v1/diagnoses/{uuid4()}/cancel", None, None),
 ]
 
 EXPECTED_API_OPERATIONS = {
@@ -88,6 +96,11 @@ EXPECTED_API_OPERATIONS = {
     ("DELETE", "/api/v1/conversations/{conversation_id}"),
     ("GET", "/api/v1/conversations/{conversation_id}/messages"),
     ("POST", "/api/v1/conversations/{conversation_id}/messages"),
+    ("POST", "/api/v1/plants/{plant_id}/diagnoses"),
+    ("GET", "/api/v1/plants/{plant_id}/diagnoses"),
+    ("GET", "/api/v1/diagnoses/{diagnosis_id}"),
+    ("POST", "/api/v1/diagnoses/{diagnosis_id}/retry"),
+    ("POST", "/api/v1/diagnoses/{diagnosis_id}/cancel"),
 }
 
 
@@ -101,8 +114,7 @@ def test_openapi_contains_every_expected_api_operation() -> None:
         (method.upper(), path)
         for path, operations in document["paths"].items()
         for method in operations
-        if method.lower()
-        in {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
+        if method.lower() in {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
     }
     assert actual == EXPECTED_API_OPERATIONS
 

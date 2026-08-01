@@ -1,11 +1,14 @@
 from decimal import Decimal
+from io import BytesIO
 
 import pytest
+from PIL import Image
 from pydantic import ValidationError
 
 from app.integrations.diagnosis import (
     DiagnosisImageQualityResult,
     DiagnosisProviderResult,
+    LocalDiagnosisImageQualityChecker,
 )
 
 
@@ -117,3 +120,61 @@ def test_provider_result_rejects_blank_display_text(field: str, value: list) -> 
 
     with pytest.raises(ValidationError):
         DiagnosisProviderResult.model_validate(payload)
+
+
+def _image_bytes(color: tuple[int, int, int], *, textured: bool = False) -> bytes:
+    image = Image.new("RGB", (640, 640), color)
+    if textured:
+        pixels = image.load()
+        for x in range(0, 640, 8):
+            for y in range(640):
+                pixels[x, y] = (20, 150, 40)
+    output = BytesIO()
+    image.save(output, format="JPEG")
+    return output.getvalue()
+
+
+async def test_local_quality_checker_accepts_clear_supported_image() -> None:
+    result = await LocalDiagnosisImageQualityChecker().check(
+        _image_bytes((120, 180, 100), textured=True),
+        "image/jpeg",
+    )
+
+    assert result.acceptable is True
+    assert result.retake_reason_code is None
+
+
+async def test_local_quality_checker_rejects_dark_image() -> None:
+    result = await LocalDiagnosisImageQualityChecker().check(
+        _image_bytes((0, 0, 0)),
+        "image/jpeg",
+    )
+
+    assert result.acceptable is False
+    assert result.brightness_acceptable is False
+    assert result.retake_reason_code == "IMAGE_TOO_DARK"
+
+
+@pytest.mark.parametrize(
+    ("image", "content_type", "reason_code"),
+    [
+        (_image_bytes((120, 180, 100), textured=True), "image/gif", "IMAGE_TYPE_UNSUPPORTED"),
+        (Image.new("RGB", (256, 256), (120, 180, 100)), "image/jpeg", "IMAGE_TOO_SMALL"),
+        (Image.new("RGB", (640, 640), (120, 180, 100)), "image/png", "IMAGE_BLURRY"),
+        (b"not-an-image", "image/jpeg", "IMAGE_INVALID"),
+    ],
+)
+async def test_local_quality_checker_rejects_invalid_inputs(
+    image: bytes | Image.Image,
+    content_type: str,
+    reason_code: str,
+) -> None:
+    if isinstance(image, Image.Image):
+        output = BytesIO()
+        image.save(output, format="PNG")
+        image = output.getvalue()
+
+    result = await LocalDiagnosisImageQualityChecker().check(image, content_type)
+
+    assert result.acceptable is False
+    assert result.retake_reason_code == reason_code

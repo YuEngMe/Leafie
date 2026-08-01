@@ -29,8 +29,13 @@ class Settings(BaseSettings):
     plantnet_result_limit: int = Field(default=5, ge=1, le=20)
     plantnet_timeout_seconds: float = Field(default=20.0, gt=0)
 
+    kindwise_api_key: str | None = None
+    kindwise_base_url: str = "https://api.plant.id/v3"
+    kindwise_language: str = "ko"
+    kindwise_timeout_seconds: float = Field(default=45.0, gt=0)
+
     openai_api_key: str | None = None
-    openai_chat_model: str = "gpt-5.6-luna"
+    openai_chat_model: str = "gpt-5-mini"
     openai_timeout_seconds: float = Field(default=45.0, gt=0)
     openai_chat_max_output_tokens: int = Field(default=800, ge=100, le=4000)
     ai_chat_context_message_limit: int = Field(default=20, ge=4, le=100)

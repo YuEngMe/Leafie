@@ -1,3 +1,5 @@
+from sqlalchemy import UniqueConstraint
+
 import app.models  # noqa: F401
 from app.db.base import Base
 
@@ -67,8 +69,14 @@ def test_conversations_belong_directly_to_a_plant() -> None:
 
 def test_diagnosis_accepts_only_one_image() -> None:
     diagnoses = Base.metadata.tables["diagnoses"]
+    unique_columns = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in diagnoses.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
 
     assert diagnoses.columns["media_file_id"].nullable is False
+    assert ("media_file_id",) in unique_columns
 
 
 def test_user_owned_tables_reference_supabase_auth_users() -> None:

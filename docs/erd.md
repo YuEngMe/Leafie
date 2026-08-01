@@ -18,7 +18,7 @@ erDiagram
     MEDIA_FILES ||--o{ SPECIES_IDENTIFICATIONS : identifies
     MEDIA_FILES ||--o{ PLANTS : primary_photo
     MEDIA_FILES ||--o{ PLANT_DIARIES : diary_photo
-    MEDIA_FILES ||--o{ DIAGNOSES : diagnosis_photo
+    MEDIA_FILES ||--o| DIAGNOSES : diagnosis_photo
     MEDIA_FILES ||--o{ AI_MESSAGES : chat_attachment
 
     SPECIES_CARE_GUIDES ||--o{ PLANTS : classifies
@@ -188,7 +188,7 @@ erDiagram
         uuid id PK
         uuid plant_id FK
         uuid related_conversation_id FK
-        uuid media_file_id FK
+        uuid media_file_id FK,UK
         varchar status
         varchar overall_condition
         jsonb input_context_snapshot
@@ -336,7 +336,7 @@ erDiagram
 | `care_events` | `source`는 `AUTO_SCHEDULE`·`USER_CREATED`·`AI_RECOMMENDED`, 사용자 일정은 제목 필수 |
 | `care_events` | 완료 시 `performed_on`과 `recorded_at` 필수, `performed_on`은 미래 불가, `recorded_at`은 서버 시각 |
 | `care_events` | 다음 반복 일정은 `recorded_at`이 아닌 `performed_on`을 기준으로 계산 |
-| `diagnoses` | `media_file_id` 필수, 사진 한 장, 상태는 `PENDING`·`PROCESSING`·`COMPLETED`·`NEEDS_RETAKE`·`FAILED`·`CANCELLED` |
+| `diagnoses` | `media_file_id` 필수·unique, 같은 사진은 진단 한 건만 생성, 상태는 `PENDING`·`PROCESSING`·`COMPLETED`·`NEEDS_RETAKE`·`FAILED`·`CANCELLED` |
 | `diagnoses` | `overall_condition`은 `HEALTHY`·`UNHEALTHY`·`UNCERTAIN`, 원인은 최대 3개 |
 | `diagnoses` | 원인 확률은 진단 Provider 값만 허용하고 건강점수와 LLM 생성 확률은 저장하지 않음 |
 | `ai_conversations` | 식물의 영구 채팅방 안에서 생성되는 새 채팅 단위, 제목 검색과 soft delete 지원 |
