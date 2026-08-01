@@ -168,9 +168,14 @@ class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "plant_diaries"
     __table_args__ = (
         CheckConstraint(
-            "condition_score >= 0 AND condition_score <= 100",
+            "char_length(btrim(content)) BETWEEN 1 AND 2000",
+            name="content_length",
+        ),
+        CheckConstraint(
+            "condition_score IN (0, 25, 50, 75, 100)",
             name="condition_score",
         ),
+        UniqueConstraint("media_file_id", name="uq_plant_diaries_media_file_id"),
         UniqueConstraint("plant_id", "diary_date", name="uq_plant_diaries_plant_date"),
     )
 

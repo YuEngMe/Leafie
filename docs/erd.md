@@ -17,7 +17,7 @@ erDiagram
 
     MEDIA_FILES ||--o{ SPECIES_IDENTIFICATIONS : identifies
     MEDIA_FILES ||--o{ PLANTS : primary_photo
-    MEDIA_FILES ||--o{ PLANT_DIARIES : diary_photo
+    MEDIA_FILES o|--o| PLANT_DIARIES : diary_photo
     MEDIA_FILES ||--o| DIAGNOSES : diagnosis_photo
     MEDIA_FILES ||--o{ AI_MESSAGES : chat_attachment
 
@@ -331,7 +331,8 @@ erDiagram
 | `plants` | `started_on`은 미래 불가, 성격은 확정된 6개 Enum, 화분·위치는 확정 Enum만 허용 |
 | `plants` | `(user_id, client_registration_id)` unique, 같은 ID와 같은 요청은 기존 결과 반환, 다른 요청은 409 |
 | `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 내용 필수 |
-| `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문·0~100 컨디션 필수, 사진은 null 또는 한 장 |
+| `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문 `1~2,000자`, 점수는 `0·25·50·75·100` |
+| `plant_diaries` | `media_file_id` unique, 사진은 null 또는 본인 소유 `DIARY`·`READY` 한 장 |
 | `care_schedules` | `WATERING`·`REPOTTING` 반복, `(plant_id, type)` unique |
 | `care_events` | `source`는 `AUTO_SCHEDULE`·`USER_CREATED`·`AI_RECOMMENDED`, 사용자 일정은 제목 필수 |
 | `care_events` | 완료 시 `performed_on`과 `recorded_at` 필수, `performed_on`은 미래 불가, `recorded_at`은 서버 시각 |
@@ -380,6 +381,7 @@ species_care_guides(plantnet_species_id) UNIQUE WHERE plantnet_species_id IS NOT
 species_identifications(user_id, created_at DESC)
 plant_daily_memos(plant_id, memo_date) UNIQUE
 plant_diaries(plant_id, diary_date) UNIQUE
+plant_diaries(media_file_id) UNIQUE
 care_schedules(plant_id, type) UNIQUE
 care_schedules(enabled, next_due_date)
 care_events(plant_id, due_date)
@@ -414,7 +416,8 @@ device_tokens(user_id, revoked_at)
 - 식물과 대화 세션 삭제는 `deleted_at`을 기록하는 soft delete로 시작합니다.
 - 식물 삭제 시 메모, 다이어리, 일정, 진단, 대화, 알림을 함께 삭제하고 Storage
   객체 삭제는 Worker가 처리합니다.
-- 다이어리 자체 삭제는 지원하지 않으며 수정만 허용합니다.
+- 다이어리 삭제를 지원합니다. 연결 사진은 DB에서 soft delete한 뒤 같은 트랜잭션으로
+  Queue에 등록하며 Storage 객체는 Worker가 멱등하게 삭제합니다.
 - 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 업무 데이터와 Storage를 삭제하고
   마지막에 Supabase Auth 계정을 제거합니다.
 - 계정 삭제 재시도가 소진되면 `FAILED` 상태와 Worker 로그를 기준으로 운영자가 재처리합니다.
@@ -425,8 +428,8 @@ device_tokens(user_id, revoked_at)
 - `days_together`: `plants.started_on`부터 사용자 시간대의 오늘까지의 일수
 - `gardener_days`: `auth.users.created_at`부터 사용자 시간대의 오늘까지의 일수
 - `current_condition`: 오늘 다이어리의 `condition_score`, 없으면 null
-- `condition_level`: 0~20=1, 21~40=2, 41~60=3, 61~80=4, 81~100=5
-- `monthly_condition`: 해당 월 다이어리 점수의 평균과 평균 점수의 5단계 아이콘
+- `condition_level`: 0=1, 25=2, 50=3, 75=4, 100=5
+- `monthly_condition`: 해당 월 점수의 산술평균을 반올림한 정수와 중간값 경계의 5단계
 - `care_event_view_status`: `due_date` 기준 `UPCOMING`·`TODAY`·`OVERDUE`, 완료 시 `COMPLETED`
 
 기록이 없는 달의 평균은 0이 아니라 null입니다. 홈 캐릭터 대사는 성격, 오늘

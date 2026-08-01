@@ -68,11 +68,15 @@ SDK가 직접 처리하는 인증 동작은 이 문서의 Auth 절을 따릅니�
 | `DiagnosisCondition` | `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` |
 | `AIActionStatus` | `PENDING_CONFIRMATION`, `EXECUTING`, `COMPLETED`, `CANCELLED`, `EXPIRED`, `FAILED` |
 
-컨디션은 `0~100` 정수로 저장하고 응답의 `condition_level`은 다음처럼 계산합니다.
+컨디션은 다음 다섯 정수 중 하나만 저장합니다.
 
 ```text
-0~20=1, 21~40=2, 41~60=3, 61~80=4, 81~100=5
+0=1단계, 25=2단계, 50=3단계, 75=4단계, 100=5단계
 ```
+
+월평균 점수는 해당 월 점수의 산술평균을 반올림한 정수입니다. 평균 단계는 점수 사이의
+중간값을 경계로 `0~12.49=1`, `12.5~37.49=2`, `37.5~62.49=3`,
+`62.5~87.49=4`, `87.5~100=5`로 계산합니다. 정확히 경계값이면 높은 단계를 사용합니다.
 
 ## 3. Supabase Auth
 
@@ -389,7 +393,7 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
     "expression_level": 4,
     "dialogue": "오늘도 같이 잘 지내보자!"
   },
-  "condition": {"recorded": true, "score": 74, "level": 4},
+  "condition": {"recorded": true, "score": 75, "level": 4},
   "today_events": [],
   "daily_memo": {"content": "새잎이 보였다."},
   "unread_notification_count": 2
@@ -471,16 +475,17 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 {
   "entries": [
     {
+      "id": "uuid",
       "diary_date": "2026-07-20",
-      "condition_score": 82,
-      "condition_level": 5,
+      "condition_score": 75,
+      "condition_level": 4,
       "has_photo": true
     }
   ],
   "statistics": {
     "entry_count": 1,
-    "average_score": 82.0,
-    "average_level": 5
+    "average_score": 75,
+    "average_level": 4
   }
 }
 ```
@@ -494,19 +499,52 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 ```json
 {
   "content": "오늘 새잎이 조금 더 펼쳐졌다.",
-  "condition_score": 78,
+  "condition_score": 75,
   "media_file_id": "uuid-or-null"
 }
 ```
 
-- 글과 점수 필수
+- 본문은 공백 제거 후 `1~2,000자`, 점수는 `0`, `25`, `50`, `75`, `100` 중 하나
 - 사진 최대 한 장
 - 오늘과 과거 작성 가능, 미래 불가
-- 날짜 변경과 삭제 불가
+- 생성할 때 사진 필드를 생략하거나 null로 보내면 사진 없이 저장
+- 수정할 때 `media_file_id`를 생략하면 기존 사진 유지, null이면 기존 사진 제거,
+  새 UUID이면 교체
+- 사진 UUID는 본인 소유의 `DIARY`, `READY` 파일이어야 하며 하나의 다이어리에만 연결
+- 같은 원본 이미지를 다른 다이어리에 사용하려면 새 업로드로 별도 UUID 생성
+
+최초 생성은 `201 Created`, 기존 날짜 수정은 `200 OK`입니다. 생성·수정·상세 조회는
+다음 형식을 반환합니다.
+
+```json
+{
+  "id": "uuid",
+  "plant_id": "uuid",
+  "diary_date": "2026-07-20",
+  "content": "오늘 새잎이 조금 더 펼쳐졌다.",
+  "condition_score": 75,
+  "condition_level": 4,
+  "media": {
+    "id": "uuid",
+    "download_url": "signed-url",
+    "expires_at": "2026-07-20T12:35:00Z"
+  },
+  "created_at": "2026-07-20T12:30:00Z",
+  "updated_at": "2026-07-20T12:30:00Z"
+}
+```
+
+사진이 없으면 `media`는 null입니다. 날짜는 경로로 고정되며 수정할 수 없습니다.
 
 ### `GET /plants/{plant_id}/diaries/{date}`
 
-본문, 사진 Signed URL, 점수와 5단계를 반환합니다.
+위 다이어리 응답 형식으로 본문, 사진 Signed URL, 점수와 5단계를 반환합니다.
+
+### `DELETE /plants/{plant_id}/diaries/{date}`
+
+다이어리를 삭제하고 `204 No Content`를 반환합니다. 이미 없는 다이어리도 204로 처리합니다.
+연결된 사진이 있으면 DB에서 `DELETED`로 전환하고 같은 트랜잭션에서 Storage 삭제 작업을
+Queue에 넣습니다. 실제 Storage 객체는 Worker가 멱등하게 삭제하며 실패하면 재시도합니다.
 
 ## 11. AI 대화와 Tool Calling
 
