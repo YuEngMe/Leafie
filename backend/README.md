@@ -22,6 +22,11 @@ visibility timeout, 최대 재시도와 batch 크기를 설정합니다. Worker�
 `FAILED`로 종료되며 `failure_code`로 원인을 반환합니다. Pl@ntNet이 지원하는
 JPEG와 PNG만 인식 입력으로 사용합니다.
 
+식물 상태 진단에는 Kindwise plant.id의 `KINDWISE_API_KEY`가 필요합니다. 앱에서
+업로드한 사진은 Worker가 로컬에서 해상도·밝기·선명도를 먼저 검사한 뒤
+`health_assessment` API에 한 번 전송합니다. 진단은 비동기로 처리되며 실패한 외부
+요청은 Queue 정책에 따라 재시도합니다.
+
 AI 채팅에는 `OPENAI_API_KEY`가 필요합니다. 텍스트 답변은 FastAPI에서 SSE로
 스트리밍하고 사진 첨부 답변은 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
 모델과 응답 한도는 `OPENAI_CHAT_MODEL`, `OPENAI_CHAT_MAX_OUTPUT_TOKENS`로

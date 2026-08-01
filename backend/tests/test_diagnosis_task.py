@@ -8,6 +8,7 @@ from app.integrations.diagnosis import (
     DiagnosisImageQualityResult,
     DiagnosisPermanentError,
     DiagnosisProviderResult,
+    DiagnosisRetakeError,
     DiagnosisTransientError,
 )
 from app.schemas.queue import JobType, QueueJob
@@ -153,6 +154,20 @@ async def test_diagnosis_handler_marks_low_quality_image_for_retake() -> None:
     assert repository.retake[0][1].retake_reason_code == "IMAGE_BLURRY"
     assert provider.calls == 0
     assert repository.completed == []
+
+
+async def test_diagnosis_handler_marks_nonplant_provider_result_for_retake() -> None:
+    repository = FakeRepository()
+    provider = FakeProvider(DiagnosisRetakeError("PLANT_NOT_VISIBLE"))
+    job = make_job()
+
+    await build_handler(repository, provider=provider)(job)
+
+    assert repository.retake[0][0] == job.resource_id
+    assert repository.retake[0][1].plant_visible is False
+    assert repository.retake[0][1].retake_reason_code == "PLANT_NOT_VISIBLE"
+    assert repository.released == []
+    assert repository.failed == []
 
 
 async def test_diagnosis_handler_marks_permanent_provider_failure() -> None:

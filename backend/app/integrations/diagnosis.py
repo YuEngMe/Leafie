@@ -1,6 +1,8 @@
 from decimal import Decimal
+from io import BytesIO
 from typing import Annotated, Protocol
 
+from PIL import Image, ImageFilter, ImageStat, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models.enums import DiagnosisCondition
@@ -25,6 +27,10 @@ class DiagnosisProviderResult(BaseModel):
         max_length=10,
     )
     possible_causes: list[DiagnosisCause] = Field(default_factory=list, max_length=3)
+    care_suggestions: list[Annotated[NonBlankText, StringConstraints(max_length=1000)]] = Field(
+        default_factory=list,
+        max_length=10,
+    )
     provider_name: str = Field(min_length=1, max_length=100)
     model_name: str = Field(min_length=1, max_length=200)
     response_id: str | None = Field(default=None, max_length=255)
@@ -87,3 +93,71 @@ class DiagnosisPermanentError(Exception):
 
 class DiagnosisTransientError(Exception):
     pass
+
+
+class DiagnosisRetakeError(Exception):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class LocalDiagnosisImageQualityChecker:
+    def __init__(self, *, minimum_dimension: int = 512, sharpness_threshold: float = 10.0) -> None:
+        self._minimum_dimension = minimum_dimension
+        self._sharpness_threshold = sharpness_threshold
+
+    async def check(
+        self,
+        image: bytes,
+        content_type: str,
+    ) -> DiagnosisImageQualityResult:
+        try:
+            with Image.open(BytesIO(image)) as source:
+                source.verify()
+            with Image.open(BytesIO(image)) as source:
+                grayscale = source.convert("L")
+        except (UnidentifiedImageError, OSError):
+            return _rejected_quality("IMAGE_INVALID")
+
+        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            return _rejected_quality("IMAGE_TYPE_UNSUPPORTED")
+        if min(grayscale.size) < self._minimum_dimension:
+            return _rejected_quality("IMAGE_TOO_SMALL")
+
+        brightness = float(ImageStat.Stat(grayscale).mean[0])
+        if brightness < 20:
+            return _rejected_quality("IMAGE_TOO_DARK", brightness_acceptable=False)
+        if brightness > 235:
+            return _rejected_quality("IMAGE_TOO_BRIGHT", brightness_acceptable=False)
+
+        margin = max(1, min(grayscale.size) // 100)
+        inner = grayscale.crop(
+            (margin, margin, grayscale.width - margin, grayscale.height - margin)
+        )
+        sharpness = float(ImageStat.Stat(inner.filter(ImageFilter.FIND_EDGES)).var[0])
+        if sharpness < self._sharpness_threshold:
+            return _rejected_quality("IMAGE_BLURRY", sharp_enough=False)
+
+        return DiagnosisImageQualityResult(
+            acceptable=True,
+            plant_visible=True,
+            sharp_enough=True,
+            brightness_acceptable=True,
+            symptom_area_visible=True,
+        )
+
+
+def _rejected_quality(
+    reason_code: str,
+    *,
+    sharp_enough: bool = True,
+    brightness_acceptable: bool = True,
+) -> DiagnosisImageQualityResult:
+    return DiagnosisImageQualityResult(
+        acceptable=False,
+        plant_visible=True,
+        sharp_enough=sharp_enough,
+        brightness_acceptable=brightness_acceptable,
+        symptom_area_visible=True,
+        retake_reason_code=reason_code,
+    )

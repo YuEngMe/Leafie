@@ -1,11 +1,14 @@
 from decimal import Decimal
+from io import BytesIO
 
 import pytest
+from PIL import Image
 from pydantic import ValidationError
 
 from app.integrations.diagnosis import (
     DiagnosisImageQualityResult,
     DiagnosisProviderResult,
+    LocalDiagnosisImageQualityChecker,
 )
 
 
@@ -117,3 +120,36 @@ def test_provider_result_rejects_blank_display_text(field: str, value: list) -> 
 
     with pytest.raises(ValidationError):
         DiagnosisProviderResult.model_validate(payload)
+
+
+def _image_bytes(color: tuple[int, int, int], *, textured: bool = False) -> bytes:
+    image = Image.new("RGB", (640, 640), color)
+    if textured:
+        pixels = image.load()
+        for x in range(0, 640, 8):
+            for y in range(640):
+                pixels[x, y] = (20, 150, 40)
+    output = BytesIO()
+    image.save(output, format="JPEG")
+    return output.getvalue()
+
+
+async def test_local_quality_checker_accepts_clear_supported_image() -> None:
+    result = await LocalDiagnosisImageQualityChecker().check(
+        _image_bytes((120, 180, 100), textured=True),
+        "image/jpeg",
+    )
+
+    assert result.acceptable is True
+    assert result.retake_reason_code is None
+
+
+async def test_local_quality_checker_rejects_dark_image() -> None:
+    result = await LocalDiagnosisImageQualityChecker().check(
+        _image_bytes((0, 0, 0)),
+        "image/jpeg",
+    )
+
+    assert result.acceptable is False
+    assert result.brightness_acceptable is False
+    assert result.retake_reason_code == "IMAGE_TOO_DARK"

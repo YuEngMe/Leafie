@@ -81,6 +81,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Q as Supabase Queue
     participant W as Worker
+    participant K as Kindwise plant.id
 
     U->>A: 사진 진단 요청
     A->>API: plant_id, media_file_id
@@ -89,7 +90,9 @@ sequenceDiagram
     API-->>A: 202 Accepted
     W->>Q: 작업 수신
     W->>DB: PROCESSING 원자적 전환
-    W->>W: 품질 검사와 진단
+    W->>W: 해상도·밝기·선명도 검사
+    W->>K: health_assessment 사진 한 장
+    K-->>W: 건강 상태·원인 확률·관리법
     W->>DB: 결과와 COMPLETED 저장
     W->>Q: 메시지 archive
 ```
@@ -104,6 +107,12 @@ Worker 작업:
 - 채팅 사진 처리
 - 푸시 발송
 - Storage 및 계정 삭제
+
+사진 진단은 Kindwise plant.id v3를 사용합니다. Worker는 JPEG·PNG·WebP를 디코딩해
+긴 변을 최대 1600px로 축소하고 JPEG로 변환한 뒤 전송합니다. 로컬 품질 검사 실패나
+Kindwise의 식물 미검출은 `NEEDS_RETAKE`, 인증·입력 오류는 `FAILED`, timeout·429·5xx는
+재시도 대상으로 저장합니다. 진단 결과는 관찰 항목, 원인 최대 3개와 Provider 확률,
+비화학적 관리·예방 항목으로 정규화합니다. 별도 LLM 호출로 확률을 만들지 않습니다.
 
 작업은 리소스 ID를 멱등성 키로 사용합니다. 일시 오류는 지수 backoff로 재시도하고,
 영구 오류나 최대 재시도 초과는 실패 코드를 저장한 뒤 메시지를 archive합니다.

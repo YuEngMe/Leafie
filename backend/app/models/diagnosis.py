@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -40,6 +41,7 @@ class Diagnosis(Base, UUIDPrimaryKeyMixin):
             name="latency_ms",
         ),
         CheckConstraint("estimated_cost IS NULL OR estimated_cost >= 0", name="estimated_cost"),
+        UniqueConstraint("media_file_id", name="uq_diagnoses_media_file_id"),
         Index("ix_diagnoses_plant_id_created_at", "plant_id", text("created_at DESC")),
         Index("ix_diagnoses_status_created_at", "status", "created_at"),
     )

@@ -558,8 +558,15 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 응답 `202`:
 
 ```json
-{"diagnosis_id": "uuid", "status": "PENDING"}
+{
+  "diagnosis_id": "uuid",
+  "status": "PENDING",
+  "created_at": "2026-07-31T12:30:00Z"
+}
 ```
+
+동일한 `media_file_id`로 다시 요청하면 외부 API를 중복 호출하지 않고 기존 진단 ID를
+반환합니다. 사진은 `DIAGNOSIS` 용도로 업로드 완료된 JPEG·PNG·WebP 한 장이어야 합니다.
 
 ### `GET /plants/{plant_id}/diagnoses?cursor=`
 
@@ -570,6 +577,7 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ```json
 {
   "id": "uuid",
+  "plant_id": "uuid",
   "status": "COMPLETED",
   "diagnosed_at": "2026-07-31T12:30:00Z",
   "photo_url": "https://...",
@@ -589,7 +597,9 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ```
 
 원인 확률은 진단 Provider 값이 있을 때만 반환합니다. 건강점수, 단일 AI 신뢰도와
-진단 점수 그래프는 제공하지 않습니다.
+진단 점수 그래프는 제공하지 않습니다. 낮은 품질이나 식물 미검출은
+`NEEDS_RETAKE`와 `retake_reason_code`, 처리 실패는 `FAILED`와 `failure_code`로
+반환합니다.
 
 ### `POST /diagnoses/{diagnosis_id}/retry`
 
