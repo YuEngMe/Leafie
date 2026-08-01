@@ -1,15 +1,17 @@
 from decimal import Decimal
-from typing import Protocol
+from typing import Annotated, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models.enums import DiagnosisCondition
+
+NonBlankText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class DiagnosisCause(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: str = Field(min_length=1, max_length=200)
+    name: Annotated[NonBlankText, StringConstraints(max_length=200)]
     confidence: float | None = Field(default=None, ge=0, le=1)
 
 
@@ -18,7 +20,10 @@ class DiagnosisProviderResult(BaseModel):
 
     overall_condition: DiagnosisCondition
     condition_label: str = Field(min_length=1, max_length=200)
-    observations: list[str] = Field(min_length=1, max_length=10)
+    observations: list[Annotated[NonBlankText, StringConstraints(max_length=500)]] = Field(
+        min_length=1,
+        max_length=10,
+    )
     possible_causes: list[DiagnosisCause] = Field(default_factory=list, max_length=3)
     provider_name: str = Field(min_length=1, max_length=100)
     model_name: str = Field(min_length=1, max_length=200)

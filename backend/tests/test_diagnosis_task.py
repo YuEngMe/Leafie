@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -25,6 +26,7 @@ class FakeRepository:
         self.retake: list[tuple] = []
         self.released: list = []
         self.failed: list[tuple] = []
+        self.last_retry_failure_code: str | None = None
 
     async def start(self, _diagnosis_id):
         return self.work
@@ -35,11 +37,15 @@ class FakeRepository:
     async def needs_retake(self, diagnosis_id, quality):
         self.retake.append((diagnosis_id, quality))
 
-    async def release_for_retry(self, diagnosis_id):
+    async def release_for_retry(self, diagnosis_id, failure_code):
         self.released.append(diagnosis_id)
+        self.last_retry_failure_code = failure_code
 
     async def fail(self, diagnosis_id, failure_code):
         self.failed.append((diagnosis_id, failure_code))
+
+    async def fail_after_retries(self, diagnosis_id, fallback_failure_code):
+        self.failed.append((diagnosis_id, self.last_retry_failure_code or fallback_failure_code))
 
 
 class FakeStorage:
@@ -208,4 +214,62 @@ async def test_diagnosis_handler_marks_retry_exhaustion() -> None:
 
     await build_handler(repository).on_exhausted(job)
 
-    assert repository.failed == [(job.resource_id, "DIAGNOSIS_PROVIDER_UNAVAILABLE")]
+    assert repository.failed == [(job.resource_id, "DIAGNOSIS_RETRY_EXHAUSTED")]
+
+
+async def test_diagnosis_handler_preserves_failure_code_on_retry_exhaustion() -> None:
+    repository = FakeRepository()
+    job = make_job()
+    error = AppError(
+        code="STORAGE_TEMPORARILY_UNAVAILABLE",
+        message="스토리지를 일시적으로 사용할 수 없습니다.",
+        status_code=503,
+    )
+
+    with pytest.raises(AppError):
+        await build_handler(repository, storage=FakeStorage(error))(job)
+    await build_handler(repository).on_exhausted(job)
+
+    assert repository.failed == [(job.resource_id, "STORAGE_TEMPORARILY_UNAVAILABLE")]
+
+
+async def test_diagnosis_handler_times_out_external_call() -> None:
+    class SlowStorage(FakeStorage):
+        async def download_object(self, object_path: str) -> bytes:
+            await asyncio.sleep(1)
+            return await super().download_object(object_path)
+
+    repository = FakeRepository()
+    job = make_job()
+    handler = DiagnosisHandler(
+        repository,
+        SlowStorage(),
+        FakeQualityChecker(accepted_quality()),
+        FakeProvider(),
+        lambda _result, _context: ["물을 주세요."],
+        external_call_timeout_seconds=0.001,
+    )
+
+    with pytest.raises(TimeoutError):
+        await handler(job)
+
+    assert repository.released == [job.resource_id]
+    assert repository.last_retry_failure_code == "DIAGNOSIS_EXTERNAL_TIMEOUT"
+
+
+async def test_diagnosis_handler_marks_empty_recommended_care_as_permanent() -> None:
+    repository = FakeRepository()
+    job = make_job()
+    handler = DiagnosisHandler(
+        repository,
+        FakeStorage(),
+        FakeQualityChecker(accepted_quality()),
+        FakeProvider(),
+        lambda _result, _context: ["   "],
+    )
+
+    with pytest.raises(PermanentTaskError):
+        await handler(job)
+
+    assert repository.failed == [(job.resource_id, "DIAGNOSIS_CARE_RULE_EMPTY")]
+    assert repository.released == []

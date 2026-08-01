@@ -95,3 +95,25 @@ def test_quality_result_rejects_inconsistent_retake_reason(payload: dict) -> Non
             symptom_area_visible=True,
             **payload,
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("observations", ["   "]),
+        ("possible_causes", [{"name": "   "}]),
+    ],
+)
+def test_provider_result_rejects_blank_display_text(field: str, value: list) -> None:
+    payload = {
+        "overall_condition": "UNCERTAIN",
+        "condition_label": "추가 확인이 필요해요",
+        "observations": ["잎 변색"],
+        "possible_causes": [],
+        "provider_name": "fake",
+        "model_name": "fake-v1",
+    }
+    payload[field] = value
+
+    with pytest.raises(ValidationError):
+        DiagnosisProviderResult.model_validate(payload)

@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
@@ -10,10 +12,13 @@ from app.integrations.diagnosis import (
     DiagnosisPermanentError,
     DiagnosisProvider,
     DiagnosisProviderResult,
+    DiagnosisTransientError,
 )
 from app.integrations.storage import StorageGateway
 from app.schemas.queue import QueueJob
 from app.tasks.base import PermanentTaskError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,9 +45,15 @@ class DiagnosisRepository(Protocol):
         quality: DiagnosisImageQualityResult,
     ) -> None: ...
 
-    async def release_for_retry(self, diagnosis_id: UUID) -> None: ...
+    async def release_for_retry(self, diagnosis_id: UUID, failure_code: str) -> None: ...
 
     async def fail(self, diagnosis_id: UUID, failure_code: str) -> None: ...
+
+    async def fail_after_retries(
+        self,
+        diagnosis_id: UUID,
+        fallback_failure_code: str,
+    ) -> None: ...
 
 
 class DiagnosisHandler:
@@ -53,12 +64,17 @@ class DiagnosisHandler:
         quality_checker: DiagnosisImageQualityChecker,
         provider: DiagnosisProvider,
         build_recommended_care: Callable[[DiagnosisProviderResult, dict], list[str]],
+        *,
+        external_call_timeout_seconds: float = 60.0,
     ) -> None:
+        if external_call_timeout_seconds <= 0:
+            raise ValueError("external_call_timeout_seconds는 0보다 커야 합니다.")
         self._repository = repository
         self._storage = storage
         self._quality_checker = quality_checker
         self._provider = provider
         self._build_recommended_care = build_recommended_care
+        self._external_call_timeout_seconds = external_call_timeout_seconds
 
     async def __call__(self, job: QueueJob) -> None:
         work = await self._repository.start(job.resource_id)
@@ -66,16 +82,25 @@ class DiagnosisHandler:
             return
 
         try:
-            image = await self._storage.download_object(work.object_path)
-            quality = await self._quality_checker.check(image, work.content_type)
+            image = await asyncio.wait_for(
+                self._storage.download_object(work.object_path),
+                timeout=self._external_call_timeout_seconds,
+            )
+            quality = await asyncio.wait_for(
+                self._quality_checker.check(image, work.content_type),
+                timeout=self._external_call_timeout_seconds,
+            )
             if not quality.acceptable:
                 await self._repository.needs_retake(job.resource_id, quality)
                 return
 
-            result = await self._provider.diagnose(
-                image,
-                work.content_type,
-                work.input_context,
+            result = await asyncio.wait_for(
+                self._provider.diagnose(
+                    image,
+                    work.content_type,
+                    work.input_context,
+                ),
+                timeout=self._external_call_timeout_seconds,
             )
             recommended_care = normalize_recommended_care(
                 self._build_recommended_care(result, work.input_context)
@@ -96,14 +121,49 @@ class DiagnosisHandler:
             if exc.code == "MEDIA_UPLOAD_NOT_FOUND":
                 await self._repository.fail(job.resource_id, exc.code)
                 raise PermanentTaskError(exc.code, exc.message) from exc
-            await self._repository.release_for_retry(job.resource_id)
+            logger.warning(
+                "Diagnosis AppError will retry resource_id=%s failure_code=%s",
+                job.resource_id,
+                exc.code,
+            )
+            await self._repository.release_for_retry(job.resource_id, exc.code)
             raise
-        except Exception:
-            await self._repository.release_for_retry(job.resource_id)
+        except DiagnosisTransientError:
+            failure_code = "DIAGNOSIS_PROVIDER_UNAVAILABLE"
+            logger.warning(
+                "Diagnosis provider call will retry resource_id=%s failure_code=%s",
+                job.resource_id,
+                failure_code,
+                exc_info=True,
+            )
+            await self._repository.release_for_retry(job.resource_id, failure_code)
+            raise
+        except TimeoutError:
+            failure_code = "DIAGNOSIS_EXTERNAL_TIMEOUT"
+            logger.warning(
+                "Diagnosis external call timed out resource_id=%s failure_code=%s",
+                job.resource_id,
+                failure_code,
+                exc_info=True,
+            )
+            await self._repository.release_for_retry(job.resource_id, failure_code)
+            raise
+        except Exception as exc:
+            failure_code = "DIAGNOSIS_UNEXPECTED_ERROR"
+            logger.exception(
+                "Diagnosis unexpected error resource_id=%s failure_code=%s error_type=%s",
+                job.resource_id,
+                failure_code,
+                type(exc).__name__,
+            )
+            await self._repository.release_for_retry(job.resource_id, failure_code)
             raise
 
     async def on_exhausted(self, job: QueueJob) -> None:
-        await self._repository.fail(job.resource_id, "DIAGNOSIS_PROVIDER_UNAVAILABLE")
+        await self._repository.fail_after_retries(
+            job.resource_id,
+            "DIAGNOSIS_RETRY_EXHAUSTED",
+        )
 
 
 def normalize_recommended_care(items: list[str]) -> list[str]:
