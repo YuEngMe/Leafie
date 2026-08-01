@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -6,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.integrations.openai_chat import OpenAIChatProvider
+from app.integrations.openai_chat import ChatInputMessage, OpenAIChatProvider
 from app.main import create_app
 from app.schemas.chat import MessageCreateRequest
 from app.services.chat import (
@@ -42,6 +43,62 @@ def test_chat_provider_requires_api_key() -> None:
         provider.ensure_configured()
 
     assert error.value.code == "AI_PROVIDER_NOT_CONFIGURED"
+
+
+async def test_chat_provider_uses_supported_gpt5_mini_reasoning_effort() -> None:
+    class FakeStream:
+        def __init__(self) -> None:
+            self._events = iter(
+                [
+                    SimpleNamespace(type="response.output_text.delta", delta="답변"),
+                    SimpleNamespace(
+                        type="response.completed",
+                        response=SimpleNamespace(
+                            output_text="답변",
+                            id="response_1",
+                            model="gpt-5-mini",
+                            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                        ),
+                    ),
+                ]
+            )
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self._events)
+            except StopIteration as exc:
+                raise StopAsyncIteration from exc
+
+    class FakeResponses:
+        def __init__(self) -> None:
+            self.kwargs: dict | None = None
+
+        async def create(self, **kwargs):
+            self.kwargs = kwargs
+            return FakeStream()
+
+    responses = FakeResponses()
+    client = SimpleNamespace(responses=responses)
+    provider = OpenAIChatProvider(
+        Settings(_env_file=None, openai_chat_model="gpt-5-mini"),
+        client=client,  # type: ignore[arg-type]
+    )
+
+    events = [
+        event
+        async for event in provider.stream_reply(
+            instructions="짧게 답하세요.",
+            messages=[ChatInputMessage(role="user", content="안녕")],
+            safety_user_id="user-1",
+        )
+    ]
+
+    assert responses.kwargs is not None
+    assert responses.kwargs["reasoning"] == {"effort": "minimal"}
+    assert events[-1].completion is not None
 
 
 def test_chat_routes_require_authentication() -> None:
