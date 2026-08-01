@@ -18,7 +18,7 @@ from app.integrations.openai_chat import (
     ChatStreamEvent,
     OpenAIChatProvider,
 )
-from app.models.chat import AIConversation, AIMessage
+from app.models.chat import AIAction, AIConversation, AIMessage
 from app.models.enums import AIMessageStatus, ChatRole, MediaPurpose, MediaStatus
 from app.models.media import MediaFile
 from app.models.plant import Plant, SpeciesCareGuide
@@ -30,6 +30,7 @@ from app.schemas.chat import (
     MessageListResponse,
     MessageResponse,
 )
+from app.services.ai_tools import TOOL_DEFINITIONS, AIToolService, action_to_response
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,8 @@ class ChatRepository(Protocol):
     async def list_messages(
         self, conversation_id: UUID, offset: int, limit: int
     ) -> list[AIMessage]: ...
+
+    async def actions_for_messages(self, message_ids: list[UUID]) -> dict[UUID, list[AIAction]]: ...
 
     async def has_in_flight_message(self, conversation_id: UUID) -> bool: ...
 
@@ -182,6 +185,23 @@ class SQLAlchemyChatRepository:
             .limit(limit)
         )
         return list((await self._session.scalars(statement)).all())
+
+    async def actions_for_messages(self, message_ids: list[UUID]) -> dict[UUID, list[AIAction]]:
+        if not message_ids:
+            return {}
+        actions = list(
+            (
+                await self._session.scalars(
+                    select(AIAction)
+                    .where(AIAction.message_id.in_(message_ids))
+                    .order_by(AIAction.created_at, AIAction.id)
+                )
+            ).all()
+        )
+        grouped: dict[UUID, list[AIAction]] = {}
+        for action in actions:
+            grouped.setdefault(action.message_id, []).append(action)
+        return grouped
 
     async def has_in_flight_message(self, conversation_id: UUID) -> bool:
         return bool(
@@ -296,12 +316,14 @@ class ChatService:
         context_message_limit: int,
         summary_trigger_count: int,
         summary_batch_size: int,
+        tool_service: AIToolService | None = None,
     ) -> None:
         self._repository = repository
         self._provider = provider
         self._context_message_limit = context_message_limit
         self._summary_trigger_count = summary_trigger_count
         self._summary_batch_size = summary_batch_size
+        self._tool_service = tool_service
 
     async def create_conversation(
         self, user_id: UUID, plant_id: UUID, title: str
@@ -354,8 +376,12 @@ class ChatService:
         offset = decode_cursor(cursor)
         messages = await self._repository.list_messages(conversation_id, offset, limit + 1)
         has_next = len(messages) > limit
+        page = messages[:limit]
+        actions = await self._repository.actions_for_messages([message.id for message in page])
         return MessageListResponse(
-            items=[message_to_response(item) for item in reversed(messages[:limit])],
+            items=[
+                message_to_response(item, actions.get(item.id, [])) for item in reversed(page)
+            ],
             has_next=has_next,
             next_cursor=encode_cursor(offset + limit) if has_next else None,
         )
@@ -431,6 +457,10 @@ class ChatService:
         prepared: PreparedTextMessage,
     ) -> AsyncIterator[ChatStreamEvent]:
         try:
+            if self._tool_service is not None:
+                async for event in self._reply_with_tools(user_id, conversation_id, prepared):
+                    yield event
+                return
             async for event in self._provider.stream_reply(
                 instructions=prepared.instructions,
                 messages=prepared.messages,
@@ -449,6 +479,76 @@ class ChatService:
         except Exception:
             await self._repository.fail_assistant(prepared.assistant_message_id)
             raise
+
+    async def _reply_with_tools(
+        self,
+        user_id: UUID,
+        conversation_id: UUID,
+        prepared: PreparedTextMessage,
+    ) -> AsyncIterator[ChatStreamEvent]:
+        conversation = await self._require_conversation(user_id, conversation_id)
+        input_items: list[dict] = [
+            {"role": message.role.lower(), "content": message.content}
+            for message in prepared.messages
+        ]
+        total_input_tokens = 0
+        total_output_tokens = 0
+
+        for _ in range(4):
+            turn = await self._provider.create_tool_turn(
+                instructions=prepared.instructions,
+                input_items=input_items,
+                tools=TOOL_DEFINITIONS,
+                safety_user_id=str(user_id),
+            )
+            total_input_tokens += turn.input_tokens
+            total_output_tokens += turn.output_tokens
+            if not turn.tool_calls:
+                if not turn.content.strip():
+                    raise AppError(
+                        code="AI_PROVIDER_INCOMPLETE_RESPONSE",
+                        message="AI 응답이 완료되지 않았습니다.",
+                        status_code=503,
+                    )
+                completion = ChatCompletion(
+                    content=turn.content,
+                    response_id=turn.response_id,
+                    model_name=turn.model_name,
+                    input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                )
+                yield ChatStreamEvent(delta=completion.content)
+                await self._repository.complete_assistant(
+                    prepared.assistant_message_id, completion
+                )
+                yield ChatStreamEvent(completion=completion)
+                await self._summarize_if_needed(user_id, conversation_id)
+                return
+
+            input_items.extend(turn.output_items)
+            for call in turn.tool_calls:
+                output = await self._tool_service.execute(
+                    call=call,
+                    message_id=prepared.assistant_message_id,
+                    user_id=user_id,
+                    plant_id=conversation.plant_id,
+                )
+                input_items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call.call_id,
+                        "output": output,
+                    }
+                )
+                result = json.loads(output)
+                if "action_id" in result:
+                    yield ChatStreamEvent(action=result)
+
+        raise AppError(
+            code="AI_TOOL_CALL_LIMIT_EXCEEDED",
+            message="AI 도구 호출 횟수를 초과했습니다.",
+            status_code=503,
+        )
 
     async def _summarize_if_needed(self, user_id: UUID, conversation_id: UUID) -> None:
         conversation = await self._require_conversation(user_id, conversation_id)
@@ -526,6 +626,9 @@ def build_instructions(context: PlantChatContext, summary: str | None) -> str:
         "당신은 친근하고 신중한 AI 식물박사 '똑똑이'입니다. 한국어로 답하세요. "
         "식물 관리 질문에는 결론, 근거, 다음 행동 순서로 간결하게 답하세요. "
         "사진만으로 질병을 확정하지 말고 불확실하면 추가 관찰이나 전문가 확인을 권하세요. "
+        "최신 앱 데이터가 필요한 질문에는 제공된 조회 도구를 사용하세요. "
+        "비료나 가지치기 일정은 제안 도구만 사용하고 사용자 승인 전에는 확정됐다고 말하지 마세요. "
+        "물주기와 분갈이 반복 주기를 변경하려고 하지 마세요. "
         f"상담 대상 식물의 애칭: {context.nickname}, 식물명: {context.species_name}, "
         f"학명: {context.scientific_name or '미상'}, "
         f"장소: {context.place_name}, 화분: {context.pot_type}, 위치: {context.placement}. "
@@ -555,7 +658,9 @@ def conversation_to_response(conversation: AIConversation) -> ConversationRespon
     )
 
 
-def message_to_response(message: AIMessage) -> MessageResponse:
+def message_to_response(
+    message: AIMessage, actions: list[AIAction] | None = None
+) -> MessageResponse:
     return MessageResponse(
         id=message.id,
         conversation_id=message.conversation_id,
@@ -567,6 +672,7 @@ def message_to_response(message: AIMessage) -> MessageResponse:
         provider=message.provider,
         model_name=message.model_name,
         created_at=message.created_at,
+        actions=[action_to_response(action) for action in actions or []],
     )
 
 

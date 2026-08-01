@@ -7,11 +7,19 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.integrations.openai_chat import ChatInputMessage, OpenAIChatProvider
+from app.integrations.openai_chat import (
+    ChatInputMessage,
+    ChatToolCall,
+    ChatToolTurn,
+    OpenAIChatProvider,
+)
 from app.main import create_app
+from app.models.chat import AIConversation
 from app.schemas.chat import MessageCreateRequest
 from app.services.chat import (
+    ChatService,
     PlantChatContext,
+    PreparedTextMessage,
     build_instructions,
     decode_cursor,
     encode_cursor,
@@ -101,6 +109,59 @@ async def test_chat_provider_uses_supported_gpt5_mini_reasoning_effort() -> None
     assert events[-1].completion is not None
 
 
+async def test_chat_provider_parses_function_calls_for_stateless_tool_loop() -> None:
+    class FunctionCall:
+        type = "function_call"
+        call_id = "call-1"
+        name = "get_plant_basic_info"
+        arguments = "{}"
+
+        def model_dump(self, **_kwargs):
+            return {
+                "type": self.type,
+                "call_id": self.call_id,
+                "name": self.name,
+                "arguments": self.arguments,
+            }
+
+    class FakeResponses:
+        def __init__(self) -> None:
+            self.kwargs = None
+
+        async def create(self, **kwargs):
+            self.kwargs = kwargs
+            return SimpleNamespace(
+                output=[FunctionCall()],
+                output_text="",
+                id="response-1",
+                model="gpt-5-mini",
+                usage=SimpleNamespace(input_tokens=2, output_tokens=3),
+            )
+
+    responses = FakeResponses()
+    provider = OpenAIChatProvider(
+        Settings(_env_file=None, openai_chat_model="gpt-5-mini"),
+        client=SimpleNamespace(responses=responses),  # type: ignore[arg-type]
+    )
+
+    turn = await provider.create_tool_turn(
+        instructions="도구를 사용하세요.",
+        input_items=[{"role": "user", "content": "내 식물은?"}],
+        tools=[
+            {
+                "type": "function",
+                "name": "get_plant_basic_info",
+                "parameters": {"type": "object", "properties": {}},
+            }
+        ],
+        safety_user_id="user-1",
+    )
+
+    assert turn.tool_calls[0].name == "get_plant_basic_info"
+    assert responses.kwargs["store"] is False
+    assert responses.kwargs["include"] == ["reasoning.encrypted_content"]
+
+
 def test_chat_routes_require_authentication() -> None:
     identifier = uuid4()
     application = create_app()
@@ -109,9 +170,11 @@ def test_chat_routes_require_authentication() -> None:
         responses = [
             client.get(f"/api/v1/plants/{identifier}/conversations"),
             client.get(f"/api/v1/conversations/{identifier}/messages"),
+            client.post(f"/api/v1/ai-actions/{identifier}/confirm"),
+            client.post(f"/api/v1/ai-actions/{identifier}/cancel"),
         ]
 
-    assert [response.status_code for response in responses] == [401, 401]
+    assert [response.status_code for response in responses] == [401, 401, 401, 401]
 
 
 async def test_chat_rejects_unowned_plant() -> None:
@@ -160,3 +223,102 @@ def test_first_message_creates_conversation_list_title() -> None:
     )
     assert make_conversation_title("", has_media=True) == "사진 질문"
     assert len(make_conversation_title("가" * 50, has_media=False)) == 30
+
+
+async def test_chat_runs_tool_and_returns_its_output_to_model() -> None:
+    user_id = uuid4()
+    plant_id = uuid4()
+    conversation = AIConversation(
+        id=uuid4(),
+        plant_id=plant_id,
+        title="질문",
+        summary_version=0,
+    )
+
+    class FakeRepository:
+        def __init__(self) -> None:
+            self.completion = None
+
+        async def conversation_owned(self, _conversation_id, _user_id, *, lock=False):
+            return conversation
+
+        async def complete_assistant(self, _message_id, completion):
+            self.completion = completion
+
+        async def summary_batch(self, _conversation, _trigger_count, _batch_size):
+            return []
+
+    class FakeProvider:
+        def __init__(self) -> None:
+            self.inputs: list[list[dict]] = []
+
+        async def create_tool_turn(self, **kwargs):
+            self.inputs.append(list(kwargs["input_items"]))
+            if len(self.inputs) == 1:
+                return ChatToolTurn(
+                    content="",
+                    response_id="response-1",
+                    model_name="gpt-5-mini",
+                    input_tokens=10,
+                    output_tokens=3,
+                    output_items=[
+                        {
+                            "type": "function_call",
+                            "call_id": "call-1",
+                            "name": "get_plant_basic_info",
+                            "arguments": "{}",
+                        }
+                    ],
+                    tool_calls=[
+                        ChatToolCall(
+                            call_id="call-1",
+                            name="get_plant_basic_info",
+                            arguments="{}",
+                        )
+                    ],
+                )
+            return ChatToolTurn(
+                content="바질은 밝은 곳에서 키워 주세요.",
+                response_id="response-2",
+                model_name="gpt-5-mini",
+                input_tokens=12,
+                output_tokens=8,
+                output_items=[],
+                tool_calls=[],
+            )
+
+    class FakeToolService:
+        async def execute(self, **_kwargs):
+            return '{"species_name":"바질"}'
+
+    repository = FakeRepository()
+    provider = FakeProvider()
+    service = ChatService(
+        repository,  # type: ignore[arg-type]
+        provider,  # type: ignore[arg-type]
+        context_message_limit=20,
+        summary_trigger_count=30,
+        summary_batch_size=20,
+        tool_service=FakeToolService(),  # type: ignore[arg-type]
+    )
+
+    events = [
+        event
+        async for event in service.stream_text_reply(
+            user_id=user_id,
+            conversation_id=conversation.id,
+            prepared=PreparedTextMessage(
+                assistant_message_id=uuid4(),
+                instructions="답하세요.",
+                messages=[ChatInputMessage(role="USER", content="이 식물은 뭐야?")],
+            ),
+        )
+    ]
+
+    assert provider.inputs[1][-1] == {
+        "type": "function_call_output",
+        "call_id": "call-1",
+        "output": '{"species_name":"바질"}',
+    }
+    assert events[-1].completion is not None
+    assert repository.completion.input_tokens == 22

@@ -62,6 +62,8 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     ("DELETE", f"/api/v1/conversations/{uuid4()}", None, None),
     ("GET", f"/api/v1/conversations/{uuid4()}/messages", None, None),
     ("POST", f"/api/v1/conversations/{uuid4()}/messages", {"content": "안녕"}, None),
+    ("POST", f"/api/v1/ai-actions/{uuid4()}/confirm", None, None),
+    ("POST", f"/api/v1/ai-actions/{uuid4()}/cancel", None, None),
     (
         "POST",
         f"/api/v1/plants/{uuid4()}/diagnoses",
@@ -96,6 +98,8 @@ EXPECTED_API_OPERATIONS = {
     ("DELETE", "/api/v1/conversations/{conversation_id}"),
     ("GET", "/api/v1/conversations/{conversation_id}/messages"),
     ("POST", "/api/v1/conversations/{conversation_id}/messages"),
+    ("POST", "/api/v1/ai-actions/{action_id}/confirm"),
+    ("POST", "/api/v1/ai-actions/{action_id}/cancel"),
     ("POST", "/api/v1/plants/{plant_id}/diagnoses"),
     ("GET", "/api/v1/plants/{plant_id}/diagnoses"),
     ("GET", "/api/v1/diagnoses/{diagnosis_id}"),

@@ -557,6 +557,9 @@ data: {"message_id":"assistant-message-uuid"}
 event: message.delta
 data: {"delta":"답변 일부"}
 
+event: action.proposed
+data: {"action_id":"uuid","status":"PENDING_CONFIRMATION","proposal":{"care_type":"FERTILIZING","due_date":"2026-08-03","title":"비료 주기","reason":"생장기 관리 제안"},"expires_at":"2026-08-02T12:00:00Z","requires_user_confirmation":true}
+
 event: message.completed
 data: {"message_id":"assistant-message-uuid","content":"전체 답변"}
 ```
@@ -564,6 +567,8 @@ data: {"message_id":"assistant-message-uuid","content":"전체 답변"}
 생성 실패 시 `message.failed` 이벤트와 `error_code`를 반환합니다. 사진 메시지는
 `202`와 사용자 메시지 ID를 반환한 뒤 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
 클라이언트는 메시지 목록을 다시 조회해 처리 상태와 생성된 답변을 확인합니다.
+메시지 목록의 각 항목에는 연결된 `actions` 배열이 포함되므로 화면 재진입 후에도
+승인 대기·완료·취소 상태를 복원할 수 있습니다.
 
 AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니다. 모델 입력은 식물명,
 애칭, 장소·화분·위치, 종별 관리 가이드, 현재 대화의 누적 요약과
@@ -574,9 +579,45 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 읽기 Tool은 서버가 실행합니다. 비료·가지치기 일정 변경은 `AI_ACTIONS` 제안만
 만들고 승인 전에는 실행하지 않습니다.
 
+지원 Tool:
+
+- 식물 기본 정보, 종별 관리 가이드, 환경
+- 지연·오늘·예정 관리 일정, 최근 완료 관리 이력
+- 최근 다이어리 컨디션, 최근 완료 진단
+- 비료·가지치기 1회성 일정 제안
+
+모델이 생성한 Tool 인자에는 `user_id`, `plant_id`를 받지 않습니다. 서버가 인증 사용자와
+현재 대화의 식물을 주입하며, 모든 호출은 `ai_tool_calls`에 성공·실패 상태로 기록합니다.
+일정 제안은 24시간 동안 승인할 수 있습니다.
+
 ### `POST /ai-actions/{action_id}/confirm`
 
+본인 식물의 `PENDING_CONFIRMATION` 제안만 승인할 수 있습니다. 승인하면
+`AI_RECOMMENDED` 출처의 비료 또는 가지치기 1회성 일정이 생성됩니다.
+
+```json
+{
+  "id": "uuid",
+  "plant_id": "uuid",
+  "action_type": "CREATE_ONE_TIME_CARE_EVENT",
+  "payload": {
+    "care_type": "FERTILIZING",
+    "due_date": "2026-08-03",
+    "title": "비료 주기",
+    "reason": "생장기 관리 제안"
+  },
+  "status": "COMPLETED",
+  "expires_at": "2026-08-02T12:00:00Z",
+  "confirmed_at": "2026-08-01T12:10:00Z",
+  "executed_at": "2026-08-01T12:10:00Z",
+  "created_at": "2026-08-01T12:00:00Z"
+}
+```
+
 ### `POST /ai-actions/{action_id}/cancel`
+
+본인 식물의 승인 대기 제안을 취소하고 같은 응답 구조에 `CANCELLED` 상태를 반환합니다.
+이미 처리됐거나 만료된 제안은 `409`를 반환합니다.
 
 ## 12. 사진 진단
 
