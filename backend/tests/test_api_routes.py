@@ -34,7 +34,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     ("GET", "/api/v1/notifications", None, None),
     ("POST", f"/api/v1/notifications/{uuid4()}/read", None, None),
     ("POST", "/api/v1/notifications/read-all", None, None),
-    ("POST", "/api/v1/devices", {"platform": "IOS", "token": "token"}, None),
+    ("POST", "/api/v1/devices", {"platform": "IOS", "installation_id": "fid"}, None),
     ("DELETE", f"/api/v1/devices/{uuid4()}", None, None),
     ("GET", "/api/v1/species", None, {"query": "바질"}),
     ("POST", "/api/v1/species/identifications", {"media_file_id": str(uuid4())}, None),

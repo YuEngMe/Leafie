@@ -28,11 +28,11 @@ class DeviceRegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     platform: DevicePlatform
-    token: str = Field(min_length=1, max_length=4096)
+    installation_id: str = Field(min_length=1, max_length=4096)
 
-    @field_validator("token", mode="before")
+    @field_validator("installation_id", mode="before")
     @classmethod
-    def strip_token(cls, value: object) -> object:
+    def strip_installation_id(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
 

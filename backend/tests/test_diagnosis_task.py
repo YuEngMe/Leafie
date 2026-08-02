@@ -13,7 +13,7 @@ from app.integrations.diagnosis import (
 )
 from app.schemas.queue import JobType, QueueJob
 from app.tasks.base import PermanentTaskError
-from app.tasks.diagnosis import DiagnosisHandler, DiagnosisWork
+from app.tasks.diagnosis import DiagnosisHandler, DiagnosisWork, diagnosis_notification_copy
 
 
 class FakeRepository:
@@ -99,6 +99,16 @@ def accepted_quality() -> DiagnosisImageQualityResult:
         sharp_enough=True,
         brightness_acceptable=True,
         symptom_area_visible=True,
+    )
+
+
+def test_diagnosis_notification_uses_plant_personality_copy() -> None:
+    assert diagnosis_notification_copy("새싹이", "CHIC") == (
+        "식물 진단이 완료됐어요",
+        "새싹이 진단 결과 나왔어. 확인해.",
+    )
+    assert diagnosis_notification_copy("새싹이", "UNKNOWN")[1] == (
+        "새싹이의 진단 결과를 확인해 주세요."
     )
 
 

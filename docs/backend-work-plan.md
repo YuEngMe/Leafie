@@ -27,7 +27,7 @@
 | 10 | `backend/feat-kindwise-diagnosis` | B | Kindwise 사진 한 장 진단, 이력·상세, 재촬영·재시도 |
 | 11 | `backend/feat-ai-chat` | B | 식물별 대화 세션, 메시지·사진·요약·검색 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool, 감사 로그, 일정 제안 승인·취소 |
-| 13 | `backend/feat-notifications` | 공통 | 알림함, 읽음, 전체 푸시 설정, 기기 토큰 |
+| 13 | `backend/feat-notifications` | 공통 | 알림함, 읽음, 전체 푸시 설정, 기기 FID |
 | 14 | `backend/feat-push-delivery` | B | FCM/APNs Worker와 실패 토큰 폐기 |
 | 15 | `backend/test-release-flow` | 공통 | 핵심 E2E, 부하·비용·장애·보안 점검 |
 
@@ -115,7 +115,7 @@ OpenAI Batch API와 월간 AI 리포트 브랜치는 현재 MVP에서 만들지 
 - 물주기·분갈이·지연·진단 완료 알림
 - 모든 식물 알림함과 읽음 처리
 - 사용자 전체 푸시 ON/OFF
-- 활성 기기 토큰 unique
+- 활성 기기 FID unique
 - 무효 토큰 폐기와 발송 재시도
 
 ## 4. 테스트 기준

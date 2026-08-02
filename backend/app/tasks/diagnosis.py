@@ -19,12 +19,15 @@ from app.integrations.diagnosis import (
     DiagnosisRetakeError,
     DiagnosisTransientError,
 )
+from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.models.chat import AIConversation, AIMessage
 from app.models.diagnosis import Diagnosis
 from app.models.enums import AIMessageStatus, ChatRole, DiagnosisCondition, DiagnosisStatus
 from app.models.media import MediaFile
-from app.schemas.queue import QueueJob
+from app.models.notification import Notification
+from app.models.plant import Plant
+from app.schemas.queue import JobType, QueueJob
 from app.tasks.base import PermanentTaskError
 
 logger = logging.getLogger(__name__)
@@ -66,8 +69,9 @@ class DiagnosisRepository(Protocol):
 
 
 class SQLAlchemyDiagnosisRepository:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, queue: JobQueue) -> None:
         self._database = database
+        self._queue = queue
 
     async def start(self, diagnosis_id: UUID) -> DiagnosisWork | None:
         async with self._database.session_context() as session:
@@ -168,6 +172,33 @@ class SQLAlchemyDiagnosisRepository:
                 )
                 if conversation is not None:
                     conversation.last_message_at = datetime.now(UTC)
+
+            plant = await session.get(Plant, diagnosis.plant_id)
+            if plant is not None:
+                title, body = diagnosis_notification_copy(
+                    plant.nickname,
+                    plant.personality_type,
+                )
+                notification = Notification(
+                    id=uuid4(),
+                    user_id=plant.user_id,
+                    plant_id=plant.id,
+                    type="DIAGNOSIS_COMPLETED",
+                    title=title,
+                    body=body,
+                    source_type="DIAGNOSIS",
+                    source_id=diagnosis.id,
+                    created_at=datetime.now(UTC),
+                )
+                session.add(notification)
+                await self._queue.enqueue(
+                    QueueJob(
+                        job_type=JobType.PUSH_NOTIFICATION_SEND,
+                        resource_id=notification.id,
+                        trace_id=f"diagnosis:{diagnosis.id}",
+                    ),
+                    session=session,
+                )
 
     async def needs_retake(
         self,
@@ -382,3 +413,18 @@ def build_recommended_care(result: DiagnosisProviderResult, context: dict) -> li
     if result.overall_condition == DiagnosisCondition.HEALTHY:
         return ["현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요."]
     return ["3일 후 같은 부위를 다시 촬영해 상태 변화를 확인해 주세요."]
+
+
+def diagnosis_notification_copy(nickname: str, personality_type: str) -> tuple[str, str]:
+    bodies = {
+        "OUTGOING": f"{nickname}의 진단 끝! 결과 같이 보자!",
+        "CHIC": f"{nickname} 진단 결과 나왔어. 확인해.",
+        "CUTE": f"{nickname}의 진단 결과가 나왔어요!",
+        "CRUSH": f"네가 궁금해하던 {nickname} 진단 결과가 나왔어.",
+        "INTROVERTED": f"{nickname} 진단 결과가... 나왔어.",
+        "CHUNGCHEONG": f"{nickname} 진단 결과 나왔슈. 천천히 봐유.",
+    }
+    return "식물 진단이 완료됐어요", bodies.get(
+        personality_type,
+        f"{nickname}의 진단 결과를 확인해 주세요.",
+    )
