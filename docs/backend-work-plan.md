@@ -21,7 +21,7 @@
 | 4 | `backend/feat-queue-worker` | B | Queue 소비, 재시도, heartbeat, 멱등성 |
 | 5 | `backend/feat-species-identification` | B | 23종 검색, Pl@ntNet 인식, 후보 확정 |
 | 6 | `backend/feat-plant-registration` | A | 최종 등록 트랜잭션, 환경·성격·외형, 최초 일정 |
-| 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리, 사진 한 장, 0~100 점수, 월 평균 |
+| 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 5단계 점수, 월 평균 |
 | 8 | `backend/feat-care-schedule` | A | 반복 일정, 소급 완료, 일회성 일정, 홈 메모 |
 | 9 | `backend/feat-home-calendar` | A | 홈 통합 조회, 일정 범위 조회, 식물 전환·삭제 |
 | 10 | `backend/feat-kindwise-diagnosis` | B | Kindwise 사진 한 장 진단, 이력·상세, 재촬영·재시도 |
@@ -66,9 +66,11 @@ OpenAI Batch API와 월간 AI 리포트 브랜치는 현재 MVP에서 만들지 
 ### 다이어리·홈·캘린더
 
 - 식물별 하루 다이어리와 홈 메모 각각 한 개
-- 다이어리 본문·0~100 점수 필수, 사진 최대 한 장
-- 오늘·과거 작성, 미래 차단, 수정만 허용
-- 월 평균은 SQL 집계, 기록 없음은 null
+- 다이어리 본문 `1~2,000자`, 점수 `0·25·50·75·100`, 사진 최대 한 장
+- 오늘·과거 작성, 미래 차단, 수정·삭제 허용
+- 사진 생략은 유지, null은 제거, 새 UUID는 교체하며 기존 Storage 객체는 Worker 삭제
+- 사진 UUID는 다이어리 한 개에만 연결
+- 월 평균은 SQL 집계 후 정수 반올림, 기록 없음은 null
 - 홈은 오늘 일정만, 상세는 지연·오늘·미래 일정
 - 월·주 범위 조회와 다중 필터
 

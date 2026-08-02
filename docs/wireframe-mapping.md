@@ -34,7 +34,7 @@
 | 과거 완료 | 실제 수행일 선택, 기록 시각은 서버가 저장 | `performed_on`, `recorded_at` |
 | 다이어리 달력 | 작성일 아이콘과 월 평균 컨디션 | diary month API |
 | 다이어리 작성 | 과거·오늘, 글·점수 필수, 사진 한 장 선택 | 날짜별 diary PUT |
-| 다이어리 상세 | 사진, 글, 컨디션, 수정 | diary GET·PATCH |
+| 다이어리 상세 | 사진, 글, 컨디션, 수정·삭제 | diary GET·PUT·DELETE |
 | AI 채팅 | 현재 식물의 대화 세션, 텍스트·사진 | conversations, messages |
 | 새 채팅·목록 | 현재 식물의 세션 생성·검색·삭제 | conversation API |
 | 진단 시작 | 채팅에서 진단하기, 사진 한 장 | diagnosis 202 + Worker |
