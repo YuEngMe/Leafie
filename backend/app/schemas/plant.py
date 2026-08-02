@@ -1,11 +1,13 @@
 from datetime import date as Date
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import (
     CareEventSource,
+    CareEventStatus,
     CareEventType,
     CareViewStatus,
     PersonalityType,
@@ -195,6 +197,31 @@ class AgendaEventResponse(BaseModel):
 
 class AgendaResponse(BaseModel):
     events: list[AgendaEventResponse]
+
+
+class CalendarItemType(StrEnum):
+    WATERING = "WATERING"
+    REPOTTING = "REPOTTING"
+    FERTILIZING = "FERTILIZING"
+    PRUNING = "PRUNING"
+    CONDITION = "CONDITION"
+
+
+class CalendarItemResponse(BaseModel):
+    id: UUID
+    date: Date
+    type: CalendarItemType
+    status: CareEventStatus | None
+    view_status: CareViewStatus | None
+    title: str | None
+    source: CareEventSource | None
+    condition_score: int | None
+    condition_level: int | None
+    completable: bool
+
+
+class CalendarResponse(BaseModel):
+    items: list[CalendarItemResponse]
 
 
 class HomePlantResponse(BaseModel):

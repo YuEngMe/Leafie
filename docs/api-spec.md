@@ -549,10 +549,53 @@ Storage 정리가 실패하면 식물을 복구하거나 hard delete하지 않�
 ### `GET /plants/{plant_id}/calendar?from=2026-07-01&to=2026-07-31&types=WATERING,CONDITION`
 
 - 월·주 모드는 같은 범위 API 사용
-- 필터: 물주기, 분갈이, 비료, 가지치기, 컨디션
-- 최대 조회 범위 3개월
+- 필터: `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING`, `CONDITION`
+- `types`를 생략하면 위 5종을 모두 반환
+- 아이디어가 확정되지 않은 `CUSTOM` 일정은 캘린더 조회·필터에서 제외
+- `from`, `to`는 양 끝 날짜를 포함하며 `from <= to`여야 함
+- `to`는 `from`으로부터 3개월 뒤 날짜보다 앞서야 함
 - 미완료 일정은 `due_date`, 완료 기록은 `performed_on`에 표시
 - 컨디션은 다이어리 날짜에 표시하고 완료할 수 없음
+- 일정과 컨디션은 날짜별 중첩 객체가 아닌 하나의 `items` 배열로 평탄화하여 반환
+
+```json
+{
+  "items": [
+    {
+      "id": "care-event-uuid",
+      "date": "2026-07-20",
+      "type": "WATERING",
+      "status": "COMPLETED",
+      "view_status": "COMPLETED",
+      "title": null,
+      "source": "AUTO_SCHEDULE",
+      "condition_score": null,
+      "condition_level": null,
+      "completable": false
+    },
+    {
+      "id": "diary-uuid",
+      "date": "2026-07-20",
+      "type": "CONDITION",
+      "status": null,
+      "view_status": null,
+      "title": null,
+      "source": null,
+      "condition_score": 75,
+      "condition_level": 4,
+      "completable": false
+    }
+  ]
+}
+```
+
+일정 항목의 `date`는 미완료이면 `due_date`, 완료이면 `performed_on`입니다. 미완료
+항목의 `view_status`는 사용자 시간대의 오늘을 기준으로 `OVERDUE`, `TODAY`,
+`UPCOMING` 중 하나를 반환합니다. 취소된 일정과 `CUSTOM` 일정은 반환하지 않습니다.
+응답은 `date`, `created_at`, `id` 순으로 정렬합니다.
+
+지원하지 않는 필터는 `422 INVALID_CALENDAR_TYPES`, 역전되거나 3개월을 초과한 범위는
+`422 INVALID_CALENDAR_RANGE`를 반환합니다.
 
 ## 10. 다이어리
 

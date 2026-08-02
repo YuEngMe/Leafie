@@ -115,6 +115,36 @@ class FakePlantRepository:
             )
         ]
 
+    async def list_calendar_events(
+        self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
+    ) -> list[CareEvent]:
+        return [
+            event
+            for event in self.events
+            if event.plant_id == plant_id
+            and event.type in types
+            and (
+                (
+                    event.status == CareEventStatus.SCHEDULED.value
+                    and date_from <= event.due_date <= date_to
+                )
+                or (
+                    event.status == CareEventStatus.COMPLETED.value
+                    and event.performed_on is not None
+                    and date_from <= event.performed_on <= date_to
+                )
+            )
+        ]
+
+    async def list_calendar_diaries(
+        self, plant_id: UUID, date_from: date, date_to: date
+    ) -> list[PlantDiary]:
+        return [
+            diary
+            for (actual_plant_id, diary_date), diary in self.diaries.items()
+            if actual_plant_id == plant_id and date_from <= diary_date <= date_to
+        ]
+
     async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None:
         return self.memos.get((plant_id, memo_date))
 
@@ -278,6 +308,73 @@ async def test_agenda_derives_overdue_today_and_upcoming_without_moving_dates() 
         "UPCOMING",
     ]
     assert response.events[0].due_date == today - timedelta(days=1)
+
+
+async def test_calendar_flattens_events_and_conditions_and_excludes_custom_cancelled() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+    today = date.today()
+    scheduled = make_event(plant.id, today - timedelta(days=1))
+    completed = make_event(plant.id, today, completed=True)
+    completed.type = "REPOTTING"
+    custom = make_event(plant.id, today)
+    custom.type = "CUSTOM"
+    cancelled = make_event(plant.id, today)
+    cancelled.status = CareEventStatus.CANCELLED.value
+    repository.events = [scheduled, completed, custom, cancelled]
+    diary = PlantDiary(
+        id=uuid4(),
+        plant_id=plant.id,
+        diary_date=today,
+        content="오늘 기록",
+        condition_score=75,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    repository.diaries[(plant.id, today)] = diary
+
+    response = await service.list_calendar(
+        user_id,
+        plant.id,
+        today - timedelta(days=2),
+        today + timedelta(days=2),
+        None,
+    )
+
+    assert [item.id for item in response.items] == [scheduled.id, completed.id, diary.id]
+    assert response.items[0].view_status.value == "OVERDUE"
+    assert response.items[1].date == completed.performed_on
+    assert response.items[1].view_status.value == "COMPLETED"
+    assert response.items[2].type.value == "CONDITION"
+    assert response.items[2].condition_level == 4
+    assert response.items[2].completable is False
+
+
+async def test_calendar_filters_types_and_validates_range() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+    today = date.today()
+    watering = make_event(plant.id, today)
+    repotting = make_event(plant.id, today)
+    repotting.type = "REPOTTING"
+    repository.events = [watering, repotting]
+
+    filtered = await service.list_calendar(user_id, plant.id, today, today, "REPOTTING")
+    assert [item.id for item in filtered.items] == [repotting.id]
+
+    with pytest.raises(AppError) as invalid_types:
+        await service.list_calendar(user_id, plant.id, today, today, "CUSTOM")
+    assert invalid_types.value.code == "INVALID_CALENDAR_TYPES"
+
+    with pytest.raises(AppError) as reversed_range:
+        await service.list_calendar(user_id, plant.id, today, today - timedelta(days=1), None)
+    assert reversed_range.value.code == "INVALID_CALENDAR_RANGE"
+
+    with pytest.raises(AppError) as too_wide:
+        await service.list_calendar(user_id, plant.id, date(2026, 1, 1), date(2026, 4, 1), None)
+    assert too_wide.value.code == "INVALID_CALENDAR_RANGE"
 
 
 async def test_home_returns_empty_context_or_today_data() -> None:

@@ -1,3 +1,4 @@
+from calendar import monthrange
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Protocol
@@ -20,6 +21,9 @@ from app.models.user import UserProfile
 from app.schemas.plant import (
     AgendaEventResponse,
     AgendaResponse,
+    CalendarItemResponse,
+    CalendarItemType,
+    CalendarResponse,
     HomeCharacterResponse,
     HomeMemoResponse,
     HomePlantResponse,
@@ -80,6 +84,14 @@ class PlantManagementRepository(Protocol):
     async def list_active_events(self, plant_id: UUID) -> list[CareEvent]: ...
 
     async def list_today_events(self, plant_id: UUID, today: date) -> list[CareEvent]: ...
+
+    async def list_calendar_events(
+        self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
+    ) -> list[CareEvent]: ...
+
+    async def list_calendar_diaries(
+        self, plant_id: UUID, date_from: date, date_to: date
+    ) -> list[PlantDiary]: ...
 
     async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None: ...
 
@@ -194,6 +206,38 @@ class SQLAlchemyPlantManagementRepository:
         )
         return list(result)
 
+    async def list_calendar_events(
+        self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
+    ) -> list[CareEvent]:
+        result = await self._session.scalars(
+            select(CareEvent).where(
+                CareEvent.plant_id == plant_id,
+                CareEvent.type.in_(types),
+                or_(
+                    and_(
+                        CareEvent.status == CareEventStatus.SCHEDULED.value,
+                        CareEvent.due_date.between(date_from, date_to),
+                    ),
+                    and_(
+                        CareEvent.status == CareEventStatus.COMPLETED.value,
+                        CareEvent.performed_on.between(date_from, date_to),
+                    ),
+                ),
+            )
+        )
+        return list(result)
+
+    async def list_calendar_diaries(
+        self, plant_id: UUID, date_from: date, date_to: date
+    ) -> list[PlantDiary]:
+        result = await self._session.scalars(
+            select(PlantDiary).where(
+                PlantDiary.plant_id == plant_id,
+                PlantDiary.diary_date.between(date_from, date_to),
+            )
+        )
+        return list(result)
+
     async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None:
         return await self._session.scalar(
             select(PlantDailyMemo).where(
@@ -301,6 +345,41 @@ class PlantManagementService:
         today = today_in_timezone(context.timezone)
         events = await self._repository.list_active_events(plant_id)
         return AgendaResponse(events=[agenda_event_response(event, today) for event in events])
+
+    async def list_calendar(
+        self,
+        user_id: UUID,
+        plant_id: UUID,
+        date_from: date,
+        date_to: date,
+        types: str | None,
+    ) -> CalendarResponse:
+        context = await self._require_plant(user_id, plant_id)
+        validate_calendar_range(date_from, date_to)
+        selected_types = parse_calendar_types(types)
+        event_types = {item.value for item in selected_types if item != CalendarItemType.CONDITION}
+        events = (
+            await self._repository.list_calendar_events(
+                plant_id, date_from, date_to, event_types
+            )
+            if event_types
+            else []
+        )
+        diaries = (
+            await self._repository.list_calendar_diaries(plant_id, date_from, date_to)
+            if CalendarItemType.CONDITION in selected_types
+            else []
+        )
+        today = today_in_timezone(context.timezone)
+        items = []
+        for event in events:
+            response = calendar_event_response(event, today)
+            items.append((response.date, event.created_at, event.id, response))
+        for diary in diaries:
+            response = calendar_condition_response(diary)
+            items.append((response.date, diary.created_at, diary.id, response))
+        items.sort(key=lambda item: item[:3])
+        return CalendarResponse(items=[item[3] for item in items])
 
     async def get_home(self, user_id: UUID, plant_id: UUID | None) -> HomeResponse:
         profile = await self._require_profile(user_id)
@@ -474,4 +553,77 @@ def agenda_event_response(event: CareEvent, today: date) -> AgendaEventResponse:
         view_status=care_view_status(event, today),
         source=event.source,
         completable=event.status == CareEventStatus.SCHEDULED.value,
+    )
+
+
+CALENDAR_TYPES = frozenset(CalendarItemType)
+
+
+def parse_calendar_types(value: str | None) -> set[CalendarItemType]:
+    if value is None:
+        return set(CALENDAR_TYPES)
+    values = [item.strip() for item in value.split(",")]
+    if not values or any(not item for item in values):
+        raise AppError(
+            code="INVALID_CALENDAR_TYPES",
+            message="캘린더 필터 값을 확인해 주세요.",
+            status_code=422,
+        )
+    try:
+        parsed = {CalendarItemType(item) for item in values}
+    except ValueError as exc:
+        raise AppError(
+            code="INVALID_CALENDAR_TYPES",
+            message="캘린더 필터 값을 확인해 주세요.",
+            status_code=422,
+        ) from exc
+    return parsed
+
+
+def validate_calendar_range(date_from: date, date_to: date) -> None:
+    if date_from > date_to or date_to >= add_months(date_from, 3):
+        raise AppError(
+            code="INVALID_CALENDAR_RANGE",
+            message="캘린더 조회 범위는 시작일부터 최대 3개월입니다.",
+            status_code=422,
+        )
+
+
+def add_months(value: date, months: int) -> date:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(year=year, month=month, day=min(value.day, monthrange(year, month)[1]))
+
+
+def calendar_event_response(event: CareEvent, today: date) -> CalendarItemResponse:
+    completed = event.status == CareEventStatus.COMPLETED.value
+    display_date = event.performed_on if completed else event.due_date
+    assert display_date is not None
+    return CalendarItemResponse(
+        id=event.id,
+        date=display_date,
+        type=event.type,
+        status=event.status,
+        view_status=care_view_status(event, today),
+        title=event.title,
+        source=event.source,
+        condition_score=None,
+        condition_level=None,
+        completable=not completed,
+    )
+
+
+def calendar_condition_response(diary: PlantDiary) -> CalendarItemResponse:
+    return CalendarItemResponse(
+        id=diary.id,
+        date=diary.diary_date,
+        type=CalendarItemType.CONDITION,
+        status=None,
+        view_status=None,
+        title=None,
+        source=None,
+        condition_score=diary.condition_score,
+        condition_level=condition_level(diary.condition_score),
+        completable=False,
     )

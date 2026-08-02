@@ -73,6 +73,12 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     ),
     ("DELETE", f"/api/v1/plants/{uuid4()}", None, None),
     ("GET", f"/api/v1/plants/{uuid4()}/agenda", None, {"scope": "active"}),
+    (
+        "GET",
+        f"/api/v1/plants/{uuid4()}/calendar",
+        None,
+        {"from": "2026-08-01", "to": "2026-08-31", "types": "WATERING,CONDITION"},
+    ),
     ("GET", "/api/v1/home", None, None),
     ("GET", f"/api/v1/plants/{uuid4()}/diaries", None, {"year": 2026, "month": 8}),
     (
@@ -149,6 +155,7 @@ EXPECTED_API_OPERATIONS = {
     ("PATCH", "/api/v1/plants/{plant_id}/appearance"),
     ("DELETE", "/api/v1/plants/{plant_id}"),
     ("GET", "/api/v1/plants/{plant_id}/agenda"),
+    ("GET", "/api/v1/plants/{plant_id}/calendar"),
     ("GET", "/api/v1/home"),
     ("GET", "/api/v1/plants/{plant_id}/diaries"),
     ("PUT", "/api/v1/plants/{plant_id}/diaries/{date}"),

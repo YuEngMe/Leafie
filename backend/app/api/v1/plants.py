@@ -1,3 +1,4 @@
+from datetime import date as Date
 from typing import Annotated
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.schemas.plant import (
     AgendaResponse,
+    CalendarResponse,
     HomeResponse,
     PlantAppearanceUpdateRequest,
     PlantCreateRequest,
@@ -119,6 +121,21 @@ async def get_plant_agenda(
 ) -> AgendaResponse:
     del scope
     return await build_management_service(session, storage).list_agenda(current_user.id, plant_id)
+
+
+@router.get("/{plant_id}/calendar", response_model=CalendarResponse)
+async def get_plant_calendar(
+    plant_id: UUID,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+    storage: Storage,
+    date_from: Annotated[Date, Query(alias="from")],
+    date_to: Annotated[Date, Query(alias="to")],
+    types: str | None = None,
+) -> CalendarResponse:
+    return await build_management_service(session, storage).list_calendar(
+        current_user.id, plant_id, date_from, date_to, types
+    )
 
 
 @router.delete("/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
