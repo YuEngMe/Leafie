@@ -1,4 +1,3 @@
-import asyncio
 import json
 from dataclasses import dataclass
 from typing import Protocol
@@ -76,8 +75,7 @@ class FirebasePushGateway:
                 for token in chunk
             ]
             try:
-                response = await asyncio.to_thread(
-                    messaging.send_each,
+                response = await messaging.send_each_async(
                     messages,
                     app=self._app,
                 )

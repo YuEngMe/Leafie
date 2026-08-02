@@ -104,11 +104,11 @@ async def test_firebase_gateway_marks_missing_default_credentials_permanent(monk
     gateway = object.__new__(FirebasePushGateway)
     gateway._app = object()
 
-    def fail_send_each(_messages, *, app):
+    async def fail_send_each(_messages, *, app):
         assert app is gateway._app
         raise DefaultCredentialsError("missing")
 
-    monkeypatch.setattr(messaging, "send_each", fail_send_each)
+    monkeypatch.setattr(messaging, "send_each_async", fail_send_each)
 
     with pytest.raises(PushPermanentError, match="DefaultCredentialsError"):
         await gateway.send(
@@ -124,7 +124,7 @@ async def test_firebase_gateway_classifies_token_and_transient_errors(monkeypatc
     gateway = object.__new__(FirebasePushGateway)
     gateway._app = object()
 
-    def fake_send_each(messages, *, app):
+    async def fake_send_each(messages, *, app):
         assert app is gateway._app
         assert len(messages) == 3
         return SimpleNamespace(
@@ -141,7 +141,7 @@ async def test_firebase_gateway_classifies_token_and_transient_errors(monkeypatc
             ]
         )
 
-    monkeypatch.setattr(messaging, "send_each", fake_send_each)
+    monkeypatch.setattr(messaging, "send_each_async", fake_send_each)
 
     result = await gateway.send(
         notification_id=str(uuid4()),
