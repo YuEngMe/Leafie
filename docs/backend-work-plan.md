@@ -139,6 +139,8 @@ pytest
 alembic upgrade head
 ```
 
+출시 전 자동·실기기·운영 확인 항목은 [출시 점검표](release-checklist.md)를 따릅니다.
+
 ## 5. 브랜치와 PR
 
 - 기능 브랜치는 최신 `main`에서 생성합니다.
