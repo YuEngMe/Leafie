@@ -3,9 +3,44 @@ import 'package:yeso_plant/screens/signup_screen.dart';
 import 'package:yeso_plant/widgets/app_text_field.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/social_login_button.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _login() async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('로그인 성공')));
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +69,13 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
 
-                const AppTextField(label: '이메일'),
+                AppTextField(label: '이메일', controller: _emailController),
                 const SizedBox(height: 16),
-                const AppTextField(label: '비밀번호', obscureText: true),
+                AppTextField(
+                  label: '비밀번호',
+                  obscureText: true,
+                  controller: _passwordController,
+                ),
                 const SizedBox(height: 12),
 
                 // 회원가입 / 비밀번호 찾기 (양쪽 끝 정렬)
@@ -46,21 +85,19 @@ class LoginScreen extends StatelessWidget {
                     TextButton(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const SignupScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
                       ),
                       child: const Text('회원가입'),
                     ),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text('비밀번호 찾기'),
-                    ),
+                    TextButton(onPressed: () {}, child: const Text('비밀번호 찾기')),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                PrimaryButton(label: '로그인', onPressed: () {}),
+                PrimaryButton(
+                  label: _loading ? '로그인 중...' : '로그인',
+                  onPressed: _loading ? () {} : _login,
+                ),
                 const SizedBox(height: 40),
 
                 // 간편로그인 구분선
