@@ -73,6 +73,17 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             "type <> 'CUSTOM' OR (title IS NOT NULL AND schedule_id IS NULL)",
             name="custom_event",
         ),
+        UniqueConstraint(
+            "plant_id",
+            "client_event_id",
+            name="uq_care_events_plant_client_event",
+        ),
+        Index(
+            "uq_care_events_schedule_scheduled",
+            "schedule_id",
+            unique=True,
+            postgresql_where=text("status = 'SCHEDULED' AND schedule_id IS NOT NULL"),
+        ),
         Index("ix_care_events_plant_id_due_date", "plant_id", "due_date"),
         Index("ix_care_events_plant_id_performed_on", "plant_id", "performed_on"),
         Index("ix_care_events_status_due_date", "status", "due_date"),
@@ -88,6 +99,8 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         PG_UUID(as_uuid=True),
         ForeignKey("diagnoses.id", ondelete="SET NULL", use_alter=True),
     )
+    client_event_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    creation_request_hash: Mapped[str | None] = mapped_column(String(64))
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     title: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(

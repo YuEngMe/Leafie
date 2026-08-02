@@ -222,8 +222,23 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
         CareEventType.WATERING,
         CareEventType.REPOTTING,
     }
-    assert all(event.status == CareEventStatus.COMPLETED for event in events)
-    repotting_event = next(event for event in events if event.type == CareEventType.REPOTTING)
+    completed_events = [
+        event for event in events if event.status == CareEventStatus.COMPLETED
+    ]
+    scheduled_events = [
+        event for event in events if event.status == CareEventStatus.SCHEDULED
+    ]
+    assert len(completed_events) == 2
+    assert len(scheduled_events) == 2
+    assert {
+        (event.schedule_id, event.due_date) for event in scheduled_events
+    } == {
+        (watering_schedule.id, watering_schedule.next_due_date),
+        (repotting_schedule.id, repotting_schedule.next_due_date),
+    }
+    repotting_event = next(
+        event for event in completed_events if event.type == CareEventType.REPOTTING
+    )
     assert repotting_event.schedule_id == repotting_schedule.id
     assert repotting_event.performed_on == date(2026, 3, 1)
     assert conversation.plant_id == plant.id
@@ -231,7 +246,7 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert [[type(entity) for entity in batch] for batch in repository.added_batches] == [
         [Plant],
         [CareSchedule, CareSchedule, AIConversation],
-        [CareEvent, CareEvent],
+        [CareEvent, CareEvent, CareEvent, CareEvent],
     ]
 
 
@@ -247,7 +262,7 @@ async def test_registration_retry_returns_existing_result_without_duplicates() -
     assert repository.added == added_after_first_request
     assert len([entity for entity in repository.added if isinstance(entity, Plant)]) == 1
     assert len([entity for entity in repository.added if isinstance(entity, CareSchedule)]) == 2
-    assert len([entity for entity in repository.added if isinstance(entity, CareEvent)]) == 2
+    assert len([entity for entity in repository.added if isinstance(entity, CareEvent)]) == 4
     assert len([entity for entity in repository.added if isinstance(entity, AIConversation)]) == 1
     assert repository.flush_count == 1
 
@@ -281,7 +296,12 @@ async def test_never_repotted_uses_started_on_for_initial_schedule() -> None:
     )
 
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
-    assert [event.type for event in events] == [CareEventType.WATERING]
+    assert [
+        event.type for event in events if event.status == CareEventStatus.COMPLETED
+    ] == [CareEventType.WATERING]
+    assert {
+        event.type for event in events if event.status == CareEventStatus.SCHEDULED
+    } == {CareEventType.WATERING, CareEventType.REPOTTING}
     schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
     repotting_schedule = next(
         schedule for schedule in schedules if schedule.type == CareScheduleType.REPOTTING
@@ -299,7 +319,14 @@ async def test_unknown_repotting_history_does_not_create_initial_schedule_or_eve
     )
 
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
-    assert [event.type for event in events] == [CareEventType.WATERING]
+    assert [event.type for event in events] == [
+        CareEventType.WATERING,
+        CareEventType.WATERING,
+    ]
+    assert [event.status for event in events] == [
+        CareEventStatus.COMPLETED,
+        CareEventStatus.SCHEDULED,
+    ]
     schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
     assert [schedule.type for schedule in schedules] == [CareScheduleType.WATERING]
 

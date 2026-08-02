@@ -204,8 +204,11 @@ class PlantRegistrationService:
             plant_id=plant.id,
             type=CareScheduleType.WATERING.value,
             interval_days=guide.default_watering_interval_days,
-            next_due_date=request.last_watered_on
-            + timedelta(days=guide.default_watering_interval_days),
+            next_due_date=next_recurring_due_date(
+                request.last_watered_on,
+                guide.default_watering_interval_days,
+                today,
+            ),
             recommended_water_min_ml=guide.recommended_water_min_ml,
             recommended_water_max_ml=guide.recommended_water_max_ml,
             recommendation_source=(
@@ -276,6 +279,10 @@ class PlantRegistrationService:
                     recorded_at=now,
                 )
             )
+
+        care_events.extend(
+            scheduled_care_event(schedule, recorded_at=now) for schedule in care_schedules
+        )
 
         # These models use explicit UUID foreign keys without ORM relationships.
         # Flush parents first so PostgreSQL never receives child INSERTs before
@@ -391,6 +398,20 @@ def completed_care_event(
     )
 
 
+def scheduled_care_event(schedule: CareSchedule, *, recorded_at: datetime) -> CareEvent:
+    return CareEvent(
+        id=uuid4(),
+        plant_id=schedule.plant_id,
+        schedule_id=schedule.id,
+        type=schedule.type,
+        status=CareEventStatus.SCHEDULED.value,
+        source=CareEventSource.AUTO_SCHEDULE.value,
+        due_date=schedule.next_due_date,
+        created_at=recorded_at,
+        updated_at=recorded_at,
+    )
+
+
 def registration_request_hash(request: PlantCreateRequest) -> str:
     payload = request.model_dump(mode="json", exclude={"client_registration_id"})
     canonical_json = json.dumps(
@@ -422,6 +443,6 @@ def next_recurring_due_date(base_date: date, interval_days: int, today: date) ->
 def today_in_timezone(timezone_name: str) -> date:
     try:
         timezone = ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
+    except (ZoneInfoNotFoundError, ValueError):
         timezone = ZoneInfo("Asia/Seoul")
     return datetime.now(timezone).date()

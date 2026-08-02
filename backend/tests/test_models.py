@@ -60,6 +60,30 @@ def test_one_diary_per_plant_and_day() -> None:
         assert escaped_whitespace in check_constraints["ck_plant_diaries_content_length"]
 
 
+def test_care_event_and_daily_memo_constraints_match_api_contract() -> None:
+    events = Base.metadata.tables["care_events"]
+    event_unique_columns = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in events.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+    assert ("plant_id", "client_event_id") in event_unique_columns
+    assert events.columns["client_event_id"].nullable is True
+    assert events.columns["creation_request_hash"].nullable is True
+    scheduled_index = next(
+        index for index in events.indexes if index.name == "uq_care_events_schedule_scheduled"
+    )
+    assert scheduled_index.unique is True
+
+    memos = Base.metadata.tables["plant_daily_memos"]
+    content_constraint = next(
+        constraint
+        for constraint in memos.constraints
+        if constraint.name == "ck_plant_daily_memos_content_length"
+    )
+    assert "BETWEEN 1 AND 500" in str(content_constraint.sqltext)
+
+
 def test_plant_registration_id_is_unique_per_user() -> None:
     plants = Base.metadata.tables["plants"]
     unique_columns = {

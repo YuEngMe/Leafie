@@ -411,7 +411,12 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 {"content": "오늘 새잎이 보였다."}
 ```
 
-완료 상태는 없으며 `date`는 사용자 시간대의 오늘만 허용합니다.
+본문은 공백을 제외한 `1~500자`입니다. 완료 상태는 없으며 `date`는 사용자 시간대의
+오늘만 허용합니다.
+
+### `DELETE /plants/{plant_id}/daily-memos/{date}`
+
+오늘 홈 메모를 삭제합니다. 이미 메모가 없어도 `204`를 반환합니다.
 
 ## 9. 관리 일정과 캘린더
 
@@ -425,11 +430,18 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ```json
 {
+  "client_event_id": "uuid",
   "type": "CUSTOM",
   "title": "화분 방향 돌려주기",
   "due_date": "2026-08-01"
 }
 ```
+
+사용자 생성 일회성 이벤트는 `FERTILIZING`, `PRUNING`, `CUSTOM`만 허용하며 제목은
+필수입니다. `due_date`는 사용자 시간대의 오늘 또는 미래만 허용합니다. Flutter는 생성
+흐름마다 `client_event_id` UUID를 만들고 성공 응답을 받을 때까지 유지합니다. 같은 ID와
+같은 요청은 기존 이벤트를 반환하고 다른 요청에 재사용하면 `409 CLIENT_EVENT_ID_REUSED`로
+차단합니다.
 
 ### `POST /care-events/{event_id}/complete`
 
@@ -457,7 +469,10 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 ```
 
 `recorded_at`은 서버 시각이며 수정할 수 없습니다. 미래 `performed_on`은 거부합니다.
-중복 완료 요청은 기존 완료 결과를 반환합니다.
+중복 완료 요청은 기존 완료 결과를 반환합니다. 반복 일정은 현재 `SCHEDULED` 이벤트를
+완료한 뒤 `performed_on + interval_days`를 기준으로 `care_schedule.next_due_date`를
+갱신하고 다음 `SCHEDULED` 이벤트 하나를 같은 트랜잭션에서 생성합니다. 계산된 날짜가
+이미 과거이면 주기 단위로 오늘 이후 첫 날짜까지 이동합니다.
 
 ### `GET /plants/{plant_id}/calendar?from=2026-07-01&to=2026-07-31&types=WATERING,CONDITION`
 
