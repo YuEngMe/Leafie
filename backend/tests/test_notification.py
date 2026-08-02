@@ -154,21 +154,28 @@ async def test_device_registration_reuses_token_and_revoke_checks_owner() -> Non
     request = DeviceRegisterRequest(platform="IOS", token=" device-token ")
 
     first = await service.register_device(user_id, request)
-    replay = await service.register_device(user_id, request)
+    first_used_at = repository.devices[first.id].last_used_at
+    replay = await service.register_device(
+        other_user_id,
+        DeviceRegisterRequest(platform="ANDROID", token="device-token"),
+    )
 
     assert replay.id == first.id
-    assert replay.platform == "IOS"
+    assert repository.devices[replay.id].user_id == other_user_id
+    assert replay.platform == "ANDROID"
+    assert repository.devices[replay.id].last_used_at >= first_used_at
     assert len(repository.devices) == 1
 
     with pytest.raises(AppError) as error:
-        await service.revoke_device(other_user_id, first.id)
+        await service.revoke_device(user_id, first.id)
     assert error.value.code == "DEVICE_NOT_FOUND"
 
-    await service.revoke_device(user_id, first.id)
+    await service.revoke_device(other_user_id, first.id)
     assert repository.devices[first.id].revoked_at is not None
 
     registered_again = await service.register_device(user_id, request)
     assert registered_again.id != first.id
+    assert repository.devices[registered_again.id].revoked_at is None
     assert len(repository.devices) == 2
 
 
