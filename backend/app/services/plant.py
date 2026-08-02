@@ -67,6 +67,8 @@ class SQLAlchemyPlantRegistrationRepository:
         user_id: UUID,
         client_registration_id: UUID,
     ) -> Plant | None:
+        # Soft-deleted rows are intentionally included because a registration ID is
+        # permanently single-use for a user, even after the plant is deleted.
         return await self._session.scalar(
             select(Plant).where(
                 Plant.user_id == user_id,
@@ -148,6 +150,12 @@ class PlantRegistrationService:
             request.client_registration_id,
         )
         if existing_plant is not None:
+            if existing_plant.deleted_at is not None:
+                raise AppError(
+                    code="PLANT_REGISTRATION_ID_REUSED",
+                    message="이미 삭제된 식물 등록에 사용한 client_registration_id입니다.",
+                    status_code=409,
+                )
             if existing_plant.registration_request_hash != request_hash:
                 raise AppError(
                     code="PLANT_REGISTRATION_ID_REUSED",
