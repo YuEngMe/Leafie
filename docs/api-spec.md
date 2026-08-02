@@ -747,15 +747,42 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 
 모든 식물의 앱 내 알림을 최신순으로 반환합니다.
 
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "plant_id": "uuid",
+      "type": "CARE_DUE",
+      "title": "물 줄 시간이에요",
+      "body": "새싹이에게 물을 주세요.",
+      "source_type": "CARE_EVENT",
+      "source_id": "uuid",
+      "read_at": null,
+      "created_at": "2026-08-02T09:00:00Z"
+    }
+  ],
+  "next_cursor": null,
+  "has_next": false
+}
+```
+
 ### `POST /notifications/{notification_id}/read`
 
+본인 알림만 읽음 처리하며 이미 읽은 알림은 기존 결과를 반환합니다.
+
 ### `POST /notifications/read-all`
+
+현재 사용자의 읽지 않은 알림을 모두 읽음 처리하고 `204`를 반환합니다.
 
 ### `POST /devices`
 
 ```json
 {"platform": "IOS", "token": "device-token"}
 ```
+
+같은 활성 토큰을 다시 등록하면 새 행을 만들지 않고 사용자, 플랫폼과 마지막 사용 시각을
+갱신합니다. 응답의 `id`를 로컬에 저장해 로그아웃할 때 폐기 요청에 사용합니다.
 
 ### `DELETE /devices/{device_id}`
 
