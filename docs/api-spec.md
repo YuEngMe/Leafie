@@ -338,11 +338,33 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ### `GET /plants`
 
-소유 식물 목록을 반환합니다.
+삭제되지 않은 소유 식물을 `created_at ASC, id ASC` 순서로 반환합니다. 캐릭터 전체 보기에서
+필요한 종명, 외형, D+, 대표 사진 Signed URL과 현재 선택 여부를 포함합니다.
+
+```json
+{
+  "plants": [
+    {
+      "id": "uuid",
+      "nickname": "새싹이",
+      "species_reference_id": "catalog:monstera-deliciosa",
+      "species_display_name": "몬스테라",
+      "primary_photo_url": "https://...",
+      "personality_type": "OUTGOING",
+      "color_id": "color_green_01",
+      "hair_id": "hair_leaf_01",
+      "accessory_id": "accessory_star_01",
+      "days_together": 153,
+      "is_selected": true
+    }
+  ]
+}
+```
 
 ### `GET /plants/{plant_id}`
 
-종명, 대분류, 학명, 환경, 캐릭터 외형, D+와 오늘 컨디션을 반환합니다.
+종명, 대분류, 학명, 과, 개화기, 환경, 캐릭터 외형, D+와 오늘 컨디션을 반환합니다.
+삭제된 식물과 다른 사용자의 식물은 `404 PLANT_NOT_FOUND`로 처리합니다.
 
 ### `PATCH /plants/{plant_id}`
 
@@ -356,6 +378,8 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 ```
 
 식물 종, 성격과 마지막 물주기·분갈이 날짜는 이 API에서 변경하지 않습니다.
+전달한 필드만 수정하며 null과 빈 요청은 허용하지 않습니다. 성공 시 식물 상세 응답을
+반환합니다.
 
 ### `PATCH /plants/{plant_id}/appearance`
 
@@ -367,9 +391,21 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 }
 ```
 
+전달한 외형 필드만 수정하고 식물 상세 응답을 반환합니다. 디자인 ID 목록이 확정되기
+전에는 공백과 최대 길이만 검증합니다.
+
 ### `DELETE /plants/{plant_id}`
 
-확인 팝업 후 호출합니다. 선택 식물이면 남은 식물로 전환하고 없으면 null로 만듭니다.
+확인 팝업 후 호출합니다. 식물은 즉시 soft delete하고 같은 DB 트랜잭션에서 연결 미디어를
+`DELETED`로 전환한 뒤 `PLANT_DELETE` Queue 작업을 등록합니다. 선택하지 않은 식물을
+삭제하면 현재 선택을 유지합니다. 선택 식물을 삭제하면 `created_at ASC, id ASC` 기준으로
+가장 오래된 남은 식물을 선택하고, 남은 식물이 없으면 `selected_plant_id=null`로 만듭니다.
+
+Worker는 대표·인식·다이어리·진단·채팅 사진을 멱등하게 Storage에서 삭제한 뒤 식물을
+hard delete하여 메모, 다이어리, 일정, 진단, 대화, AI 작업과 알림을 cascade 삭제합니다.
+Storage 정리가 실패하면 식물을 복구하거나 hard delete하지 않고 soft delete 상태로 유지해
+재시도하며, 재시도 소진 시 로그와 `plant_id`를 기준으로 운영자가 재처리합니다. 중복 삭제
+요청은 Queue 작업을 중복 생성하지 않고 `204`를 반환합니다.
 
 ## 8. 홈
 
@@ -401,7 +437,26 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 ```
 
 오늘 다이어리가 없으면 `condition.recorded=false`, 점수와 단계는 null입니다. 대사는
-성격·컨디션·일정 상태에 맞는 고정 문구 중 하나를 반환합니다.
+성격·컨디션·일정 상태에 맞는 고정 문구 중 하나를 반환합니다. 고정 문구 목록과 오늘
+컨디션이 없을 때의 기본 표정이 확정되기 전에는 `dialogue`와 `expression_level`을 null로
+반환합니다. 오늘 컨디션이 있으면 점수의 1~5단계를 `expression_level`로 사용합니다.
+
+선택 식물이 없고 소유 식물도 없으면 오류 대신 `200 OK`로 빈 홈을 반환합니다.
+
+```json
+{
+  "plant": null,
+  "character": null,
+  "condition": null,
+  "today_events": [],
+  "daily_memo": null,
+  "unread_notification_count": 0
+}
+```
+
+홈은 사용자 시간대의 오늘 일정만 반환합니다. 완료하지 않아 예정일이 지난 이벤트는
+`due_date`를 다음 날로 변경하지 않고 `OVERDUE`로 계산하며 캐릭터 상세의 agenda에서
+조회합니다.
 
 ### `PUT /plants/{plant_id}/daily-memos/{date}`
 
@@ -422,7 +477,24 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ### `GET /plants/{plant_id}/agenda?scope=active`
 
-캐릭터 상세의 지연·오늘·미래 일정만 반환합니다.
+캐릭터 상세의 미완료 지연·오늘·미래 일정만 예정일 순으로 반환합니다. `OVERDUE`,
+`TODAY`, `UPCOMING`은 저장하지 않고 사용자 시간대의 오늘과 `due_date`로 계산합니다.
+
+```json
+{
+  "events": [
+    {
+      "id": "uuid",
+      "type": "WATERING",
+      "title": null,
+      "due_date": "2026-08-02",
+      "view_status": "TODAY",
+      "source": "AUTO_SCHEDULE",
+      "completable": true
+    }
+  ]
+}
+```
 
 ### `POST /plants/{plant_id}/care-events`
 

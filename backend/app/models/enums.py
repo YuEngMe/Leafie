@@ -84,6 +84,14 @@ class CareEventStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class CareViewStatus(StrEnum):
+    UPCOMING = "UPCOMING"
+    TODAY = "TODAY"
+    OVERDUE = "OVERDUE"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
 class CareEventSource(StrEnum):
     AUTO_SCHEDULE = "AUTO_SCHEDULE"
     USER_CREATED = "USER_CREATED"
