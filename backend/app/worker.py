@@ -16,6 +16,10 @@ from app.integrations.storage import SupabaseStorageGateway
 from app.schemas.queue import JobType
 from app.services.worker import QueueWorker
 from app.tasks.account import AccountDeleteHandler, SQLAlchemyAccountCleanupRepository
+from app.tasks.care_notification import (
+    CareNotificationCollectHandler,
+    SQLAlchemyCareNotificationRepository,
+)
 from app.tasks.chat import ChatImageAnalysisHandler, SQLAlchemyChatImageRepository
 from app.tasks.diagnosis import (
     DiagnosisHandler,
@@ -90,6 +94,12 @@ async def run_worker() -> None:
             kindwise,
             build_recommended_care,
             external_call_timeout_seconds=settings.kindwise_timeout_seconds,
+        ),
+    )
+    registry.register(
+        JobType.CARE_NOTIFICATION_COLLECT,
+        CareNotificationCollectHandler(
+            SQLAlchemyCareNotificationRepository(database, queue),
         ),
     )
     registry.register(

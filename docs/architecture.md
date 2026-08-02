@@ -265,6 +265,9 @@ Provider가 반환한 값만 사용합니다.
   전달합니다. 서버는 APNs에 직접 요청하지 않습니다.
 - 진단 완료 시 알림 행과 `PUSH_NOTIFICATION_SEND` 작업을 같은 DB 트랜잭션에서
   생성합니다.
+- Supabase Cron은 매시간 `CARE_NOTIFICATION_COLLECT`를 Queue에 넣습니다. Worker는
+  사용자 현지 시각 오전 9시에 오늘 또는 지연된 물주기·분갈이 일정별 알림을 한 번만
+  생성하고, 같은 트랜잭션에서 푸시 작업을 발행합니다.
 - FCM의 미등록·발신자 불일치 FID는 폐기하고, quota·내부 오류·일시 사용 불가는
   Queue 정책에 따라 재시도합니다.
 - `apns-collapse-id`와 Android collapse key에는 알림 ID를 사용해 같은 작업의 재전달로
