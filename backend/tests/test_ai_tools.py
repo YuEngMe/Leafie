@@ -51,6 +51,9 @@ class FakeToolRepository:
     async def upcoming_events(self, _plant_id, _through):
         return []
 
+    async def user_timezone(self, _user_id):
+        return "Asia/Seoul"
+
     async def recent_care_events(self, _plant_id, _limit):
         return []
 
@@ -121,6 +124,33 @@ async def test_care_proposal_only_creates_pending_action() -> None:
     assert result["status"] == AIActionStatus.PENDING_CONFIRMATION.value
     assert not any(isinstance(item, CareEvent) for item in repository.added)
     assert any(isinstance(item, AIAction) for item in repository.added)
+
+
+async def test_care_proposal_uses_user_local_date(monkeypatch) -> None:
+    local_today = date(2025, 1, 1)
+    monkeypatch.setattr("app.services.ai_tools.today_in_timezone", lambda _name: local_today)
+    repository = FakeToolRepository()
+    service = AIToolService(repository)  # type: ignore[arg-type]
+
+    output = await service.execute(
+        call=ChatToolCall(
+            call_id="call-local-date",
+            name="propose_one_time_care",
+            arguments=json.dumps(
+                {
+                    "care_type": "FERTILIZING",
+                    "due_date": local_today.isoformat(),
+                    "title": "비료 주기",
+                    "reason": "사용자 현지 날짜 기준",
+                }
+            ),
+        ),
+        message_id=uuid4(),
+        user_id=uuid4(),
+        plant_id=uuid4(),
+    )
+
+    assert json.loads(output)["status"] == AIActionStatus.PENDING_CONFIRMATION.value
 
 
 async def test_invalid_tool_arguments_are_audited_without_execution() -> None:

@@ -21,7 +21,9 @@ from app.models.enums import (
     ToolCallStatus,
 )
 from app.models.plant import Plant, PlantDiary, SpeciesCareGuide
+from app.models.user import UserProfile
 from app.schemas.chat import AIActionResponse
+from app.services.plant import today_in_timezone
 
 
 class _NoArguments(BaseModel):
@@ -133,6 +135,12 @@ class SQLAlchemyAIToolRepository:
                 )
             )
         ).one_or_none()
+
+    async def user_timezone(self, user_id: UUID) -> str:
+        timezone = await self._session.scalar(
+            select(UserProfile.timezone).where(UserProfile.user_id == user_id)
+        )
+        return timezone or "Asia/Seoul"
 
     async def upcoming_events(self, plant_id: UUID, through: date) -> list[CareEvent]:
         return list(
@@ -309,7 +317,7 @@ class AIToolService:
             }
         if name == "get_upcoming_care_schedule":
             parsed = _WindowArguments.model_validate(arguments)
-            today = date.today()
+            today = today_in_timezone(await self._repository.user_timezone(user_id))
             events = await self._repository.upcoming_events(
                 plant_id, today + timedelta(days=parsed.days)
             )
@@ -364,7 +372,8 @@ class AIToolService:
             }
         if name == "propose_one_time_care":
             parsed = _CareProposalArguments.model_validate(arguments)
-            if parsed.due_date < date.today():
+            today = today_in_timezone(await self._repository.user_timezone(user_id))
+            if parsed.due_date < today:
                 raise ValueError("past due date")
             action = AIAction(
                 id=uuid4(),

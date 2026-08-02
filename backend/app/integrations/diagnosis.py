@@ -50,10 +50,10 @@ class DiagnosisImageQualityResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     acceptable: bool
-    plant_visible: bool
+    plant_visible: bool | None = None
     sharp_enough: bool
     brightness_acceptable: bool
-    symptom_area_visible: bool
+    symptom_area_visible: bool | None = None
     retake_reason_code: str | None = Field(
         default=None,
         max_length=100,
@@ -93,7 +93,9 @@ class DiagnosisPermanentError(Exception):
 
 
 class DiagnosisTransientError(Exception):
-    pass
+    def __init__(self, failure_code: str = "DIAGNOSIS_PROVIDER_UNAVAILABLE") -> None:
+        super().__init__(failure_code)
+        self.failure_code = failure_code
 
 
 class DiagnosisRetakeError(Exception):
@@ -150,10 +152,10 @@ class LocalDiagnosisImageQualityChecker:
 
         return DiagnosisImageQualityResult(
             acceptable=True,
-            plant_visible=True,
+            plant_visible=None,
             sharp_enough=True,
             brightness_acceptable=True,
-            symptom_area_visible=True,
+            symptom_area_visible=None,
         )
 
 
@@ -165,9 +167,9 @@ def _rejected_quality(
 ) -> DiagnosisImageQualityResult:
     return DiagnosisImageQualityResult(
         acceptable=False,
-        plant_visible=True,
+        plant_visible=None,
         sharp_enough=sharp_enough,
         brightness_acceptable=brightness_acceptable,
-        symptom_area_visible=True,
+        symptom_area_visible=None,
         retake_reason_code=reason_code,
     )

@@ -59,6 +59,13 @@ class AIMessage(Base, UUIDPrimaryKeyMixin):
         CheckConstraint("input_tokens IS NULL OR input_tokens >= 0", name="input_tokens"),
         CheckConstraint("output_tokens IS NULL OR output_tokens >= 0", name="output_tokens"),
         Index("ix_ai_messages_conversation_id_created_at", "conversation_id", "created_at"),
+        Index(
+            "uq_ai_messages_conversation_client_message_id",
+            "conversation_id",
+            "client_message_id",
+            unique=True,
+            postgresql_where=text("client_message_id IS NOT NULL"),
+        ),
     )
 
     conversation_id: Mapped[UUID] = mapped_column(
@@ -66,6 +73,7 @@ class AIMessage(Base, UUIDPrimaryKeyMixin):
         ForeignKey("ai_conversations.id", ondelete="CASCADE"),
         nullable=False,
     )
+    client_message_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
     related_diagnosis_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("diagnoses.id", ondelete="SET NULL", use_alter=True),

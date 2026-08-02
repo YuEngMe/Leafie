@@ -13,7 +13,12 @@ from app.integrations.diagnosis import (
 )
 from app.schemas.queue import JobType, QueueJob
 from app.tasks.base import PermanentTaskError
-from app.tasks.diagnosis import DiagnosisHandler, DiagnosisWork, diagnosis_notification_copy
+from app.tasks.diagnosis import (
+    DiagnosisHandler,
+    DiagnosisWork,
+    build_recommended_care,
+    diagnosis_notification_copy,
+)
 
 
 class FakeRepository:
@@ -150,6 +155,35 @@ async def test_diagnosis_handler_completes_normalized_result() -> None:
     assert repository.failed == []
 
 
+def test_recommended_care_uses_species_rules_and_recent_watering() -> None:
+    result = DiagnosisProviderResult(
+        overall_condition="UNHEALTHY",
+        condition_label="조금 관리가 필요해요",
+        observations=["잎이 처져 있습니다."],
+        possible_causes=[{"name": "물 부족", "confidence": 0.8}],
+        provider_name="fake",
+        model_name="fake-v1",
+    )
+    context = {
+        "last_watered_on": "2026-07-28",
+        "diagnosis_profile": {
+            "symptom_checks": [
+                {
+                    "possible_causes": ["물 부족", "과습"],
+                    "check": ["흙 내부 수분", "배수 상태"],
+                }
+            ],
+            "cautions": ["찬바람을 피하세요."],
+        },
+    }
+
+    care = build_recommended_care(result, context)
+
+    assert "흙 내부 수분 상태를 확인해 주세요." in care
+    assert any("2026-07-28" in item for item in care)
+    assert "찬바람을 피하세요." in care
+
+
 async def test_diagnosis_handler_marks_low_quality_image_for_retake() -> None:
     repository = FakeRepository()
     provider = FakeProvider()
@@ -194,7 +228,7 @@ async def test_diagnosis_handler_marks_permanent_provider_failure() -> None:
 
 async def test_diagnosis_handler_releases_transient_failure_for_retry() -> None:
     repository = FakeRepository()
-    provider = FakeProvider(DiagnosisTransientError("temporary"))
+    provider = FakeProvider(DiagnosisTransientError("DIAGNOSIS_PROVIDER_UNAVAILABLE"))
     job = make_job()
 
     with pytest.raises(DiagnosisTransientError):

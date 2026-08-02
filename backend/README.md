@@ -28,7 +28,8 @@ JPEG와 PNG만 인식 입력으로 사용합니다.
 요청은 Queue 정책에 따라 재시도합니다.
 
 AI 채팅에는 `OPENAI_API_KEY`가 필요합니다. 텍스트 답변은 FastAPI에서 SSE로
-스트리밍하고 사진 첨부 답변은 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
+전달하고 사진 첨부 답변은 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다. Tool Calling
+루프가 끝나면 완성된 텍스트를 한 `message.delta`로 전달합니다.
 모델과 응답 한도는 `OPENAI_CHAT_MODEL`, `OPENAI_CHAT_MAX_OUTPUT_TOKENS`로
 조정합니다. 실제 키는 `.env`에만 넣고 커밋하지 않습니다.
 

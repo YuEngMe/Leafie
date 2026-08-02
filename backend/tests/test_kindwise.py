@@ -134,7 +134,7 @@ async def test_kindwise_provider_rejects_invalid_response() -> None:
     )
     provider = KindwiseDiagnosisProvider(_settings(), client)
 
-    with pytest.raises(DiagnosisPermanentError) as error:
+    with pytest.raises(DiagnosisTransientError) as error:
         await provider.diagnose(_image(), "image/png", {})
 
     assert error.value.failure_code == "KINDWISE_INVALID_RESPONSE"

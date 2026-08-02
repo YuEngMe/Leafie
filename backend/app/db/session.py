@@ -43,7 +43,7 @@ class Database:
             try:
                 yield session
                 await session.commit()
-            except Exception:
+            except BaseException:
                 await session.rollback()
                 raise
 
