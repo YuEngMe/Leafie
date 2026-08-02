@@ -259,7 +259,19 @@ Provider가 반환한 값만 사용합니다.
 - 이메일과 SMS 관리 알림은 보내지 않습니다.
 - 전체 푸시 ON/OFF는 `user_profiles.push_enabled` 한 값으로 관리합니다.
 - 앱 내 알림함은 모든 식물의 발송 이력과 읽음 상태를 보여줍니다.
-- 기기별 토큰은 `device_tokens`에서 관리하고 로그아웃 또는 권한 철회 시 폐기합니다.
+- 기기별 Firebase Installation ID(FID)는 `device_tokens`에서 관리하고 로그아웃 또는
+  권한 철회 시 폐기합니다. 테이블의 `token` 컬럼명은 내부 호환용입니다.
+- Worker는 Firebase Admin SDK로 FCM HTTP v1 요청을 보내고 Firebase가 APNs로
+  전달합니다. 서버는 APNs에 직접 요청하지 않습니다.
+- 진단 완료 시 알림 행과 `PUSH_NOTIFICATION_SEND` 작업을 같은 DB 트랜잭션에서
+  생성합니다.
+- FCM의 미등록·발신자 불일치 FID는 폐기하고, quota·내부 오류·일시 사용 불가는
+  Queue 정책에 따라 재시도합니다.
+- `apns-collapse-id`와 Android collapse key에는 알림 ID를 사용해 같은 작업의 재전달로
+  인한 중복 표시를 줄입니다.
+- Worker는 Application Default Credentials를 우선 사용합니다. 비-GCP 배포의
+  `FCM_CREDENTIALS_JSON`은 환경 비밀값으로만 관리하고, Firebase에는 Apple
+  Developer에서 발급한 APNs 인증 키를 등록합니다.
 
 ## 12. 배포와 운영
 

@@ -780,15 +780,16 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ### `POST /devices`
 
 ```json
-{"platform": "IOS", "token": "device-token"}
+{"platform": "IOS", "installation_id": "firebase-installation-id"}
 ```
 
-같은 활성 토큰을 다시 등록하면 새 행을 만들지 않고 사용자, 플랫폼과 마지막 사용 시각을
+같은 활성 FID를 다시 등록하면 새 행을 만들지 않고 사용자, 플랫폼과 마지막 사용 시각을
 갱신합니다. 응답의 `id`를 로컬에 저장해 로그아웃할 때 폐기 요청에 사용합니다.
 
 ### `DELETE /devices/{device_id}`
 
-로그아웃 또는 푸시 권한 철회 시 토큰을 폐기합니다.
+신규 Firebase 앱 인스턴스의 FID를 등록합니다. 로그아웃 또는 푸시 권한 철회 시
+등록을 폐기합니다.
 본인의 활성 기기가 아니면 `404 DEVICE_NOT_FOUND`를 반환합니다.
 
 ## 14. 내부 비동기 작업
@@ -803,6 +804,10 @@ PUSH_NOTIFICATION_SEND
 STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
 ```
+
+`PUSH_NOTIFICATION_SEND.resource_id`는 `notifications.id`입니다. Worker는 사용자의
+`push_enabled`와 활성 `device_tokens`를 다시 확인한 뒤 FCM으로 발송합니다. 미등록
+FID는 폐기하고 일시 오류만 Queue 재시도 대상으로 처리합니다.
 
 Supabase Cron은 다음 작업만 시작합니다.
 

@@ -290,7 +290,7 @@ erDiagram
         uuid id PK
         uuid user_id FK
         varchar platform
-        varchar token UK
+        varchar token UK "Firebase Installation ID"
         timestamptz last_used_at
         timestamptz created_at
         timestamptz revoked_at
@@ -347,7 +347,7 @@ erDiagram
 | `ai_conversations` | 식물의 영구 채팅방 안에서 생성되는 새 채팅 단위, 제목 검색과 soft delete 지원 |
 | `ai_messages` | 첨부 사진은 null 또는 한 장, 메시지는 반드시 본인 식물의 대화에 포함 |
 | `ai_actions` | `PENDING_CONFIRMATION` 상태만 승인·취소 가능, 비료·가지치기 일회성 일정만 생성 |
-| `device_tokens` | 활성 토큰 unique, 로그아웃·권한 철회 시 `revoked_at` 기록 |
+| `device_tokens` | `token` 컬럼에 FID 저장, 활성 FID unique, 로그아웃·권한 철회 시 `revoked_at` 기록 |
 
 Tool 인자는 Pydantic schema로 검증합니다. `AI_TOOL_CALLS.arguments`와
 `AI_ACTIONS.payload`에는 비밀값, 원본 이미지, 다른 사용자의 식별자를 저장하지 않습니다.

@@ -47,7 +47,7 @@ class FakeNotificationRepository:
             (
                 item
                 for item in self.devices.values()
-                if item.token == request.token and item.revoked_at is None
+                if item.token == request.installation_id and item.revoked_at is None
             ),
             None,
         )
@@ -60,7 +60,7 @@ class FakeNotificationRepository:
             id=uuid4(),
             user_id=user_id,
             platform=request.platform.value,
-            token=request.token,
+            token=request.installation_id,
             last_used_at=now,
             created_at=now,
         )
@@ -151,13 +151,13 @@ async def test_device_registration_reuses_token_and_revoke_checks_owner() -> Non
     other_user_id = uuid4()
     repository = FakeNotificationRepository(user_id)
     service = NotificationService(repository)
-    request = DeviceRegisterRequest(platform="IOS", token=" device-token ")
+    request = DeviceRegisterRequest(platform="IOS", installation_id=" device-fid ")
 
     first = await service.register_device(user_id, request)
     first_used_at = repository.devices[first.id].last_used_at
     replay = await service.register_device(
         other_user_id,
-        DeviceRegisterRequest(platform="ANDROID", token="device-token"),
+        DeviceRegisterRequest(platform="ANDROID", installation_id="device-fid"),
     )
 
     assert replay.id == first.id
@@ -181,10 +181,10 @@ async def test_device_registration_reuses_token_and_revoke_checks_owner() -> Non
 
 def test_device_registration_rejects_blank_or_extra_fields() -> None:
     with pytest.raises(ValidationError):
-        DeviceRegisterRequest(platform="IOS", token="   ")
+        DeviceRegisterRequest(platform="IOS", installation_id="   ")
     with pytest.raises(ValidationError):
         DeviceRegisterRequest.model_validate(
-            {"platform": "IOS", "token": "token", "unexpected": True}
+            {"platform": "IOS", "installation_id": "fid", "unexpected": True}
         )
 
 

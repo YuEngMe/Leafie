@@ -10,6 +10,7 @@ from app.integrations.diagnosis import LocalDiagnosisImageQualityChecker
 from app.integrations.kindwise import KindwiseDiagnosisProvider
 from app.integrations.openai_chat import OpenAIChatProvider
 from app.integrations.plantnet import PlantNetProvider
+from app.integrations.push import FirebasePushGateway
 from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 from app.schemas.queue import JobType
@@ -21,6 +22,7 @@ from app.tasks.diagnosis import (
     SQLAlchemyDiagnosisRepository,
     build_recommended_care,
 )
+from app.tasks.push import PushNotificationHandler, SQLAlchemyPushRepository
 from app.tasks.registry import TaskRegistry
 from app.tasks.species import (
     SpeciesIdentificationHandler,
@@ -42,6 +44,7 @@ async def run_worker() -> None:
     plantnet = PlantNetProvider(settings)
     openai_chat = OpenAIChatProvider(settings)
     kindwise = KindwiseDiagnosisProvider(settings)
+    push = FirebasePushGateway(settings)
     queue = PgmqQueue(database, settings)
     registry = TaskRegistry()
     registry.register(
@@ -81,13 +84,17 @@ async def run_worker() -> None:
     registry.register(
         JobType.DIAGNOSIS_RUN,
         DiagnosisHandler(
-            SQLAlchemyDiagnosisRepository(database),
+            SQLAlchemyDiagnosisRepository(database, queue),
             storage,
             LocalDiagnosisImageQualityChecker(),
             kindwise,
             build_recommended_care,
             external_call_timeout_seconds=settings.kindwise_timeout_seconds,
         ),
+    )
+    registry.register(
+        JobType.PUSH_NOTIFICATION_SEND,
+        PushNotificationHandler(SQLAlchemyPushRepository(database), push),
     )
     worker = QueueWorker(
         queue,

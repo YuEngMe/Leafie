@@ -83,7 +83,7 @@ class SQLAlchemyNotificationRepository:
                 id=uuid4(),
                 user_id=user_id,
                 platform=request.platform.value,
-                token=request.token,
+                token=request.installation_id,
                 last_used_at=now,
                 created_at=now,
                 revoked_at=None,

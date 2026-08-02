@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     ai_chat_summary_trigger_count: int = Field(default=30, ge=10, le=200)
     ai_chat_summary_batch_size: int = Field(default=20, ge=5, le=100)
 
+    firebase_project_id: str = "leafie-2c528"
+    fcm_credentials_json: str | None = None
+
     worker_poll_interval_seconds: float = Field(default=1.0, gt=0)
     worker_visibility_timeout_seconds: int = Field(default=60, ge=1)
     worker_max_attempts: int = Field(default=3, ge=1)

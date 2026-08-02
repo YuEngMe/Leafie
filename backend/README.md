@@ -32,6 +32,13 @@ AI 채팅에는 `OPENAI_API_KEY`가 필요합니다. 텍스트 답변은 FastAPI
 모델과 응답 한도는 `OPENAI_CHAT_MODEL`, `OPENAI_CHAT_MAX_OUTPUT_TOKENS`로
 조정합니다. 실제 키는 `.env`에만 넣고 커밋하지 않습니다.
 
+앱 푸시는 Firebase Cloud Messaging HTTP v1을 사용합니다. Worker는 Application Default
+Credentials를 우선 사용합니다. 비-GCP 환경에서는 Firebase 서비스 계정 JSON 전체를
+한 줄로 만든 `FCM_CREDENTIALS_JSON`과 `FIREBASE_PROJECT_ID`를 설정합니다. iOS 전달을
+위해 Firebase의 Apple 앱 설정에 APNs 인증 키도 등록해야 합니다. 서비스 계정 JSON과
+APNs `.p8` 파일은 저장소에 커밋하지 않습니다.
+앱은 Firebase Installations의 FID를 `/api/v1/devices`에 등록합니다.
+
 ## 로컬 실행
 
 ```bash
