@@ -44,7 +44,12 @@ class FakeNotificationRepository:
         self, user_id: UUID, request: DeviceRegisterRequest, now: datetime
     ) -> DeviceToken:
         existing = next(
-            (item for item in self.devices.values() if item.token == request.token), None
+            (
+                item
+                for item in self.devices.values()
+                if item.token == request.token and item.revoked_at is None
+            ),
+            None,
         )
         if existing is not None:
             existing.user_id = user_id
@@ -161,6 +166,10 @@ async def test_device_registration_reuses_token_and_revoke_checks_owner() -> Non
 
     await service.revoke_device(user_id, first.id)
     assert repository.devices[first.id].revoked_at is not None
+
+    registered_again = await service.register_device(user_id, request)
+    assert registered_again.id != first.id
+    assert len(repository.devices) == 2
 
 
 def test_device_registration_rejects_blank_or_extra_fields() -> None:

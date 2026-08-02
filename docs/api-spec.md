@@ -743,9 +743,10 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 
 ## 13. 알림
 
-### `GET /notifications?cursor=&unread_only=false`
+### `GET /notifications?cursor=&unread_only=false&limit=20`
 
-모든 식물의 앱 내 알림을 최신순으로 반환합니다.
+모든 식물의 앱 내 알림을 최신순으로 반환합니다. `limit`은 기본 `20`, 최소 `1`, 최대
+`100`이며 잘못된 `cursor`는 `422 INVALID_CURSOR`를 반환합니다.
 
 ```json
 {
@@ -770,6 +771,7 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ### `POST /notifications/{notification_id}/read`
 
 본인 알림만 읽음 처리하며 이미 읽은 알림은 기존 결과를 반환합니다.
+본인 알림이 아니거나 존재하지 않으면 `404 NOTIFICATION_NOT_FOUND`를 반환합니다.
 
 ### `POST /notifications/read-all`
 
@@ -787,6 +789,7 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 ### `DELETE /devices/{device_id}`
 
 로그아웃 또는 푸시 권한 철회 시 토큰을 폐기합니다.
+본인의 활성 기기가 아니면 `404 DEVICE_NOT_FOUND`를 반환합니다.
 
 ## 14. 내부 비동기 작업
 
