@@ -173,6 +173,8 @@ erDiagram
         uuid plant_id FK
         uuid schedule_id FK
         uuid source_diagnosis_id FK
+        uuid client_event_id
+        varchar creation_request_hash
         varchar type
         varchar title
         varchar status
@@ -330,11 +332,13 @@ erDiagram
 | `plants` | `nickname`, `species_reference_id`, `species_selection_method`, `started_on`, 환경·성격·외형 필드 필수 |
 | `plants` | `started_on`은 미래 불가, 성격은 확정된 6개 Enum, 화분·위치는 확정 Enum만 허용 |
 | `plants` | `(user_id, client_registration_id)` unique, 같은 ID와 같은 요청은 기존 결과 반환, 다른 요청은 409 |
-| `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 내용 필수 |
+| `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 본문 `1~500자` |
 | `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문 `1~2,000자`, 점수는 `0·25·50·75·100` |
 | `plant_diaries` | `media_file_id` unique, 사진은 null 또는 본인 소유 `DIARY`·`READY` 한 장 |
 | `care_schedules` | `WATERING`·`REPOTTING` 반복, `(plant_id, type)` unique |
 | `care_events` | `source`는 `AUTO_SCHEDULE`·`USER_CREATED`·`AI_RECOMMENDED`, 사용자 일정은 제목 필수 |
+| `care_events` | `(plant_id, client_event_id)` unique, 같은 생성 ID와 같은 요청은 기존 결과, 다른 요청은 409 |
+| `care_events` | 반복 schedule마다 `SCHEDULED` 이벤트는 최대 하나, 사용자 일회성 `due_date`는 오늘·미래만 허용 |
 | `care_events` | 완료 시 `performed_on`과 `recorded_at` 필수, `performed_on`은 미래 불가, `recorded_at`은 서버 시각 |
 | `care_events` | 다음 반복 일정은 `recorded_at`이 아닌 `performed_on`을 기준으로 계산 |
 | `diagnoses` | `media_file_id` 필수·unique, 같은 사진은 진단 한 건만 생성, 상태는 `PENDING`·`PROCESSING`·`COMPLETED`·`NEEDS_RETAKE`·`FAILED`·`CANCELLED` |
@@ -387,6 +391,8 @@ care_schedules(enabled, next_due_date)
 care_events(plant_id, due_date)
 care_events(plant_id, performed_on)
 care_events(status, due_date)
+care_events(plant_id, client_event_id) UNIQUE
+care_events(schedule_id) UNIQUE WHERE status = 'SCHEDULED' AND schedule_id IS NOT NULL
 diagnoses(plant_id, created_at DESC)
 diagnoses(status, created_at)
 ai_conversations(plant_id, last_message_at DESC)

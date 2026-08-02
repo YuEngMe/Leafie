@@ -154,6 +154,10 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
 class PlantDailyMemo(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "plant_daily_memos"
     __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(content, E' \\t\\n\\r\\f\\v')) BETWEEN 1 AND 500",
+            name="content_length",
+        ),
         UniqueConstraint("plant_id", "memo_date", name="uq_plant_daily_memos_plant_date"),
     )
 
