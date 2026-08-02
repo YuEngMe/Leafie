@@ -743,13 +743,39 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 
 ## 13. 알림
 
-### `GET /notifications?cursor=&unread_only=false`
+### `GET /notifications?cursor=&unread_only=false&limit=20`
 
-모든 식물의 앱 내 알림을 최신순으로 반환합니다.
+모든 식물의 앱 내 알림을 최신순으로 반환합니다. `limit`은 기본 `20`, 최소 `1`, 최대
+`100`이며 잘못된 `cursor`는 `422 INVALID_CURSOR`를 반환합니다.
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "plant_id": "uuid",
+      "type": "CARE_DUE",
+      "title": "물 줄 시간이에요",
+      "body": "새싹이에게 물을 주세요.",
+      "source_type": "CARE_EVENT",
+      "source_id": "uuid",
+      "read_at": null,
+      "created_at": "2026-08-02T09:00:00Z"
+    }
+  ],
+  "next_cursor": null,
+  "has_next": false
+}
+```
 
 ### `POST /notifications/{notification_id}/read`
 
+본인 알림만 읽음 처리하며 이미 읽은 알림은 기존 결과를 반환합니다.
+본인 알림이 아니거나 존재하지 않으면 `404 NOTIFICATION_NOT_FOUND`를 반환합니다.
+
 ### `POST /notifications/read-all`
+
+현재 사용자의 읽지 않은 알림을 모두 읽음 처리하고 `204`를 반환합니다.
 
 ### `POST /devices`
 
@@ -757,9 +783,13 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 {"platform": "IOS", "token": "device-token"}
 ```
 
+같은 활성 토큰을 다시 등록하면 새 행을 만들지 않고 사용자, 플랫폼과 마지막 사용 시각을
+갱신합니다. 응답의 `id`를 로컬에 저장해 로그아웃할 때 폐기 요청에 사용합니다.
+
 ### `DELETE /devices/{device_id}`
 
 로그아웃 또는 푸시 권한 철회 시 토큰을 폐기합니다.
+본인의 활성 기기가 아니면 `404 DEVICE_NOT_FOUND`를 반환합니다.
 
 ## 14. 내부 비동기 작업
 
