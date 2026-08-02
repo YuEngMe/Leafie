@@ -17,6 +17,15 @@ class Notification(Base, UUIDPrimaryKeyMixin):
             "read_at",
             text("created_at DESC"),
         ),
+        Index(
+            "uq_notifications_source",
+            "user_id",
+            "type",
+            "source_type",
+            "source_id",
+            unique=True,
+            postgresql_where=text("source_id IS NOT NULL"),
+        ),
     )
 
     user_id: Mapped[UUID] = mapped_column(

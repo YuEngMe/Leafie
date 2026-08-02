@@ -800,6 +800,7 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
 SPECIES_IDENTIFICATION_RUN
 DIAGNOSIS_RUN
 CHAT_IMAGE_ANALYSIS
+CARE_NOTIFICATION_COLLECT
 PUSH_NOTIFICATION_SEND
 STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
@@ -808,6 +809,10 @@ ACCOUNT_DELETE
 `PUSH_NOTIFICATION_SEND.resource_id`는 `notifications.id`입니다. Worker는 사용자의
 `push_enabled`와 활성 `device_tokens`를 다시 확인한 뒤 FCM으로 발송합니다. 미등록
 FID는 폐기하고 일시 오류만 Queue 재시도 대상으로 처리합니다.
+
+`CARE_NOTIFICATION_COLLECT`는 Supabase Cron이 매시간 발행합니다. Worker는 사용자
+시간대의 오전 9시인 계정만 확인하여 오늘 또는 지연된 물주기·분갈이 일정마다
+`CARE_DUE` 알림을 한 번 생성하고 `PUSH_NOTIFICATION_SEND`를 발행합니다.
 
 Supabase Cron은 다음 작업만 시작합니다.
 
