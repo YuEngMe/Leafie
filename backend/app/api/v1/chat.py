@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -31,6 +32,7 @@ from app.schemas.chat import (
 from app.schemas.queue import JobType, QueueJob
 from app.services.ai_tools import AIActionService, AIToolService, SQLAlchemyAIToolRepository
 from app.services.chat import ChatService, SQLAlchemyChatRepository
+from app.services.usage_limits import enforce_chat_usage
 
 router = APIRouter(tags=["chat"])
 
@@ -123,6 +125,12 @@ async def create_message(
 ) -> StreamingResponse | JSONResponse:
     service = build_service(session, provider)
     prepared = await service.prepare_message(current_user.id, conversation_id, request)
+    if prepared.duplicate:
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=jsonable_encoder(prepared.accepted),
+        )
+    await enforce_chat_usage(session, current_user.id)
     if prepared.text is None:
         await queue.enqueue(
             QueueJob(
@@ -167,6 +175,9 @@ async def create_message(
             await session.commit()
             code = exc.code if isinstance(exc, AppError) else exc.failure_code
             yield _sse("message.failed", {"error_code": code})
+        except asyncio.CancelledError:
+            await session.commit()
+            raise
         except Exception:
             await session.commit()
             yield _sse("message.failed", {"error_code": "AI_RESPONSE_FAILED"})

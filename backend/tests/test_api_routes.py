@@ -94,7 +94,12 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     ("POST", f"/api/v1/plants/{uuid4()}/conversations", {"title": "새 채팅"}, None),
     ("DELETE", f"/api/v1/conversations/{uuid4()}", None, None),
     ("GET", f"/api/v1/conversations/{uuid4()}/messages", None, None),
-    ("POST", f"/api/v1/conversations/{uuid4()}/messages", {"content": "안녕"}, None),
+    (
+        "POST",
+        f"/api/v1/conversations/{uuid4()}/messages",
+        {"client_message_id": str(uuid4()), "content": "안녕"},
+        None,
+    ),
     ("POST", f"/api/v1/ai-actions/{uuid4()}/confirm", None, None),
     ("POST", f"/api/v1/ai-actions/{uuid4()}/cancel", None, None),
     (

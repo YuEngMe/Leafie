@@ -82,6 +82,17 @@ def test_quality_result_requires_retake_reason_only_on_failure() -> None:
     assert failed.retake_reason_code == "IMAGE_BLURRY"
 
 
+def test_local_quality_check_can_leave_semantic_checks_unknown() -> None:
+    result = DiagnosisImageQualityResult(
+        acceptable=True,
+        sharp_enough=True,
+        brightness_acceptable=True,
+    )
+
+    assert result.plant_visible is None
+    assert result.symptom_area_visible is None
+
+
 @pytest.mark.parametrize(
     "payload",
     [

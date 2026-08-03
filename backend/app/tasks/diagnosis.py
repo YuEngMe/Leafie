@@ -361,8 +361,8 @@ class DiagnosisHandler:
             )
             await self._repository.release_for_retry(job.resource_id, exc.code)
             raise
-        except DiagnosisTransientError:
-            failure_code = "DIAGNOSIS_PROVIDER_UNAVAILABLE"
+        except DiagnosisTransientError as exc:
+            failure_code = exc.failure_code
             logger.warning(
                 "Diagnosis provider call will retry resource_id=%s failure_code=%s",
                 job.resource_id,
@@ -407,12 +407,35 @@ def normalize_recommended_care(items: list[str]) -> list[str]:
 
 
 def build_recommended_care(result: DiagnosisProviderResult, context: dict) -> list[str]:
-    del context
-    if result.care_suggestions:
-        return result.care_suggestions
+    items = list(result.care_suggestions[:5])
+    profile = context.get("diagnosis_profile") or {}
+    items.extend((profile.get("cautions") or [])[:2])
+    cause_names = {cause.name for cause in result.possible_causes}
+    for rule in profile.get("symptom_checks") or []:
+        possible_causes = set(rule.get("possible_causes") or [])
+        if not _causes_overlap(cause_names, possible_causes):
+            continue
+        items.extend(f"{check} 상태를 확인해 주세요." for check in rule.get("check") or [])
+    if cause_names and context.get("last_watered_on"):
+        water_terms = ("물 부족", "건조", "과습", "뿌리")
+        if any(term in cause for cause in cause_names for term in water_terms):
+            items.append(
+                f"마지막 물주기 기록은 {context['last_watered_on']}입니다. "
+                "현재 흙 수분과 배수 상태를 함께 확인해 주세요."
+            )
+    if items:
+        return items
     if result.overall_condition == DiagnosisCondition.HEALTHY:
         return ["현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요."]
     return ["3일 후 같은 부위를 다시 촬영해 상태 변화를 확인해 주세요."]
+
+
+def _causes_overlap(provider_causes: set[str], guide_causes: set[str]) -> bool:
+    return any(
+        provider in guide or guide in provider
+        for provider in provider_causes
+        for guide in guide_causes
+    )
 
 
 def diagnosis_notification_copy(nickname: str, personality_type: str) -> tuple[str, str]:

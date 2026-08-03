@@ -204,8 +204,6 @@ erDiagram
         varchar diagnosis_provider
         varchar diagnosis_model_name
         varchar provider_response_id
-        varchar explanation_model_name
-        varchar explanation_prompt_version
         varchar care_rule_version
         int latency_ms
         numeric estimated_cost
@@ -232,6 +230,7 @@ erDiagram
     AI_MESSAGES {
         uuid id PK
         uuid conversation_id FK
+        uuid client_message_id UK
         uuid related_diagnosis_id FK
         uuid media_file_id FK
         varchar role

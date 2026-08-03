@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -14,7 +15,8 @@ from app.integrations.openai_chat import (
     OpenAIChatProvider,
 )
 from app.main import create_app
-from app.models.chat import AIConversation
+from app.models.chat import AIConversation, AIMessage
+from app.models.enums import AIMessageStatus, ChatRole
 from app.schemas.chat import MessageCreateRequest
 from app.services.chat import (
     ChatService,
@@ -31,8 +33,8 @@ def test_message_requires_text_or_photo() -> None:
     with pytest.raises(ValidationError):
         MessageCreateRequest()
 
-    assert MessageCreateRequest(content="  안녕  ").content == "안녕"
-    assert MessageCreateRequest(media_file_id=uuid4()).content == ""
+    assert MessageCreateRequest(client_message_id=uuid4(), content="  안녕  ").content == "안녕"
+    assert MessageCreateRequest(client_message_id=uuid4(), media_file_id=uuid4()).content == ""
 
 
 def test_chat_cursor_round_trip_and_validation() -> None:
@@ -196,6 +198,98 @@ async def test_chat_rejects_unowned_plant() -> None:
         await service.create_conversation(uuid4(), uuid4(), "새 채팅")
 
     assert error.value.code == "PLANT_NOT_FOUND"
+
+
+async def test_duplicate_client_message_id_reuses_existing_message() -> None:
+    user_id = uuid4()
+    client_message_id = uuid4()
+    conversation = AIConversation(id=uuid4(), plant_id=uuid4(), title="질문", summary_version=0)
+    existing = AIMessage(
+        id=uuid4(),
+        conversation_id=conversation.id,
+        client_message_id=client_message_id,
+        role=ChatRole.USER.value,
+        status=AIMessageStatus.COMPLETED.value,
+        content="물은 얼마나 줘?",
+    )
+
+    class Repository:
+        async def conversation_owned(self, *_args, **_kwargs):
+            return conversation
+
+        async def message_by_client_id(self, *_args):
+            return existing
+
+    class Provider:
+        provider_name = "OPENAI"
+        model_name = "gpt-5-mini"
+
+        def ensure_configured(self):
+            return None
+
+    service = ChatService(
+        Repository(),  # type: ignore[arg-type]
+        Provider(),  # type: ignore[arg-type]
+        context_message_limit=20,
+        summary_trigger_count=30,
+        summary_batch_size=20,
+    )
+
+    prepared = await service.prepare_message(
+        user_id,
+        conversation.id,
+        MessageCreateRequest(client_message_id=client_message_id, content="물은 얼마나 줘?"),
+    )
+
+    assert prepared.duplicate is True
+    assert prepared.accepted.message_id == existing.id
+
+    with pytest.raises(AppError) as error:
+        await service.prepare_message(
+            user_id,
+            conversation.id,
+            MessageCreateRequest(client_message_id=client_message_id, content="다른 질문"),
+        )
+
+    assert error.value.code == "CLIENT_MESSAGE_ID_REUSED"
+
+
+async def test_cancelled_stream_marks_assistant_failed() -> None:
+    assistant_id = uuid4()
+
+    class Repository:
+        failed: list = []
+
+        async def fail_assistant(self, message_id):
+            self.failed.append(message_id)
+
+    class Provider:
+        async def stream_reply(self, **_kwargs):
+            raise asyncio.CancelledError
+            yield  # pragma: no cover
+
+    repository = Repository()
+    service = ChatService(
+        repository,  # type: ignore[arg-type]
+        Provider(),  # type: ignore[arg-type]
+        context_message_limit=20,
+        summary_trigger_count=30,
+        summary_batch_size=20,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        async for _ in service.stream_text_reply(
+            user_id=uuid4(),
+            conversation_id=uuid4(),
+            prepared=PreparedTextMessage(
+                assistant_message_id=assistant_id,
+                instructions="답하세요.",
+                messages=[],
+            ),
+        ):
+            pass
+
+    assert repository.failed == [assistant_id]
 
 
 def test_chat_prompt_uses_ai_doctor_identity() -> None:

@@ -29,6 +29,7 @@ class ConversationListResponse(BaseModel):
 class MessageCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    client_message_id: UUID
     content: str = Field(default="", max_length=4000)
     media_file_id: UUID | None = None
 
@@ -54,6 +55,7 @@ class AIActionResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     id: UUID
+    client_message_id: UUID | None
     conversation_id: UUID
     related_diagnosis_id: UUID | None
     media_file_id: UUID | None

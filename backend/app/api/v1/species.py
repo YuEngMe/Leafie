@@ -16,6 +16,7 @@ from app.schemas.species import (
     SpeciesSearchResponse,
 )
 from app.services.species import SpeciesService, SQLAlchemySpeciesRepository
+from app.services.usage_limits import enforce_identification_usage
 
 router = APIRouter(prefix="/species", tags=["species"])
 
@@ -56,6 +57,7 @@ async def create_species_identification(
         request.media_file_id,
     )
     if creation.created:
+        await enforce_identification_usage(session, current_user.id)
         await queue.enqueue(
             QueueJob(
                 job_type=JobType.SPECIES_IDENTIFICATION_RUN,

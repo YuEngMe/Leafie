@@ -57,6 +57,7 @@ class PreparedTextMessage:
 class PreparedMessage:
     accepted: MessageAcceptedResponse
     text: PreparedTextMessage | None
+    duplicate: bool = False
 
 
 class ChatRepository(Protocol):
@@ -81,6 +82,10 @@ class ChatRepository(Protocol):
     async def actions_for_messages(self, message_ids: list[UUID]) -> dict[UUID, list[AIAction]]: ...
 
     async def has_in_flight_message(self, conversation_id: UUID) -> bool: ...
+
+    async def message_by_client_id(
+        self, conversation_id: UUID, client_message_id: UUID
+    ) -> AIMessage | None: ...
 
     async def media_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None: ...
 
@@ -212,6 +217,17 @@ class SQLAlchemyChatRepository:
                         [AIMessageStatus.PENDING.value, AIMessageStatus.PROCESSING.value]
                     ),
                 )
+            )
+        )
+
+    async def message_by_client_id(
+        self, conversation_id: UUID, client_message_id: UUID
+    ) -> AIMessage | None:
+        return await self._session.scalar(
+            select(AIMessage).where(
+                AIMessage.conversation_id == conversation_id,
+                AIMessage.client_message_id == client_message_id,
+                AIMessage.role == ChatRole.USER.value,
             )
         )
 
@@ -391,6 +407,28 @@ class ChatService:
     ) -> PreparedMessage:
         self._provider.ensure_configured()
         conversation = await self._require_conversation(user_id, conversation_id, lock=True)
+        existing = await self._repository.message_by_client_id(
+            conversation.id, request.client_message_id
+        )
+        if existing is not None:
+            payload_changed = (
+                existing.content != request.content
+                or existing.media_file_id != request.media_file_id
+            )
+            if payload_changed:
+                raise AppError(
+                    code="CLIENT_MESSAGE_ID_REUSED",
+                    message="이미 다른 메시지에 사용한 전송 ID입니다.",
+                    status_code=409,
+                )
+            return PreparedMessage(
+                accepted=MessageAcceptedResponse(
+                    message_id=existing.id,
+                    status=AIMessageStatus(existing.status),
+                ),
+                text=None,
+                duplicate=True,
+            )
         if await self._repository.has_in_flight_message(conversation.id):
             raise AppError(
                 code="CHAT_MESSAGE_IN_PROGRESS",
@@ -404,6 +442,7 @@ class ChatService:
         user_message = AIMessage(
             id=uuid4(),
             conversation_id=conversation.id,
+            client_message_id=request.client_message_id,
             media_file_id=request.media_file_id,
             role=ChatRole.USER.value,
             status=(
@@ -663,6 +702,7 @@ def message_to_response(
 ) -> MessageResponse:
     return MessageResponse(
         id=message.id,
+        client_message_id=message.client_message_id,
         conversation_id=message.conversation_id,
         related_diagnosis_id=message.related_diagnosis_id,
         media_file_id=message.media_file_id,

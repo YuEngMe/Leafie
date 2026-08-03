@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     ai_chat_context_message_limit: int = Field(default=20, ge=4, le=100)
     ai_chat_summary_trigger_count: int = Field(default=30, ge=10, le=200)
     ai_chat_summary_batch_size: int = Field(default=20, ge=5, le=100)
+    ai_chat_requests_per_minute: int = Field(default=10, ge=1, le=100)
+    ai_chat_requests_per_24_hours: int = Field(default=100, ge=1, le=10000)
+    diagnosis_requests_per_24_hours: int = Field(default=10, ge=1, le=1000)
+    species_identification_requests_per_24_hours: int = Field(default=20, ge=1, le=1000)
 
     firebase_project_id: str = "leafie-2c528"
     fcm_credentials_json: str | None = None

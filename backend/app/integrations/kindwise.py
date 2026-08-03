@@ -32,9 +32,8 @@ class KindwiseDiagnosisProvider:
         self,
         image: bytes,
         content_type: str,
-        context: dict,
+        _context: dict,
     ) -> DiagnosisProviderResult:
-        del context
         if not self._api_key:
             raise DiagnosisPermanentError("KINDWISE_NOT_CONFIGURED")
 
@@ -52,12 +51,12 @@ class KindwiseDiagnosisProvider:
                 files={"images": ("plant.jpg", normalized_image, "image/jpeg")},
             )
         except httpx.HTTPError as exc:
-            raise DiagnosisTransientError("Kindwise request failed") from exc
+            raise DiagnosisTransientError("DIAGNOSIS_PROVIDER_UNAVAILABLE") from exc
 
         if response.status_code in {401, 403}:
             raise DiagnosisPermanentError("KINDWISE_AUTH_FAILED")
         if response.status_code == 429 or response.status_code >= 500:
-            raise DiagnosisTransientError(f"Kindwise returned {response.status_code}")
+            raise DiagnosisTransientError("DIAGNOSIS_PROVIDER_UNAVAILABLE")
         if response.status_code >= 400:
             raise DiagnosisPermanentError("KINDWISE_IMAGE_REJECTED")
 
@@ -70,7 +69,7 @@ class KindwiseDiagnosisProvider:
         except DiagnosisRetakeError:
             raise
         except (KeyError, TypeError, ValueError) as exc:
-            raise DiagnosisPermanentError("KINDWISE_INVALID_RESPONSE") from exc
+            raise DiagnosisTransientError("KINDWISE_INVALID_RESPONSE") from exc
 
     async def close(self) -> None:
         if self._owns_client:

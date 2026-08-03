@@ -73,8 +73,6 @@ class Diagnosis(Base, UUIDPrimaryKeyMixin):
     diagnosis_provider: Mapped[str | None] = mapped_column(String(100))
     diagnosis_model_name: Mapped[str | None] = mapped_column(String(200))
     provider_response_id: Mapped[str | None] = mapped_column(String(255))
-    explanation_model_name: Mapped[str | None] = mapped_column(String(200))
-    explanation_prompt_version: Mapped[str | None] = mapped_column(String(100))
     care_rule_version: Mapped[str | None] = mapped_column(String(100))
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))

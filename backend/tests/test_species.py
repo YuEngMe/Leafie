@@ -88,6 +88,8 @@ class FakeSpeciesSession:
         self.added: list[SpeciesIdentification] = []
 
     async def scalar(self, _statement):
+        if str(_statement.column_descriptions[0]["expr"]).startswith("count"):
+            return len(self.added)
         entity = _statement.column_descriptions[0].get("entity")
         if entity is MediaFile:
             return self.media_file

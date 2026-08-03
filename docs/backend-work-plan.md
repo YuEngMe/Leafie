@@ -92,18 +92,18 @@ OpenAI Batch API와 월간 AI 리포트 브랜치는 현재 MVP에서 만들지 
 
 - 사진 정확히 한 장
 - `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED`
-- 식물 존재·흐림·밝기·증상 부위 품질 검사
+- 로컬 파일·흐림·밝기 검사와 Provider 식물 존재 판정
 - `DiagnosisProvider` 응답을 내부 schema로 표준화
 - 관찰 증상, Provider 원인 TOP 3와 추천 관리
 - 건강점수와 LLM 생성 확률 금지
 - 식물별 최신순 이력과 상세
-- Provider·모델·프롬프트·규칙 버전과 비용 기록
+- Provider·모델·규칙 버전과 가능한 경우 비용 기록
 
 ### AI 채팅·Tool Calling
 
 - `ai_conversations.plant_id`로 식물별 대화 세션 관리
 - 새 채팅, 목록·검색·soft delete
-- 텍스트 스트리밍과 사진 비동기 처리
+- 텍스트 SSE 전달과 사진 비동기 처리
 - 최근 메시지와 누적 요약 기반 컨텍스트
 - 캐릭터 성격과 무관한 AI 식물박사 고정 말투
 - Tool 인자 schema 검증과 서버 식물·사용자 ID 주입

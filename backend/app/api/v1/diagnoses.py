@@ -24,6 +24,7 @@ from app.schemas.diagnosis import (
 )
 from app.schemas.queue import JobType, QueueJob
 from app.services.diagnosis import DiagnosisService, SQLAlchemyDiagnosisAPIRepository
+from app.services.usage_limits import enforce_diagnosis_usage
 
 router = APIRouter(tags=["diagnoses"])
 
@@ -59,6 +60,7 @@ async def create_diagnosis(
         current_user.id, plant_id, request
     )
     if created:
+        await enforce_diagnosis_usage(session, current_user.id)
         await queue.enqueue(
             QueueJob(
                 job_type=JobType.DIAGNOSIS_RUN,
