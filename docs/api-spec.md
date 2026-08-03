@@ -152,6 +152,19 @@ Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 �
 {"selected_plant_id": "uuid-or-null"}
 ```
 
+### `GET /users/me/stats`
+
+활성 식물 수와, 그 식물에 연결된 다이어리·진단 건수를 반환합니다. 삭제된 식물과
+그 하위 기록은 포함하지 않습니다.
+
+```json
+{
+  "plant_count": 2,
+  "diary_count": 14,
+  "diagnosis_count": 3
+}
+```
+
 ### `PATCH /users/me/notification-settings`
 
 ```json
@@ -932,11 +945,16 @@ CARE_NOTIFICATION_COLLECT
 PUSH_NOTIFICATION_SEND
 STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
+PLANT_DELETE
 ```
 
 `PUSH_NOTIFICATION_SEND.resource_id`는 `notifications.id`입니다. Worker는 사용자의
 `push_enabled`와 활성 `device_tokens`를 다시 확인한 뒤 FCM으로 발송합니다. 미등록
 FID는 폐기하고 일시 오류만 Queue 재시도 대상으로 처리합니다.
+
+`PLANT_DELETE.resource_id`는 `plants.id`입니다. Worker는 연결 미디어 Storage 객체를
+먼저 멱등 삭제한 뒤 식물을 hard delete하여 하위 업무 데이터를 cascade 삭제합니다.
+Storage 실패 시 soft delete 상태를 유지하고 Queue 정책으로 재시도합니다.
 
 `CARE_NOTIFICATION_COLLECT`는 Supabase Cron이 매시간 발행합니다. Worker는 사용자
 시간대의 오전 9시인 계정만 확인하여 오늘 또는 지연된 물주기·분갈이 일정마다

@@ -14,7 +14,9 @@ pytest
 
 ## 백엔드 확인 완료
 
-- Supabase migration이 단일 head이고 공유 DB가 최신 head입니다.
+- Alembic migration이 단일 head(`alembic heads`)이고 공유 DB가 최신 head입니다.
+  스키마 SSOT는 `backend/alembic/versions/` 이며 `supabase/migrations/`와 중복
+  관리하지 않습니다.
 - `public`의 애플리케이션 테이블은 모두 RLS가 활성화되어 있습니다.
 - Pl@ntNet 식물 인식, Kindwise 상태 진단, OpenAI `gpt-5-mini` 실제 요청이
   성공했습니다.
