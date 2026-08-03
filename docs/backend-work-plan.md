@@ -23,7 +23,7 @@
 | 6 | `backend/feat-plant-registration` | A | 최종 등록 트랜잭션, 환경·성격·외형, 최초 일정 |
 | 7 | `backend/feat-diary-condition` | A | 날짜별 다이어리 CRUD, 사진 한 장, 5단계 점수, 월 평균 |
 | 8 | `backend/feat-care-schedule` | A | 반복 일정, 소급 완료, 일회성 일정, 홈 메모 |
-| 9 | `backend/feat-home-calendar` | A | 홈 통합 조회, 일정 범위 조회, 식물 전환·삭제 |
+| 9 | `backend/feat-home-calendar` | A | 식물 목록·상세·수정·삭제, 홈·agenda, 일정 범위 조회 |
 | 10 | `backend/feat-kindwise-diagnosis` | B | Kindwise 사진 한 장 진단, 이력·상세, 재촬영·재시도 |
 | 11 | `backend/feat-ai-chat` | B | 식물별 대화 세션, 메시지·사진·요약·검색 |
 | 12 | `backend/feat-ai-tool-calling` | B | 읽기 Tool, 감사 로그, 일정 제안 승인·취소 |
@@ -72,7 +72,7 @@ OpenAI Batch API와 월간 AI 리포트 브랜치는 현재 MVP에서 만들지 
 - 사진 UUID는 다이어리 한 개에만 연결
 - 월 평균은 SQL 집계 후 정수 반올림, 기록 없음은 null
 - 홈은 오늘 일정만, 상세는 지연·오늘·미래 일정
-- 월·주 범위 조회와 다중 필터
+- 월·주 범위 조회와 5종 다중 필터, 일정·컨디션 평탄화 응답 (`CUSTOM` 제외)
 
 ### 관리 자동화
 

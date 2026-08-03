@@ -26,6 +26,7 @@ from app.tasks.diagnosis import (
     SQLAlchemyDiagnosisRepository,
     build_recommended_care,
 )
+from app.tasks.plant import PlantDeleteHandler, SQLAlchemyPlantCleanupRepository
 from app.tasks.push import PushNotificationHandler, SQLAlchemyPushRepository
 from app.tasks.registry import TaskRegistry
 from app.tasks.species import (
@@ -64,6 +65,13 @@ async def run_worker() -> None:
             SQLAlchemyAccountCleanupRepository(database),
             storage,
             auth_admin,
+        ),
+    )
+    registry.register(
+        JobType.PLANT_DELETE,
+        PlantDeleteHandler(
+            SQLAlchemyPlantCleanupRepository(database),
+            storage,
         ),
     )
     registry.register(

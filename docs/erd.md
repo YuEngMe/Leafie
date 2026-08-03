@@ -419,8 +419,13 @@ device_tokens(user_id, revoked_at)
 ## 7. 삭제 정책
 
 - 식물과 대화 세션 삭제는 `deleted_at`을 기록하는 soft delete로 시작합니다.
-- 식물 삭제 시 메모, 다이어리, 일정, 진단, 대화, 알림을 함께 삭제하고 Storage
-  객체 삭제는 Worker가 처리합니다.
+- 식물 삭제 API는 식물 soft delete, 연결 미디어의 `DELETED` 전환, 선택 식물 변경과
+  `PLANT_DELETE` Queue 등록을 한 DB 트랜잭션에서 처리합니다. 선택 식물을 삭제하면
+  `created_at ASC, id ASC` 기준으로 가장 오래된 남은 식물을 선택하고 없으면 null로 만듭니다.
+- `PLANT_DELETE` Worker는 대표·인식·다이어리·진단·채팅 Storage 객체를 먼저 멱등하게
+  삭제하고, 전부 성공한 뒤 식물을 hard delete하여 메모, 다이어리, 일정, 진단, 대화,
+  AI 작업과 알림을 cascade 삭제합니다. 중간 실패 시 식물을 복구하거나 hard delete하지
+  않고 재시도하며, 재시도 소진 시 soft delete 상태와 로그를 기준으로 운영자가 재처리합니다.
 - 다이어리 삭제를 지원합니다. 연결 사진은 DB에서 soft delete한 뒤 같은 트랜잭션으로
   Queue에 등록하며 Storage 객체는 Worker가 멱등하게 삭제합니다.
 - 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 업무 데이터와 Storage를 삭제하고

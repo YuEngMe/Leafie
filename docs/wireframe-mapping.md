@@ -29,8 +29,8 @@
 | 꾸미기 수정 | 컬러·헤어·장식 | `PATCH /plants/{id}/appearance` |
 | 전체 캐릭터 | 식물 목록, 등록, 삭제 확인 | 식물 목록·삭제 API |
 | 알림함 | 모든 식물 알림과 읽음 상태 | `notifications` |
-| 월 캘린더 | 월 아이콘, 날짜 상세, 5종 필터 | calendar range API |
-| 주 캘린더 | 선택 주의 일정과 완료 체크 | calendar range API |
+| 월 캘린더 | 월 아이콘, 날짜 상세, `CUSTOM` 제외 5종 필터 | 평탄화 calendar range API |
+| 주 캘린더 | 선택 주의 일정과 완료 체크 | 평탄화 calendar range API |
 | 과거 완료 | 실제 수행일 선택, 기록 시각은 서버가 저장 | `performed_on`, `recorded_at` |
 | 다이어리 달력 | 작성일 아이콘과 월 평균 컨디션 | diary month API |
 | 다이어리 작성 | 과거·오늘, 글·점수 필수, 사진 한 장 선택 | 날짜별 diary PUT |
