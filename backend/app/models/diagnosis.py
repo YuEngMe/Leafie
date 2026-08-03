@@ -55,7 +55,7 @@ class Diagnosis(Base, UUIDPrimaryKeyMixin):
     )
     media_file_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("media_files.id", ondelete="RESTRICT"),
+        ForeignKey("media_files.id", ondelete="CASCADE"),
         nullable=False,
     )
     status: Mapped[str] = mapped_column(

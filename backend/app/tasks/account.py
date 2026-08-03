@@ -56,7 +56,9 @@ class AccountDeleteHandler:
     async def __call__(self, job: QueueJob) -> None:
         for object_path in await self._repository.list_media_paths(job.resource_id):
             await self._storage.delete_object(object_path)
-        # auth.users 삭제가 public 업무 데이터의 ON DELETE CASCADE를 시작합니다.
+        # Storage 객체 제거 후 auth.users 삭제가 public 업무 데이터 CASCADE를 시작한다.
+        # diagnoses·species_identifications의 media FK는 ON DELETE CASCADE여야
+        # media_files 정리와 auth 삭제가 막히지 않는다.
         await self._auth_admin.delete_user(job.resource_id)
 
     async def on_exhausted(self, job: QueueJob) -> None:
