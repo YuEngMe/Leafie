@@ -66,12 +66,19 @@ curl http://127.0.0.1:8000/api/v1/ready
 
 ## Migration
 
+애플리케이션 스키마·RLS·시드·Cron의 단일 기준은 `alembic/versions/` 입니다.
+`supabase/migrations/`에 동일 스키마 SQL을 중복 관리하지 않습니다.
+
 ```bash
+alembic heads
+test "$(alembic heads | wc -l | tr -d ' ')" = "1"
 alembic revision --autogenerate -m "변경 내용"
 alembic upgrade head
 ```
 
 Migration 파일은 기능 PR에 포함하고 다른 백엔드 담당자의 리뷰를 받습니다.
+merge 전 단일 head인지 확인하고, 공유 DB에는 `upgrade head` 적용 여부를
+PR에 적습니다.
 
 ## 테스트
 

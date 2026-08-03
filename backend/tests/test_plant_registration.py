@@ -27,7 +27,11 @@ from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantCreateRequest
-from app.services.plant import PlantRegistrationService, next_recurring_due_date
+from app.services.plant import (
+    PlantRegistrationService,
+    next_recurring_due_date,
+    today_in_timezone,
+)
 
 
 class FakePlantRegistrationRepository:
@@ -209,12 +213,17 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     repotting_schedule = next(
         schedule for schedule in schedules if schedule.type == CareScheduleType.REPOTTING
     )
+    today = today_in_timezone(repository.profile.timezone)
     assert watering_schedule.interval_days == 3
-    assert watering_schedule.next_due_date == date(2026, 8, 2)
+    assert watering_schedule.next_due_date == next_recurring_due_date(
+        request.last_watered_on, 3, today
+    )
     assert watering_schedule.recommended_water_min_ml == 150
     assert watering_schedule.recommended_water_max_ml == 250
     assert repotting_schedule.interval_days == 365
-    assert repotting_schedule.next_due_date == date(2027, 3, 1)
+    assert repotting_schedule.next_due_date == next_recurring_due_date(
+        date(2026, 3, 1), 365, today
+    )
     assert repotting_schedule.recommended_water_min_ml is None
     assert repotting_schedule.recommended_water_max_ml is None
 
