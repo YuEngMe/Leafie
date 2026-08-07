@@ -428,8 +428,11 @@ device_tokens(user_id, revoked_at)
   않고 재시도하며, 재시도 소진 시 soft delete 상태와 로그를 기준으로 운영자가 재처리합니다.
 - 다이어리 삭제를 지원합니다. 연결 사진은 DB에서 soft delete한 뒤 같은 트랜잭션으로
   Queue에 등록하며 Storage 객체는 Worker가 멱등하게 삭제합니다.
-- 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 업무 데이터와 Storage를 삭제하고
-  마지막에 Supabase Auth 계정을 제거합니다.
+- 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 Storage 객체를 삭제하고 마지막에
+  Supabase Auth 계정을 제거합니다. `auth.users` 삭제의 `ON DELETE CASCADE`로
+  프로필·식물·미디어 등 업무 데이터가 함께 정리됩니다. 진단·식물 인식의
+  `media_file_id` FK는 `ON DELETE CASCADE`라서 미디어 정리 중 RESTRICT로 막히지
+  않습니다.
 - 계정 삭제 재시도가 소진되면 `FAILED` 상태와 Worker 로그를 기준으로 운영자가 재처리합니다.
 - 사용자 사진과 대화를 품질 개선이나 모델 학습에 재사용하려면 별도 동의가 필요합니다.
 

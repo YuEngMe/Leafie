@@ -70,7 +70,7 @@ class SpeciesIdentification(Base, UUIDPrimaryKeyMixin):
         PG_UUID(as_uuid=True), ForeignKey("auth.users.id", ondelete="CASCADE"), nullable=False
     )
     media_file_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("media_files.id", ondelete="RESTRICT"), nullable=False
+        PG_UUID(as_uuid=True), ForeignKey("media_files.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'PENDING'")

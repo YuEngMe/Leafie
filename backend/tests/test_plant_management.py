@@ -437,6 +437,9 @@ async def test_delete_is_idempotent_and_selects_oldest_remaining_plant() -> None
     assert repository.profile.selected_plant_id == oldest.id
     assert repository.marked_media_for == [selected.id]
 
+    missing = await service.delete_plant(user_id, uuid4())
+    assert missing.enqueue_cleanup is False
+
 
 def test_delete_route_enqueues_cleanup_in_same_database_session(
     monkeypatch: pytest.MonkeyPatch,
@@ -488,6 +491,54 @@ def test_delete_route_enqueues_cleanup_in_same_database_session(
     assert queue.calls[0][0].job_type == JobType.PLANT_DELETE
     assert queue.calls[0][0].resource_id == plant_id
     assert queue.calls[0][1] is session
+
+
+def test_delete_route_skips_queue_when_plant_already_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_id = uuid4()
+    plant_id = uuid4()
+    session = object()
+
+    class FakeDeleteService:
+        async def delete_plant(self, actual_user_id: UUID, actual_plant_id: UUID):
+            assert actual_user_id == user_id
+            assert actual_plant_id == plant_id
+            return DeletePlantResult(enqueue_cleanup=False)
+
+    class FakeQueue:
+        def __init__(self) -> None:
+            self.calls: list[QueueJob] = []
+
+        async def enqueue(self, job: QueueJob, *, delay_seconds: int = 0, session=None) -> int:
+            self.calls.append(job)
+            return 1
+
+    def fake_session() -> Iterator[object]:
+        yield session
+
+    queue = FakeQueue()
+    application = create_app()
+    application.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id=user_id,
+        email="leafie@example.com",
+        role="authenticated",
+        claims={},
+    )
+    application.dependency_overrides[get_database_session] = fake_session
+    application.dependency_overrides[get_storage_gateway] = lambda: FakeStorage()
+    application.dependency_overrides[get_job_queue] = lambda: queue
+    monkeypatch.setattr(
+        plants_api,
+        "build_management_service",
+        lambda _session, _storage: FakeDeleteService(),
+    )
+
+    with TestClient(application) as client:
+        response = client.delete(f"/api/v1/plants/{plant_id}")
+
+    assert response.status_code == 204
+    assert queue.calls == []
 
 
 class FakeCleanupRepository:

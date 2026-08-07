@@ -437,13 +437,8 @@ class PlantManagementService:
                 status_code=404,
             )
         plant = await self._repository.get_plant_for_delete(user_id, plant_id)
-        if plant is None:
-            raise AppError(
-                code="PLANT_NOT_FOUND",
-                message="식물을 찾을 수 없습니다.",
-                status_code=404,
-            )
-        if plant.deleted_at is not None:
+        if plant is None or plant.deleted_at is not None:
+            # hard delete 이후 재요청과 soft delete 중복 요청 모두 204로 멱등 처리한다.
             return DeletePlantResult(enqueue_cleanup=False)
 
         plant.deleted_at = datetime.now(UTC)

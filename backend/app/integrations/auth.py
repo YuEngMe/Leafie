@@ -54,9 +54,10 @@ class SupabaseAuthAdminGateway:
             return
         if response.is_error:
             logger.error(
-                "Supabase Auth Admin delete failed user_id=%s status_code=%s",
+                "Supabase Auth Admin delete failed user_id=%s status_code=%s body=%s",
                 user_id,
                 response.status_code,
+                response.text[:500],
             )
             raise self._unavailable_error()
 
