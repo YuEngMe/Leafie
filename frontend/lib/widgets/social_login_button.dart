@@ -9,23 +9,28 @@ class SocialLoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              shape: BoxShape.circle,
+    // 라벨까지 눌러도 반응하도록 InkWell을 전체를 감싸는 형태로 둔다.
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(color: Colors.grey.shade700)),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(label, style: TextStyle(color: Colors.grey.shade700)),
-      ],
+      ),
     );
   }
 }
