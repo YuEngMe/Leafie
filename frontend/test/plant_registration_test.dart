@@ -29,21 +29,15 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, '씩씩이');
 
-    // 식물명칭 칸은 AbsorbPointer로 덮여 있어 이를 감싼 GestureDetector를 눌러야 한다
-    await tester.tap(
-      find.ancestor(
-        of: find.byType(AbsorbPointer),
-        matching: find.byType(GestureDetector),
-      ),
-    );
+    // 식물명칭 칸은 readOnly라 탭하면 검색 화면으로 넘어간다
+    await tester.tap(find.byType(TextField).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('바질'));
     await tester.pumpAndSettle();
 
-    // AppBar 제목과 버튼에 같은 문구가 있어 버튼 쪽만 지정
     final submitButton = find.descendant(
       of: find.byType(ElevatedButton),
-      matching: find.text('내 식물 등록하기'),
+      matching: find.text('다음'),
     );
     await tester.ensureVisible(submitButton);
     await tester.tap(submitButton);
