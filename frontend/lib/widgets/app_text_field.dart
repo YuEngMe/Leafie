@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 
 class AppTextField extends StatefulWidget {
   const AppTextField({
@@ -32,11 +33,7 @@ class _AppTextFieldState extends State<AppTextField> {
       children: [
         Text(
           widget.label,
-          style: const TextStyle(
-            color: kLabelGreen,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
+          style: kItemStyle,
         ),
         const SizedBox(height: 8),
         TextField(
@@ -44,10 +41,11 @@ class _AppTextFieldState extends State<AppTextField> {
           obscureText: _obscured,
           decoration: InputDecoration(
             hintText: widget.hintText,
+            hintStyle: kBodyStyle.copyWith(color: kTextLight),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kButtonRadius),
               borderSide: BorderSide(
-                color: hasError ? Colors.red : kBorderGreen,
+                color: hasError ? Colors.red : kGrayLightest,
               ),
             ),
             // 비밀번호 입력에만 표시/숨김 토글 아이콘을 보여준다.
@@ -67,7 +65,7 @@ class _AppTextFieldState extends State<AppTextField> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               widget.errorText!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: kCaptionStyle.copyWith(color: Colors.red),
             ),
           ),
       ],

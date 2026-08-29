@@ -63,10 +63,15 @@ flutter:
     - .env
 
   fonts:
-    - family: Pretendard
+    # Figma 가이드(2026-08-29): 본문 폰트를 페이퍼로지로 교체.
+    # 폰트 파일은 https://sunn.us/paperlogy 에서 받아 assets/fonts/에 넣는다.
+    - family: Paperlogy
       fonts:
-        - asset: assets/fonts/Pretendard-Regular.ttf
-        - asset: assets/fonts/Pretendard-SemiBold.ttf
+        - asset: assets/fonts/Paperlogy-4Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Paperlogy-5Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Paperlogy-6SemiBold.ttf
           weight: 600
 
   # To add assets to your application, add an assets section, like this:

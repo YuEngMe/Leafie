@@ -7,6 +7,7 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 
 // OAuth·이메일 인증·비밀번호 재설정 링크가 모두 이 스킴으로 앱에 돌아온다.
 // android/ios에 등록해둔 값과 반드시 일치해야 한다.
@@ -134,8 +135,12 @@ class _YesoAppState extends State<YesoApp> {
       navigatorKey: _navigatorKey,
       title: '리피 - 내 식물 친구',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: kButtonGreen),
-        fontFamily: 'Pretendard',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: kOrangeMain,
+          surface: kBackgroundWhite,
+        ),
+        scaffoldBackgroundColor: kBackgroundWhite,
+        fontFamily: kFontFamily,
       ),
       home: const LoginScreen(),
     );
