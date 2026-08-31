@@ -47,6 +47,14 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
 
   bool get _emailNotEmpty => _emailController.text.trim().isNotEmpty;
 
+  /// 2395:52/49/51은 같은 버튼의 라벨로 단계를 알린다.
+  String get _sendButtonLabel => switch (_step) {
+    _Step.emailInput => '발송',
+    _Step.linkSent => '재발송',
+    _Step.setNewPassword => '완료',
+    _Step.done => '완료',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -175,7 +183,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: Text(
-                          '비밀번호 변경이\n완료되었습니다',
+                          '비밀번호 설정이\n완료되었습니다',
                           textAlign: TextAlign.center,
                           // 텍스트 블록 50px에 21px 두 줄 -> 행간 25/21.
                           style: kTitleStyle.copyWith(height: 25 / 21),
@@ -200,18 +208,31 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                                 controller: _emailController,
                                 enabled: _step == _Step.emailInput,
                                 errorText: _emailFormatError,
+                                // 2395:49는 남은 시간을 입력칸 안 우측에 얹는다.
+                                overlaySuffix: _step == _Step.linkSent,
+                                suffix: _step == _Step.linkSent
+                                    ? Text(
+                                        _formatRemaining(),
+                                        style: const TextStyle(
+                                          fontFamily: kFontFamily,
+                                          fontSize: 10,
+                                          color: kErrorRed,
+                                        ),
+                                      )
+                                    : null,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppLayout.authEmailActionGap),
                             Padding(
                               padding: const EdgeInsets.only(top: 24),
                               child: SizedBox(
                                 width: AppLayout.authEmailActionWidth,
-                                height: AppLayout.controlHeight,
+                                height: AppLayout.onboardingControlHeight,
                                 child: ElevatedButton(
                                   onPressed:
                                       _loading ||
                                           !_emailNotEmpty ||
+                                          _emailFormatError != null ||
                                           (_step == _Step.linkSent &&
                                               _remaining.inSeconds > 0)
                                       ? null
@@ -230,7 +251,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                                     ),
                                   ),
                                   child: Text(
-                                    _loading ? '발송 중' : '발송',
+                                    _loading ? '발송 중' : _sendButtonLabel,
                                     style: kItemStyle.copyWith(
                                       fontSize: 14,
                                       color: Colors.white,
@@ -241,19 +262,12 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                             ),
                           ],
                         ),
-                        if (_step == _Step.linkSent ||
-                            _step == _Step.setNewPassword) ...[
+                        // 2395:51은 인증 완료를 버튼 라벨('완료')로만 알린다.
+                        if (_step == _Step.linkSent) ...[
                           const SizedBox(height: 4),
                           Text(
-                            _step == _Step.linkSent
-                                ? '인증 메일이 발송 되었습니다. ($_formatRemaining)'
-                                : '인증 완료',
-                            style: TextStyle(
-                              color: _step == _Step.linkSent
-                                  ? Colors.red
-                                  : kOrangeMain,
-                              fontSize: 12,
-                            ),
+                            '인증메일이 발송 되었습니다.',
+                            style: TextStyle(color: kErrorRed, fontSize: 12),
                           ),
                         ],
                         const SizedBox(height: AppLayout.authFieldGap),

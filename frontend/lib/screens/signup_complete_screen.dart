@@ -5,22 +5,28 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/brand_logo.dart';
 import 'package:yeso_plant/widgets/onboarding_copy.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 // Figma "04 앱 진입_회원가입"의 완료 상태 화면 (2026-08-05 확인).
 class SignupCompleteScreen extends StatelessWidget {
-  const SignupCompleteScreen({super.key});
+  const SignupCompleteScreen({super.key, this.appBarTitle = '회원가입'});
+
+  /// 시안(2395:44)은 소셜 경로라 "카카오톡 로그인"이 적혀 있다. 실제로는
+  /// 이메일 가입에서도 오므로 진입 경로가 제목을 정한다.
+  final String appBarTitle;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
+      appBar: YesoAppBar(title: appBarTitle),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppLayout.authHorizontalPadding,
             0,
             AppLayout.authHorizontalPadding,
-            AppLayout.bottomPadding,
+            AppLayout.signupCompleteBottomGap,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,7 +35,8 @@ class SignupCompleteScreen extends StatelessWidget {
               const Center(
                 child: BrandLogo(
                   width: AppLayout.signupCompleteLogoWidth,
-                  markWidthFactor: 0.66,
+                  // 심볼 93.55 / 워드마크 155.34.
+                  markWidthFactor: 0.602,
                 ),
               ),
               const SizedBox(height: AppLayout.signupCompleteCopyGap),

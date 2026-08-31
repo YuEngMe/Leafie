@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/onboarding_copy.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -72,11 +74,12 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
       body: SafeArea(
         child: Padding(
+          // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다.
           padding: const EdgeInsets.fromLTRB(
-            AppLayout.registrationHorizontalPadding,
+            AppLayout.authHorizontalPadding,
             22,
             AppLayout.authHorizontalPadding,
-            AppLayout.bottomPadding,
+            AppLayout.signupCompleteBottomGap,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +88,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
                 title: '닉네임을 설정해주세요!',
                 subtitle: '당신을 뭐라고 부르면 좋을까요?',
               ),
-              const SizedBox(height: 44),
+              const SizedBox(height: 46),
               SignupNicknameField(
                 controller: _nicknameController,
                 variant: _nicknameController.text.trim().isEmpty
@@ -94,6 +97,17 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
                 enabled: !_submitting,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
+              ),
+              const Spacer(),
+              // 시안의 유일한 제출 경로다. 그동안은 키보드 done에만 걸려 있었다.
+              PrimaryButton(
+                label: '다음',
+                variant: _nicknameController.text.trim().isEmpty
+                    ? PrimaryButtonVariant.disabled
+                    : PrimaryButtonVariant.enabled,
+                height: AppLayout.onboardingControlHeight,
+                textStyle: kLoginButtonStyle,
+                onPressed: _submitting ? null : _submit,
               ),
             ],
           ),

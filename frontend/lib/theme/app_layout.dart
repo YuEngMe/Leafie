@@ -28,13 +28,18 @@ abstract final class AppLayout {
   static const double loginSocialRightInset = 55;
   static const double loginBottomGap = 39;
   static const double authFormTopPadding = 38;
-  static const double authBottomActionPadding = 96;
-  static const double authFieldGap = 28;
+  // 시안 버튼 하단 33px + 홈 인디케이터 영역. 2395:40, 2395:52 공통.
+  static const double authBottomActionPadding = 79;
+  // 라벨+입력칸 그룹(75) 사이 간격. 라벨 피치 110 - 75 = 35.
+  static const double authFieldGap = 35;
   static const double authEmailActionWidth = 68;
   static const double authEmailActionGap = 5;
-  static const double signupCompleteTopGap = 210;
-  static const double signupCompleteLogoWidth = 150;
-  static const double signupCompleteCopyGap = 34;
+  // 2395:44는 앱바 아래부터 로고까지. 시안 절대 293 - 앱바 밴드 약 102.
+  static const double signupCompleteTopGap = 191;
+  static const double signupCompleteLogoWidth = 155;
+  static const double signupCompleteCopyGap = 42;
+  // 2395:44 버튼 바닥 841 -> 프레임 874.
+  static const double signupCompleteBottomGap = 33;
   static const double registrationHorizontalPadding = 47;
   static const double registrationHeaderGap = 16;
   static const double registrationNameCharacterTopGap = 38;

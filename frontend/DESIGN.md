@@ -97,6 +97,22 @@ Built from the Figma nodes, not yet wired into a screen — no my-page screen ex
   `2318:3966` use `kTagOrange` (`#FF9F6D`) with a 0.827 px border, and that
   screen's title alone uses `kPersonalityTitle` (`#2E2E2E`).
 
+### Auth screen layout
+
+Screen-level audit against `2395:38`–`2395:52`.
+
+- Field pitch is 110 with a 75 px label+input group, so `authFieldGap` is 35.
+- The bottom CTA sits 33 px above the frame edge; `authBottomActionPadding`
+  is 79 once the home-indicator band is accounted for.
+- `2395:46` keeps its layout when errors appear, so `RoundedInputField` can
+  reserve the error row (`reserveErrorSpace`) instead of pushing later fields.
+- The eye toggle only shows once a password field has content (`2395:40`).
+- Password reset drives its send button label from the step —
+  발송 / 재발송 / 완료 (`2395:52`, `2395:49`, `2395:51`) — and puts the
+  countdown inside the email field rather than in the notice line.
+- `2395:44` carries an app bar; its title comes from the entry path because the
+  mock says "카카오톡 로그인" while the screen also serves email signup.
+
 ### Home components
 
 - `_RoomBubble` (`home_screen.dart`): `2346:2375`. White pill, radius 50, shadow

@@ -7,6 +7,9 @@ import 'package:yeso_plant/widgets/figma_glyphs.dart';
 // 온보딩 공통 입력칸(Figma nodes 2315:2440, 2315:2457, 2315:2477).
 // 테두리 대신 그림자를 쓰고 모서리를 완전히 굴린다. 라벨은 오렌지이고,
 // 로그인 화면처럼 라벨이 없는 자리에서는 label을 비워 둔다.
+/// 오류 문구 한 줄이 차지하는 높이(top 6 + 12px 글자).
+const double _errorRowHeight = 18;
+
 class RoundedInputField extends StatefulWidget {
   const RoundedInputField({
     super.key,
@@ -30,6 +33,7 @@ class RoundedInputField extends StatefulWidget {
     this.labelColor = kBrightOrange,
     this.suffixIconConstraints,
     this.errorTrailing,
+    this.reserveErrorSpace = false,
     this.contentPadding,
     this.overlaySuffix = false,
     this.hintStyle = kCaptionStyle,
@@ -60,6 +64,10 @@ class RoundedInputField extends StatefulWidget {
   final Color labelColor;
   final BoxConstraints? suffixIconConstraints;
   final Widget? errorTrailing;
+
+  /// 오류 문구가 없을 때도 그 높이를 비워 둘지. 여러 입력칸이 세로로 놓여
+  /// 오류 때문에 아래가 밀리면 안 되는 화면에서 켠다.
+  final bool reserveErrorSpace;
   final EdgeInsetsGeometry? contentPadding;
   final bool overlaySuffix;
   final TextStyle hintStyle;
@@ -73,6 +81,33 @@ class RoundedInputField extends StatefulWidget {
 
 class _RoundedInputFieldState extends State<RoundedInputField> {
   late bool _obscured = widget.obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    // 값 유무로 눈 아이콘이 나타났다 사라지므로 직접 듣는다. 호출부가
+    // 리스너를 달아 두지 않은 화면에서도 동작해야 한다.
+    if (widget.obscureText) widget.controller?.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(RoundedInputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onTextChanged);
+      if (widget.obscureText) widget.controller?.addListener(_onTextChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,21 +156,31 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
                 )
               : _buildTextField(align, includeSuffix: true),
         ),
-        if (widget.errorText != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 11, right: 11),
-            child: Row(
-              children: [
-                Text(
-                  widget.errorText!,
-                  style: kCaptionStyle.copyWith(color: kErrorRed, height: 1),
-                ),
-                if (widget.errorTrailing != null) ...[
-                  const Spacer(),
-                  widget.errorTrailing!,
-                ],
-              ],
-            ),
+        // 시안(2395:46)은 오류가 떠도 아래 필드가 밀리지 않는다. 문구 자리를
+        // 항상 비워 두고 내용만 채운다.
+        if (widget.reserveErrorSpace || widget.errorText != null)
+          SizedBox(
+            height: _errorRowHeight,
+            child: widget.errorText == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 11, right: 11),
+                    child: Row(
+                      children: [
+                        Text(
+                          widget.errorText!,
+                          style: kCaptionStyle.copyWith(
+                            color: kErrorRed,
+                            height: 1,
+                          ),
+                        ),
+                        if (widget.errorTrailing != null) ...[
+                          const Spacer(),
+                          widget.errorTrailing!,
+                        ],
+                      ],
+                    ),
+                  ),
           ),
       ],
     );
@@ -181,6 +226,8 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
   Widget? _buildSuffix() {
     if (widget.suffix != null) return widget.suffix;
     if (!widget.obscureText) return null;
+    // 시안(2395:40)은 값이 있을 때만 눈을 보여준다. 가릴 게 없으면 숨긴다.
+    if (widget.controller?.text.isEmpty ?? true) return null;
     // 여백은 바깥 Padding(overlaySuffix)이 잡으므로 버튼은 아이콘 크기만
     // 차지하게 두고, 터치 영역은 가로 48px만 확보한다. minHeight를 키우면
     // 같은 자리를 쓰는 03:21 카운트다운의 세로 중심이 밀린다.

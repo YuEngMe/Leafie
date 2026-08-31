@@ -184,6 +184,8 @@ class SignupPasswordField extends StatelessWidget {
       obscureText: true,
       controller: controller,
       errorText: variant == SignupPasswordFieldVariant.error ? errorText : null,
+      // 오류가 떠도 아래 필드가 밀리지 않도록 자리를 미리 잡아 둔다.
+      reserveErrorSpace: true,
       height: AppLayout.onboardingControlHeight,
       labelGap: 5,
       centerVertically: true,
