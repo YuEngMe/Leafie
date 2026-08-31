@@ -142,6 +142,7 @@ wired into a screen — the camera capture flow does not exist.
   plus, stroke 8 with round caps.
 - `PlantDatePickerSheet`: `2318:3831`. An orange sheet with three wheels showing
   five rows; the confirm button inverts to a white pill with an orange label.
+  Wired into the environment step, replacing Flutter's Material calendar.
 
 The terms sheet has no unchecked variant in Figma, so unchecked rows fall back to
 a gray check and the pill to a gray outlined circle.

@@ -9,6 +9,8 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
+import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
@@ -64,6 +66,40 @@ void main() {
 
     expect(find.text('장소별명, 화분, 위치를 입력해주세요'), findsOneWidget);
     expect(draft.placeName, isNull); // 검증 실패 시 draft를 건드리지 않는다
+  });
+
+  testWidgets('물 준 날을 누르면 시안 휠 피커가 뜨고 고른 날짜가 입력칸에 들어간다', (
+    WidgetTester tester,
+  ) async {
+    final draft = _sampleDraft();
+
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterEnvironmentScreen(draft: draft)),
+    );
+
+    final field = find.byType(RoundedInputField).at(1);
+    await tester.ensureVisible(field);
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+
+    // Material 캘린더가 아니라 시안 바텀시트가 떠야 한다.
+    expect(find.byType(PlantDatePickerSheet), findsOneWidget);
+    expect(find.byType(CalendarDatePicker), findsNothing);
+
+    // 화면 하단에도 '다음'이 있으므로 시트 안의 것만 누른다.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PlantDatePickerSheet),
+        matching: find.text('다음'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final today = DateTime.now();
+    expect(
+      find.text('${today.year}년 ${today.month}월 ${today.day}일'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('성격 화면에서 스와이프로 고른 성격이 draft에 반영되어 꾸미기 화면으로 전달된다', (
