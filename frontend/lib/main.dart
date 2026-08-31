@@ -132,6 +132,7 @@ class _YesoAppState extends State<YesoApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
       title: '리피 - 내 식물 친구',
       theme: ThemeData(

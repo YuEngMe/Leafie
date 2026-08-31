@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/widgets/app_text_field.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 final _emailFormatRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 const _resendCooldown = Duration(minutes: 3, seconds: 21); // Figma 시안의 03:21
@@ -17,10 +20,7 @@ const _resendCooldown = Duration(minutes: 3, seconds: 21); // Figma 시안의 03
 // onAuthStateChange 리스너가 AuthChangeEvent.passwordRecovery를 받으면
 // startAtSetNewPassword: true로 이 화면을 새로 열어서 처리한다(2026-08-09).
 class PasswordResetScreen extends StatefulWidget {
-  const PasswordResetScreen({
-    super.key,
-    this.startAtSetNewPassword = false,
-  });
+  const PasswordResetScreen({super.key, this.startAtSetNewPassword = false});
 
   // 이메일 인증 링크를 눌러 딥링크로 돌아온 경우 true — 이메일 입력 단계를
   // 건너뛰고 바로 새 비밀번호 입력 단계로 시작한다.
@@ -45,9 +45,25 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   Timer? _cooldownTimer;
   Duration _remaining = _resendCooldown;
 
+  bool get _emailNotEmpty => _emailController.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_refreshEmailAction);
+  }
+
+  void _refreshEmailAction() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _cooldownTimer?.cancel();
+    _emailController.removeListener(_refreshEmailAction);
+    _emailController.dispose();
+    _newPasswordController.dispose();
+    _newPasswordConfirmController.dispose();
     super.dispose();
   }
 
@@ -130,92 +146,150 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('비밀번호 초기화')),
+      backgroundColor: kBackgroundWhite,
+      appBar: const YesoAppBar(title: '비밀번호 재설정'),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_step == _Step.done) ...[
-                const SizedBox(height: 60),
-                const Text(
-                  '비밀번호 설정이\n완료되었습니다',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 200),
-                PrimaryButton(
-                  label: '로그인',
-                  onPressed: () =>
-                      Navigator.of(context).popUntil((r) => r.isFirst),
-                ),
-              ] else ...[
-                // 딥링크로 바로 들어온 경우(startAtSetNewPassword)는 이메일을
-                // 입력받은 적이 없으므로 이메일 관련 UI를 아예 보여주지 않는다.
-                if (!widget.startAtSetNewPassword) ...[
-                  Text(
-                    '가입하신 이메일로 인증 링크를 보내드려요.\n링크를 눌러 새 비밀번호를 설정해주세요.',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 24),
-                  AppTextField(
-                    label: '이메일',
-                    controller: _emailController,
-                    errorText: _emailFormatError,
-                  ),
-                  if (_step == _Step.linkSent ||
-                      _step == _Step.setNewPassword) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _step == _Step.linkSent
-                          ? '인증 메일이 발송 되었습니다. ($_formatRemaining)'
-                          : '인증 완료',
-                      style: TextStyle(
-                        color: _step == _Step.linkSent
-                            ? Colors.red
-                            : kButtonGreen,
-                        fontSize: 12,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppLayout.authHorizontalPadding,
+              34,
+              AppLayout.authHorizontalPadding,
+              AppLayout.authBottomActionPadding,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight:
+                    constraints.maxHeight -
+                    34 -
+                    AppLayout.authBottomActionPadding,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_step == _Step.done) ...[
+                      const Spacer(),
+                      // Figma node 2427:9031. 부모 Column이 start 정렬이라
+                      // 폭을 채워야 textAlign.center가 실제로 먹는다.
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          '비밀번호 변경이\n완료되었습니다',
+                          textAlign: TextAlign.center,
+                          // 텍스트 블록 50px에 21px 두 줄 -> 행간 25/21.
+                          style: kTitleStyle.copyWith(height: 25 / 21),
+                        ),
                       ),
-                    ),
+                      const Spacer(),
+                      PrimaryButton(
+                        label: '로그인',
+                        variant: PrimaryButtonVariant.enabled,
+                        onPressed: () =>
+                            Navigator.of(context).popUntil((r) => r.isFirst),
+                      ),
+                    ] else ...[
+                      if (!widget.startAtSetNewPassword) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: RoundedInputField(
+                                label: '이메일',
+                                hintText: '이메일을 입력하세요.',
+                                controller: _emailController,
+                                enabled: _step == _Step.emailInput,
+                                errorText: _emailFormatError,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 24),
+                              child: SizedBox(
+                                width: AppLayout.authEmailActionWidth,
+                                height: AppLayout.controlHeight,
+                                child: ElevatedButton(
+                                  onPressed:
+                                      _loading ||
+                                          !_emailNotEmpty ||
+                                          (_step == _Step.linkSent &&
+                                              _remaining.inSeconds > 0)
+                                      ? null
+                                      : _sendResetLink,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kOrangeMain,
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor: kGrayLightest,
+                                    disabledForegroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        kButtonRadius,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _loading ? '발송 중' : '발송',
+                                    style: kItemStyle.copyWith(
+                                      fontSize: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_step == _Step.linkSent ||
+                            _step == _Step.setNewPassword) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _step == _Step.linkSent
+                                ? '인증 메일이 발송 되었습니다. ($_formatRemaining)'
+                                : '인증 완료',
+                            style: TextStyle(
+                              color: _step == _Step.linkSent
+                                  ? Colors.red
+                                  : kOrangeMain,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppLayout.authFieldGap),
+                      ],
+                      RoundedInputField(
+                        label: '새 비밀번호',
+                        hintText: '비밀번호를 입력하세요.',
+                        obscureText: true,
+                        controller: _newPasswordController,
+                        enabled: _step == _Step.setNewPassword,
+                      ),
+                      const SizedBox(height: AppLayout.authFieldGap),
+                      RoundedInputField(
+                        label: '비밀번호 확인',
+                        hintText: '비밀번호를 입력하세요.',
+                        obscureText: true,
+                        controller: _newPasswordConfirmController,
+                        enabled: _step == _Step.setNewPassword,
+                      ),
+                      const Spacer(),
+                      PrimaryButton(
+                        label: _step == _Step.setNewPassword
+                            ? (_loading ? '설정 중...' : '완료')
+                            : (_loading ? '발송 중...' : '시작하기'),
+                        variant: _loading || _step != _Step.setNewPassword
+                            ? PrimaryButtonVariant.disabled
+                            : PrimaryButtonVariant.enabled,
+                        onPressed: _loading || _step != _Step.setNewPassword
+                            ? null
+                            : _setNewPassword,
+                      ),
+                    ],
                   ],
-                  const SizedBox(height: 16),
-                ],
-                if (_step == _Step.emailInput)
-                  PrimaryButton(
-                    label: _loading ? '발송 중...' : '인증 링크 발송',
-                    onPressed: _loading ? () {} : _sendResetLink,
-                  ),
-                if (_step == _Step.linkSent)
-                  PrimaryButton(
-                    label: _remaining.inSeconds > 0
-                        ? '재발송 ($_formatRemaining)'
-                        : '재발송',
-                    onPressed: _remaining.inSeconds > 0
-                        ? () {}
-                        : _sendResetLink,
-                  ),
-                if (_step == _Step.setNewPassword) ...[
-                  const SizedBox(height: 16),
-                  AppTextField(
-                    label: '새 비밀번호',
-                    obscureText: true,
-                    controller: _newPasswordController,
-                  ),
-                  const SizedBox(height: 16),
-                  AppTextField(
-                    label: '비밀번호 확인',
-                    obscureText: true,
-                    controller: _newPasswordConfirmController,
-                  ),
-                  const SizedBox(height: 32),
-                  PrimaryButton(
-                    label: _loading ? '설정 중...' : '완료',
-                    onPressed: _loading ? () {} : _setNewPassword,
-                  ),
-                ],
-              ],
-            ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

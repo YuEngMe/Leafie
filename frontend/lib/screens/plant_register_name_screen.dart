@@ -3,7 +3,9 @@ import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
@@ -67,14 +69,22 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
       step: 1,
       title: '식물의 이름을 지어주세요!',
       subtitle: '당신의 식물을 뭐라고 부를까요?',
-      bottomButton: PrimaryButton(label: '다음', onPressed: _goToNextStep),
+      bottomButton: PrimaryButton(
+        label: '다음',
+        variant: PrimaryButtonVariant.enabled,
+        onPressed: _goToNextStep,
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: kScreenPadding),
         child: Column(
           children: [
-            // 캐릭터 일러스트 자리. 로고와 캐릭터 시안이 아직 확정 전이라
-            // 에셋을 넣지 않고 자리만 비워 둔다(2026-08-29 팀 확인).
-            const Expanded(child: SizedBox.shrink()),
+            const SizedBox(height: AppLayout.registrationNameCharacterTopGap),
+            const Center(
+              child: PlantCharacterArt(
+                width: AppLayout.registrationNameCharacterWidth,
+              ),
+            ),
+            const SizedBox(height: AppLayout.registrationNameFieldsGap),
             RoundedInputField(
               label: '애칭',
               hintText: '예: 쑥쑥이',
@@ -93,7 +103,7 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
                 onPressed: _goToSpeciesSearch,
               ),
             ),
-            const Expanded(child: SizedBox.shrink()),
+            const Spacer(),
           ],
         ),
       ),

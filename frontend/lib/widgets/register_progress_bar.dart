@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
 
-// 캐릭터 등록 진행바(Figma node 2097:8925). 물결 다섯 개가 한 단계씩을 뜻하고
+// 캐릭터 등록 진행바(Figma node 2307:2015). 물결 다섯 개가 한 단계씩을 뜻하고
 // 지나온 단계만 오렌지로 칠한다. SVG를 그대로 넣는 대신 같은 모양을 그리는
 // 이유는 단계 수만큼 파일을 따로 두지 않기 위해서다.
 class RegisterProgressBar extends StatelessWidget {
@@ -18,8 +19,8 @@ class RegisterProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 21.4,
-      width: 243,
+      height: AppLayout.progressHeight,
+      width: AppLayout.progressWidth,
       child: CustomPaint(
         painter: _WavePainter(step: step, totalSteps: totalSteps),
       ),
@@ -42,7 +43,7 @@ class _WavePainter extends CustomPainter {
 
     for (var i = 0; i < totalSteps; i++) {
       final paint = Paint()
-        ..color = i < step ? kOrangeMain : kGrayLightest
+        ..color = i < step ? kOrangeMain : kProgressInactive
         ..strokeWidth = 6.425
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
@@ -54,9 +55,12 @@ class _WavePainter extends CustomPainter {
       final path = Path()
         ..moveTo(startX, midY)
         ..cubicTo(
-          startX + segment * 0.3, peakY,
-          endX - segment * 0.3, peakY,
-          endX, midY,
+          startX + segment * 0.3,
+          peakY,
+          endX - segment * 0.3,
+          peakY,
+          endX,
+          midY,
         );
       canvas.drawPath(path, paint);
     }

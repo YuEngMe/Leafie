@@ -86,24 +86,24 @@ void main() {
     expect(find.byType(PlantRegisterAppearanceScreen), findsOneWidget);
   });
 
-  testWidgets('꾸미기 화면에서 컬러를 선택하지 않으면 막히고, 선택하면 draft에 반영된다', (
+  testWidgets('꾸미기 화면에서 컬러를 선택하고 중앙 완료점을 누르면 draft에 반영된다', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final draft = _sampleDraft();
 
     await tester.pumpWidget(
       MaterialApp(home: PlantRegisterAppearanceScreen(draft: draft)),
     );
 
-    await tester.tap(find.text('다음'));
-    await tester.pump();
-    expect(find.text('컬러를 선택해주세요'), findsOneWidget);
     expect(draft.bodyColorId, isNull);
 
-    // 컬러 그리드의 첫 스와치를 선택 (색상 ID로 정확히 지목)
+    // 반원 팔레트의 첫 스와치를 선택한 뒤 중앙 흰색 완료점으로 확정한다.
     await tester.tap(find.byKey(const ValueKey('color_orange_01')));
     await tester.pump();
-    await tester.tap(find.text('다음'));
+    await tester.tap(find.bySemanticsLabel('선택 완료'));
     await tester.pumpAndSettle();
 
     expect(draft.bodyColorId, isNotNull);
@@ -130,7 +130,7 @@ void main() {
 
     await tester.pumpAndSettle(); // Future.delayed(400ms) 완료 대기
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('씩씩이의 방'), findsOneWidget);
-    expect(find.text('씩씩이의 등록이 완료됐어요'), findsOneWidget);
+    expect(find.text('씩씩이 방'), findsOneWidget);
+    expect(find.text('좋은 하루야!'), findsOneWidget);
   });
 }

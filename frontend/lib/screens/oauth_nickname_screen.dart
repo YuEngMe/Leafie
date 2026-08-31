@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:yeso_plant/widgets/app_text_field.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/onboarding_copy.dart';
+import 'package:yeso_plant/widgets/onboarding_fields.dart';
+import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 // Figma "04 앱 진입_회원가입"의 소셜 닉네임 설정 화면(2026-08-11 확인).
 // 카카오·네이버 등 소셜 로그인은 회원가입 화면이 없어 닉네임을 못 받으므로,
@@ -24,6 +27,23 @@ class OAuthNicknameScreen extends StatefulWidget {
 class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
   final _nicknameController = TextEditingController();
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nicknameController.addListener(_refreshForm);
+  }
+
+  void _refreshForm() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _nicknameController.removeListener(_refreshForm);
+    _nicknameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     final nickname = _nicknameController.text.trim();
@@ -48,32 +68,32 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.providerLabel} 로그인')),
+      backgroundColor: kBackgroundWhite,
+      appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppLayout.registrationHorizontalPadding,
+            22,
+            AppLayout.authHorizontalPadding,
+            AppLayout.bottomPadding,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '닉네임을 설정해주세요!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              const OnboardingCopy(
+                title: '닉네임을 설정해주세요!',
+                subtitle: '당신을 뭐라고 부르면 좋을까요?',
               ),
-              const SizedBox(height: 4),
-              Text(
-                '리피에서 사용할 이름이에요.',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 32),
-              AppTextField(
-                label: '닉네임',
-                hintText: '닉네임을 입력하세요.',
+              const SizedBox(height: 44),
+              SignupNicknameField(
                 controller: _nicknameController,
-              ),
-              const Spacer(),
-              PrimaryButton(
-                label: _submitting ? '저장 중...' : '회원가입',
-                onPressed: _submitting ? () {} : _submit,
+                variant: _nicknameController.text.trim().isEmpty
+                    ? SignupNicknameFieldVariant.empty
+                    : SignupNicknameFieldVariant.filled,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
               ),
             ],
           ),

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 String _isoDate(DateTime d) => d.toIso8601String().split('T').first;
 
@@ -82,50 +87,64 @@ class _PlantRegisterCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
-    final draft = widget.draft;
     return Scaffold(
-      appBar: AppBar(title: const Text('캐릭터 만들기')),
+      backgroundColor: kBackgroundWhite,
+      appBar: const YesoAppBar(title: '캐릭터 만들기'),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          child: Column(
-            children: [
-              const Text(
-                '당신의 식물 친구가 생겼어요!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              Container(
-                width: 175,
-                height: 150,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight < 700;
+            final artSize = compact ? 250.0 : AppLayout.completionArtSize;
+            return Column(
+              children: [
+                SizedBox(height: compact ? 38 : AppLayout.completionTopGap),
+                Text(
+                  '당신의 식물 친구가 생겼어요!',
+                  style: kTitleStyle,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 32),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('애칭: ${draft.name}'),
-                      Text('식물명칭: ${draft.species.displayName}'),
-                      Text('장소: ${draft.placeName ?? '-'}'),
-                      Text('화분: ${draft.potType ?? '-'}'),
-                      Text('위치: ${draft.placement ?? '-'}'),
-                      Text('성격: ${draft.personalityType ?? '-'}'),
-                    ],
+                SizedBox(
+                  height: compact ? 20 : AppLayout.completionTitleToArtGap,
+                ),
+                Container(
+                  width: artSize,
+                  height: artSize,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Color(0xFFFFDFA0),
+                        Color(0xCCFFEAC2),
+                        Color(0x00FFFFFF),
+                      ],
+                      stops: [0, 0.5, 1],
+                    ),
+                  ),
+                  child: PlantCharacterArt(
+                    width: compact ? 150 : AppLayout.completionCharacterWidth,
+                    sprouted: true,
                   ),
                 ),
-              ),
-              PrimaryButton(
-                label: _submitting ? '등록 중...' : '다음',
-                onPressed: _submitting ? () {} : _submit,
-              ),
-            ],
-          ),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppLayout.registrationHorizontalPadding,
+                    0,
+                    AppLayout.registrationHorizontalPadding,
+                    AppLayout.bottomPadding,
+                  ),
+                  child: PrimaryButton(
+                    label: _submitting ? '등록 중...' : '다음',
+                    variant: _submitting
+                        ? PrimaryButtonVariant.disabled
+                        : PrimaryButtonVariant.enabled,
+                    onPressed: _submitting ? null : _submit,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

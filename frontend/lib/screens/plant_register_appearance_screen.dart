@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 
 class _ColorOption {
   const _ColorOption(this.id, this.color);
@@ -11,9 +14,6 @@ class _ColorOption {
   final Color color;
 }
 
-// Figma "와프2차 > 캐릭터 등록_꾸밈2-1" 컬러 팔레트 스와치를 그대로 관찰해 옮김
-// (2026-08-04). id 값은 체크리스트의 "color_id: color_green_01" 형식 근거로 지음 —
-// 서버 실제 목록은 GET /character-options 붙을 때 교체.
 const _colorOptions = [
   _ColorOption('color_orange_01', Color(0xFFFFC98B)),
   _ColorOption('color_purple_01', Color(0xFFD9B3FA)),
@@ -40,12 +40,13 @@ class _PlantRegisterAppearanceScreenState
     extends State<PlantRegisterAppearanceScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String? _selectedColorId;
+  String? _selectedColorId = 'color_mint_01';
+  int _activeTab = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -72,98 +73,182 @@ class _PlantRegisterAppearanceScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('캐릭터 만들기')),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: 0.9,
-                  minHeight: 6,
-                  backgroundColor: kBorderGreen,
-                  color: kButtonGreen,
-                ),
+    return RegisterStepScaffold(
+      appBarTitle: '캐릭터 만들기',
+      step: 5,
+      title: '식물을 꾸며주세요!',
+      subtitle: '',
+      child: Stack(
+        children: [
+          const Positioned(
+            top: AppLayout.appearanceCharacterTop,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: PlantCharacterArt(
+                width: AppLayout.appearanceCharacterWidth,
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              '식물을 꾸며주세요!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: 150,
-              height: 150,
+          ),
+          Positioned(
+            top: AppLayout.appearancePaletteTop,
+            left: -54,
+            right: -54,
+            height: 500,
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: _selectedColorId == null
-                    ? Colors.grey.shade300
-                    : _colorOptions
-                          .firstWhere((c) => c.id == _selectedColorId)
-                          .color,
+                color: kBackgroundWhite,
                 shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(height: 24),
-            TabBar(
-              controller: _tabController,
-              labelColor: kButtonGreen,
-              unselectedLabelColor: Colors.grey,
-              tabs: const [Tab(text: '컬러'), Tab(text: '헤어'), Tab(text: '장식')],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  GridView.count(
-                    padding: const EdgeInsets.all(24),
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    children: _colorOptions
-                        .map(
-                          (option) => GestureDetector(
-                            key: ValueKey(option.id),
-                            onTap: () => setState(
-                              () => _selectedColorId = option.id,
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: option.color,
-                                shape: BoxShape.circle,
-                                border: _selectedColorId == option.id
-                                    ? Border.all(
-                                        color: kButtonGreen,
-                                        width: 3,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                border: Border.all(color: const Color(0xFFE8E8E8), width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 5,
+                    offset: Offset(0, -2),
                   ),
-                  // TODO: 헤어 에셋은 디자이너 납품 후 연결 (2026-08-04 확인, 이미지뿐
-                  // 텍스트 라벨 없어 ID 매핑 불가 — 체크리스트 "팀에 확인 필요한 것" 참고)
-                  const Center(child: Text('헤어 꾸미기는 준비 중이에요')),
-                  // TODO: 장식 에셋도 위와 동일한 이유로 보류
-                  const Center(child: Text('장식 꾸미기는 준비 중이에요')),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
+          ),
+          Positioned(
+            top:
+                AppLayout.appearancePaletteTop +
+                AppLayout.appearanceTabTopOffset,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SizedBox(
+                width: 132,
+                child: TabBar(
+                  controller: _tabController,
+                  onTap: (index) => setState(() => _activeTab = index),
+                  dividerColor: Colors.transparent,
+                  indicatorColor: kOrangeMain,
+                  labelColor: kBrightOrange,
+                  unselectedLabelColor: kTextLight,
+                  labelStyle: kCaptionStyle,
+                  tabs: const [
+                    Tab(text: '컬러'),
+                    Tab(text: '헤어'),
+                  ],
+                ),
               ),
-              child: PrimaryButton(label: '다음', onPressed: _goToNextStep),
             ),
-          ],
-        ),
+          ),
+          if (_activeTab == 0)
+            Positioned(
+              top:
+                  AppLayout.appearancePaletteTop +
+                  AppLayout.appearanceSwatchesTopOffset,
+              left: 0,
+              right: 0,
+              height: 260,
+              child: _SemicircleColorPalette(
+                selectedColorId: _selectedColorId,
+                onSelected: (id) => setState(() => _selectedColorId = id),
+                onConfirm: _goToNextStep,
+              ),
+            )
+          else
+            Positioned(
+              top:
+                  AppLayout.appearancePaletteTop +
+                  AppLayout.appearanceHairMessageTopOffset,
+              left: 0,
+              right: 0,
+              child: Center(child: Text('헤어 꾸미기는 준비 중이에요', style: kSmallStyle)),
+            ),
+        ],
       ),
+    );
+  }
+}
+
+class _SemicircleColorPalette extends StatelessWidget {
+  const _SemicircleColorPalette({
+    required this.selectedColorId,
+    required this.onSelected,
+    required this.onConfirm,
+  });
+
+  final String? selectedColorId;
+  final ValueChanged<String> onSelected;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    const swatches = [
+      (optionIndex: 1, left: 46.0, top: 44.0),
+      (optionIndex: 2, left: 140.0, top: 8.0),
+      (optionIndex: 4, left: 234.0, top: 44.0),
+      (optionIndex: 0, left: 12.0, top: 118.0),
+      (optionIndex: 8, left: 268.0, top: 118.0),
+    ];
+    return Stack(
+      children: [
+        for (final swatch in swatches)
+          Positioned(
+            left: swatch.left,
+            top: swatch.top,
+            child: Builder(
+              builder: (context) {
+                final option = _colorOptions[swatch.optionIndex];
+                final selected = selectedColorId == option.id;
+                return GestureDetector(
+                  key: ValueKey(option.id),
+                  onTap: () => onSelected(option.id),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: selected ? 72 : 60,
+                    height: selected ? 72 : 60,
+                    decoration: BoxDecoration(
+                      color: option.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected
+                            ? const Color(0xFFD8D8D8)
+                            : Colors.white,
+                        width: selected ? 5 : 2,
+                      ),
+                      boxShadow: selected
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x22000000),
+                                blurRadius: 3,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        Positioned(
+          left: 160,
+          top: 136,
+          child: Semantics(
+            button: true,
+            label: '선택 완료',
+            child: GestureDetector(
+              key: const ValueKey('appearance_confirm'),
+              onTap: onConfirm,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE8E8E8)),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x16000000), blurRadius: 3),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

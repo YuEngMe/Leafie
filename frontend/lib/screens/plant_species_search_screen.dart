@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 
@@ -40,6 +41,24 @@ Future<List<PlantSpeciesCandidate>> _searchPlantSpecies(String query) async {
       displayName: '스킨답서스',
       scientificName: 'Epipremnum aureum',
       categorySuggestion: 'FOLIAGE',
+    ),
+    PlantSpeciesCandidate(
+      referenceId: 'catalog:solanum-lycopersicum',
+      displayName: '방울토마토',
+      scientificName: 'Solanum lycopersicum',
+      categorySuggestion: 'FRUIT',
+    ),
+    PlantSpeciesCandidate(
+      referenceId: 'catalog:peperomia-tetraphylla',
+      displayName: '백담청잎장',
+      scientificName: 'Peperomia tetraphylla',
+      categorySuggestion: 'FOLIAGE',
+    ),
+    PlantSpeciesCandidate(
+      referenceId: 'catalog:monarda-didyma',
+      displayName: '베르가못',
+      scientificName: 'Monarda didyma',
+      categorySuggestion: 'HERB',
     ),
   ];
   await Future.delayed(const Duration(milliseconds: 200));
@@ -102,7 +121,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 24),
+            const SizedBox(height: 26),
             RoundedInputField(
               label: '식물 명칭',
               hintText: '예: 바질',
@@ -111,21 +130,16 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.search, size: 22),
-                    color: kTextDark,
+                    icon: const FigmaSearchIcon(),
                     onPressed: () => _runSearch(_queryController.text.trim()),
                   ),
                   // 사진으로 찾기는 AI 인식 화면이 아직 없어 비활성으로 둔다.
-                  IconButton(
-                    icon: const Icon(Icons.center_focus_weak, size: 22),
-                    color: kTextLight,
-                    onPressed: null,
-                  ),
+                  const IconButton(icon: FigmaCameraIcon(), onPressed: null),
                 ],
               ),
             ),
-            const SizedBox(height: 4),
-            // 카드는 결과 개수만큼만 차지하고, 많으면 시안 높이(309)에서 스크롤한다.
+            // 카드는 결과 개수만큼만 차지하고, 많으면 시안 높이(289)에서
+            // 스크롤한다.
             Flexible(child: _buildResults()),
           ],
         ),
@@ -143,17 +157,20 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
         child: Text('검색 결과가 없어요', style: kSmallStyle),
       );
     }
-    // 입력칸 아래에 겹쳐 떨어지는 흰 카드(Figma node 1841:513).
+    // 입력칸 뒤로 이어지는 흰 카드(Figma node 2318:3721). pill과 맞붙으므로
+    // 위쪽 모서리는 굴리지 않는다.
     return Container(
-      constraints: const BoxConstraints(maxHeight: 309),
-      decoration: BoxDecoration(
+      constraints: const BoxConstraints(maxHeight: 289),
+      decoration: const BoxDecoration(
         color: kBackgroundWhite,
-        borderRadius: BorderRadius.circular(27),
-        boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(27)),
+        boxShadow: [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
       ),
       clipBehavior: Clip.antiAlias,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        // 2318:3721 카드 top에서 첫 텍스트까지 44px, 행 간격은 36px.
+        padding: const EdgeInsets.only(top: 33, bottom: 12),
+        itemExtent: 36,
         shrinkWrap: true,
         itemCount: _results.length,
         itemBuilder: (context, index) {
@@ -165,7 +182,8 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
               Navigator.pop(context, candidate);
             },
             child: Container(
-              height: 36,
+              // 2318:3722 하이라이트 밴드 높이.
+              height: 33,
               width: double.infinity,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 20),
