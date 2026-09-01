@@ -5,11 +5,14 @@ abstract final class AppLayout {
   static const Size referenceViewport = Size(402, 874);
 
   static const double authHorizontalPadding = 34;
-  static const double loginTitleTopGap = 0;
+  // 2395:31 로고 top 156. 상태바 46과 앱바 높이를 뺀 나머지.
+  static const double loginTitleTopGap = 17;
   static const double loginTitleToLogoGap = 65;
-  static const double loginLogoWidth = 122;
+  // 2395:31 로고 그룹 폭.
+  static const double loginLogoWidth = 118.58;
   static const double loginLogoMarkWidthFactor = 0.98;
-  static const double loginLogoToFormGap = 64;
+  // 로고 바닥 317 -> 이메일 382.
+  static const double loginLogoToFormGap = 65;
   static const double loginEmailFieldHeight = 49;
   static const double loginEmailToPasswordGap = 14;
   static const double loginFilledEmailFieldHeight = 51;
@@ -18,12 +21,15 @@ abstract final class AppLayout {
   // Paperlogy의 Flutter glyph top inset(2px)을 Figma raster(1px)에 맞춘다.
   static const double loginPasswordLinksTop = 60;
   static const double loginLinkHorizontalInset = 11;
-  static const double loginLinkToButtonGap = 31;
-  static const double loginButtonToDividerGap = 77;
+  // 링크 바닥 520 -> 버튼 558.
+  static const double loginLinkToButtonGap = 38;
+  // 버튼 바닥 609 -> 구분선 694.
+  static const double loginButtonToDividerGap = 85;
   static const double loginDividerLeftInset = 3;
   static const double loginDividerRightInset = 12;
   static const double loginDividerLabelInset = 12;
-  static const double loginDividerToSocialGap = 32;
+  // 구분선 694 -> 소셜 735.
+  static const double loginDividerToSocialGap = 41;
   static const double loginSocialLeftInset = 51;
   static const double loginSocialRightInset = 55;
   static const double loginBottomGap = 39;

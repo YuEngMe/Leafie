@@ -23,7 +23,12 @@ Leafie is a bright, friendly plant companion. The current product surface follow
 - Paperlogy is the product font.
 - Page title: 21/600. Body and CTA: 16/500-600. Supporting copy: 14/400. Caption: 12/400.
 - Auth horizontal padding is 34 px; registration content padding is 47 px; pill controls are 52 px high with radius 50.
-- Login node `2353:3` uses a 122 px wordmark lockup with a larger `0.98` mark ratio, 11 px inset links, asymmetric divider/social insets, and a 5 px password-to-link gap. Its link/button/divider weights are 500/500/600. These anchors live in `AppLayout` and the login text styles.
+- Login node `2395:31` (empty), `2395:32` (filled), `2395:33` (password error),
+  `2395:34` (password revealed). The lockup is 118.58 px wide with a `0.98` mark
+  ratio; links inset 11 px; link/button/divider weights are 500/500/600. Spacing
+  runs logo 156 → email 382 → password 445 → links 506 → button 558 → divider 694
+  → social 735, and those gaps live in `AppLayout`. The error state keeps its
+  layout because `LoginCredentialsForm` positions the message over the links row.
 
 ## 5. Reusable primitives
 
