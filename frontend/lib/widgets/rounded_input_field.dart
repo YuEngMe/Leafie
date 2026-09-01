@@ -33,7 +33,6 @@ class RoundedInputField extends StatefulWidget {
     this.labelColor = kBrightOrange,
     this.suffixIconConstraints,
     this.errorTrailing,
-    this.reserveErrorSpace = false,
     this.contentPadding,
     this.overlaySuffix = false,
     this.hintStyle = kCaptionStyle,
@@ -65,9 +64,6 @@ class RoundedInputField extends StatefulWidget {
   final BoxConstraints? suffixIconConstraints;
   final Widget? errorTrailing;
 
-  /// 오류 문구가 없을 때도 그 높이를 비워 둘지. 여러 입력칸이 세로로 놓여
-  /// 오류 때문에 아래가 밀리면 안 되는 화면에서 켠다.
-  final bool reserveErrorSpace;
   final EdgeInsetsGeometry? contentPadding;
   final bool overlaySuffix;
   final TextStyle hintStyle;
@@ -122,66 +118,44 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
           ),
           SizedBox(height: widget.labelGap),
         ],
-        Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            color: kBackgroundWhite,
-            borderRadius: BorderRadius.circular(kButtonRadius),
-            border: widget.errorText == null && !widget.hasError
-                ? null
-                : Border.all(color: kErrorRed),
-            boxShadow: widget.showShadow
-                ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
-                : null,
-          ),
-          child: widget.overlaySuffix
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildTextField(align, includeSuffix: false),
-                    if (_buildSuffix() case final suffix?)
-                      // 눈 아이콘은 IconButton이 48px로 퍼지므로 15를 주면
-                      // Figma의 우측 21px(2353:1008)과 맞는다. 직접 넘긴
-                      // suffix는 그 보정이 없어 여백을 따로 잡는다.
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            right: widget.suffix == null ? 15 : 10,
+        _OverflowRow(
+          errorText: widget.errorText,
+          errorTrailing: widget.errorTrailing,
+          child: Container(
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: kBackgroundWhite,
+              borderRadius: BorderRadius.circular(kButtonRadius),
+              border: widget.errorText == null && !widget.hasError
+                  ? null
+                  : Border.all(color: kErrorRed),
+              boxShadow: widget.showShadow
+                  ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
+                  : null,
+            ),
+            child: widget.overlaySuffix
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildTextField(align, includeSuffix: false),
+                      if (_buildSuffix() case final suffix?)
+                        // 눈 아이콘은 IconButton이 48px로 퍼지므로 15를 주면
+                        // Figma의 우측 21px(2353:1008)과 맞는다. 직접 넘긴
+                        // suffix는 그 보정이 없어 여백을 따로 잡는다.
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: widget.suffix == null ? 15 : 10,
+                            ),
+                            child: suffix,
                           ),
-                          child: suffix,
                         ),
-                      ),
-                  ],
-                )
-              : _buildTextField(align, includeSuffix: true),
+                    ],
+                  )
+                : _buildTextField(align, includeSuffix: true),
+          ),
         ),
-        // 시안(2395:46)은 오류가 떠도 아래 필드가 밀리지 않는다. 문구 자리를
-        // 항상 비워 두고 내용만 채운다.
-        if (widget.reserveErrorSpace || widget.errorText != null)
-          SizedBox(
-            height: _errorRowHeight,
-            child: widget.errorText == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 11, right: 11),
-                    child: Row(
-                      children: [
-                        Text(
-                          widget.errorText!,
-                          style: kCaptionStyle.copyWith(
-                            color: kErrorRed,
-                            height: 1,
-                          ),
-                        ),
-                        if (widget.errorTrailing != null) ...[
-                          const Spacer(),
-                          widget.errorTrailing!,
-                        ],
-                      ],
-                    ),
-                  ),
-          ),
       ],
     );
   }
@@ -236,6 +210,48 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 48),
       onPressed: () => setState(() => _obscured = !_obscured),
+    );
+  }
+}
+
+/// 입력칸 아래 오류 문구를 흐름 밖으로 흘려보내는 래퍼.
+///
+/// 시안(2395:46)은 오류가 떠도 다음 필드가 밀리지 않는다. 문구를 Column의
+/// 형제로 두면 높이를 차지하므로, 겹쳐 그리고 clip은 끈다.
+class _OverflowRow extends StatelessWidget {
+  const _OverflowRow({
+    required this.child,
+    required this.errorText,
+    required this.errorTrailing,
+  });
+
+  final Widget child;
+  final String? errorText;
+  final Widget? errorTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (errorText == null) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          left: 11,
+          right: 11,
+          // 입력칸 바닥에서 6px 아래.
+          bottom: -_errorRowHeight,
+          child: Row(
+            children: [
+              Text(
+                errorText!,
+                style: kCaptionStyle.copyWith(color: kErrorRed, height: 1),
+              ),
+              if (errorTrailing != null) ...[const Spacer(), errorTrailing!],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -90,7 +90,7 @@ class SignupEmailField extends StatelessWidget {
                 readOnly: verificationSent,
                 errorText: errorText,
                 height: AppLayout.onboardingControlHeight,
-                labelGap: 5,
+                labelGap: 1,
                 centerVertically: true,
                 labelColor: kOrangeMain,
                 // Figma는 03:21을 절대좌표로 얹는다. suffixIcon으로 넣으면
@@ -184,10 +184,8 @@ class SignupPasswordField extends StatelessWidget {
       obscureText: true,
       controller: controller,
       errorText: variant == SignupPasswordFieldVariant.error ? errorText : null,
-      // 오류가 떠도 아래 필드가 밀리지 않도록 자리를 미리 잡아 둔다.
-      reserveErrorSpace: true,
       height: AppLayout.onboardingControlHeight,
-      labelGap: 5,
+      labelGap: 1,
       centerVertically: true,
       labelColor: kOrangeMain,
     );
@@ -223,7 +221,7 @@ class SignupNicknameField extends StatelessWidget {
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
       height: AppLayout.onboardingControlHeight,
-      labelGap: 5,
+      labelGap: 1,
       centerVertically: true,
       labelColor: kOrangeMain,
     );

@@ -118,11 +118,15 @@ one asset per color.
 
 Screen-level audit against `2395:38`–`2395:52`.
 
-- Field pitch is 110 with a 75 px label+input group, so `authFieldGap` is 35.
+- Field pitch is 110: `authFieldGap` 35 plus a 75 px label+input group. The
+  label's rendered ink sits 4 px lower than the mock's text box, so
+  `authFormTopPadding` is 42 and `labelGap` is 1 — with those, all four labels
+  land on the mock's 148 / 258 / 368 / 478 exactly.
 - The bottom CTA sits 33 px above the frame edge; `authBottomActionPadding`
   is 79 once the home-indicator band is accounted for.
-- `2395:46` keeps its layout when errors appear, so `RoundedInputField` can
-  reserve the error row (`reserveErrorSpace`) instead of pushing later fields.
+- `2395:46` keeps every label at the same y as `2395:40`, so the error message
+  is drawn outside the layout flow — `RoundedInputField` stacks it under the pill
+  with `Clip.none` rather than adding a sibling row.
 - The eye toggle only shows once a password field has content (`2395:40`).
 - Password reset drives its send button label from the step —
   발송 / 재발송 / 완료 (`2395:52`, `2395:49`, `2395:51`) — and puts the

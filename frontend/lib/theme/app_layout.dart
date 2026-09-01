@@ -36,7 +36,8 @@ abstract final class AppLayout {
   static const double loginSocialGap = 40;
   static const double loginSocialButtonSize = 49.41;
   static const double loginBottomGap = 39;
-  static const double authFormTopPadding = 38;
+  // 2395:40 첫 라벨 잉크 y=148(상태바 46 제외 102).
+  static const double authFormTopPadding = 42;
   // 시안 버튼 하단 33px + 홈 인디케이터 영역. 2395:40, 2395:52 공통.
   static const double authBottomActionPadding = 79;
   // 라벨+입력칸 그룹(75) 사이 간격. 라벨 피치 110 - 75 = 35.
