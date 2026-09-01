@@ -77,7 +77,11 @@ void main() {
       MaterialApp(home: PlantRegisterEnvironmentScreen(draft: draft)),
     );
 
-    final field = find.byType(RoundedInputField).at(1);
+    // Center가 들어가며 RoundedInputField 전체가 탭 영역이 아니게 됐다.
+    final field = find.descendant(
+      of: find.byType(RoundedInputField).at(1),
+      matching: find.byType(TextField),
+    );
     await tester.ensureVisible(field);
     await tester.tap(field);
     await tester.pumpAndSettle();

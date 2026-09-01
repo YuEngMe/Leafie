@@ -121,39 +121,51 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
         _OverflowRow(
           errorText: widget.errorText,
           errorTrailing: widget.errorTrailing,
-          child: Container(
-            height: widget.height,
-            decoration: BoxDecoration(
-              color: kBackgroundWhite,
-              borderRadius: BorderRadius.circular(kButtonRadius),
-              border: widget.errorText == null && !widget.hasError
-                  ? null
-                  : Border.all(color: kErrorRed),
-              boxShadow: widget.showShadow
-                  ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
-                  : null,
-            ),
-            child: widget.overlaySuffix
-                ? Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildTextField(align, includeSuffix: false),
-                      if (_buildSuffix() case final suffix?)
-                        // 눈 아이콘은 IconButton이 48px로 퍼지므로 15를 주면
-                        // Figma의 우측 21px(2353:1008)과 맞는다. 직접 넘긴
-                        // suffix는 그 보정이 없어 여백을 따로 잡는다.
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: widget.suffix == null ? 15 : 10,
-                            ),
-                            child: suffix,
-                          ),
+          // 글자를 세로 중앙에 두느라 TextField가 칸보다 작아졌다. readOnly로
+          // 탭만 받는 칸은 여백을 눌러도 반응해야 한다.
+          child: GestureDetector(
+            onTap: widget.readOnly ? widget.onTap : null,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: widget.height,
+              decoration: BoxDecoration(
+                color: kBackgroundWhite,
+                borderRadius: BorderRadius.circular(kButtonRadius),
+                border: widget.errorText == null && !widget.hasError
+                    ? null
+                    : Border.all(color: kErrorRed),
+                boxShadow: widget.showShadow
+                    ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
+                    : null,
+              ),
+              child: widget.overlaySuffix
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Center(
+                          child: _buildTextField(align, includeSuffix: false),
                         ),
-                    ],
-                  )
-                : _buildTextField(align, includeSuffix: true),
+                        if (_buildSuffix() case final suffix?)
+                          // 눈 아이콘은 IconButton이 48px로 퍼지므로 15를 주면
+                          // Figma의 우측 21px(2353:1008)과 맞는다. 직접 넘긴
+                          // suffix는 그 보정이 없어 여백을 따로 잡는다.
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: widget.suffix == null ? 15 : 10,
+                              ),
+                              child: suffix,
+                            ),
+                          ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.center,
+                      heightFactor: 1,
+                      child: _buildTextField(align, includeSuffix: true),
+                    ),
+            ),
           ),
         ),
       ],
@@ -172,23 +184,22 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
       onSubmitted: widget.onSubmitted,
       textInputAction: widget.textInputAction,
       textAlign: align,
-      textAlignVertical: widget.centerVertically
-          ? TextAlignVertical.center
-          : null,
+      // 입력칸은 높이가 고정이라 글자는 항상 세로 중앙에 온다.
+      textAlignVertical: TextAlignVertical.center,
       style: widget.textStyle ?? kBodyStyle.copyWith(fontSize: 14),
       decoration: InputDecoration(
-        isDense: widget.centerVertically,
+        // isDense로 InputDecoration의 기본 최소 높이를 걷어낸다. 이게 없으면
+        // 바깥에서 아무리 정렬해도 글자가 아래로 붙는다.
+        isDense: true,
         hintText: widget.hintText,
         hintStyle: widget.hintStyle,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
+        // 세로 여백은 textAlignVertical이 잡으므로 좌우만 준다.
         contentPadding:
-            widget.contentPadding ??
-            (widget.centerVertically
-                ? const EdgeInsets.symmetric(horizontal: 20)
-                : const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
+            widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 20),
         suffixIcon: includeSuffix ? _buildSuffix() : null,
         suffixIconConstraints: includeSuffix
             ? widget.suffixIconConstraints
