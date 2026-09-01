@@ -4,7 +4,7 @@ import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, this.plantName, this.signOut});

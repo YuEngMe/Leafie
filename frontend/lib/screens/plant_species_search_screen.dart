@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 

@@ -71,10 +71,22 @@ Built from the Figma nodes, not yet wired into a screen — no my-page screen ex
   put 10 px between the 21 px title and the 14 px `#757575` subtitle, so those
   are the widget defaults and only alignment differs per call site.
 
-### Figma vector glyphs
+### Icons: assets vs. code
 
-`lib/widgets/figma_glyphs.dart` reproduces designer-exported vectors as
-`CustomPainter` polylines, keeping the original Figma coordinates as constants.
+Two files hold the designer's icons, split by what the icon is.
+
+`lib/widgets/figma_asset_icons.dart` renders committed SVGs through
+`flutter_svg`. Anything whose shape is itself the asset goes here — brand logos,
+and icons whose curves or overlaps would only ever be approximated in code.
+Figma bakes its canvas into every export, so each committed SVG has had the
+`#F5F5F5` / `#EBEBEB` / `#A0A0A0` backdrop and the `#9747FF` selection outline
+stripped out.
+
+`lib/widgets/figma_glyphs.dart` reproduces the rest as `CustomPainter`
+polylines, keeping the original Figma coordinates as constants. These are simple
+shapes the screens recolor through a `color:` parameter — a check that is orange,
+gray or white depending on state, a chevron in three grays — so one painter beats
+one asset per color.
 
 - `FigmaCheckedCircle`: `2315:2486` circle `#FFB222` plus the `2315:2487` white check.
 - `FigmaCheckMark`: `2315:2494` orange check stroke, no surrounding circle.
@@ -86,13 +98,9 @@ Built from the Figma nodes, not yet wired into a screen — no my-page screen ex
 - `FigmaDialogDivider`: `2353:1042`, one `#FFB222` path holding the horizontal
   rule and the vertical split, inset 24.7 px on each side and 7.5 px above the
   card's bottom so it clears the 30 px corner radius.
-- `FigmaSearchIcon`: `2318:3726`, a `#BFBFBF` circle and handle both rotated
-  -35.36 degrees.
-- `FigmaCameraIcon`: `2318:3742`, one `#FFB52A` path whose lens is punched out
-  with an even-odd ring.
-- Social buttons: `2353:41` / `2353:39` ship as `assets/images/social_naver.png`
-  and `social_kakao.png`, exported at 3x. Brand logos are the designer's assets,
-  so they are committed rather than redrawn. Apple was dropped from the row on
+- Assets: `icon_search` (`2318:3726`), `icon_camera` (`2318:3742`),
+  `icon_moisture` (`2346:2536`), `social_naver` (`2353:41`) and `social_kakao`
+  (`2353:39`). Apple was dropped from the row on
   the team's call, so the mock's third (empty) circle has no counterpart in code.
 
 ### Character registration
@@ -136,8 +144,8 @@ Screen-level audit against `2395:38`–`2395:52`.
 - Humidity card `2346:2542` and bottom nav `2346:2519` live in `home_screen.dart`.
   The nav pills are 37.85 x 35 and carry labels only: the Figma node has no icon
   layer yet, so the placeholder Material icons were removed until it does.
-- `FigmaMoistureIcon`: `2346:2541`. Figma exports both shapes as `#D9D9D9`
-  placeholders; the rendered mint and yellow are kept as constants on the widget.
+- `FigmaMoistureIcon` comes from the committed SVG — Figma exports the shapes as
+  `#D9D9D9` placeholders, so redrawing them meant guessing the real colors.
 
 ### Diagnosis components
 
