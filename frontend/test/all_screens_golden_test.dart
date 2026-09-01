@@ -61,6 +61,14 @@ void main() {
           const AssetImage('assets/images/leafie_character_sprout.png'),
           context,
         ),
+        precacheImage(
+          const AssetImage('assets/images/social_naver.png'),
+          context,
+        ),
+        precacheImage(
+          const AssetImage('assets/images/social_kakao.png'),
+          context,
+        ),
       ]);
     });
     await tester.pumpAndSettle();
