@@ -53,6 +53,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
   Future<void> _confirmExit() async {
     final shouldExit = await showDialog<bool>(
       context: context,
+      barrierColor: kModalBarrier,
       builder: (_) => const SignupAbortDialog(),
     );
     if (shouldExit != true || !mounted) return;

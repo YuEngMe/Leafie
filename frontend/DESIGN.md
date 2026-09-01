@@ -114,6 +114,13 @@ one asset per color.
   `2318:3966` use `kTagOrange` (`#FF9F6D`) with a 0.827 px border, and that
   screen's title alone uses `kPersonalityTitle` (`#2E2E2E`).
 
+### Modal barrier
+
+`2307:785` is the full-screen dim behind every modal and bottom sheet:
+`rgba(0,0,0,0.45)`, kept as `kModalBarrier`. Flutter's default barrier is 54%
+and `Colors.black26` — which the terms sheet used — is only 15%, so every
+`showDialog` / `showModalBottomSheet` call passes the token explicitly.
+
 ### Auth screen layout
 
 Screen-level audit against `2395:38`–`2395:52`.

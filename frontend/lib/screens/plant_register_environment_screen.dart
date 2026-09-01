@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -42,6 +43,7 @@ class _PlantRegisterEnvironmentScreenState
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: kModalBarrier,
       builder: (_) =>
           PlantDatePickerSheet(initialDate: current ?? DateTime.now()),
     );

@@ -47,6 +47,8 @@ const Color kGrayLightest = Color(0xFFCCCBCB); // 제일연한회색, 비활성 
 const Color kProgressInactive = Color(0xFFD9D9D9);
 const Color kErrorRed = Color(0xFFF05F5F); // 입력 오류
 const Color kBackgroundWhite = Color(0xFFFFFFFF); // 배경_화이트
+// 모달·바텀시트 뒤를 덮는 딤(2307:785). rgba(0,0,0,0.45).
+const Color kModalBarrier = Color(0x73000000);
 const Color kHomeGreen = Color(0xFFBFF4C8);
 const Color kHomeYellow = Color(0xFFFFFFB7);
 const Color kHomePeach = Color(0xFFFFD2B1);

@@ -120,6 +120,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _confirmExit() async {
     final shouldExit = await showDialog<bool>(
       context: context,
+      barrierColor: kModalBarrier,
       builder: (_) => const SignupAbortDialog(),
     );
     if (shouldExit != true || !mounted) return;
@@ -132,7 +133,7 @@ class _SignupScreenState extends State<SignupScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black26,
+      barrierColor: kModalBarrier,
       builder: (_) => const TermsAgreementSheet(),
     );
     if (agreed == true && mounted) await _signup();

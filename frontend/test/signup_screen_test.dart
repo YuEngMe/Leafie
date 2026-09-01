@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
@@ -145,6 +146,10 @@ void main() {
 
     expect(find.text('약관 모두 동의'), findsOneWidget);
     expect(find.text('확인'), findsOneWidget);
+
+    // 시안 2307:785의 딤은 검정 45%다.
+    final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
+    expect(barrier.color, kModalBarrier);
 
     var confirmButton = tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, '확인'),
