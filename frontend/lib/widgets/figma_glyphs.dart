@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 
 /// Figma가 내보낸 벡터 아이콘을 그대로 옮긴 글리프.
 ///
@@ -492,4 +493,155 @@ class _MoisturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_MoisturePainter oldDelegate) => false;
+}
+
+/// Figma node 2353:41의 네이버 로그인 버튼.
+class FigmaNaverButton extends StatelessWidget {
+  const FigmaNaverButton({super.key, required this.onTap});
+
+  static const double size = 49.4082;
+  static const Color brandGreen = Color(0xFF2DB400);
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      label: '네이버로 로그인',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox.square(
+          dimension: size,
+          child: CustomPaint(painter: const _NaverPainter()),
+        ),
+      ),
+    );
+  }
+}
+
+class _NaverPainter extends CustomPainter {
+  const _NaverPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / FigmaNaverButton.size;
+    canvas
+      ..drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        size.width / 2,
+        Paint()..color = FigmaNaverButton.brandGreen,
+      )
+      ..save()
+      ..scale(scale);
+
+    // 2391:5의 N 글리프 좌표를 그대로 옮겼다.
+    canvas
+      ..drawPath(
+        Path()
+          ..moveTo(27.8829, 25.693)
+          ..lineTo(20.8403, 15.5234)
+          ..lineTo(15, 15.5234)
+          ..lineTo(15, 34.5234)
+          ..lineTo(21.1171, 34.5234)
+          ..lineTo(21.1171, 24.3539)
+          ..lineTo(28.1624, 34.5234)
+          ..lineTo(34, 34.5234)
+          ..lineTo(34, 15.5234)
+          ..lineTo(27.8829, 15.5234)
+          ..close(),
+        Paint()..color = kBackgroundWhite,
+      )
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(_NaverPainter oldDelegate) => false;
+}
+
+/// Figma node 2353:39의 카카오 로그인 버튼.
+///
+/// 원본은 TALK 글자를 글리프별 벡터로 쪼개 두었다. 같은 모양을 말풍선
+/// 도형과 텍스트로 그려 flutter_svg 없이 유지한다.
+class FigmaKakaoButton extends StatelessWidget {
+  const FigmaKakaoButton({super.key, required this.onTap});
+
+  static const double size = 49.4082;
+  static const Color brandYellow = Color(0xFFFEE500);
+  static const Color brandBrown = Color(0xFF191919);
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      // TALK 글자가 별도 시맨틱으로 잡히지 않도록 자식을 제외한다.
+      excludeSemantics: true,
+      label: '카카오톡으로 로그인',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox.square(
+          dimension: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: brandYellow,
+                ),
+                child: SizedBox.expand(),
+              ),
+              CustomPaint(
+                size: Size(size * 0.58, size * 0.52),
+                painter: const _KakaoBubblePainter(),
+              ),
+              Transform.translate(
+                offset: Offset(0, -size * 0.03),
+                child: Text(
+                  'TALK',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: size * 0.19,
+                    fontWeight: FontWeight.w700,
+                    color: brandYellow,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KakaoBubblePainter extends CustomPainter {
+  const _KakaoBubblePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = FigmaKakaoButton.brandBrown;
+    // 몸통은 가로로 눌린 타원, 꼬리는 왼쪽 아래로 뻗는 삼각형이다.
+    final body = Rect.fromLTWH(0, 0, size.width, size.height * 0.82);
+    canvas
+      ..drawOval(body, paint)
+      ..drawPath(
+        Path()
+          ..moveTo(size.width * 0.28, size.height * 0.7)
+          ..lineTo(size.width * 0.16, size.height)
+          ..lineTo(size.width * 0.47, size.height * 0.78)
+          ..close(),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_KakaoBubblePainter oldDelegate) => false;
 }

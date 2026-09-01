@@ -127,12 +127,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showNotReadyYet(String provider) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$provider 로그인은 준비 중이에요')));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,7 +183,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   scopes: 'openid profile',
                 ),
                 onKakao: () => _signInWithOAuth(OAuthProvider.kakao),
-                onApple: () => _showNotReadyYet('애플'),
               ),
               const SizedBox(height: AppLayout.loginBottomGap),
             ],

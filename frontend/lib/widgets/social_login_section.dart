@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/social_login_button.dart';
+import 'package:yeso_plant/widgets/figma_glyphs.dart';
 
 /// Figma node 2315:2323의 구분선과 소셜 로그인 버튼 묶음.
 class SocialLoginSection extends StatelessWidget {
@@ -10,12 +10,10 @@ class SocialLoginSection extends StatelessWidget {
     super.key,
     required this.onNaver,
     required this.onKakao,
-    required this.onApple,
   });
 
   final VoidCallback onNaver;
   final VoidCallback onKakao;
-  final VoidCallback onApple;
 
   @override
   Widget build(BuildContext context) {
@@ -46,23 +44,11 @@ class SocialLoginSection extends StatelessWidget {
             right: AppLayout.loginSocialRightInset,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: AppLayout.loginSocialGap,
             children: [
-              SocialLoginButton(
-                label: '네이버',
-                color: const Color(0xFF4CAF50),
-                onTap: onNaver,
-              ),
-              SocialLoginButton(
-                label: '카카오',
-                color: const Color(0xFFF5E14C),
-                onTap: onKakao,
-              ),
-              SocialLoginButton(
-                label: '애플',
-                color: Colors.black,
-                onTap: onApple,
-              ),
+              FigmaNaverButton(onTap: onNaver),
+              FigmaKakaoButton(onTap: onKakao),
             ],
           ),
         ),

@@ -90,6 +90,11 @@ Built from the Figma nodes, not yet wired into a screen — no my-page screen ex
   -35.36 degrees.
 - `FigmaCameraIcon`: `2318:3742`, one `#FFB52A` path whose lens is punched out
   with an even-odd ring.
+- `FigmaNaverButton` / `FigmaKakaoButton`: `2353:41` / `2353:39`, the 49.41 px
+  social circles. Figma splits the kakao TALK lettering into per-glyph vectors;
+  the widget draws the bubble and sets the word as text instead. Apple was
+  dropped from the row on the team's call, so the mock's third (empty) circle
+  has no counterpart in code.
 
 ### Character registration
 

@@ -45,13 +45,12 @@ void main() {
     expect(find.text('닉네임'), findsOneWidget);
   });
 
-  testWidgets('로그인 화면에 네이버·카카오·애플 간편로그인 버튼이 보인다', (WidgetTester tester) async {
+  testWidgets('로그인 화면에 네이버·카카오 간편로그인 버튼이 보인다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
 
     // 시안에서 라벨 글씨가 빠지고 색 원만 남아 시맨틱 라벨로 확인한다.
-    expect(find.bySemanticsLabel('네이버 로그인'), findsOneWidget);
-    expect(find.bySemanticsLabel('카카오 로그인'), findsOneWidget);
-    expect(find.bySemanticsLabel('애플 로그인'), findsOneWidget);
+    expect(find.bySemanticsLabel('네이버로 로그인'), findsOneWidget);
+    expect(find.bySemanticsLabel('카카오톡으로 로그인'), findsOneWidget);
   });
 
   testWidgets('로그인 완료 사용자를 식물 등록 화면에 가두지 않고 홈으로 보낸다', (
@@ -84,17 +83,6 @@ void main() {
     expect(signOutRequested, isTrue);
   });
 
-  testWidgets('애플 버튼은 아직 준비 중 안내만 표시한다', (WidgetTester tester) async {
-    await tester.pumpWidget(const YesoApp());
-
-    final appleButton = find.bySemanticsLabel('애플 로그인');
-    await tester.ensureVisible(appleButton);
-    await tester.pumpAndSettle();
-    await tester.tap(appleButton);
-    await tester.pump();
-    expect(find.text('애플 로그인은 준비 중이에요'), findsOneWidget);
-  });
-
   testWidgets('카카오 버튼은 Supabase 표준 Kakao 제공자를 요청한다', (
     WidgetTester tester,
   ) async {
@@ -123,7 +111,7 @@ void main() {
       ),
     );
 
-    final kakaoButton = find.bySemanticsLabel('카카오 로그인');
+    final kakaoButton = find.bySemanticsLabel('카카오톡으로 로그인');
     await tester.ensureVisible(kakaoButton);
     await tester.pumpAndSettle();
     await tester.tap(kakaoButton);
@@ -159,7 +147,7 @@ void main() {
       ),
     );
 
-    final naverButton = find.bySemanticsLabel('네이버 로그인');
+    final naverButton = find.bySemanticsLabel('네이버로 로그인');
     await tester.ensureVisible(naverButton);
     await tester.pumpAndSettle();
     await tester.tap(naverButton);

@@ -32,6 +32,9 @@ abstract final class AppLayout {
   static const double loginDividerToSocialGap = 41;
   static const double loginSocialLeftInset = 51;
   static const double loginSocialRightInset = 55;
+  // 2395:31 소셜 버튼 x 85 / 174.4 -> 간격 40. 애플은 팀 결정으로 뺐다.
+  static const double loginSocialGap = 40;
+  static const double loginSocialButtonSize = 49.41;
   static const double loginBottomGap = 39;
   static const double authFormTopPadding = 38;
   // 시안 버튼 하단 33px + 홈 인디케이터 영역. 2395:40, 2395:52 공통.
