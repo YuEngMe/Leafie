@@ -81,4 +81,18 @@ abstract final class AppLayout {
   static const double progressWidth = 243;
   static const double progressHeight = 22;
   static const double characterWidth = 184;
+
+  // 마이페이지(2319:2). 카드 폭 344라 좌우 여백은 (402-344)/2 = 29.
+  static const double myPageHorizontalPadding = 29;
+
+  /// 앱바 아래에서 프로필 카드 top(119)까지. 상태바 46 + 앱바 56 = 102.
+  static const double myPageTopGap = 17;
+
+  /// 프로필 카드 바닥(196.762)에서 메뉴 카드 top(211)까지.
+  static const double myPageCardGap = 14.238;
+
+  /// 로그아웃 버튼 바닥(841)에서 화면 아래(874)까지 33px. 여기에 시안의
+  /// 상태바 46px을 더한다 — SafeArea가 상태바를 먹으면 Spacer가 그만큼
+  /// 남은 공간을 늘려 버튼을 아래로 밀기 때문이다.
+  static const double myPageBottomGap = 33 + 46;
 }

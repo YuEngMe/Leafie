@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
+import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -161,11 +162,19 @@ class HomeScreen extends StatelessWidget {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: const [
-                      _NavItem(label: '홈', selected: true),
-                      _NavItem(label: '기록'),
-                      _NavItem(label: '달력'),
-                      _NavItem(label: '마이'),
+                    children: [
+                      const _NavItem(label: '홈', selected: true),
+                      const _NavItem(label: '기록'),
+                      const _NavItem(label: '달력'),
+                      _NavItem(
+                        label: '마이',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyPageScreen(),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -228,14 +237,17 @@ class _SideControl extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.label, this.selected = false});
+  const _NavItem({required this.label, this.selected = false, this.onTap});
 
   final String label;
   final bool selected;
 
+  /// 아직 화면이 없는 탭은 null로 둔다.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final pill = Container(
       // Figma 알약은 37.85 x 35 고정이다.
       width: 37.85,
       height: 35,
@@ -258,6 +270,12 @@ class _NavItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return pill;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: pill,
     );
   }
 }

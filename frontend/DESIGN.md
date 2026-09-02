@@ -56,7 +56,8 @@ value and variant node ID for traceability.
 
 ### My page components
 
-Built from the Figma nodes, not yet wired into a screen — no my-page screen exists.
+Wired into `MyPageScreen` (`lib/screens/my_page_screen.dart`), reached from the
+home screen's 마이 nav pill.
 
 - `FigmaToggleSwitch`: `2353:575`, on `2353:574` / off `2353:573`. Track 48 x
   24.9231, knob r 10.6154. The Figma variants have their knob positions swapped —
@@ -70,6 +71,25 @@ Built from the Figma nodes, not yet wired into a screen — no my-page screen ex
 - `OnboardingCopy`: `2315:2514` (left aligned) and `2315:2275` (centered). Both
   put 10 px between the 21 px title and the 14 px `#757575` subtitle, so those
   are the widget defaults and only alignment differs per call site.
+
+#### My page screen layout
+
+`2319:2` (default), `2353:577` (notification toggle on), `2353:624` (sign-out
+confirm). Screen is 402 x 874 with the 46 px status bar included; the golden runs
+without one, so every mock y needs that offset subtracted.
+
+Cards are 344 wide, which fixes the horizontal padding at `(402 - 344) / 2 = 29`.
+Profile card top 119, height 77.762; menu card top 211, height 241; logout button
+top 790, height 51.
+
+The button is pinned to the bottom with a `Spacer`, not a fixed gap — the mock's
+338 px between menu card and button overflows any viewport shorter than the
+design frame. `myPageBottomGap` is `33 + 46`: the mock's 33 px below the button
+plus the status bar height `SafeArea` reclaims, since `Spacer` hands that space
+to the bottom.
+
+The mock has **no bottom navigation bar** — this screen is pushed over the home
+screen and left with the back arrow.
 
 ### Icons: assets vs. code
 
