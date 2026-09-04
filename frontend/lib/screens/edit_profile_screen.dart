@@ -21,31 +21,26 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late final _controller = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // 시안(2316:6397)은 힌트만 있는 빈 칸이라 기존 값을 채우지 않는다.
-    _controller.addListener(_refresh);
-  }
-
-  void _refresh() {
-    if (mounted) setState(() {});
-  }
+  // 시안(2316:6397)은 힌트만 있는 빈 칸이라 기존 값을 채우지 않는다.
+  // 버튼이 늘 활성이라 입력을 지켜볼 이유도 없다.
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    _controller.removeListener(_refresh);
     _controller.dispose();
     super.dispose();
   }
 
-  bool get _canSubmit => _controller.text.trim().isNotEmpty;
-
   void _submit() {
     final next = _controller.text.trim();
-    if (next.isEmpty) return;
+    if (next.isEmpty) {
+      // 시안(2316:6397)은 빈 칸에서도 버튼이 오렌지라 눌린다. 비우고
+      // 누른 경우는 안내로 막는다.
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('닉네임을 입력해주세요.')));
+      return;
+    }
     // TODO(1-E): dio 붙이면 PATCH /users/me로 닉네임을 먼저 보낸다.
     Navigator.pop(context, next);
   }
@@ -79,13 +74,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: AppLayout.editProfileFieldToButtonGap),
+              // 시안 2316:6397·2353:376 모두 버튼이 오렌지다. 회원가입과
+              // 달리 빈 칸 상태의 비활성 시안이 없다.
               PrimaryButton(
                 label: '변경하기',
-                variant: _canSubmit
-                    ? PrimaryButtonVariant.enabled
-                    : PrimaryButtonVariant.disabled,
+                variant: PrimaryButtonVariant.enabled,
                 textStyle: kLoginButtonStyle,
-                onPressed: _canSubmit ? _submit : null,
+                onPressed: _submit,
               ),
             ],
           ),

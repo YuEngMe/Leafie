@@ -54,25 +54,25 @@ void main() {
       _expectAt(tester, '버튼', find.byType(PrimaryButton), 34, 244);
     });
 
-    testWidgets('빈 칸이면 변경하기가 잠겨 있다', (tester) async {
+    testWidgets('빈 칸에서도 버튼은 오렌지이고, 눌러도 넘어가지 않는다', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: EditProfileScreen(nickname: '김윤지')),
       );
 
       // 시안 2316:6397은 기존 값을 채우지 않고 힌트만 보여준다.
       expect(find.text('닉네임을 입력하세요.'), findsOneWidget);
-      expect(
-        tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant,
-        PrimaryButtonVariant.disabled,
-      );
 
-      await tester.enterText(find.byType(TextField), '다다다');
-      await tester.pump();
-
+      // 회원가입과 달리 비활성 시안이 없다(2316:6397, 2353:376 모두 오렌지).
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant,
         PrimaryButtonVariant.enabled,
       );
+
+      await tester.tap(find.text('변경하기'));
+      await tester.pump();
+
+      expect(find.text('닉네임을 입력해주세요.'), findsOneWidget);
+      expect(find.byType(EditProfileScreen), findsOneWidget);
     });
 
     testWidgets('변경하기를 누르면 새 닉네임을 돌려준다', (tester) async {

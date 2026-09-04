@@ -99,7 +99,9 @@ are now wired; the password-change chain (7 screens) is still open.
 **내 정보 수정** (`2316:6397`, `2353:376`, `2353:440`): one nickname field.
 Label at 45/145, field 34/169, button 34/244 — note the label is indented 11 px
 past its field here, which signup does not do. The field starts empty with only
-its hint, and the button stays disabled until something is typed. On save the
+its hint. **변경하기 is orange in every frame**, including the empty one, so it
+has no disabled state — an empty submit is refused with a snackbar instead.
+(비밀번호 변경 does gate its button: `2353:142` draws it grey.) On save the
 screen pops its new nickname and my page redraws the card with it (`2353:290`).
 
 **회원 탈퇴** (`2570:1994`, `2570:11895`): headline 45/140, notice box 45/241
