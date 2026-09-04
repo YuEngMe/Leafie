@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
@@ -113,6 +114,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
       ),
       body: DiaryScaffoldBody(
         onFabPressed: () => _openDay(_selected),
+        onNavTap: (tab) => switch (tab) {
+          // 다이어리는 이미 여기다. 홈·마이는 뒤로 돌아가면 된다.
+          FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
+          _ => null,
+        },
         child: Stack(
           clipBehavior: Clip.none,
           children: [

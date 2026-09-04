@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 
@@ -38,11 +41,19 @@ class DiaryLayout {
 /// 시안은 언덕과 구름을 벡터 90여 개로 그렸지만 그대로 옮길 것이 아니라
 /// 통째로 내보낸 PNG를 쓴다(2739:34593).
 class DiaryScaffoldBody extends StatelessWidget {
-  const DiaryScaffoldBody({super.key, required this.child, this.onFabPressed});
+  const DiaryScaffoldBody({
+    super.key,
+    required this.child,
+    this.onFabPressed,
+    this.onNavTap,
+  });
 
   /// 종이 위에 놓일 내용. 좌표는 화면 절대값을 그대로 쓴다.
   final Widget child;
   final VoidCallback? onFabPressed;
+
+  /// 하단 네비를 띄울지. null이면 그리지 않는다(글쓰기 화면).
+  final ValueChanged<FigmaNavIcon>? onNavTap;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +75,7 @@ class DiaryScaffoldBody extends StatelessWidget {
           rect: DiaryLayout.paper,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: kBackgroundWhite,
+              color: kDiaryPaper,
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x40000000),
@@ -73,17 +84,20 @@ class DiaryScaffoldBody extends StatelessWidget {
                 ),
               ],
             ),
-            // 종이 질감을 옅게 겹친다(2739:34975, opacity 30%).
-            child: Opacity(
-              opacity: 0.3,
-              child: Image.asset(
-                'assets/images/diary_paper.png',
-                fit: BoxFit.cover,
-              ),
-            ),
+            // 종이 질감(2739:34975). 내보낸 PNG가 순백이라 쓸 수 없어
+            // 시안에서 잰 노이즈(밝기 243~253)를 직접 뿌린다.
+            child: const CustomPaint(painter: _PaperGrainPainter()),
           ),
         ),
         child,
+        // 시안(2739:34928)은 다이어리에도 하단 네비를 둔다.
+        if (onNavTap case final onTap?)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AppBottomNav(onTap: onTap),
+          ),
         if (onFabPressed != null)
           Positioned.fromRect(
             rect: DiaryLayout.fab,
@@ -99,6 +113,34 @@ class DiaryScaffoldBody extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 종이의 오돌토돌한 결. 시안은 밝기 243~253 사이의 잔 알갱이다.
+class _PaperGrainPainter extends CustomPainter {
+  const _PaperGrainPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 매 프레임 달라지면 지저분하니 자리를 고정한다.
+    final random = Random(7);
+    final paint = Paint();
+    final count = (size.width * size.height / 26).round();
+    for (var i = 0; i < count; i++) {
+      final shade = 243 + random.nextInt(11);
+      paint.color = Color.fromARGB(255, shade, shade, shade);
+      canvas.drawCircle(
+        Offset(
+          random.nextDouble() * size.width,
+          random.nextDouble() * size.height,
+        ),
+        random.nextDouble() * 1.1 + 0.4,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PaperGrainPainter oldDelegate) => false;
 }
 
 /// 종이 오른쪽에 붙은 파란 책갈피(2766:203). 단색 사각형이라 직접 그린다.
@@ -162,8 +204,10 @@ class DiaryCalendar extends StatelessWidget {
   /// 격자 첫 칸(2739:35026)과 칸 크기.
   static const double _gridLeft = 45;
   static const double _gridTop = 292.9;
-  static const double _cellWidth = 44.3;
-  static const double _cellHeight = 66.9;
+  static const double _cellWidth = 44;
+
+  /// 시안 격자는 332.65 높이에 다섯 줄이다(2739:34987).
+  static const double _cellHeight = 332.65 / 5;
 
   @override
   Widget build(BuildContext context) {
@@ -171,6 +215,7 @@ class DiaryCalendar extends StatelessWidget {
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     // DateTime.weekday는 월요일이 1이다. 시안은 일요일이 첫 칸이다.
     final leading = first.weekday % 7;
+    final weeks = ((leading + daysInMonth) / 7).ceil();
 
     return Stack(
       clipBehavior: Clip.none,
@@ -221,42 +266,53 @@ class DiaryCalendar extends StatelessWidget {
               ),
             ),
           ),
-        for (var day = 1; day <= daysInMonth; day++)
-          _cell(day, leading + day - 1),
+        // 시안(2739:34987)은 6주 42칸을 모두 그린다. 날짜가 없는 칸도
+        // 테두리는 있다.
+        for (var i = 0; i < weeks * 7; i++)
+          _cell(
+            i,
+            i >= leading && i - leading < daysInMonth ? i - leading + 1 : null,
+          ),
       ],
     );
   }
 
-  Widget _cell(int day, int index) {
+  Widget _cell(int index, int? day) {
     final row = index ~/ 7;
     final col = index % 7;
-    final date = DateTime(month.year, month.month, day);
-    final isSelected = DiaryEntry.sameDay(date, selected);
-    return Positioned(
+    final cell = Positioned(
       left: _gridLeft + col * _cellWidth,
       top: _gridTop + row * _cellHeight,
       width: _cellWidth,
       height: _cellHeight,
-      child: GestureDetector(
-        onTap: () => onSelect(date),
-        behavior: HitTestBehavior.opaque,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: kDiaryGridLine, width: 0.5),
-          ),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                '$day',
-                style: kSmallStyle.copyWith(
-                  height: 1,
-                  fontSize: 15,
-                  color: isSelected ? kOrangeMain : kTextDark,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: kDiaryGridLine, width: 0.5),
+        ),
+        child: day == null
+            ? const SizedBox.expand()
+            : _dayLabel(DateTime(month.year, month.month, day), day),
+      ),
+    );
+    return cell;
+  }
+
+  Widget _dayLabel(DateTime date, int day) {
+    final isSelected = DiaryEntry.sameDay(date, selected);
+    return GestureDetector(
+      onTap: () => onSelect(date),
+      behavior: HitTestBehavior.opaque,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            '$day',
+            style: kSmallStyle.copyWith(
+              height: 1,
+              fontSize: 15,
+              color: isSelected ? kOrangeMain : kTextDark,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),

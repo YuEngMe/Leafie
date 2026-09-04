@@ -6,6 +6,7 @@ import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 /// 등록한 식물. dio가 붙기 전까지는 등록 화면이 user_metadata에 넣어 둔
@@ -205,57 +206,19 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  height: AppLayout.homeBottomNavHeight,
-                  // Figma node 3173:113. 디자이너가 2026-09-05에 아이콘을
-                  // 넣으면서 알약 배경과 글자 라벨을 걷어냈다.
-                  decoration: const BoxDecoration(
-                    color: kBackgroundWhite,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(30),
+                AppBottomNav(
+                  onTap: (tab) => switch (tab) {
+                    FigmaNavIcon.diary => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DiaryScreen()),
                     ),
-                    boxShadow: [
-                      BoxShadow(color: Color(0x33000000), blurRadius: 5),
-                    ],
-                  ),
-                  // 아이콘 간격이 101 / 101.5 / 96.5로 고르지 않아 균등
-                  // 배치 대신 시안 x를 그대로 쓴다.
-                  child: Stack(
-                    children: [
-                      const _NavItem(
-                        icon: FigmaNavIcon.home,
-                        left: 35,
-                        top: 22,
-                      ),
-                      _NavItem(
-                        icon: FigmaNavIcon.diary,
-                        left: 139,
-                        top: 24,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DiaryScreen(),
-                          ),
-                        ),
-                      ),
-                      const _NavItem(
-                        icon: FigmaNavIcon.calendar,
-                        left: 240,
-                        top: 22,
-                      ),
-                      _NavItem(
-                        icon: FigmaNavIcon.my,
-                        left: 338,
-                        top: 25,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyPageScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    FigmaNavIcon.my => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyPageScreen()),
+                    ),
+                    // 홈은 이미 여기고, 달력은 아직 화면이 없다.
+                    _ => null,
+                  },
                 ),
               ],
             ),
@@ -311,43 +274,6 @@ class _SideControl extends StatelessWidget {
         boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 3)],
       ),
       child: Text(label, style: kCaptionStyle, textAlign: TextAlign.center),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.left,
-    required this.top,
-    this.onTap,
-  });
-
-  final FigmaNavIcon icon;
-  final double left;
-  final double top;
-
-  /// 아직 화면이 없는 탭은 null로 둔다.
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // 아이콘이 29~37px이라 그대로 두면 탭 영역이 손가락보다 작다.
-    // 시안 좌표는 유지한 채 눌리는 범위만 48로 넓힌다.
-    const minTarget = 48.0;
-    final padX = (minTarget - icon.figmaSize.width) / 2;
-    final padY = (minTarget - icon.figmaSize.height) / 2;
-    return Positioned(
-      left: left - padX,
-      top: top - padY,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
-          child: FigmaBottomNavIcon(icon),
-        ),
-      ),
     );
   }
 }

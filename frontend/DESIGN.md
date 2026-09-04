@@ -440,6 +440,18 @@ Entries live in `user_metadata` under `leafie_diary` as JSON until the API
 exists; `DiaryStore` is the seam. Leaving the screen saves through `PopScope`,
 and an entry with no title, body or photo is discarded rather than stored.
 
+Four things only a device screenshot caught (2026-09-05):
+
+- Grid lines are **orange** `#FCB27E`, not grey.
+- The grid draws every cell in the weeks the month spans, including the blank
+  ones before the 1st — but **only those weeks**. `2739:34987` is 332.65 tall
+  over five rows, so a fixed six rows overflows the paper.
+- The exported `diary_paper.png` came back pure white, so the paper grain is
+  painted instead: fixed-seed dots at lightness 243-253, matching what the mock
+  measures. The unusable asset was deleted.
+- The mock keeps the **bottom navigation** on this screen. It moved out of
+  `home_screen.dart` into `AppBottomNav` so both screens share it.
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real
