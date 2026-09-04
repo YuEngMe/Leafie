@@ -93,6 +93,29 @@ screen and left with the back arrow.
 
 ### Icons: assets vs. code
 
+#### Back chevron (`3345:996`)
+
+The designer replaced the app bar's back arrow on 2026-09-05 and asked whether
+it could still be changed — it could, because all seven screens with a back
+button share `YesoAppBar`, so the swap was one call site.
+
+`Polygon 4 (Stroke)`, 11.4824 x 18.0019, `#CCCBCB`, left edge at x 21.5 and top
+at y 60 (14 inside the bar, once the 46 px status bar is removed). Its tips are
+rounded and the vertex is slightly blunt, so it ships as an asset rather than a
+painter.
+
+`download_assets` returns two SVGs for this node and only the smaller one is
+usable: the `export` entry bakes in the canvas backdrop (an `#F5F5F5` rect, an
+`#A0A0A0` page-sized path, the white screen frame), while `svgAssets` carries
+the bare path. That one points up (18 x 11.48) rather than left, so the
+committed file takes the rotated path out of the export and drops everything
+else — the same canvas-artifact problem the social logos hit.
+
+Setting this icon also fixed the bar itself: `YesoAppBar.height` is now **46**,
+not Material's `kToolbarHeight` (56), which had been pushing both the chevron
+and the centered title 5 px below the mock on every screen.
+
+
 Two files hold the designer's icons, split by what the icon is.
 
 `lib/widgets/figma_asset_icons.dart` renders committed SVGs through

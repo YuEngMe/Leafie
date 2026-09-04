@@ -19,6 +19,22 @@ class _AssetIcon extends StatelessWidget {
   }
 }
 
+/// Figma node 3345:996 `Polygon 4 (Stroke)`. 앱바 뒤로가기 꺾쇠.
+///
+/// 디자이너가 2026-09-05에 교체했다. 끝이 둥글고 꼭짓점이 살짝 뭉툭해
+/// 좌표로 옮기면 근사치가 되므로 에셋으로 둔다.
+class FigmaBackChevron extends StatelessWidget {
+  const FigmaBackChevron({super.key});
+
+  static const Size figmaSize = Size(11.4824, 18.0019);
+
+  @override
+  Widget build(BuildContext context) => const _AssetIcon(
+    asset: 'assets/images/icon_back_chevron.svg',
+    size: figmaSize,
+  );
+}
+
 /// Figma node 2346:2536. 홈 조도·습도 카드의 물방울 아이콘.
 class FigmaMoistureIcon extends StatelessWidget {
   const FigmaMoistureIcon({super.key});
