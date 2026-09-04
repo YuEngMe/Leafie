@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -73,11 +77,14 @@ Future<List<PlantSpeciesCandidate>> _searchPlantSpecies(String query) async {
 }
 
 class PlantSpeciesSearchScreen extends StatefulWidget {
-  const PlantSpeciesSearchScreen({super.key, this.name});
+  const PlantSpeciesSearchScreen({super.key, this.name, this.imagePicker});
 
   /// 이름 화면(2315:2189)에서 받은 애칭. 이 값이 있으면 종을 고른 뒤
   /// 다음 단계로 넘어가고, 없으면 고른 종을 pop으로 돌려준다.
   final String? name;
+
+  /// 위젯 테스트에서 갈아끼운다.
+  final ImagePicker? imagePicker;
 
   @override
   State<PlantSpeciesSearchScreen> createState() =>
@@ -97,6 +104,67 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     final i = _highlightedIndex;
     if (i == null || i >= _results.length) return null;
     return _results[i];
+  }
+
+  /// 시안 3~6단계. 사진을 고르면 인식 화면으로 넘긴다.
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      barrierColor: kModalBarrier,
+      backgroundColor: kBackgroundWhite,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('사진 찍기', style: kBodyStyle),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('앨범에서 고르기', style: kBodyStyle),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final XFile? picked;
+    try {
+      picked = await (widget.imagePicker ?? ImagePicker()).pickImage(
+        source: source,
+        // 인식에만 쓰는 사진이라 원본 해상도까지 필요하지 않다.
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+    } on Exception {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사진을 불러오지 못했어요.')));
+      return;
+    }
+    if (picked == null || !mounted) return;
+
+    final name = widget.name;
+    if (name == null) {
+      // 이름을 모르는 채로 들어온 경우엔 사진 인식을 쓸 수 없다.
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('애칭을 먼저 지어주세요.')));
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            PlantPhotoIdentifyScreen(photo: File(picked!.path), name: name),
+      ),
+    );
   }
 
   void _confirmSelection() {
@@ -179,8 +247,10 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
                     icon: const FigmaSearchIcon(),
                     onPressed: () => _runSearch(_queryController.text.trim()),
                   ),
-                  // 사진으로 찾기는 AI 인식 화면이 아직 없어 비활성으로 둔다.
-                  const IconButton(icon: FigmaCameraIcon(), onPressed: null),
+                  IconButton(
+                    icon: const FigmaCameraIcon(),
+                    onPressed: _pickPhoto,
+                  ),
                 ],
               ),
             ),

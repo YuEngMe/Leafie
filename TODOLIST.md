@@ -28,6 +28,7 @@
 | 화면 | 필요한 API |
 |---|---|
 | `plant_register_complete_screen.dart` | `POST /plants` — 지금은 `user_metadata`에 임시 저장 |
+| `plant_photo_identify_screen.dart` | 사진 AI 인식 — 지금은 시안 값(바위채송화)을 그대로 돌려줌 |
 | `edit_profile_screen.dart` | `PATCH /users/me` (닉네임) |
 | `oauth_nickname_screen.dart` | `PATCH /users/me` (닉네임) |
 | `my_page_screen.dart` | `GET /users/me` — 알림 토글 초기값, 변경 저장 |
@@ -63,6 +64,7 @@
 | 막대 폭 불일치 (홈) | `home_components.dart:101` | '현재조도 10%'인데 막대는 17.7% |
 | 화분·위치 입력 | `plant_register_environment_screen.dart` | 시안에 선택 UI가 없어 값을 비워 보낸다 |
 | 인증코드 칸 | `change_password_screen.dart` | 시안에 없어 임시로 넣음. 자리를 잡아 주면 좌표 맞춤 |
+| 사진 인식 거절 후 | `plant_photo_identify_screen.dart` | '아니에요'를 누른 뒤 화면이 시안에 없어 검색으로 되돌림 |
 | 애플 로그인 | 로그인 화면 | 시안 소셜 버튼 세 번째 검정 원. 애플이면 로고 에셋 필요 |
 | 약관 4개가 같은 이름 | `onboarding_overlays.dart:179` | `(필수) 서비스 약관` × 4, 꺾쇠를 눌러도 안 열림 |
 

@@ -390,6 +390,29 @@ constants were right; only the gap around them was wrong.
 
 `test/register_flow_layout_test.dart` locks these coordinates.
 
+#### Photo identification (`2318:2815`, `2318:2890`)
+
+The camera button in the species field was `onPressed: null` because these
+screens did not exist; `CameraViewfinderOverlay`, `PlantResultCard` and
+`PlantResultConfirmButtons` had been built for them and sat unused.
+
+`image_picker` now opens the system camera or gallery — no custom viewfinder is
+needed, so `CameraViewfinderOverlay` stays unused for now. iOS needs
+`NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`, both added.
+
+`PlantPhotoIdentifyScreen` is one screen with two states: 분석 중 while the
+identifier runs, then the result card. Headline 205, subtitle 241, character
+375 (94 wide), progress bar 492 (180x7, filled 126.768 in the mock — animated
+here with that ratio as its maximum). Result: question 169, card 238.62,
+buttons 759. All coordinates are relative to the frame, and the screen's
+`SafeArea` sits under a 46 px app bar, so the widgets are positioned at
+`mock y - 92`.
+
+`identifier` is injectable; the default returns the mock's own 바위채송화 /
+돌나무과 / 8월 ~ 9월 until the recognition API exists. Rejecting the guess pops
+back to search — the mock has no screen for that branch.
+
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real
