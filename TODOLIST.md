@@ -70,13 +70,53 @@
 
 ---
 
+## 디자이너 에셋 대기
+
+시안에는 있는데 그릴 그림이 없어 미룬 것들. 노드가 아니라 **에셋 파일**이
+필요하다.
+
+### 성격 캐릭터 6종 표정
+
+`lib/screens/plant_register_personality_screen.dart`
+
+시안(`3369:20` 3행)은 성격마다 캐릭터 표정이 다르다. 지금은
+`PlantCharacterArt` 하나를 여섯 번 재사용해 전부 같은 얼굴이다.
+
+| 성격 | 시안 표정 | 대사 |
+|---|---|---|
+| 활발한 (OUTGOING) | 웃음 | 자, 이제 물 줄 시간이야! |
+| 시크한 (CHIC) | 찡그림 | 물 밥? 뭐야, 너 뭐야 |
+| 귀여운 (CUTE) | 윙크 | 새싹이 물 먹고 싶어! |
+| 소심한 (INTROVERTED) | 놀람 | 저, 물 좀 주시면.. 안될까요..? |
+| 박력있는 (CRUSH) | 볼터치 | 물 줘라! 나랑 사귀자 |
+| 충청도 (CHUNGCHEONG) | 실눈 | 워딜라죽것슈 |
+
+**성격 이름도 확인 필요:** 시안은 `충청도 성격`인데 코드는 `느긋한 성격`이다.
+
+**필요한 것:** 표정별 PNG 6장
+**고칠 자리:** `PlantCharacterArt`에 성격을 넘겨 에셋을 고르게 하면 된다.
+
+### 꾸미기 아이템 탭
+
+`lib/screens/plant_register_appearance_screen.dart`
+
+시안 두 번째 꾸미기 화면은 **식물 아이템**(선인장·하트 화분 등)을 캐릭터
+머리에 올린다. 코드의 두 번째 탭은 '헤어'이고 "헤어 꾸미기는 준비 중이에요"
+문구만 있다.
+
+**필요한 것:** 아이템 PNG와 캐릭터 위 합성 규칙(위치·크기)
+**함께 확인:** 탭 이름이 '헤어'가 맞는지, 아니면 '아이템'인지
+
+---
+
 ## 화면이 없는 컴포넌트
 
 만들어 두고 아직 화면에 못 붙인 것들. 시안 노드를 받으면 붙일 수 있다.
 
 - **진단** — `DiagnosisEmptyState`, `DiagnosisRecordTile`, `PrescriptionCard`, `PrescriptionCause` (450줄)
 - **홈 게이지** — `EnvironmentGauge`, `PlantRequestBubble` (251줄)
-- **사진 검색** — `PlantResultCard`, `PlantResultConfirmButtons`, `CameraViewfinderOverlay`
+- **사진 검색** — `CameraViewfinderOverlay`만 남음. `image_picker`가 시스템
+  카메라를 띄우므로 직접 그린 뷰파인더는 당장 쓸 데가 없다
 - **다이어리** — 시안만 봤고 컴포넌트도 아직 없음
 
 하단 네비바의 기록 · 달력 탭은 아직 눌러도 아무 일도 없다.
@@ -85,5 +125,5 @@
 
 ## 기타
 
-- **PR 미개설** — `main`보다 20커밋 앞서 있다. 배선이 끝나면 PR #38을 닫고
+- **PR 미개설** — `main`보다 38커밋 앞서 있다. 배선이 끝나면 PR #38을 닫고
   이 브랜치에서 하나로 연다.
