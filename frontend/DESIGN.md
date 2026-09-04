@@ -91,6 +91,21 @@ to the bottom.
 The mock has **no bottom navigation bar** — this screen is pushed over the home
 screen and left with the back arrow.
 
+#### Profile data
+
+The card's three lines come from the Supabase session, not the mock. `MyPageScreen`
+reads `currentUser` and derives:
+
+- **nickname** — `user_metadata['leafie_nickname']`, the key signup and the
+  social-nickname screen already write. The mock draws "김윤지님", so the 님 is
+  appended here rather than stored. Falls back to "식집사님" when unset.
+- **email** — `user.email`.
+- **tenure** — days since `user.createdAt`.
+
+`user` can be injected for tests; `currentUser` is read inside a try/catch so a
+widget test without `Supabase.initialize` still renders. `EditProfileScreen`
+takes no nickname argument — the mock starts that field empty.
+
 #### My page sub-screens
 
 `3369:18` holds the whole my-page flow — 17 screens, not the 3 first built. Two

@@ -32,9 +32,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        const MaterialApp(home: EditProfileScreen(nickname: '김윤지')),
-      );
+      await tester.pumpWidget(const MaterialApp(home: EditProfileScreen()));
       await tester.pumpAndSettle();
 
       // 시안은 마이페이지 쪽 화면에서만 라벨을 입력칸보다 11px 들여쓴다.
@@ -55,9 +53,7 @@ void main() {
     });
 
     testWidgets('빈 칸에서도 버튼은 오렌지이고, 눌러도 넘어가지 않는다', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(home: EditProfileScreen(nickname: '김윤지')),
-      );
+      await tester.pumpWidget(const MaterialApp(home: EditProfileScreen()));
 
       // 시안 2316:6397은 기존 값을 채우지 않고 힌트만 보여준다.
       expect(find.text('닉네임을 입력하세요.'), findsOneWidget);
@@ -86,7 +82,7 @@ void main() {
                   returned = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const EditProfileScreen(nickname: '김윤지'),
+                      builder: (_) => const EditProfileScreen(),
                     ),
                   );
                 },

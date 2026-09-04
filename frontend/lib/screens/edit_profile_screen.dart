@@ -11,10 +11,7 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 /// 닉네임 한 칸만 고친다. 저장하면 바뀐 닉네임을 돌려주고 마이페이지가
 /// 그 값으로 다시 그린다(2353:290).
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({super.key, required this.nickname});
-
-  /// 현재 닉네임. 시안 2316:6397은 빈 칸에서 시작한다.
-  final String nickname;
+  const EditProfileScreen({super.key});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();

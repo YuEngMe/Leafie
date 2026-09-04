@@ -17,21 +17,40 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 /// 시안에 하단 네비게이션 바가 없다. 홈에서 밀어 올리는 화면이라
 /// 뒤로가기로 빠져나온다.
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({
-    super.key,
-    this.nickname = '김윤지님',
-    this.email = 'akdrotorl@naver.com',
-    this.tenureDays = 128,
-  });
+  const MyPageScreen({super.key, this.user});
 
-  final String nickname;
-  final String email;
-
-  /// 가입일로부터 지난 날짜. 서버가 가입일을 주면 계산해 넘긴다.
-  final int tenureDays;
+  /// 로그인한 사용자. 비워 두면 현재 세션에서 읽는다. 테스트에서만 넘긴다.
+  final User? user;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
+}
+
+/// 화면에 띄울 프로필. 세션이 없거나 값이 비어 있어도 화면은 떠야 한다.
+class _Profile {
+  const _Profile({
+    required this.nickname,
+    required this.email,
+    required this.tenureDays,
+  });
+
+  /// 회원가입·소셜 닉네임 화면이 user_metadata에 넣어 둔 값을 읽는다.
+  factory _Profile.of(User? user) {
+    final nickname = user?.userMetadata?['leafie_nickname'] as String?;
+    final createdAt = DateTime.tryParse(user?.createdAt ?? '');
+    return _Profile(
+      // 시안(2319:56)은 이름 뒤에 '님'이 붙은 채로 그려져 있다.
+      nickname: (nickname == null || nickname.isEmpty) ? '식집사님' : '$nickname님',
+      email: user?.email ?? '',
+      tenureDays: createdAt == null
+          ? 0
+          : DateTime.now().difference(createdAt).inDays,
+    );
+  }
+
+  final String nickname;
+  final String email;
+  final int tenureDays;
 }
 
 class _MyPageScreenState extends State<MyPageScreen> {
@@ -39,16 +58,31 @@ class _MyPageScreenState extends State<MyPageScreen> {
   // 변경 시 PATCH /users/me를 호출한다. 시안 기본값은 꺼짐(2319:2).
   bool _notificationsEnabled = false;
 
-  /// 내 정보 수정에서 돌아오면 이 값이 바뀐다(2353:290).
-  late String _nickname = widget.nickname;
+  /// 세션에서 읽은 프로필. 내 정보 수정에서 돌아오면 닉네임이 바뀐다(2353:290).
+  late _Profile _profile = _Profile.of(widget.user ?? _currentUser());
+
+  /// Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 한다.
+  static User? _currentUser() {
+    try {
+      return Supabase.instance.client.auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _editProfile() async {
     final next = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (_) => EditProfileScreen(nickname: _nickname)),
+      MaterialPageRoute(builder: (_) => const EditProfileScreen()),
     );
     if (next == null || !mounted) return;
-    setState(() => _nickname = next);
+    setState(
+      () => _profile = _Profile(
+        nickname: '$next님',
+        email: _profile.email,
+        tenureDays: _profile.tenureDays,
+      ),
+    );
   }
 
   Future<void> _confirmSignOut() async {
@@ -81,9 +115,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
             children: [
               const SizedBox(height: AppLayout.myPageTopGap),
               ProfileSummaryCard(
-                nickname: _nickname,
-                email: widget.email,
-                tenureLabel: '식집사가 된 지 ${widget.tenureDays}일째',
+                nickname: _profile.nickname,
+                email: _profile.email,
+                tenureLabel: '식집사가 된 지 ${_profile.tenureDays}일째',
               ),
               const SizedBox(height: AppLayout.myPageCardGap),
               ProfileMenuCard(
@@ -91,7 +125,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 onChangePassword: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ChangePasswordScreen(email: widget.email),
+                    builder: (_) => ChangePasswordScreen(email: _profile.email),
                   ),
                 ),
                 onWithdraw: () => Navigator.push(

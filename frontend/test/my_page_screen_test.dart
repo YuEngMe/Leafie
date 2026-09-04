@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/figma_toggle_switch.dart';
@@ -10,13 +11,26 @@ import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
+/// 시안(2319:2)이 그린 값 그대로의 가짜 세션. 화면이 세션에서 값을 읽으므로
+/// 좌표·문구 검증에는 고정된 사용자가 필요하다.
+User _mockUser() => User(
+  id: 'test-user',
+  appMetadata: const {},
+  userMetadata: const {'leafie_nickname': '김윤지'},
+  aud: 'authenticated',
+  email: 'akdrotorl@naver.com',
+  createdAt: DateTime.now()
+      .subtract(const Duration(days: 128))
+      .toIso8601String(),
+);
+
 void main() {
   testWidgets('마이페이지 402x874 스냅샷', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -26,7 +40,7 @@ void main() {
   });
 
   testWidgets('시안 문구와 카드 두 장이 모두 뜬다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
     expect(find.text('마이페이지'), findsOneWidget);
     expect(find.byType(ProfileSummaryCard), findsOneWidget);
@@ -37,7 +51,7 @@ void main() {
   });
 
   testWidgets('앱 알림 토글은 꺼진 채로 시작해 누르면 켜진다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
     // 2319:2가 꺼짐, 2353:577이 켜짐 상태다.
     expect(
@@ -55,7 +69,7 @@ void main() {
   });
 
   testWidgets('로그아웃을 누르면 확인 모달이 시안 딤과 함께 뜬다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
@@ -68,7 +82,7 @@ void main() {
   });
 
   testWidgets('모달에서 아니오를 고르면 로그아웃하지 않고 화면에 머문다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
@@ -86,7 +100,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
     await tester.pumpAndSettle();
 
     // 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
@@ -119,5 +133,44 @@ void main() {
     // 앉는 자리는 중심으로 본다.
     final toggle = tester.getRect(find.byType(FigmaToggleSwitch));
     expect(toggle.center.dy + statusBar, closeTo(409.76 + 24.923 / 2, 1));
+  });
+
+  testWidgets('프로필은 하드코딩이 아니라 세션에서 읽는다', (tester) async {
+    final user = User(
+      id: 'other-user',
+      appMetadata: const {},
+      userMetadata: const {'leafie_nickname': '박승현'},
+      aud: 'authenticated',
+      email: 'seunghyun@example.com',
+      createdAt: DateTime.now()
+          .subtract(const Duration(days: 7))
+          .toIso8601String(),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: user)));
+
+    expect(find.text('박승현님'), findsOneWidget);
+    expect(find.text('seunghyun@example.com'), findsOneWidget);
+    expect(find.text('식집사가 된 지 7일째'), findsOneWidget);
+
+    // 시안이 그린 더미가 남아 있으면 안 된다.
+    expect(find.text('김윤지님'), findsNothing);
+    expect(find.text('akdrotorl@naver.com'), findsNothing);
+  });
+
+  testWidgets('닉네임이 비어 있어도 화면은 뜬다', (tester) async {
+    final user = User(
+      id: 'no-nickname',
+      appMetadata: const {},
+      userMetadata: const {},
+      aud: 'authenticated',
+      email: 'plain@example.com',
+      createdAt: DateTime.now().toIso8601String(),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: user)));
+
+    expect(find.text('식집사님'), findsOneWidget);
+    expect(find.text('plain@example.com'), findsOneWidget);
   });
 }
