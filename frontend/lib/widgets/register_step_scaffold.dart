@@ -37,18 +37,27 @@ class RegisterStepScaffold extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: AppLayout.registrationProgressTopGap),
             Center(child: RegisterProgressBar(step: step)),
             const SizedBox(height: AppLayout.registrationHeaderGap),
             Padding(
+              // 헤드라인과 부제는 입력칸(34)보다 11px 들여쓴다(2315:2234).
               padding: const EdgeInsets.symmetric(
-                horizontal: AppLayout.registrationHorizontalPadding,
+                horizontal:
+                    AppLayout.registrationHorizontalPadding +
+                    AppLayout.registrationLabelIndent,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: kTitleStyle),
-                  const SizedBox(height: 14),
-                  Text(subtitle, style: kSmallStyle),
+                  // 시안 2318:2981처럼 부제가 없는 화면은 간격도 두지 않는다.
+                  if (subtitle.isNotEmpty) ...[
+                    // 헤드라인 top 140에서 부제 top 175까지 35, 헤드라인
+                    // 글자 상자가 30이라 남는 5px이 간격이다(2315:2234).
+                    const SizedBox(height: 5),
+                    Text(subtitle, style: kSmallStyle),
+                  ],
                 ],
               ),
             ),

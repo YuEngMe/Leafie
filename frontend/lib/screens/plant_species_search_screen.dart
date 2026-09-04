@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
@@ -69,7 +73,11 @@ Future<List<PlantSpeciesCandidate>> _searchPlantSpecies(String query) async {
 }
 
 class PlantSpeciesSearchScreen extends StatefulWidget {
-  const PlantSpeciesSearchScreen({super.key});
+  const PlantSpeciesSearchScreen({super.key, this.name});
+
+  /// 이름 화면(2315:2189)에서 받은 애칭. 이 값이 있으면 종을 고른 뒤
+  /// 다음 단계로 넘어가고, 없으면 고른 종을 pop으로 돌려준다.
+  final String? name;
 
   @override
   State<PlantSpeciesSearchScreen> createState() =>
@@ -84,6 +92,31 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
   // 하이라이트만 먼저 주고, 사용자가 한 번 더 눌러야 확정되는 게 아니라
   // 탭 즉시 이전 화면으로 돌려보낸다. 시안의 노란 강조는 눌리는 순간의 표시다.
   int? _highlightedIndex;
+
+  PlantSpeciesCandidate? get _selectedCandidate {
+    final i = _highlightedIndex;
+    if (i == null || i >= _results.length) return null;
+    return _results[i];
+  }
+
+  void _confirmSelection() {
+    final candidate = _selectedCandidate;
+    if (candidate == null) return;
+    final name = widget.name;
+    if (name == null) {
+      // 이름 화면을 거치지 않고 열린 경우 — 고른 종만 돌려준다.
+      Navigator.pop(context, candidate);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlantRegisterEnvironmentScreen(
+          draft: PlantRegistrationDraft(name: name, species: candidate),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -113,17 +146,30 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
   Widget build(BuildContext context) {
     return RegisterStepScaffold(
       appBarTitle: '내 식물 찾기',
-      step: 1,
+      step: 2,
       title: '내 식물을 찾아주세요!',
       subtitle: '검색 또는 사진으로 내 식물을 찾아요.',
+      bottomButton: PrimaryButton(
+        label: '다음',
+        variant: _selectedCandidate == null
+            ? PrimaryButtonVariant.disabled
+            : PrimaryButtonVariant.enabled,
+        onPressed: _selectedCandidate == null ? null : _confirmSelection,
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: kScreenPadding),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppLayout.registrationHorizontalPadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 26),
+            // 부제 바닥(195)에서 식물 명칭 라벨(237)까지.
+            const SizedBox(height: 42),
             RoundedInputField(
               label: '식물 명칭',
+              labelIndent: AppLayout.registrationLabelIndent,
+              labelGap: 5,
+              height: AppLayout.onboardingControlHeight,
               hintText: '예: 바질',
               controller: _queryController,
               suffix: Row(
@@ -177,10 +223,9 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
           final candidate = _results[index];
           final highlighted = index == _highlightedIndex;
           return InkWell(
-            onTap: () {
-              setState(() => _highlightedIndex = index);
-              Navigator.pop(context, candidate);
-            },
+            // 시안(2315:2582)은 고른 항목을 노랗게 표시만 하고, 넘어가는
+            // 것은 하단 '다음' 버튼이 맡는다.
+            onTap: () => setState(() => _highlightedIndex = index),
             child: Container(
               // 2318:3722 하이라이트 밴드 높이.
               height: 33,

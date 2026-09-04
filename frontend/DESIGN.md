@@ -351,6 +351,45 @@ only once an asset needs gradients, masks, or clip paths.
 Code Connect publishing is intentionally separate from this runtime mapping.
 It requires a Figma Organization or Enterprise plan with a Dev or Full seat.
 
+### Plant registration flow
+
+`3369:20` holds 18 frames; six are built. Screens 1-3 were measured against the
+mock on 2026-09-05 and had drifted badly — they predate the screen-level audits
+the auth and my-page flows went through.
+
+**What was wrong across all three:**
+
+| | mock | was |
+|---|---|---|
+| field / button x, width | 34, 334 | 47, 308 |
+| bottom button y | 790 | 830 |
+| headline, subtitle x | 45 | 47 |
+| subtitle gap | 5 | 14 |
+
+`registrationHorizontalPadding` is now **34** and `bottomPadding` **0** (the
+device's bottom inset covers the mock's 33 px — same double-count as my page).
+Headline and subtitle indent 11 px past the fields, matching the my-page rule.
+
+**The wave** (`2315:2237`) is a 238x15 frame whose SVG overflows it — the real
+drawing is 243 x 21.425 starting at y 91.79, not 238 x 15 at y 95. The original
+constants were right; only the gap around them was wrong.
+
+**Per-screen fixes:**
+
+- **1단계** (`2315:2189`) — the mock takes **only 애칭**; species moves to the
+  next screen. Character is 175x150 at y 267, the field label at y 493. The old
+  build had two fields crammed at y 248.
+- **2단계** (`2315:2515`) — gained the mock's **다음 button** (y 790). Tapping a
+  result now only highlights it; the button commits. Step number 1 → **2**,
+  which had left the wave identical to screen 1 and step 2 unused.
+- **3단계** (`2318:2981`) — copy was wrong throughout: app bar 키우는 장소 →
+  **식물 정보**, headline → **내 식물을 챙긴 날은 언제인가요?**, hints 학교 →
+  **예: 베란다** and the two dates → **선택하기**. Labels sit 110 apart, which
+  needs a 31 px gap rather than the mock's 35 because the label+field group
+  renders 79 tall, not 75.
+
+`test/register_flow_layout_test.dart` locks these coordinates.
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real

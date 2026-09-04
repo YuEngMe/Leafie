@@ -62,11 +62,34 @@ abstract final class AppLayout {
   static const double signupCompleteCopyGap = 42;
   // 2395:44 버튼 바닥 841 -> 프레임 874.
   static const double signupCompleteBottomGap = 0;
-  static const double registrationHorizontalPadding = 47;
-  static const double registrationHeaderGap = 16;
-  static const double registrationNameCharacterTopGap = 38;
-  static const double registrationNameCharacterWidth = 234;
-  static const double registrationNameFieldsGap = 16;
+
+  /// 시안(2315:2189)의 입력칸·버튼은 x=34 w=334이다. 47은 시안 대조를
+  /// 거치기 전 값이라 좌우가 13px씩 좁았다.
+  static const double registrationHorizontalPadding = 34;
+
+  /// 라벨만 입력칸보다 11px 들여쓴다(2315:2248 x=45). 마이페이지 쪽
+  /// 화면들과 같은 규칙이다.
+  static const double registrationLabelIndent = 11;
+
+  /// 입력칸 바닥에서 다음 라벨까지. 라벨 사이가 110이 되어야 하는데
+  /// 라벨+칸 묶음이 79로 렌더돼 시안의 35 대신 31을 준다(2318:2981).
+  static const double registrationFieldGap = 31;
+
+  /// 물결이 그려지는 바닥(113.21)에서 헤드라인 top(140)까지.
+  static const double registrationHeaderGap = 26.79;
+
+  /// 앱바 아래(92)에서 물결이 그려지기 시작하는 91.79까지. 0.21px 차이는
+  /// 반올림 범위라 붙여 둔다.
+  static const double registrationProgressTopGap = 0;
+
+  /// 부제 바닥(195)에서 캐릭터 top(267)까지.
+  static const double registrationNameCharacterTopGap = 72;
+
+  /// 시안 2315:2244는 175x150.
+  static const double registrationNameCharacterWidth = 175;
+
+  /// 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
+  static const double registrationNameFieldsGap = 76;
   static const double personalityTagsTop = 38;
   static const double personalityCharacterWidth = 250;
   static const double personalityCharacterTop = 104;
@@ -87,13 +110,20 @@ abstract final class AppLayout {
 
   /// 시안 3173:113. 아이콘이 들어오며 88 -> 79로 낮아졌다.
   static const double homeBottomNavHeight = 79;
-  static const double bottomPadding = 39;
+
+  /// 시안은 버튼 바닥에서 화면 아래까지 33px을 두지만 실기기의 하단
+  /// SafeArea(34)가 그 자리를 대신한다. 39는 상태바가 없는 골든만 보고
+  /// 넣은 값이라 실기기에서 버튼이 40px 떠 있었다.
+  static const double bottomPadding = 0;
   static const double onboardingControlHeight = 51;
   static const double controlHeight = 52;
   static const double controlRadius = 50;
   static const double appBarHeight = 56;
+
+  /// 시안 프레임은 238x15지만 SVG가 inset으로 넘쳐 실제 243x21.425로
+  /// 그려진다(2315:2237). 그려지는 크기를 그대로 쓴다.
   static const double progressWidth = 243;
-  static const double progressHeight = 22;
+  static const double progressHeight = 21.425;
   static const double characterWidth = 184;
 
   // 마이페이지(2319:2). 카드 폭 344라 좌우 여백은 (402-344)/2 = 29.

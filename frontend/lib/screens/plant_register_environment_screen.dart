@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
@@ -86,9 +86,9 @@ class _PlantRegisterEnvironmentScreenState
   @override
   Widget build(BuildContext context) {
     return RegisterStepScaffold(
-      appBarTitle: '키우는 장소',
+      appBarTitle: '식물 정보',
       step: 3,
-      title: '식물을 키우는 곳이 어디인가요?',
+      title: '내 식물을 챙긴 날은 언제인가요?',
       subtitle: '',
       bottomButton: PrimaryButton(
         label: '다음',
@@ -96,27 +96,40 @@ class _PlantRegisterEnvironmentScreenState
         onPressed: _goToNextStep,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: kScreenPadding),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppLayout.registrationHorizontalPadding,
+        ),
         child: Column(
           children: [
-            const SizedBox(height: 28),
+            // 헤드라인 바닥(170)에서 첫 라벨(214)까지.
+            const SizedBox(height: 44),
             RoundedInputField(
-              label: '장소 (별명)',
-              hintText: '학교',
+              label: '장소(별명)',
+              labelIndent: AppLayout.registrationLabelIndent,
+              labelGap: 5,
+              height: AppLayout.onboardingControlHeight,
+              hintText: '예: 베란다',
               controller: _placeNameController,
             ),
-            const SizedBox(height: 22),
+            // 칸 바닥에서 다음 라벨까지 35 — 라벨 사이가 110이 된다.
+            const SizedBox(height: AppLayout.registrationFieldGap),
             RoundedInputField(
               label: '마지막 물 준 날',
-              hintText: '2026년 3월 30일',
+              labelIndent: AppLayout.registrationLabelIndent,
+              labelGap: 5,
+              height: AppLayout.onboardingControlHeight,
+              hintText: '선택하기',
               controller: _lastWateredController,
               readOnly: true,
               onTap: () => _pickDate(watered: true),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: AppLayout.registrationFieldGap),
             RoundedInputField(
               label: '분갈이 한 날',
-              hintText: '2026년 7월 30일',
+              labelIndent: AppLayout.registrationLabelIndent,
+              labelGap: 5,
+              height: AppLayout.onboardingControlHeight,
+              hintText: '선택하기',
               controller: _lastRepottedController,
               readOnly: true,
               onTap: () => _pickDate(watered: false),

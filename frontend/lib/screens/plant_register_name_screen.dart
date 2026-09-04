@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:yeso_plant/models/plant_registration_draft.dart';
-import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
-import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
@@ -20,45 +16,25 @@ class PlantRegisterNameScreen extends StatefulWidget {
 
 class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
   final _nicknameController = TextEditingController();
-  final _speciesController = TextEditingController();
-  PlantSpeciesCandidate? _selectedSpecies;
 
   @override
   void dispose() {
     _nicknameController.dispose();
-    _speciesController.dispose();
     super.dispose();
   }
 
-  Future<void> _goToSpeciesSearch() async {
-    final result = await Navigator.push<PlantSpeciesCandidate>(
-      context,
-      MaterialPageRoute(builder: (_) => const PlantSpeciesSearchScreen()),
-    );
-    if (result != null) {
-      setState(() {
-        _selectedSpecies = result;
-        _speciesController.text = result.displayName;
-      });
-    }
-  }
-
   void _goToNextStep() {
-    if (_nicknameController.text.trim().isEmpty || _selectedSpecies == null) {
+    final name = _nicknameController.text.trim();
+    if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('애칭과 식물명칭을 모두 입력해주세요')));
+      ).showSnackBar(const SnackBar(content: Text('애칭을 입력해주세요')));
       return;
     }
-    final draft = PlantRegistrationDraft(
-      name: _nicknameController.text.trim(),
-      species: _selectedSpecies!,
-    );
+    // 종은 다음 화면(2315:2515)에서 고른다.
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlantRegisterEnvironmentScreen(draft: draft),
-      ),
+      MaterialPageRoute(builder: (_) => PlantSpeciesSearchScreen(name: name)),
     );
   }
 
@@ -75,33 +51,27 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
         onPressed: _goToNextStep,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: kScreenPadding),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppLayout.registrationHorizontalPadding,
+        ),
         child: Column(
           children: [
+            // 부제 바닥(195)에서 캐릭터 top(267)까지.
             const SizedBox(height: AppLayout.registrationNameCharacterTopGap),
             const Center(
               child: PlantCharacterArt(
                 width: AppLayout.registrationNameCharacterWidth,
               ),
             ),
+            // 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
             const SizedBox(height: AppLayout.registrationNameFieldsGap),
             RoundedInputField(
               label: '애칭',
+              labelIndent: AppLayout.registrationLabelIndent,
+              labelGap: 5,
+              height: AppLayout.onboardingControlHeight,
               hintText: '예: 쑥쑥이',
               controller: _nicknameController,
-            ),
-            const SizedBox(height: 20),
-            RoundedInputField(
-              label: '식물 명칭',
-              hintText: '예: 바질 (필수)',
-              controller: _speciesController,
-              readOnly: true,
-              onTap: _goToSpeciesSearch,
-              suffix: IconButton(
-                icon: const Icon(Icons.center_focus_weak, size: 22),
-                color: kTextDark,
-                onPressed: _goToSpeciesSearch,
-              ),
             ),
             const Spacer(),
           ],

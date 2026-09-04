@@ -26,23 +26,23 @@ PlantRegistrationDraft _sampleDraft() => PlantRegistrationDraft(
 );
 
 void main() {
-  testWidgets('애칭과 식물명칭을 채우면 환경 화면으로 draft가 전달된다', (WidgetTester tester) async {
+  testWidgets('애칭을 넣고 종을 고르면 환경 화면으로 draft가 전달된다', (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: PlantRegisterNameScreen()));
 
-    await tester.enterText(find.byType(TextField).first, '씩씩이');
-
-    // 식물명칭 칸은 readOnly라 탭하면 검색 화면으로 넘어간다
-    await tester.tap(find.byType(TextField).last);
+    // 시안 2315:2189는 애칭 한 칸만 받는다.
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '씩씩이');
+    await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
+
+    // 종은 다음 화면에서 고른다(2315:2515).
+    expect(find.byType(PlantSpeciesSearchScreen), findsOneWidget);
     await tester.tap(find.text('바질'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    final submitButton = find.descendant(
-      of: find.byType(ElevatedButton),
-      matching: find.text('다음'),
-    );
-    await tester.ensureVisible(submitButton);
-    await tester.tap(submitButton);
+    // 고르기만 해서는 넘어가지 않고 '다음'을 눌러야 한다.
+    expect(find.byType(PlantRegisterEnvironmentScreen), findsNothing);
+    await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
 
     final envScreen = tester.widget<PlantRegisterEnvironmentScreen>(
