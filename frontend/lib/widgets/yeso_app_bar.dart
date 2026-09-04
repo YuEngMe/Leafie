@@ -9,11 +9,15 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.showBack = true,
     this.actions,
+    this.backgroundColor,
   });
 
   final String title;
   final bool showBack;
   final List<Widget>? actions;
+
+  /// 다이어리처럼 배경이 앱바 뒤까지 이어지는 화면은 투명으로 둔다.
+  final Color? backgroundColor;
 
   /// 시안(2319:2, 3345:996)의 앱바는 상태바 아래 46이다. Material 기본
   /// 56을 쓰면 꺾쇠와 제목이 5px 아래로 내려간다.
@@ -25,7 +29,7 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: kBackgroundWhite,
+      backgroundColor: backgroundColor ?? kBackgroundWhite,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,

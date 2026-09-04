@@ -29,6 +29,7 @@
 |---|---|
 | `plant_register_complete_screen.dart` | `POST /plants` — 지금은 `user_metadata`에 임시 저장 |
 | `plant_photo_identify_screen.dart` | 사진 AI 인식 — 지금은 시안 값(바위채송화)을 그대로 돌려줌 |
+| `diary_screen.dart` | 다이어리 저장 — 지금은 `user_metadata`에 JSON으로 |
 | `edit_profile_screen.dart` | `PATCH /users/me` (닉네임) |
 | `oauth_nickname_screen.dart` | `PATCH /users/me` (닉네임) |
 | `my_page_screen.dart` | `GET /users/me` — 알림 토글 초기값, 변경 저장 |
@@ -117,7 +118,6 @@
 - **홈 게이지** — `EnvironmentGauge`, `PlantRequestBubble` (251줄)
 - **사진 검색** — `CameraViewfinderOverlay`만 남음. `image_picker`가 시스템
   카메라를 띄우므로 직접 그린 뷰파인더는 당장 쓸 데가 없다
-- **다이어리** — 시안만 봤고 컴포넌트도 아직 없음
 
 하단 네비바의 기록 · 달력 탭은 아직 눌러도 아무 일도 없다.
 

@@ -49,6 +49,16 @@ const Color kErrorRed = Color(0xFFF05F5F); // 입력 오류
 const Color kBackgroundWhite = Color(0xFFFFFFFF); // 배경_화이트
 // 모달·바텀시트 뒤를 덮는 딤(2307:785). rgba(0,0,0,0.45).
 const Color kModalBarrier = Color(0x73000000);
+
+// 다이어리 종이 오른쪽 책갈피(2766:203).
+const Color kDiaryTabBlue = Color(0xFFC6E6F9);
+
+// 달력 격자선(2739:35026 테두리).
+const Color kDiaryGridLine = Color(0xFFBDBDBD);
+
+// 달 넘김 버튼(2739:38803 초록, 2739:38804 분홍).
+const Color kDiaryPrevGreen = Color(0xFFA8D66E);
+const Color kDiaryNextPink = Color(0xFFF9C6DC);
 const Color kHomeGreen = Color(0xFFBFF4C8);
 const Color kHomeYellow = Color(0xFFFFFFB7);
 const Color kHomePeach = Color(0xFFFFD2B1);

@@ -413,6 +413,33 @@ buttons 759. All coordinates are relative to the frame, and the screen's
 back to search — the mock has no screen for that branch.
 
 
+### Diary (`3373:21`)
+
+Three frames: calendar (`2739:34592`), writing (`2739:39308`), reading
+(`2739:39860`). The last two are one screen — the same paper, with or without
+text — so `DiaryEntryScreen` covers both.
+
+**The background is an asset, not vectors.** The mock draws the hills and clouds
+with ~90 ellipses and 27 curves; exporting `2739:34593` as one PNG is both
+faithful and a fraction of the work. Same for the book cover (`2739:38324`) and
+the paper grain (`2739:34974`, laid at 30% opacity).
+
+**Coordinates are absolute here**, unlike every other screen. The background
+runs behind the status bar, so the screens set `extendBodyBehindAppBar` with a
+transparent `YesoAppBar` and place widgets at the mock's own y — no `- 92`.
+
+Paper 34/132 (334x548), photo box 46/143 (304x242), body box 46/395 (304x266),
+blue bookmark 350/232, month buttons 350/472 and 351/540, pencil FAB 330/730.
+The date line sits *inside* the photo box's top strip, divided by a vertical
+rule at x 212.63 and a horizontal one at y 179.
+
+Weather is five SVGs at hand-placed x positions (217 / 243.09 / 271.99 / 302.23
+/ 326.81) — their widths differ, so a row would not line up.
+
+Entries live in `user_metadata` under `leafie_diary` as JSON until the API
+exists; `DiaryStore` is the seam. Leaving the screen saves through `PopScope`,
+and an entry with no title, body or photo is discarded rather than stored.
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real

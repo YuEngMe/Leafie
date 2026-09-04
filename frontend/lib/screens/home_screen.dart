@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
+import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -226,10 +227,16 @@ class HomeScreen extends StatelessWidget {
                         left: 35,
                         top: 22,
                       ),
-                      const _NavItem(
+                      _NavItem(
                         icon: FigmaNavIcon.diary,
                         left: 139,
                         top: 24,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const DiaryScreen(),
+                          ),
+                        ),
                       ),
                       const _NavItem(
                         icon: FigmaNavIcon.calendar,
