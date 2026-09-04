@@ -40,6 +40,7 @@ class RoundedInputField extends StatefulWidget {
     this.obscuringCharacter = '•',
     this.showShadow = true,
     this.alwaysShowEye = false,
+    this.labelIndent = 0,
   });
 
   final String? label;
@@ -75,6 +76,10 @@ class RoundedInputField extends StatefulWidget {
   /// 회원가입(2395:40)은 값이 있을 때만 눈을 보여주지만, 로그인(2395:31)은
   /// 빈 칸에도 띄운다. 화면마다 다르니 호출부가 정한다.
   final bool alwaysShowEye;
+
+  /// 마이페이지 쪽 시안(2316:6397, 2346:2722)은 라벨만 입력칸보다 11px
+  /// 들여쓴다. 회원가입은 둘이 같은 x라 0이다.
+  final double labelIndent;
 
   @override
   State<RoundedInputField> createState() => _RoundedInputFieldState();
@@ -117,9 +122,12 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: kItemStyle.copyWith(color: widget.labelColor),
+          Padding(
+            padding: EdgeInsets.only(left: widget.labelIndent),
+            child: Text(
+              widget.label!,
+              style: kItemStyle.copyWith(color: widget.labelColor),
+            ),
           ),
           SizedBox(height: widget.labelGap),
         ],

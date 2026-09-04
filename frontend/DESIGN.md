@@ -109,8 +109,17 @@ the consent box ticked before the button unlocks; tapping the label toggles it
 too. The box's height is left to its content — pinning the mock's 105 overflows
 once the three 23 px lines and their gaps are laid out.
 
-Both screens share `myPageSubHorizontalPadding` 34, which differs from my page's
-own 29 (its cards are 344 wide, these are 334).
+**비밀번호 변경** (`2353:142` … `2346:2722`, done `2346:2773`): seven mock
+frames, but one screen — all three fields are always visible and only the email
+button's label walks 발송 → 재발송 → 완료. This is *not* `PasswordResetScreen`,
+which swaps whole screens across four steps; that one is the logged-out reset
+flow. Labels 45/145, 45/255, 45/365; fields at 169, 279, 389; the email field is
+261 wide with a 68-wide send button beside it; submit at 34/790.
+
+All three screens share `myPageSubHorizontalPadding` 34, which differs from my
+page's own 29 (its cards are 344 wide, these are 334), and all three indent
+their labels 11 px past the field — `RoundedInputField.labelIndent`, which
+signup leaves at 0.
 
 ### Icons: assets vs. code
 

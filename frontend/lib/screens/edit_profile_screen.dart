@@ -64,21 +64,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: AppLayout.editProfileTopGap),
-              // 시안(2316:6397)은 이 화면에서만 라벨을 입력칸보다 11px
-              // 들여쓴다. 회원가입은 둘이 같은 x다.
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: AppLayout.editProfileLabelIndent,
-                ),
-                child: Text(
-                  '닉네임',
-                  style: kItemStyle.copyWith(color: kOrangeMain),
-                ),
-              ),
-              // 라벨 글자가 상자보다 4px 크게 렌더돼 그만큼 뺀다.
-              const SizedBox(height: 1),
+              // 시안(2316:6397)은 마이페이지 쪽 화면들처럼 라벨만 입력칸보다
+              // 11px 들여쓴다. 회원가입은 둘이 같은 x다.
               RoundedInputField(
                 controller: _controller,
+                label: '닉네임',
+                labelIndent: AppLayout.editProfileLabelIndent,
+                labelGap: 1,
+                labelColor: kOrangeMain,
                 hintText: '닉네임을 입력하세요.',
                 height: AppLayout.onboardingControlHeight,
                 centerVertically: true,

@@ -112,6 +112,9 @@ abstract final class AppLayout {
   /// 시안 2316:6397은 라벨(45)만 입력칸(34)보다 11px 들여쓴다.
   static const double editProfileLabelIndent = 11;
 
+  /// 비밀번호 변경(2346:2722). 입력칸 바닥(220)에서 다음 라벨(255)까지.
+  static const double changePasswordFieldGap = 35;
+
   /// 입력칸 바닥(220)에서 변경하기 버튼 top(244)까지.
   static const double editProfileFieldToButtonGap = 24;
 

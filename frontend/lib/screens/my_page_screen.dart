@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -63,12 +64,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
     await Supabase.instance.client.auth.signOut();
   }
 
-  void _notImplemented(String label) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$label 화면은 준비 중이에요.')));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,7 +88,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
               const SizedBox(height: AppLayout.myPageCardGap),
               ProfileMenuCard(
                 onEditProfile: _editProfile,
-                onChangePassword: () => _notImplemented('비밀번호 변경'),
+                onChangePassword: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangePasswordScreen(email: widget.email),
+                  ),
+                ),
                 onWithdraw: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const WithdrawScreen()),

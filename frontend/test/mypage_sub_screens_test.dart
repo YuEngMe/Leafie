@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
@@ -12,7 +13,13 @@ import 'package:yeso_plant/widgets/rounded_input_field.dart';
 /// 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
 const double _statusBar = 46;
 
-void _expectAt(WidgetTester tester, String label, Finder f, double x, double y) {
+void _expectAt(
+  WidgetTester tester,
+  String label,
+  Finder f,
+  double x,
+  double y,
+) {
   final rect = tester.getRect(f.first);
   expect(rect.left, closeTo(x, 1), reason: '$label x');
   expect(rect.top + _statusBar, closeTo(y, 1), reason: '$label y');
@@ -30,9 +37,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 시안은 이 화면에서만 라벨을 입력칸보다 11px 들여쓴다.
+      // 시안은 마이페이지 쪽 화면에서만 라벨을 입력칸보다 11px 들여쓴다.
       _expectAt(tester, '라벨', find.text('닉네임'), 45, 145);
-      _expectAt(tester, '입력칸', find.byType(RoundedInputField), 34, 169);
+      // RoundedInputField는 라벨까지 감싸 rect가 145에서 시작한다.
+      // 알약 자체는 그 안의 Container다.
+      _expectAt(
+        tester,
+        '입력칸',
+        find.descendant(
+          of: find.byType(RoundedInputField),
+          matching: find.byType(Container),
+        ),
+        34,
+        169,
+      );
       _expectAt(tester, '버튼', find.byType(PrimaryButton), 34, 244);
     });
 
@@ -68,8 +86,7 @@ void main() {
                   returned = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const EditProfileScreen(nickname: '김윤지'),
+                      builder: (_) => const EditProfileScreen(nickname: '김윤지'),
                     ),
                   );
                 },
@@ -102,7 +119,13 @@ void main() {
 
       _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 140);
       _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 175);
-      _expectAt(tester, '안내 첫 줄', find.text(WithdrawScreen.notices[0]), 66, 255);
+      _expectAt(
+        tester,
+        '안내 첫 줄',
+        find.text(WithdrawScreen.notices[0]),
+        66,
+        255,
+      );
       _expectAt(tester, '체크박스', find.byType(FigmaConsentCheckbox), 45, 357);
       _expectAt(tester, '버튼', find.byType(PrimaryButton), 34, 466);
     });
@@ -147,6 +170,108 @@ void main() {
             .checked,
         isTrue,
       );
+    });
+  });
+
+  group('비밀번호 변경', () {
+    testWidgets('시안 2346:2722 좌표를 지킨다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+      );
+      await tester.pumpAndSettle();
+
+      _expectAt(tester, '이메일 라벨', find.text('이메일'), 45, 145);
+      _expectAt(tester, '새 비밀번호 라벨', find.text('새 비밀번호'), 45, 255);
+      _expectAt(tester, '비밀번호 확인 라벨', find.text('비밀번호 확인'), 45, 365);
+      // 이메일 칸 옆 발송 버튼도 PrimaryButton이라 글자로 좁힌다.
+      _expectAt(
+        tester,
+        '변경하기',
+        find.ancestor(
+          of: find.text('변경하기'),
+          matching: find.byType(PrimaryButton),
+        ),
+        34,
+        790,
+      );
+    });
+
+    testWidgets('발송 버튼이 발송 → 재발송 → 완료로 바뀐다', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+      );
+
+      // 시안 2353:142는 이메일이 비어 있어 발송을 누를 수 없다.
+      expect(find.text('발송'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).first, 'a@b.com');
+      await tester.pump();
+      await tester.tap(find.text('발송'));
+      await tester.pumpAndSettle();
+      expect(find.text('재발송'), findsOneWidget);
+
+      await tester.tap(find.text('재발송'));
+      await tester.pumpAndSettle();
+      expect(find.text('완료'), findsOneWidget);
+    });
+
+    testWidgets('인증을 마치고 두 칸을 채워야 변경하기가 열린다', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+      );
+
+      PrimaryButtonVariant submitVariant() => tester
+          .widget<PrimaryButton>(
+            find.ancestor(
+              of: find.text('변경하기'),
+              matching: find.byType(PrimaryButton),
+            ),
+          )
+          .variant;
+
+      expect(submitVariant(), PrimaryButtonVariant.disabled);
+
+      // 비밀번호만 채우고 인증을 건너뛰면 여전히 잠겨 있다.
+      await tester.enterText(find.byType(TextField).at(1), 'newpass1!');
+      await tester.enterText(find.byType(TextField).at(2), 'newpass1!');
+      await tester.pump();
+      expect(submitVariant(), PrimaryButtonVariant.disabled);
+
+      await tester.enterText(find.byType(TextField).first, 'a@b.com');
+      await tester.pump();
+      await tester.tap(find.text('발송'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('재발송'));
+      await tester.pumpAndSettle();
+
+      expect(submitVariant(), PrimaryButtonVariant.enabled);
+    });
+
+    testWidgets('두 비밀번호가 다르면 오류를 보여주고 넘어가지 않는다', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'a@b.com');
+      await tester.pump();
+      await tester.tap(find.text('발송'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('재발송'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(1), 'newpass1!');
+      await tester.enterText(find.byType(TextField).at(2), 'other2!');
+      await tester.pump();
+      await tester.tap(find.text('변경하기'));
+      await tester.pump();
+
+      // Supabase를 부르기 전에 막혀야 한다. 불렸다면 예외가 났을 것이다.
+      expect(find.text('비밀번호가 일치하지 않습니다.'), findsOneWidget);
+      expect(find.byType(ChangePasswordDoneScreen), findsNothing);
     });
   });
 }

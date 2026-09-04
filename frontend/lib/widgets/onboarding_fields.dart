@@ -59,12 +59,21 @@ class SignupEmailField extends StatelessWidget {
     required this.variant,
     required this.onSend,
     this.errorText,
+    this.sendLabel,
+    this.labelIndent = 0,
   });
 
   final TextEditingController controller;
   final SignupEmailFieldVariant variant;
   final VoidCallback? onSend;
   final String? errorText;
+
+  /// 마이페이지 비밀번호 변경(2346:2596)만 '완료'까지 세 단계를 밟는다.
+  /// 회원가입은 발송/재발송 둘뿐이라 null로 두면 된다.
+  final String? sendLabel;
+
+  /// 마이페이지 쪽 시안은 라벨만 입력칸보다 11px 들여쓴다.
+  final double labelIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +92,7 @@ class SignupEmailField extends StatelessWidget {
             Expanded(
               child: RoundedInputField(
                 label: '이메일',
+                labelIndent: labelIndent,
                 hintText: variant == SignupEmailFieldVariant.empty
                     ? '이메일을 입력하세요.'
                     : null,
@@ -106,7 +116,7 @@ class SignupEmailField extends StatelessWidget {
               padding: const EdgeInsets.only(top: 24),
               child: SignupSendButton(
                 variant: sendButtonVariant,
-                label: verificationSent ? '재발송' : '발송',
+                label: sendLabel ?? (verificationSent ? '재발송' : '발송'),
                 onPressed: onSend,
               ),
             ),
@@ -163,12 +173,16 @@ class SignupPasswordField extends StatelessWidget {
     required this.variant,
     this.label = '비밀번호',
     this.errorText,
+    this.labelIndent = 0,
   });
 
   final TextEditingController controller;
   final SignupPasswordFieldVariant variant;
   final String label;
   final String? errorText;
+
+  /// 마이페이지 쪽 시안(2346:2722)은 라벨만 입력칸보다 11px 들여쓴다.
+  final double labelIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +192,7 @@ class SignupPasswordField extends StatelessWidget {
     );
     return RoundedInputField(
       label: label,
+      labelIndent: labelIndent,
       hintText: variant == SignupPasswordFieldVariant.empty
           ? '비밀번호를 입력하세요.'
           : null,
