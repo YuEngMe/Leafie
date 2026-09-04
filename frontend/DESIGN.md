@@ -156,7 +156,10 @@ Screen-level audit against `2395:38`–`2395:52`.
   with `Clip.none` rather than adding a sibling row.
 - The eye toggle only shows once a password field has content (`2395:40`) —
   except on login (`2395:31`), where the mock draws it over an empty field.
-  `RoundedInputField.alwaysShowEye` picks between the two.
+  `RoundedInputField.alwaysShowEye` picks between the two. **Open with the
+  designer (2026-09-05):** the two mocks disagree, and a reveal toggle over an
+  empty field reads as a mistake. Login keeps the mock's behaviour until they
+  answer; if they say "only when filled", drop `alwaysShowEye` at the call site.
 - Password reset drives its send button label from the step —
   발송 / 재발송 / 완료 (`2395:52`, `2395:49`, `2395:51`) — and puts the
   countdown inside the email field rather than in the notice line.

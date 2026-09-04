@@ -143,7 +143,10 @@ class LoginPasswordField extends StatelessWidget {
                 ? const EdgeInsets.fromLTRB(16, 18, 32, 19)
                 : const EdgeInsets.fromLTRB(16, 17, 16, 20),
             overlaySuffix: true,
-            // 시안 2395:31은 빈 칸에도 눈 아이콘을 띄운다.
+            // TODO(design): 2395:31은 빈 칸에도 눈을 그리는데 회원가입
+            // 2395:40은 값이 있을 때만 그린다. 가릴 게 없는데 토글이 있는
+            // 쪽이 어색해 디자이너에게 확인을 요청해 뒀다(2026-09-05).
+            // 답이 "값 있을 때만"이면 이 줄만 지우면 된다.
             alwaysShowEye: true,
             hintStyle: kLoginHintStyle,
             textStyle: isError ? kLoginPasswordValueStyle : null,
