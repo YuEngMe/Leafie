@@ -96,8 +96,12 @@ abstract final class AppLayout {
   // 마이페이지(2319:2). 카드 폭 344라 좌우 여백은 (402-344)/2 = 29.
   static const double myPageHorizontalPadding = 29;
 
-  /// 앱바 아래에서 프로필 카드 top(119)까지. 상태바 46 + 앱바 56 = 102.
-  static const double myPageTopGap = 17;
+  /// 앱바 아래에서 프로필 카드 top(119)까지. 상태바 46 + 앱바 46 = 92.
+  static const double myPageTopGap = 27;
+
+  /// 시안(2319:23)의 로그아웃 버튼은 x=34 w=334으로, 카드(29/344)보다
+  /// 좌우가 5px씩 좁다.
+  static const double myPageButtonInset = 5;
 
   /// 프로필 카드 바닥(196.762)에서 메뉴 카드 top(211)까지.
   static const double myPageCardGap = 14.238;

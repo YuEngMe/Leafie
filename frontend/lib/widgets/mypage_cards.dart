@@ -167,7 +167,8 @@ class _MenuRow extends StatelessWidget {
       left: 0,
       right: 0,
       // 텍스트 19px 행을 세로 중심에 두고 위아래로 터치 영역을 넓힌다.
-      top: top - (48 - ProfileMenuCard._rowTextHeight) / 2,
+      // Row가 자식을 가운데 정렬하며 글자를 2px 끌어올려 그만큼 되돌린다.
+      top: top - (48 - ProfileMenuCard._rowTextHeight) / 2 + 2,
       height: 48,
       child: GestureDetector(
         onTap: onTap,

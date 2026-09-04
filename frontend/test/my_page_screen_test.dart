@@ -7,6 +7,7 @@ import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/figma_toggle_switch.dart';
 import 'package:yeso_plant/widgets/mypage_cards.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
 void main() {
@@ -62,9 +63,7 @@ void main() {
     expect(find.byType(SignOutConfirmDialog), findsOneWidget);
     expect(find.text('로그아웃 하시겠습니까?'), findsOneWidget);
 
-    final barrier = tester.widget<ModalBarrier>(
-      find.byType(ModalBarrier).last,
-    );
+    final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
     expect(barrier.color, kModalBarrier);
   });
 
@@ -80,5 +79,44 @@ void main() {
     // 여기서 예외가 터진다. 모달만 닫히고 화면이 남아야 한다.
     expect(find.byType(SignOutConfirmDialog), findsNothing);
     expect(find.byType(MyPageScreen), findsOneWidget);
+  });
+
+  testWidgets('시안 2319:2의 좌표를 전부 지킨다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: MyPageScreen()));
+    await tester.pumpAndSettle();
+
+    // 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
+    const statusBar = 46.0;
+    void expectAt(String label, Finder finder, double x, double y) {
+      final rect = tester.getRect(finder.first);
+      expect(rect.left, closeTo(x, 1), reason: '$label x');
+      expect(rect.top + statusBar, closeTo(y, 1), reason: '$label y');
+    }
+
+    expectAt('프로필 카드', find.byType(ProfileSummaryCard), 29, 119);
+    expectAt('닉네임', find.text('김윤지님'), 52, 133.24);
+    expectAt('가입 기간', find.text('식집사가 된 지 128일째'), 131, 142);
+    expectAt('이메일', find.text('akdrotorl@naver.com'), 52, 166.1);
+    expectAt('메뉴 카드', find.byType(ProfileMenuCard), 29, 211);
+    expectAt('프로필 관리', find.text('프로필 관리'), 52, 227);
+    expectAt('내 정보 수정', find.text('내 정보 수정'), 52, 264.76);
+    expectAt('비밀번호 변경', find.text('비밀번호 변경'), 52, 313.76);
+    expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 362.76);
+    expectAt('앱 알림', find.text('앱 알림'), 52, 411.76);
+
+    // 카드는 폭 344인데 버튼만 334다(2319:23).
+    final button = tester.getRect(find.byType(PrimaryButton));
+    expect(button.left, closeTo(34, 1));
+    expect(button.width, closeTo(334, 1));
+    expect(button.top + statusBar, closeTo(790, 1));
+
+    // Switch가 48px 터치 영역을 차지해 rect는 시안보다 크다. 트랙이
+    // 앉는 자리는 중심으로 본다.
+    final toggle = tester.getRect(find.byType(FigmaToggleSwitch));
+    expect(toggle.center.dy + statusBar, closeTo(409.76 + 24.923 / 2, 1));
   });
 }

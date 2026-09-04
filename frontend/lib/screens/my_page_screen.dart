@@ -88,11 +88,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
               // 카드와 버튼 사이는 시안에서 338px이지만, 고정하면 작은 화면에서
               // 넘친다. 버튼을 아래에 붙이고 여백으로 위치를 맞춘다.
               const Spacer(),
-              PrimaryButton(
-                label: '로그아웃',
-                variant: PrimaryButtonVariant.enabled,
-                textStyle: kLoginButtonStyle,
-                onPressed: _confirmSignOut,
+              // 버튼만 카드보다 좌우 5px씩 좁다(2319:23).
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppLayout.myPageButtonInset,
+                ),
+                child: PrimaryButton(
+                  label: '로그아웃',
+                  variant: PrimaryButtonVariant.enabled,
+                  textStyle: kLoginButtonStyle,
+                  onPressed: _confirmSignOut,
+                ),
               ),
             ],
           ),
