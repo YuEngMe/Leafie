@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
@@ -23,6 +24,27 @@ void _expectAt(
   final rect = tester.getRect(f.first);
   expect(rect.left, closeTo(x, 1), reason: '$label x');
   expect(rect.top + _statusBar, closeTo(y, 1), reason: '$label y');
+}
+
+/// Supabase 없이 인증 단계만 돌려 보는 가짜. 어떤 코드든 '123456'이면
+/// 통과한다.
+class _FakeAuth implements ChangePasswordAuth {
+  final List<String> sent = [];
+  String? updatedPassword;
+
+  @override
+  Future<void> sendCode(String email) async => sent.add(email);
+
+  @override
+  Future<void> verifyCode(String email, String token) async {
+    if (token != '123456') {
+      throw const AuthException('인증코드가 올바르지 않습니다.');
+    }
+  }
+
+  @override
+  Future<void> updatePassword(String password) async =>
+      updatedPassword = password;
 }
 
 void main() {
@@ -176,7 +198,9 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: _FakeAuth()),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -195,28 +219,50 @@ void main() {
       expect(submit.width, closeTo(334, 1));
     });
 
-    testWidgets('발송 버튼이 발송 → 재발송 → 완료로 바뀐다', (tester) async {
+    testWidgets('메일을 보내야 인증코드 칸이 열린다', (tester) async {
+      final auth = _FakeAuth();
       await tester.pumpWidget(
-        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: auth),
+        ),
       );
 
-      // 시안 2353:142는 이메일이 비어 있어 발송을 누를 수 없다.
-      expect(find.text('발송'), findsOneWidget);
+      // 세션 이메일이 미리 채워져 바로 보낼 수 있다.
+      expect(find.text('a@b.com'), findsOneWidget);
+      expect(find.text('인증코드'), findsNothing);
 
-      await tester.enterText(find.byType(TextField).first, 'a@b.com');
-      await tester.pump();
       await tester.tap(find.text('발송'));
       await tester.pumpAndSettle();
-      expect(find.text('재발송'), findsOneWidget);
 
-      await tester.tap(find.text('재발송'));
-      await tester.pumpAndSettle();
-      expect(find.text('완료'), findsOneWidget);
+      expect(auth.sent, ['a@b.com']);
+      expect(find.text('재발송'), findsOneWidget);
+      expect(find.text('인증코드'), findsOneWidget);
     });
 
-    testWidgets('인증을 마치고 두 칸을 채워야 변경하기가 열린다', (tester) async {
+    testWidgets('틀린 인증코드는 오류를 띄우고 통과시키지 않는다', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: _FakeAuth()),
+        ),
+      );
+
+      await tester.tap(find.text('발송'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), '000000');
+      await tester.pump();
+      await tester.tap(find.text('재발송'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('인증코드가 올바르지 않습니다.'), findsOneWidget);
+      expect(find.text('완료'), findsNothing);
+    });
+
+    testWidgets('인증을 마쳐야 변경하기가 열리고 실제로 비밀번호를 바꾼다', (tester) async {
+      final auth = _FakeAuth();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: auth),
+        ),
       );
 
       PrimaryButtonVariant submitVariant() => tester
@@ -228,45 +274,60 @@ void main() {
           )
           .variant;
 
-      expect(submitVariant(), PrimaryButtonVariant.disabled);
-
-      // 비밀번호만 채우고 인증을 건너뛰면 여전히 잠겨 있다.
-      await tester.enterText(find.byType(TextField).at(1), 'newpass1!');
-      await tester.enterText(find.byType(TextField).at(2), 'newpass1!');
-      await tester.pump();
-      expect(submitVariant(), PrimaryButtonVariant.disabled);
-
-      await tester.enterText(find.byType(TextField).first, 'a@b.com');
-      await tester.pump();
+      // 인증 전에는 비밀번호를 채워도 잠겨 있다.
       await tester.tap(find.text('발송'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(2), 'newpass1!');
+      await tester.enterText(find.byType(TextField).at(3), 'newpass1!');
+      await tester.pump();
+      expect(submitVariant(), PrimaryButtonVariant.disabled);
+
+      await tester.enterText(find.byType(TextField).at(1), '123456');
+      await tester.pump();
       await tester.tap(find.text('재발송'));
       await tester.pumpAndSettle();
 
+      expect(find.text('완료'), findsOneWidget);
       expect(submitVariant(), PrimaryButtonVariant.enabled);
+
+      await tester.tap(find.text('변경하기'));
+      await tester.pumpAndSettle();
+
+      expect(auth.updatedPassword, 'newpass1!');
     });
 
-    testWidgets('두 비밀번호가 다르면 오류를 보여주고 넘어가지 않는다', (tester) async {
+    testWidgets('두 비밀번호가 다르면 바꾸지 않는다', (tester) async {
+      final auth = _FakeAuth();
       await tester.pumpWidget(
-        const MaterialApp(home: ChangePasswordScreen(email: 'a@b.com')),
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: auth),
+        ),
       );
 
-      await tester.enterText(find.byType(TextField).first, 'a@b.com');
-      await tester.pump();
       await tester.tap(find.text('발송'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), '123456');
+      await tester.pump();
       await tester.tap(find.text('재발송'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(1), 'newpass1!');
-      await tester.enterText(find.byType(TextField).at(2), 'other2!');
+      // 인증이 끝나면 인증코드 칸이 사라져 인덱스가 밀린다. 라벨로 찾는다.
+      Finder fieldUnder(String label) => find.descendant(
+        of: find.ancestor(
+          of: find.text(label),
+          matching: find.byType(RoundedInputField),
+        ),
+        matching: find.byType(TextField),
+      );
+
+      await tester.enterText(fieldUnder('새 비밀번호'), 'newpass1!');
+      await tester.enterText(fieldUnder('비밀번호 확인'), 'other2!');
       await tester.pump();
       await tester.tap(find.text('변경하기'));
       await tester.pump();
 
-      // Supabase를 부르기 전에 막혀야 한다. 불렸다면 예외가 났을 것이다.
       expect(find.text('비밀번호가 일치하지 않습니다.'), findsOneWidget);
-      expect(find.byType(ChangePasswordDoneScreen), findsNothing);
+      expect(auth.updatedPassword, isNull);
     });
   });
 }

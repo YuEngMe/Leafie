@@ -5,6 +5,7 @@ import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// 마이페이지 비밀번호 변경(2353:142, 2346:2639, 2346:2681, 2346:2596,
@@ -14,13 +15,38 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 /// 단계를 화면째 갈아끼우지만, 여기는 한 화면에 세 칸을 모두 두고 이메일
 /// 인증 상태만 바뀐다.
 class ChangePasswordScreen extends StatefulWidget {
-  const ChangePasswordScreen({super.key, required this.email});
+  const ChangePasswordScreen({super.key, required this.email, this.auth});
 
-  /// 로그인한 계정의 이메일. 시안 2353:142는 빈 칸에서 시작한다.
+  /// 로그인한 계정의 이메일.
   final String email;
+
+  /// Supabase를 초기화하지 않는 위젯 테스트에서 갈아끼운다.
+  final ChangePasswordAuth? auth;
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+}
+
+/// 비밀번호 변경이 쓰는 인증 동작. 실제 구현은 Supabase를 부르고,
+/// 테스트는 같은 모양의 가짜를 넘긴다.
+class ChangePasswordAuth {
+  const ChangePasswordAuth();
+
+  Future<void> sendCode(String email) =>
+      Supabase.instance.client.auth.signInWithOtp(
+        // 오타로 없는 주소를 넣으면 새 계정이 생기는 대신 실패해야 한다.
+        email: email,
+        shouldCreateUser: false,
+      );
+
+  Future<void> verifyCode(String email, String token) => Supabase
+      .instance
+      .client
+      .auth
+      .verifyOTP(type: OtpType.email, email: email, token: token);
+
+  Future<void> updatePassword(String password) => Supabase.instance.client.auth
+      .updateUser(UserAttributes(password: password));
 }
 
 /// 이메일 칸 오른쪽 버튼이 밟는 단계.
@@ -28,10 +54,10 @@ enum _Verification {
   /// 아직 안 보냄 — '발송'(2353:142, 2346:2639).
   idle('발송'),
 
-  /// 보낸 뒤 — '재발송'(2346:2681).
+  /// 코드를 보낸 뒤 — '재발송'(2346:2681).
   sent('재발송'),
 
-  /// 인증까지 끝남 — '완료'(2346:2596).
+  /// 코드 확인까지 끝남 — '완료'(2346:2596).
   verified('완료');
 
   const _Verification(this.label);
@@ -41,18 +67,26 @@ enum _Verification {
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
   _Verification _step = _Verification.idle;
+  String? _emailError;
   String? _confirmError;
   bool _submitting = false;
+  bool _sending = false;
+
+  ChangePasswordAuth get _auth => widget.auth ?? const ChangePasswordAuth();
 
   @override
   void initState() {
     super.initState();
+    // 본인 계정으로만 보낼 수 있으니 세션 이메일을 미리 채운다.
+    _emailController.text = widget.email;
     for (final c in [
       _emailController,
+      _codeController,
       _passwordController,
       _confirmController,
     ]) {
@@ -68,6 +102,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   void dispose() {
     for (final c in [
       _emailController,
+      _codeController,
       _passwordController,
       _confirmController,
     ]) {
@@ -78,7 +113,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
-  bool get _canSend => _emailController.text.trim().isNotEmpty;
+  bool get _canSend =>
+      _emailController.text.trim().isNotEmpty &&
+      !_sending &&
+      _step != _Verification.verified;
 
   bool get _canSubmit =>
       _step == _Verification.verified &&
@@ -86,18 +124,49 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       _confirmController.text.isNotEmpty &&
       !_submitting;
 
-  Future<void> _sendVerification() async {
-    if (!_canSend) return;
-    // TODO(1-E): dio 붙이면 인증 메일 발송 API로 바꾼다. 지금은 보낸 척만
-    // 하고 다음 단계로 넘긴다.
+  /// 발송/재발송은 메일을 보내고, 코드를 채운 뒤 누르면 그 코드를 확인한다.
+  Future<void> _onSendPressed() async {
+    if (_step == _Verification.sent && _codeController.text.isNotEmpty) {
+      await _verifyCode();
+      return;
+    }
+    await _sendCode();
+  }
+
+  Future<void> _sendCode() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) return;
     setState(() {
-      _step = switch (_step) {
-        _Verification.idle => _Verification.sent,
-        // 시안 2346:2596은 '재발송'을 다시 눌러 '완료'로 간다.
-        _Verification.sent => _Verification.verified,
-        _Verification.verified => _Verification.verified,
-      };
+      _sending = true;
+      _emailError = null;
     });
+    try {
+      // 로그인 상태에서 비밀번호를 바꾸기 전에 본인 확인을 한 번 더 받는다.
+      await _auth.sendCode(email);
+      if (mounted) setState(() => _step = _Verification.sent);
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _emailError = e.message);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _verifyCode() async {
+    setState(() {
+      _sending = true;
+      _emailError = null;
+    });
+    try {
+      await _auth.verifyCode(
+        _emailController.text.trim(),
+        _codeController.text.trim(),
+      );
+      if (mounted) setState(() => _step = _Verification.verified);
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _emailError = e.message);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -110,9 +179,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       _submitting = true;
     });
     try {
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: _passwordController.text),
-      );
+      await _auth.updatePassword(_passwordController.text);
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
@@ -147,8 +214,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     : SignupEmailFieldVariant.filled,
                 sendLabel: _step.label,
                 labelIndent: AppLayout.editProfileLabelIndent,
-                onSend: _canSend ? _sendVerification : null,
+                errorText: _emailError,
+                onSend: _canSend ? _onSendPressed : null,
               ),
+              // TODO(design): 시안에 인증코드 칸이 없다. 메일로 온 코드를
+              // 받아야 본인 확인이 되므로 임시로 넣어 두었다. 디자이너가
+              // 자리를 잡아 주면 좌표를 맞춘다.
+              if (_step != _Verification.idle) ...[
+                const SizedBox(height: AppLayout.changePasswordFieldGap),
+                RoundedInputField(
+                  controller: _codeController,
+                  label: '인증코드',
+                  labelIndent: AppLayout.editProfileLabelIndent,
+                  labelGap: 1,
+                  labelColor: kOrangeMain,
+                  hintText: '메일로 받은 6자리를 입력하세요.',
+                  height: AppLayout.onboardingControlHeight,
+                  centerVertically: true,
+                  // 확인이 끝난 코드는 고칠 수 없게 잠근다.
+                  enabled: _step != _Verification.verified,
+                ),
+              ],
               // 이메일 칸 바닥(220)에서 다음 라벨(255)까지.
               const SizedBox(height: AppLayout.changePasswordFieldGap),
               SignupPasswordField(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -49,15 +50,32 @@ Future<String> _submitPlantRegistration(PlantRegistrationDraft draft) async {
           : _isoDate(draft.lastRepottedOn!),
     },
   };
-  await Future.delayed(const Duration(milliseconds: 400));
   debugPrint('POST /plants (dummy) body: $requestBody');
-  return 'fake-plant-id'; // 실제 연동 시 응답의 id를 반환
+
+  // dio가 붙기 전까지는 user_metadata에 담아 둔다. 닉네임도 같은 방식이라
+  // 홈 화면이 새로고침 없이 등록 결과를 읽을 수 있다.
+  final id = 'local-${startedOn.microsecondsSinceEpoch}';
+  await Supabase.instance.client.auth.updateUser(
+    UserAttributes(
+      data: {
+        'leafie_plant': {...requestBody, 'id': id},
+      },
+    ),
+  );
+  return id;
 }
 
 class PlantRegisterCompleteScreen extends StatefulWidget {
-  const PlantRegisterCompleteScreen({super.key, required this.draft});
+  const PlantRegisterCompleteScreen({
+    super.key,
+    required this.draft,
+    this.submit,
+  });
 
   final PlantRegistrationDraft draft;
+
+  /// Supabase를 초기화하지 않는 위젯 테스트에서 갈아끼운다.
+  final Future<String> Function(PlantRegistrationDraft)? submit;
 
   @override
   State<PlantRegisterCompleteScreen> createState() =>
@@ -71,12 +89,11 @@ class _PlantRegisterCompleteScreenState
   Future<void> _submit() async {
     setState(() => _submitting = true);
     try {
-      await _submitPlantRegistration(widget.draft);
+      await (widget.submit ?? _submitPlantRegistration)(widget.draft);
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(plantName: widget.draft.name),
-          ),
+          // 등록 결과는 세션에 저장했으니 홈이 직접 읽는다.
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }

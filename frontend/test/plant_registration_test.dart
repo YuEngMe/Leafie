@@ -64,7 +64,7 @@ void main() {
     await tester.tap(nextButton);
     await tester.pump();
 
-    expect(find.text('장소별명, 화분, 위치를 입력해주세요'), findsOneWidget);
+    expect(find.text('장소를 입력해주세요'), findsOneWidget);
     expect(draft.placeName, isNull); // 검증 실패 시 draft를 건드리지 않는다
   });
 
@@ -161,7 +161,16 @@ void main() {
       ..bodyColorId = 'color_orange_01';
 
     await tester.pumpWidget(
-      MaterialApp(home: PlantRegisterCompleteScreen(draft: draft)),
+      MaterialApp(
+        home: PlantRegisterCompleteScreen(
+          draft: draft,
+          // Supabase를 초기화하지 않으므로 저장은 흉내만 낸다.
+          submit: (_) async {
+            await Future<void>.delayed(const Duration(milliseconds: 400));
+            return 'test-plant-id';
+          },
+        ),
+      ),
     );
 
     await tester.tap(find.text('다음'));
@@ -170,7 +179,9 @@ void main() {
 
     await tester.pumpAndSettle(); // Future.delayed(400ms) 완료 대기
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('씩씩이 방'), findsOneWidget);
-    expect(find.text('좋은 하루야!'), findsOneWidget);
+
+    // 이름과 D+는 홈이 세션에서 직접 읽는다. 여기는 Supabase가 없어
+    // 등록 전 화면이 뜨고, 실제 값 표시는 home_screen_test.dart가 본다.
+    expect(find.byType(PlantRegisterCompleteScreen), findsNothing);
   });
 }

@@ -40,7 +40,9 @@ class _PlantRegisterAppearanceScreenState
     extends State<PlantRegisterAppearanceScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String? _selectedColorId = 'color_mint_01';
+  // 팔레트 첫 색을 미리 골라 두면 사용자가 고르지 않은 값이 그대로
+  // 저장되고, 아래 null 검사도 영원히 걸리지 않는다.
+  String? _selectedColorId;
   int _activeTab = 0;
 
   @override

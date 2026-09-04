@@ -17,6 +17,13 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 
+/// 골든은 값이 고정돼야 하므로 시안 그대로의 식물을 넘긴다.
+final _goldenPlant = HomePlant(
+  name: '씩씩이',
+  startedOn: DateTime(2026, 1, 1),
+  personalityType: 'OUTGOING',
+);
+
 void main() {
   final theme = ThemeData(
     colorScheme: ColorScheme.fromSeed(
@@ -98,7 +105,11 @@ void main() {
       'register_complete_402',
       () => PlantRegisterCompleteScreen(draft: sampleDraft()),
     ),
-    ('홈', 'home_402', () => HomeScreen(plantName: '새싹이', signOut: () async {})),
+    (
+      '홈',
+      'home_402',
+      () => HomeScreen(plant: _goldenPlant, signOut: () async {}),
+    ),
   ];
 
   for (final entry in cases) {

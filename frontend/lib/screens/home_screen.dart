@@ -7,11 +7,64 @@ import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.plantName, this.signOut});
+/// 등록한 식물. dio가 붙기 전까지는 등록 화면이 user_metadata에 넣어 둔
+/// 값을 읽는다(plant_register_complete_screen.dart).
+class HomePlant {
+  const HomePlant({
+    required this.name,
+    required this.startedOn,
+    required this.personalityType,
+  });
 
-  final String? plantName;
+  /// 세션에 저장된 등록 결과를 읽는다. 아직 등록 전이면 null.
+  static HomePlant? of(User? user) {
+    final raw = user?.userMetadata?['leafie_plant'];
+    if (raw is! Map) return null;
+    final name = raw['name'];
+    if (name is! String || name.isEmpty) return null;
+    return HomePlant(
+      name: name,
+      startedOn: DateTime.tryParse(raw['started_on'] as String? ?? ''),
+      personalityType:
+          (raw['character'] as Map?)?['personality_type'] as String?,
+    );
+  }
+
+  final String name;
+  final DateTime? startedOn;
+  final String? personalityType;
+
+  /// 등록한 날이 1일차다(2026-08-04 팀 확인).
+  int get dayCount =>
+      startedOn == null ? 1 : DateTime.now().difference(startedOn!).inDays + 1;
+
+  /// 성격마다 말투가 다르다. 서버가 대사를 주기 전까지 쓰는 기본 묶음.
+  List<String> get moodLines => switch (personalityType) {
+    'CHIC' => const ['흠', '별로야', '나쁘지 않네'],
+    'CUTE' => const ['히히', '헤헤', '보고 싶었어!'],
+    'CRUSH' => const ['가보자고', '오늘도 화이팅', '내가 최고야!'],
+    'INTROVERTED' => const ['어..', '조금 부끄러워', '와줘서 고마워'],
+    'CHUNGCHEONG' => const ['음~', '천천히 하자', '좋은 하루여~'],
+    // OUTGOING이 기본값이고, 성격을 못 고른 경우도 여기로 온다.
+    _ => const ['히히', '신난다', '좋은 하루야!'],
+  };
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key, this.plant, this.signOut});
+
+  /// 비워 두면 현재 세션에서 읽는다. 테스트에서만 직접 넘긴다.
+  final HomePlant? plant;
   final Future<void> Function()? signOut;
+
+  /// Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 한다.
+  static User? _currentUser() {
+    try {
+      return Supabase.instance.client.auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _requestSignOut(BuildContext context) async {
     try {
@@ -32,7 +85,10 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roomName = plantName ?? '새싹이';
+    final plant = this.plant ?? HomePlant.of(_currentUser());
+    // 아직 등록하지 않았으면 이름 대신 안내를 띄운다.
+    final roomName = plant?.name ?? '새싹이';
+    final moodLines = plant?.moodLines ?? const ['히히', '신난다', '좋은 하루야!'];
 
     return Scaffold(
       backgroundColor: kHomeGreen,
@@ -49,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       const SizedBox(width: 38),
                       Text(
-                        'D+ 1281',
+                        'D+ ${plant?.dayCount ?? 1}',
                         style: kCaptionStyle.copyWith(color: kTextDark),
                       ),
                       const Spacer(),
@@ -106,16 +162,16 @@ class HomeScreen extends StatelessWidget {
                   offset: const Offset(28, -14),
                   child: Column(
                     children: [
-                      _RoomBubble(label: '히히', width: 103),
+                      _RoomBubble(label: moodLines[0], width: 103),
                       Transform.translate(
                         offset: Offset(19, -7),
-                        child: _RoomBubble(label: '신난다', width: 103),
+                        child: _RoomBubble(label: moodLines[1], width: 103),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 18),
-                const _RoomBubble(label: '좋은 하루야!', width: 114),
+                _RoomBubble(label: moodLines[2], width: 114),
                 const Spacer(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
