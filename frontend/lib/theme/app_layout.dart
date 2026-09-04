@@ -6,20 +6,29 @@ abstract final class AppLayout {
 
   static const double authHorizontalPadding = 34;
   // 2395:31 로고 top 156. 상태바 46과 앱바 높이를 뺀 나머지.
-  static const double loginTitleTopGap = 17;
-  static const double loginTitleToLogoGap = 65;
+  /// 제목 '로그인' top은 시안에서 58(=874/2-367.5-11.5). 상태바 46을 빼면 12.
+  static const double loginTitleTopGap = 12;
+
+  /// 제목 bottom(81)에서 로고 top(162.42)까지.
+  static const double loginTitleToLogoGap = 81.42;
   // 2395:31 로고 그룹 폭.
   static const double loginLogoWidth = 118.58;
-  static const double loginLogoMarkWidthFactor = 0.98;
+
+  /// 심볼 에셋은 117x119라 폭을 그대로 쓰면 시안(110.65)보다 7.5px 커진다.
+  /// 110.65 x (117/119) / 118.581 = 0.9174.
+  static const double loginLogoMarkWidthFactor = 0.9174;
   // 로고 바닥 317 -> 이메일 382.
   static const double loginLogoToFormGap = 65;
-  static const double loginEmailFieldHeight = 49;
-  static const double loginEmailToPasswordGap = 14;
+
+  /// 시안 2353:24는 높이를 명시하지 않지만 비번칸(2353:26)이 51이고 두 칸은
+  /// 같은 크기다. 49는 간격 14를 전제로 역산됐던 값이라 함께 바로잡는다.
+  static const double loginEmailFieldHeight = 51;
+  static const double loginEmailToPasswordGap = 12;
   static const double loginFilledEmailFieldHeight = 51;
   static const double loginFilledEmailToPasswordGap = 12;
   static const double loginPasswordComponentHeight = 75;
   // Paperlogy의 Flutter glyph top inset(2px)을 Figma raster(1px)에 맞춘다.
-  static const double loginPasswordLinksTop = 60;
+  static const double loginPasswordLinksTop = 61;
   static const double loginLinkHorizontalInset = 11;
   // 링크 바닥 520 -> 버튼 558.
   static const double loginLinkToButtonGap = 38;

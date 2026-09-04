@@ -154,12 +154,45 @@ Screen-level audit against `2395:38`–`2395:52`.
 - `2395:46` keeps every label at the same y as `2395:40`, so the error message
   is drawn outside the layout flow — `RoundedInputField` stacks it under the pill
   with `Clip.none` rather than adding a sibling row.
-- The eye toggle only shows once a password field has content (`2395:40`).
+- The eye toggle only shows once a password field has content (`2395:40`) —
+  except on login (`2395:31`), where the mock draws it over an empty field.
+  `RoundedInputField.alwaysShowEye` picks between the two.
 - Password reset drives its send button label from the step —
   발송 / 재발송 / 완료 (`2395:52`, `2395:49`, `2395:51`) — and puts the
   countdown inside the email field rather than in the notice line.
 - `2395:44` carries an app bar; its title comes from the entry path because the
   mock says "카카오톡 로그인" while the screen also serves email signup.
+
+#### Login screen vertical rhythm
+
+`2395:31`, measured against a simulator build that sat progressively lower than
+the mock. Mock y values include the 46 px status bar; goldens do not.
+
+| element | mock top |
+|---|---|
+| 로그인 title | 58 |
+| logo (symbol + wordmark) | 162.42 |
+| email field | 382 |
+| password field | 445 |
+| login button | 558 |
+| divider | 694 |
+| social buttons | 735 |
+
+Four constants were wrong, and the errors compounded downward:
+
+- `loginLogoMarkWidthFactor` 0.98 → **0.9174**. The symbol asset is 117x119, so
+  a width of `118.581 * 0.98` renders 118.2 tall against the mock's 110.65. The
+  factor is now derived from the target height, not eyeballed.
+- `loginEmailFieldHeight` 49 → **51**. The mock leaves `2353:24` unsized but
+  fixes the password field at 51, and the two pills match. The old 49 had been
+  back-solved from a 14 px gap that was itself wrong.
+- `loginEmailToPasswordGap` 14 → **12**, now that the field is its real height.
+- `loginTitleTopGap` 17 → **12**, and `loginTitleToLogoGap` 65 → **81.42**.
+
+A golden alone cannot catch the logo error: `Image.asset` renders nothing under
+`flutter test`, so `BrandLogo` collapses to the 5 px spacer between its two
+images and every element below it shifts up by ~150 px. Verify logo geometry
+from a device screenshot, or by asserting on the constants.
 
 ### Home components
 

@@ -39,6 +39,7 @@ class RoundedInputField extends StatefulWidget {
     this.textStyle,
     this.obscuringCharacter = '•',
     this.showShadow = true,
+    this.alwaysShowEye = false,
   });
 
   final String? label;
@@ -70,6 +71,10 @@ class RoundedInputField extends StatefulWidget {
   final TextStyle? textStyle;
   final String obscuringCharacter;
   final bool showShadow;
+
+  /// 회원가입(2395:40)은 값이 있을 때만 눈을 보여주지만, 로그인(2395:31)은
+  /// 빈 칸에도 띄운다. 화면마다 다르니 호출부가 정한다.
+  final bool alwaysShowEye;
 
   @override
   State<RoundedInputField> createState() => _RoundedInputFieldState();
@@ -212,7 +217,10 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
     if (widget.suffix != null) return widget.suffix;
     if (!widget.obscureText) return null;
     // 시안(2395:40)은 값이 있을 때만 눈을 보여준다. 가릴 게 없으면 숨긴다.
-    if (widget.controller?.text.isEmpty ?? true) return null;
+    // 로그인(2395:31)만 빈 칸에도 띄운다.
+    if (!widget.alwaysShowEye && (widget.controller?.text.isEmpty ?? true)) {
+      return null;
+    }
     // 여백은 바깥 Padding(overlaySuffix)이 잡으므로 버튼은 아이콘 크기만
     // 차지하게 두고, 터치 영역은 가로 48px만 확보한다. minHeight를 키우면
     // 같은 자리를 쓰는 03:21 카운트다운의 세로 중심이 밀린다.

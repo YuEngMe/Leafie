@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/login_credentials_form.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -69,7 +70,16 @@ void main() {
     final form = find.byType(LoginCredentialsForm);
     final email = find.byType(LoginEmailField);
     final password = find.byType(LoginPasswordField);
-    expect(tester.getSize(form), const Size(334, 138));
+    // 49(이메일) + 12(시안 2395:31 간격) + 75(비번+링크) = 136.
+    expect(
+      tester.getSize(form),
+      const Size(
+        334,
+        AppLayout.loginEmailFieldHeight +
+            AppLayout.loginEmailToPasswordGap +
+            AppLayout.loginPasswordComponentHeight,
+      ),
+    );
     expect(
       tester.getSize(email),
       const Size(334, AppLayout.loginEmailFieldHeight),
@@ -167,6 +177,37 @@ void main() {
     for (final button in find.byType(SignupSendButton).evaluate()) {
       expect(tester.getSize(find.byWidget(button.widget)), const Size(68, 51));
     }
+  });
+
+  testWidgets('로그인 비밀번호 칸은 빈 칸에도 눈 아이콘을 띄운다', (tester) async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    addTearDown(emailController.dispose);
+    addTearDown(passwordController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 334,
+              child: LoginCredentialsForm(
+                emailController: emailController,
+                passwordController: passwordController,
+                emailVariant: LoginEmailFieldVariant.empty,
+                passwordVariant: LoginPasswordFieldVariant.standard,
+                onSignup: () {},
+                onForgotPassword: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 회원가입(2395:40)은 값이 있을 때만 뜨지만 로그인(2395:31)은 항상 뜬다.
+    expect(passwordController.text, isEmpty);
+    expect(find.byType(FigmaEyeIcon), findsOneWidget);
   });
 }
 

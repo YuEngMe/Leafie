@@ -143,6 +143,8 @@ class LoginPasswordField extends StatelessWidget {
                 ? const EdgeInsets.fromLTRB(16, 18, 32, 19)
                 : const EdgeInsets.fromLTRB(16, 17, 16, 20),
             overlaySuffix: true,
+            // 시안 2395:31은 빈 칸에도 눈 아이콘을 띄운다.
+            alwaysShowEye: true,
             hintStyle: kLoginHintStyle,
             textStyle: isError ? kLoginPasswordValueStyle : null,
             obscuringCharacter: isError ? '●' : '•',
