@@ -97,6 +97,38 @@ class FigmaCheckedCircle extends StatelessWidget {
 }
 
 /// Figma node 2315:2487 / 2315:2494의 체크 폴리라인.
+/// Figma node 2570:2036. 회원 탈퇴 동의 체크박스.
+///
+/// 사각 테두리와 체크 선이 같은 색이고 상태에 따라 색만 바뀐다.
+class FigmaConsentCheckbox extends StatelessWidget {
+  const FigmaConsentCheckbox({super.key, required this.checked});
+
+  static const Size figmaSize = Size(23, 23);
+
+  final bool checked;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = checked ? kOrangeMain : kTextLight;
+    return SizedBox.fromSize(
+      size: figmaSize,
+      child: CustomPaint(
+        // 테두리는 1px, 체크 선은 2px이라 따로 그린다(2570:2036).
+        painter: _PolylinePainter(
+          points: const [Offset(5, 10.5), Offset(9.9, 17), Offset(19, 4)],
+          viewBox: figmaSize,
+          color: color,
+          strokeWidth: 2,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(border: Border.all(color: color)),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
+}
+
 class FigmaCheckMark extends StatelessWidget {
   const FigmaCheckMark({super.key, this.color = kOrange});
 

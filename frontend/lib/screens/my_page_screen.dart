@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/screens/edit_profile_screen.dart';
+import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -35,6 +37,18 @@ class _MyPageScreenState extends State<MyPageScreen> {
   // TODO(1-E): dio 붙이면 GET /users/me의 notification_enabled로 초기화하고
   // 변경 시 PATCH /users/me를 호출한다. 시안 기본값은 꺼짐(2319:2).
   bool _notificationsEnabled = false;
+
+  /// 내 정보 수정에서 돌아오면 이 값이 바뀐다(2353:290).
+  late String _nickname = widget.nickname;
+
+  Future<void> _editProfile() async {
+    final next = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => EditProfileScreen(nickname: _nickname)),
+    );
+    if (next == null || !mounted) return;
+    setState(() => _nickname = next);
+  }
 
   Future<void> _confirmSignOut() async {
     final confirmed = await showDialog<bool>(
@@ -72,15 +86,18 @@ class _MyPageScreenState extends State<MyPageScreen> {
             children: [
               const SizedBox(height: AppLayout.myPageTopGap),
               ProfileSummaryCard(
-                nickname: widget.nickname,
+                nickname: _nickname,
                 email: widget.email,
                 tenureLabel: '식집사가 된 지 ${widget.tenureDays}일째',
               ),
               const SizedBox(height: AppLayout.myPageCardGap),
               ProfileMenuCard(
-                onEditProfile: () => _notImplemented('내 정보 수정'),
+                onEditProfile: _editProfile,
                 onChangePassword: () => _notImplemented('비밀번호 변경'),
-                onWithdraw: () => _notImplemented('회원 탈퇴'),
+                onWithdraw: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WithdrawScreen()),
+                ),
                 notificationsEnabled: _notificationsEnabled,
                 onNotificationsChanged: (value) =>
                     setState(() => _notificationsEnabled = value),

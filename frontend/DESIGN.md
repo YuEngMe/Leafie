@@ -91,6 +91,27 @@ to the bottom.
 The mock has **no bottom navigation bar** — this screen is pushed over the home
 screen and left with the back arrow.
 
+#### My page sub-screens
+
+`3369:18` holds the whole my-page flow — 17 screens, not the 3 first built. Two
+are now wired; the password-change chain (7 screens) is still open.
+
+**내 정보 수정** (`2316:6397`, `2353:376`, `2353:440`): one nickname field.
+Label at 45/145, field 34/169, button 34/244 — note the label is indented 11 px
+past its field here, which signup does not do. The field starts empty with only
+its hint, and the button stays disabled until something is typed. On save the
+screen pops its new nickname and my page redraws the card with it (`2353:290`).
+
+**회원 탈퇴** (`2570:1994`, `2570:11895`): headline 45/140, notice box 45/241
+(312 wide, inset shadow rather than a border), consent row 45/357, divider at
+y 446 spanning 354 from x 24, button 34/466. All three notices must be read and
+the consent box ticked before the button unlocks; tapping the label toggles it
+too. The box's height is left to its content — pinning the mock's 105 overflows
+once the three 23 px lines and their gaps are laid out.
+
+Both screens share `myPageSubHorizontalPadding` 34, which differs from my page's
+own 29 (its cards are 344 wide, these are 334).
+
 ### Icons: assets vs. code
 
 #### Back chevron (`3345:996`)

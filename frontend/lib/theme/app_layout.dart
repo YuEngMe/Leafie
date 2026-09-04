@@ -103,6 +103,31 @@ abstract final class AppLayout {
   /// 좌우가 5px씩 좁다.
   static const double myPageButtonInset = 5;
 
+  /// 마이페이지 하위 화면(2316:6397, 2570:1994)은 좌우 34로 공통이다.
+  static const double myPageSubHorizontalPadding = 34;
+
+  /// 앱바 아래(92)에서 첫 라벨 top(145)까지.
+  static const double editProfileTopGap = 53;
+
+  /// 시안 2316:6397은 라벨(45)만 입력칸(34)보다 11px 들여쓴다.
+  static const double editProfileLabelIndent = 11;
+
+  /// 입력칸 바닥(220)에서 변경하기 버튼 top(244)까지.
+  static const double editProfileFieldToButtonGap = 24;
+
+  /// 회원 탈퇴(2570:1994). 앱바 아래에서 헤드라인 top(140)까지.
+  static const double withdrawTopGap = 48;
+
+  /// 헤드라인 블록 바닥(191)에서 안내 박스 top(241)까지.
+  static const double withdrawCopyToNoticeGap = 50;
+
+  /// 안내 박스 top(241)에서 동의 줄 top(357)까지.
+  static const double withdrawNoticeToConsentGap = 116;
+
+  /// 구분선 y=446, 탈퇴 버튼 top=466.
+  static const double withdrawDividerY = 446;
+  static const double withdrawButtonTop = 466;
+
   /// 프로필 카드 바닥(196.762)에서 메뉴 카드 top(211)까지.
   static const double myPageCardGap = 14.238;
 
