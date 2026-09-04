@@ -108,11 +108,12 @@ void main() {
     expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 362.76);
     expectAt('앱 알림', find.text('앱 알림'), 52, 411.76);
 
-    // 카드는 폭 344인데 버튼만 334다(2319:23).
+    // 카드는 폭 344인데 버튼만 334다(2319:23). 세로 위치는 하단 SafeArea가
+    // 정하므로 여기(상태바 없는 조건)서는 보지 않는다 —
+    // device_safe_area_test.dart가 실기기 조건에서 확인한다.
     final button = tester.getRect(find.byType(PrimaryButton));
     expect(button.left, closeTo(34, 1));
     expect(button.width, closeTo(334, 1));
-    expect(button.top + statusBar, closeTo(790, 1));
 
     // Switch가 48px 터치 영역을 차지해 rect는 시안보다 크다. 트랙이
     // 앉는 자리는 중심으로 본다.

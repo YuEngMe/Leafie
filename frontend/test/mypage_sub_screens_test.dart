@@ -187,17 +187,16 @@ void main() {
       _expectAt(tester, '이메일 라벨', find.text('이메일'), 45, 145);
       _expectAt(tester, '새 비밀번호 라벨', find.text('새 비밀번호'), 45, 255);
       _expectAt(tester, '비밀번호 확인 라벨', find.text('비밀번호 확인'), 45, 365);
-      // 이메일 칸 옆 발송 버튼도 PrimaryButton이라 글자로 좁힌다.
-      _expectAt(
-        tester,
-        '변경하기',
+      // 변경하기의 세로 위치는 하단 SafeArea가 정한다. 실기기 조건은
+      // device_safe_area_test.dart에서 본다. 여기서는 좌우만 확인한다.
+      final submit = tester.getRect(
         find.ancestor(
           of: find.text('변경하기'),
           matching: find.byType(PrimaryButton),
         ),
-        34,
-        790,
       );
+      expect(submit.left, closeTo(34, 1));
+      expect(submit.width, closeTo(334, 1));
     });
 
     testWidgets('발송 버튼이 발송 → 재발송 → 완료로 바뀐다', (tester) async {

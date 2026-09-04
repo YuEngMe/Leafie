@@ -48,7 +48,10 @@ abstract final class AppLayout {
   // 2395:40 첫 라벨 잉크 y=148(상태바 46 제외 102).
   static const double authFormTopPadding = 42;
   // 시안 버튼 하단 33px + 홈 인디케이터 영역. 2395:40, 2395:52 공통.
-  static const double authBottomActionPadding = 79;
+  /// 시안은 버튼 바닥에서 화면 아래까지 33px을 두지만, 실기기의 하단
+  /// SafeArea(34px)가 그 자리를 대신한다. 79는 상태바가 없는 골든만 보고
+  /// 넣은 값이라 실기기에서 버튼이 79px 떠 있었다.
+  static const double authBottomActionPadding = 0;
   // 라벨+입력칸 그룹(75) 사이 간격. 라벨 피치 110 - 75 = 35.
   static const double authFieldGap = 35;
   static const double authEmailActionWidth = 68;
@@ -58,7 +61,7 @@ abstract final class AppLayout {
   static const double signupCompleteLogoWidth = 155;
   static const double signupCompleteCopyGap = 42;
   // 2395:44 버튼 바닥 841 -> 프레임 874.
-  static const double signupCompleteBottomGap = 33;
+  static const double signupCompleteBottomGap = 0;
   static const double registrationHorizontalPadding = 47;
   static const double registrationHeaderGap = 16;
   static const double registrationNameCharacterTopGap = 38;
@@ -134,8 +137,9 @@ abstract final class AppLayout {
   /// 프로필 카드 바닥(196.762)에서 메뉴 카드 top(211)까지.
   static const double myPageCardGap = 14.238;
 
-  /// 로그아웃 버튼 바닥(841)에서 화면 아래(874)까지 33px. 여기에 시안의
-  /// 상태바 46px을 더한다 — SafeArea가 상태바를 먹으면 Spacer가 그만큼
-  /// 남은 공간을 늘려 버튼을 아래로 밀기 때문이다.
-  static const double myPageBottomGap = 33 + 46;
+  /// 시안은 버튼 바닥(841)에서 화면 아래(874)까지 33px을 둔다. 실기기의
+  /// 하단 SafeArea(홈 인디케이터, 34px)가 그 자리를 그대로 대신하므로
+  /// 여백을 따로 주지 않는다. 46을 더하던 예전 값은 상태바가 없는 골든만
+  /// 보고 넣은 것이라, 실기기에서 하단을 두 번 깎아 버튼이 80px 떠 있었다.
+  static const double myPageBottomGap = 0;
 }

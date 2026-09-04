@@ -334,6 +334,36 @@ only once an asset needs gradients, masks, or clip paths.
 Code Connect publishing is intentionally separate from this runtime mapping.
 It requires a Figma Organization or Enterprise plan with a Dev or Full seat.
 
+### Device safe area vs. the mock's status bar
+
+The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real
+devices differ — iPhone 17 Pro reports 62 top / 34 bottom — and the two ends
+need opposite treatment.
+
+**Top: let `SafeArea` win.** On that device every screen starts 16 px lower than
+the mock's absolute y. That is correct behaviour, confirmed 2026-09-05: pinning
+the mock's coordinate would put content under a taller notch. Goldens run with
+no status bar at all, so they compare against `mock y - 46`.
+
+**Bottom: give no padding of your own.** The mock leaves 33 px under the bottom
+button; the device's bottom inset (34 px) already fills that. Constants that
+also subtracted their own gap were double-counting, and the button floated:
+
+| constant | was | now |
+|---|---|---|
+| `authBottomActionPadding` | 79 | 0 |
+| `signupCompleteBottomGap` | 33 | 0 |
+| `myPageBottomGap` | 33 + 46 | 0 |
+
+The old values were read off goldens, where there is no bottom inset to collide
+with — the error is invisible until the app runs on a device. `myPageBottomGap`
+was the worst of the three: its `+46` pushed the logout button 80 px up.
+
+`test/device_safe_area_test.dart` fakes the device insets and asserts the bottom
+button lands on the mock's y across all five screens that have one. Screen-level
+coordinate tests that run without insets must **not** check a bottom button's y —
+it is meaningless there.
+
 ## 6. Interaction states
 
 - Every actionable control uses a Material button or tappable semantic widget.
