@@ -19,6 +19,42 @@ class _AssetIcon extends StatelessWidget {
   }
 }
 
+/// Figma node 3173:113의 하단 네비게이션 아이콘 넷.
+///
+/// 디자이너가 2026-09-05에 넣었다. 시안은 알약 배경도 라벨도 없이 아이콘만
+/// 놓는다. 셋은 내보낸 SVG 그대로이고, 다이어리(3173:87)만 도형 조합이라
+/// 오렌지 사각형 다섯 개를 골라 다시 묶었다.
+enum FigmaNavIcon {
+  home('assets/images/icon_nav_home.svg', Size(37, 35), '홈'),
+  diary('assets/images/icon_nav_diary.svg', Size(31, 33), '기록'),
+  calendar('assets/images/icon_nav_calendar.svg', Size(32, 35), '달력'),
+  my('assets/images/icon_nav_my.svg', Size(29, 32), '마이');
+
+  const FigmaNavIcon(this.asset, this.figmaSize, this.label);
+
+  final String asset;
+  final Size figmaSize;
+
+  /// 시안에는 글자가 없지만 화면 읽기 프로그램에는 이름이 필요하다.
+  final String label;
+}
+
+/// 네비게이션 아이콘 하나. 시안(3173:113)은 선택 상태를 따로 그리지 않아
+/// 넷이 같은 오렌지다.
+class FigmaBottomNavIcon extends StatelessWidget {
+  const FigmaBottomNavIcon(this.icon, {super.key});
+
+  final FigmaNavIcon icon;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: icon.label,
+    button: true,
+    container: true,
+    child: _AssetIcon(asset: icon.asset, size: icon.figmaSize),
+  );
+}
+
 /// Figma node 3345:996 `Polygon 4 (Stroke)`. 앱바 뒤로가기 꺾쇠.
 ///
 /// 디자이너가 2026-09-05에 교체했다. 끝이 둥글고 꼭짓점이 살짝 뭉툭해

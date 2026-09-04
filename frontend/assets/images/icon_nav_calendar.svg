@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="32" height="35" viewBox="0 0 32 35" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1597881248">
+<g id="Group 1597881239">
+<path id="Rectangle 161127181" d="M3.01367 4H28.9863C30.0983 4 31 4.90173 31 6.01367V31.9863C31 33.0983 30.0983 34 28.9863 34H3.01367C1.90173 34 1 33.0983 1 31.9863V6.01367C1 4.90173 1.90173 4 3.01367 4Z" stroke="#FFB52A" stroke-width="2"/>
+<path id="Rectangle 161127182" d="M0 5.92207C0 4.30825 1.30825 3 2.92207 3H29.0779C30.6917 3 32 4.30825 32 5.92207V10.7241H0V5.92207Z" fill="#FFB52A"/>
+</g>
+<ellipse id="Ellipse 684" cx="5.11821" cy="3.82686" rx="5.11821" ry="3.82686" transform="matrix(-0.686682 0.726958 0.726958 0.686682 20.4014 11.9785)" fill="#FFB52A"/>
+<ellipse id="Ellipse 685" cx="12.4274" cy="19.9577" rx="4.80984" ry="3.5963" transform="rotate(32.3813 12.4274 19.9577)" fill="#FFB52A"/>
+<path id="Vector 1304" d="M16.207 18.9209L16.207 29.2657" stroke="#FFB52A" stroke-width="2" stroke-linecap="round"/>
+<rect id="Rectangle 161127415" x="25" y="1" width="6" height="2" rx="1" transform="rotate(90 25 1)" stroke="#FFB52A" stroke-width="2"/>
+<rect id="Rectangle 161127416" x="9" y="1" width="6" height="2" rx="1" transform="rotate(90 9 1)" stroke="#FFB52A" stroke-width="2"/>
+</g>
+</svg>

@@ -150,7 +150,8 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Container(
                   height: AppLayout.homeBottomNavHeight,
-                  // Figma node 2346:2519.
+                  // Figma node 3173:113. 디자이너가 2026-09-05에 아이콘을
+                  // 넣으면서 알약 배경과 글자 라벨을 걷어냈다.
                   decoration: const BoxDecoration(
                     color: kBackgroundWhite,
                     borderRadius: BorderRadius.vertical(
@@ -160,14 +161,29 @@ class HomeScreen extends StatelessWidget {
                       BoxShadow(color: Color(0x33000000), blurRadius: 5),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  // 아이콘 간격이 101 / 101.5 / 96.5로 고르지 않아 균등
+                  // 배치 대신 시안 x를 그대로 쓴다.
+                  child: Stack(
                     children: [
-                      const _NavItem(label: '홈', selected: true),
-                      const _NavItem(label: '기록'),
-                      const _NavItem(label: '달력'),
+                      const _NavItem(
+                        icon: FigmaNavIcon.home,
+                        left: 35,
+                        top: 22,
+                      ),
+                      const _NavItem(
+                        icon: FigmaNavIcon.diary,
+                        left: 139,
+                        top: 24,
+                      ),
+                      const _NavItem(
+                        icon: FigmaNavIcon.calendar,
+                        left: 240,
+                        top: 22,
+                      ),
                       _NavItem(
-                        label: '마이',
+                        icon: FigmaNavIcon.my,
+                        left: 338,
+                        top: 25,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -237,45 +253,38 @@ class _SideControl extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.label, this.selected = false, this.onTap});
+  const _NavItem({
+    required this.icon,
+    required this.left,
+    required this.top,
+    this.onTap,
+  });
 
-  final String label;
-  final bool selected;
+  final FigmaNavIcon icon;
+  final double left;
+  final double top;
 
   /// 아직 화면이 없는 탭은 null로 둔다.
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final pill = Container(
-      // Figma 알약은 37.85 x 35 고정이다.
-      width: 37.85,
-      height: 35,
-      decoration: BoxDecoration(
-        color: selected ? kOrangeMain : kPaleYellow,
-        borderRadius: BorderRadius.circular(10),
+    // 아이콘이 29~37px이라 그대로 두면 탭 영역이 손가락보다 작다.
+    // 시안 좌표는 유지한 채 눌리는 범위만 48로 넓힌다.
+    const minTarget = 48.0;
+    final padX = (minTarget - icon.figmaSize.width) / 2;
+    final padY = (minTarget - icon.figmaSize.height) / 2;
+    return Positioned(
+      left: left - padX,
+      top: top - padY,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
+          child: FigmaBottomNavIcon(icon),
+        ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // TODO(design): Figma 2346:2519에 아이콘 레이어가 아직 없다.
-          // 디자이너가 넣으면 아이콘·간격·라벨 위치를 다시 맞춘다.
-          Text(
-            label,
-            style: kCaptionStyle.copyWith(
-              fontSize: 11.664,
-              letterSpacing: -0.1283,
-              color: selected ? Colors.white : kNavLabelInactive,
-            ),
-          ),
-        ],
-      ),
-    );
-    if (onTap == null) return pill;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: pill,
     );
   }
 }

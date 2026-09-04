@@ -81,7 +81,9 @@ abstract final class AppLayout {
   static const double completionTitleToArtGap = 0;
   static const double homeTopBarHeight = 68;
   static const double homeHumidityCardHeight = 54;
-  static const double homeBottomNavHeight = 88;
+
+  /// 시안 3173:113. 아이콘이 들어오며 88 -> 79로 낮아졌다.
+  static const double homeBottomNavHeight = 79;
   static const double bottomPadding = 39;
   static const double onboardingControlHeight = 51;
   static const double controlHeight = 52;

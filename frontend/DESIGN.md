@@ -115,6 +115,33 @@ Setting this icon also fixed the bar itself: `YesoAppBar.height` is now **46**,
 not Material's `kToolbarHeight` (56), which had been pushing both the chevron
 and the centered title 5 px below the mock on every screen.
 
+#### Bottom navigation (`3173:113`)
+
+Delivered 2026-09-05, closing the `TODO(design)` that had blocked this bar since
+`2346:2519` shipped without an icon layer. The redraw drops the yellow pills and
+the text labels — four icons on white, bar height **79** (was 88).
+
+| icon | node | x | y | size |
+|---|---|---|---|---|
+| 홈 | `3173:103` | 35 | 22 | 37 x 35 |
+| 기록 | `3173:87` | 139 | 24 | 31 x 33 |
+| 달력 | `3173:94` | 240 | 22 | 32 x 35 |
+| 마이 | `3173:108` | 338 | 25 | 29 x 32 |
+
+Centre-to-centre spacing runs 101 / 101.5 / 96.5, so the row is **not** evenly
+distributed — the icons are placed at the mock's own x values rather than with
+`spaceEvenly`.
+
+Three icons come straight from `svgAssets`. 기록 has none (it is five rectangles,
+not a vector) and its `export` carries all four canvas artifacts, so the
+committed file keeps only the five `#FFB52A` rects: the notebook body, the
+bookmark, and three rings.
+
+The mock draws no selected state — all four icons are the same orange — so the
+bar does not indicate the current tab. Confirmed as intended on 2026-09-05.
+Icons are 29-37 px, smaller than a finger, so each one keeps its mock position
+while padding its tap target out to 48.
+
 
 Two files hold the designer's icons, split by what the icon is.
 
