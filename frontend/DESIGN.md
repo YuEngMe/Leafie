@@ -127,11 +127,19 @@ too. The box's height is left to its content — pinning the mock's 105 overflow
 once the three 23 px lines and their gaps are laid out.
 
 **비밀번호 변경** (`2353:142` … `2346:2722`, done `2346:2773`): the mock has no
-field for a verification code, so the screen uses Supabase's **email link**
-rather than an OTP — 발송 sends it, tapping the link deep-links back and the
-resulting `signedIn` event flips the button to 완료. An OTP field was tried
-first and removed: it had no place in the mock, and the project's email
-template sends a link anyway.
+field for a verification code, so the screen sends an **email link** — 발송
+sends it, tapping it deep-links back and the `passwordRecovery` event flips the
+button to 완료.
+
+It calls the same `resetPasswordForEmail` as the logged-out
+`PasswordResetScreen`: both mocks title the screen 비밀번호 재설정 and do the
+same job, so they should not diverge into different APIs and different email
+templates. An earlier attempt used `signInWithOtp` with its own code field —
+both were removed.
+
+Because both screens now receive `passwordRecovery`, `main.dart` would stack
+its reset screen on top of this one. `ChangePasswordAuth.isOpen` says whether
+this screen is mounted so it does not.
 
 Seven mock frames, but one screen — all three fields are always visible and only the email
 button's label walks 발송 → 재발송 → 완료. This is *not* `PasswordResetScreen`,

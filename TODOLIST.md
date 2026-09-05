@@ -42,17 +42,15 @@
 
 ## 팀 확인 대기
 
-### 비밀번호 변경 메일이 링크로 간다
+### 비밀번호 재설정 메일 문구가 영어다
 
-`lib/screens/change_password_screen.dart`
+로그인 전(`password_reset_screen.dart`)과 마이페이지
+(`change_password_screen.dart`)가 같은 `resetPasswordForEmail`을 쓰므로
+메일도 **Reset password** 템플릿 하나로 모인다.
 
-Supabase 이메일 템플릿이 매직링크로 설정돼 있어 `Your sign-in link` 메일이
-간다. 링크를 누르면 딥링크로 앱에 돌아와 인증이 끝나므로 흐름 자체는
-동작한다.
-
-문구가 영어이고 '로그인 링크'라고 적혀 있어 비밀번호 변경 맥락과 맞지 않는다.
-대시보드 → Authentication → Email Templates → Magic Link에서 한국어로 바꾸면
-된다.
+대시보드 → Authentication → Email Templates → **Reset password**에서 한국어로
+바꾸면 두 화면에 함께 적용된다. 회원가입은 Confirm signup이라는 별개
+템플릿이라 영향받지 않는다.
 
 
 ### 소셜 신규 가입자를 구분할 방법이 없다

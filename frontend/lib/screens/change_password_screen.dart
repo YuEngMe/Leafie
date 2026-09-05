@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:yeso_plant/main.dart' show oauthRedirectUrl;
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -34,27 +33,26 @@ class ChangePasswordScreen extends StatefulWidget {
 class ChangePasswordAuth {
   const ChangePasswordAuth();
 
-  /// 본인 확인 메일을 보낸다. 메일의 링크를 누르면 딥링크로 앱에 돌아오고
-  /// main.dart가 그 세션을 받는다.
+  /// 이 화면이 떠 있는 동안 true. main.dart가 재설정 화면을 겹쳐 띄우지
+  /// 않도록 보는 값이다 — 둘은 같은 passwordRecovery 이벤트를 받는다.
+  static bool isOpen = false;
+
+  /// 재설정 메일을 보낸다. 로그인 전 화면(PasswordResetScreen)과 같은 일이라
+  /// 같은 API를 쓴다 — 메일 템플릿도 Reset password 하나로 모인다.
   Future<void> sendLink(String email) =>
-      Supabase.instance.client.auth.signInWithOtp(
-        // 오타로 없는 주소를 넣으면 새 계정이 생기는 대신 실패해야 한다.
-        email: email,
-        shouldCreateUser: false,
-        emailRedirectTo: oauthRedirectUrl,
-      );
+      Supabase.instance.client.auth.resetPasswordForEmail(email);
 
   Future<void> updatePassword(String password) => Supabase.instance.client.auth
       .updateUser(UserAttributes(password: password));
 
-  /// 링크를 눌러 돌아왔을 때 열리는 세션.
+  /// 재설정 링크를 눌러 돌아왔을 때 오는 이벤트.
   ///
   /// Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 하므로
   /// 없으면 빈 스트림을 준다.
   Stream<AuthState> onSignedIn() {
     try {
       return Supabase.instance.client.auth.onAuthStateChange.where(
-        (state) => state.event == AuthChangeEvent.signedIn,
+        (state) => state.event == AuthChangeEvent.passwordRecovery,
       );
     } catch (_) {
       return const Stream.empty();
@@ -99,6 +97,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     _emailController.text = widget.email;
     // 메일의 링크를 누르면 딥링크로 돌아와 새 세션이 열린다. 그게 곧
     // 본인 확인이라 '완료'로 넘긴다.
+    ChangePasswordAuth.isOpen = true;
     _authSub = _auth.onSignedIn().listen((_) {
       if (mounted) setState(() => _step = _Verification.verified);
     });
@@ -117,6 +116,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   void dispose() {
+    ChangePasswordAuth.isOpen = false;
     _authSub?.cancel();
     for (final c in [
       _emailController,

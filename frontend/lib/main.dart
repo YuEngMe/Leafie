@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
@@ -77,13 +78,17 @@ class _YesoAppState extends State<YesoApp> {
     switch (data.event) {
       case AuthChangeEvent.passwordRecovery:
         // 비밀번호 재설정 이메일의 링크를 눌러 돌아온 경우.
-        // password_reset_screen.dart를 새 비밀번호 입력 단계로 열어준다.
-        navigator.push(
-          MaterialPageRoute(
-            builder: (_) =>
-                const PasswordResetScreen(startAtSetNewPassword: true),
-          ),
-        );
+        // 마이페이지 쪽 화면(ChangePasswordScreen)이 이미 열려 있으면 그
+        // 화면이 스스로 이 이벤트를 받아 '완료'로 넘어간다. 여기서 또
+        // 띄우면 같은 일을 하는 화면이 두 장 겹친다.
+        if (!ChangePasswordAuth.isOpen) {
+          navigator.push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  const PasswordResetScreen(startAtSetNewPassword: true),
+            ),
+          );
+        }
         break;
       case AuthChangeEvent.signedIn:
         // TODO: 카카오·네이버로 처음 가입한 사용자는 닉네임이 없어

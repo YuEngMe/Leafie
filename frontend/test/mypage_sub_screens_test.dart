@@ -46,7 +46,7 @@ class _FakeAuth implements ChangePasswordAuth {
 
   /// 메일의 링크를 누른 척한다.
   void completeVerification() =>
-      _signedIn.add(AuthState(AuthChangeEvent.signedIn, null));
+      _signedIn.add(AuthState(AuthChangeEvent.passwordRecovery, null));
 
   void dispose() => _signedIn.close();
 }
@@ -292,6 +292,24 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(auth.updatedPassword, 'newpass1!');
+    });
+
+    testWidgets('화면이 떠 있는 동안만 중복 방지 표시가 켜진다', (tester) async {
+      // main.dart가 이 값을 보고 재설정 화면을 겹쳐 띄울지 정한다.
+      expect(ChangePasswordAuth.isOpen, isFalse);
+
+      final auth = _FakeAuth();
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangePasswordScreen(email: 'a@b.com', auth: auth),
+        ),
+      );
+      expect(ChangePasswordAuth.isOpen, isTrue);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pumpAndSettle();
+      expect(ChangePasswordAuth.isOpen, isFalse);
     });
 
     testWidgets('두 비밀번호가 다르면 바꾸지 않는다', (tester) async {
