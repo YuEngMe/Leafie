@@ -126,8 +126,14 @@ the consent box ticked before the button unlocks; tapping the label toggles it
 too. The box's height is left to its content — pinning the mock's 105 overflows
 once the three 23 px lines and their gaps are laid out.
 
-**비밀번호 변경** (`2353:142` … `2346:2722`, done `2346:2773`): seven mock
-frames, but one screen — all three fields are always visible and only the email
+**비밀번호 변경** (`2353:142` … `2346:2722`, done `2346:2773`): the mock has no
+field for a verification code, so the screen uses Supabase's **email link**
+rather than an OTP — 발송 sends it, tapping the link deep-links back and the
+resulting `signedIn` event flips the button to 완료. An OTP field was tried
+first and removed: it had no place in the mock, and the project's email
+template sends a link anyway.
+
+Seven mock frames, but one screen — all three fields are always visible and only the email
 button's label walks 발송 → 재발송 → 완료. This is *not* `PasswordResetScreen`,
 which swaps whole screens across four steps; that one is the logged-out reset
 flow. Labels 45/145, 45/255, 45/365; fields at 169, 279, 389; the email field is

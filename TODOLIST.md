@@ -42,6 +42,19 @@
 
 ## 팀 확인 대기
 
+### 비밀번호 변경 메일이 링크로 간다
+
+`lib/screens/change_password_screen.dart`
+
+Supabase 이메일 템플릿이 매직링크로 설정돼 있어 `Your sign-in link` 메일이
+간다. 링크를 누르면 딥링크로 앱에 돌아와 인증이 끝나므로 흐름 자체는
+동작한다.
+
+문구가 영어이고 '로그인 링크'라고 적혀 있어 비밀번호 변경 맥락과 맞지 않는다.
+대시보드 → Authentication → Email Templates → Magic Link에서 한국어로 바꾸면
+된다.
+
+
 ### 소셜 신규 가입자를 구분할 방법이 없다
 
 `lib/main.dart:89`
@@ -64,7 +77,6 @@
 | 막대 폭 불일치 (진단) | `diagnosis_components.dart:366` | 76% 라벨에 85% 폭 |
 | 막대 폭 불일치 (홈) | `home_components.dart:101` | '현재조도 10%'인데 막대는 17.7% |
 | 화분·위치 입력 | `plant_register_environment_screen.dart` | 시안에 선택 UI가 없어 값을 비워 보낸다 |
-| 인증코드 칸 | `change_password_screen.dart` | 시안에 없어 임시로 넣음. 자리를 잡아 주면 좌표 맞춤 |
 | 사진 인식 거절 후 | `plant_photo_identify_screen.dart` | '아니에요'를 누른 뒤 화면이 시안에 없어 검색으로 되돌림 |
 | 애플 로그인 | 로그인 화면 | 시안 소셜 버튼 세 번째 검정 원. 애플이면 로고 에셋 필요 |
 | 약관 4개가 같은 이름 | `onboarding_overlays.dart:179` | `(필수) 서비스 약관` × 4, 꺾쇠를 눌러도 안 열림 |
