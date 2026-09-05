@@ -500,8 +500,14 @@ The old values were read off goldens, where there is no bottom inset to collide
 with — the error is invisible until the app runs on a device. `myPageBottomGap`
 was the worst of the three: its `+46` pushed the logout button 80 px up.
 
+The bottom **navigation bar** is the opposite case: it must reach the very edge
+(mock y 795-874). Inside `SafeArea` it floats 34 px up and leaves a blank strip
+under it, so home sets `bottom: false` and pins the bar with a `Positioned` in
+the outer `Stack`. Diary already placed it that way.
+
 `test/device_safe_area_test.dart` fakes the device insets and asserts the bottom
-button lands on the mock's y across all five screens that have one. Screen-level
+button lands on the mock's y across all five screens that have one, plus the
+nav bar reaching the bottom edge. Screen-level
 coordinate tests that run without insets must **not** check a bottom button's y —
 it is meaningless there.
 

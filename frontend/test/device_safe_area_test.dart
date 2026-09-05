@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
+import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/screens/oauth_nickname_screen.dart';
 import 'package:yeso_plant/screens/signup_complete_screen.dart';
@@ -78,5 +80,22 @@ void main() {
     // 의도된 동작이며, 시안 절대좌표에 억지로 맞추면 노치에 가린다.
     final card = tester.getRect(find.byType(ProfileSummaryCard));
     expect(card.top, closeTo(119 + (62 - 46), 2));
+  });
+
+  testWidgets('홈 네비바는 화면 바닥에 닿는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = _deviceInsets;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(signOut: () async {})),
+    );
+    await tester.pumpAndSettle();
+
+    // SafeArea 안에 두면 홈 인디케이터(34px)만큼 떠서 빈 띠가 생긴다.
+    final nav = tester.getRect(find.byType(AppBottomNav));
+    expect(nav.top, closeTo(795, 2));
+    expect(nav.bottom, closeTo(874, 2));
   });
 }

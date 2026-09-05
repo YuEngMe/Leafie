@@ -99,6 +99,8 @@ class HomeScreen extends StatelessWidget {
         children: [
           const CustomPaint(painter: _RoomBackgroundPainter()),
           SafeArea(
+            // 네비바는 화면 끝까지 닿아야 해서 이 안에 두지 않는다.
+            bottom: false,
             child: Column(
               children: [
                 SizedBox(
@@ -206,21 +208,28 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                AppBottomNav(
-                  onTap: (tab) => switch (tab) {
-                    FigmaNavIcon.diary => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DiaryScreen()),
-                    ),
-                    FigmaNavIcon.my => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MyPageScreen()),
-                    ),
-                    // 홈은 이미 여기고, 달력은 아직 화면이 없다.
-                    _ => null,
-                  },
-                ),
               ],
+            ),
+          ),
+          // 시안(3173:113)은 네비바가 화면 맨 아래에 붙는다. SafeArea 안에
+          // 두면 홈 인디케이터만큼 떠서 아래에 빈 띠가 생긴다.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AppBottomNav(
+              onTap: (tab) => switch (tab) {
+                FigmaNavIcon.diary => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DiaryScreen()),
+                ),
+                FigmaNavIcon.my => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyPageScreen()),
+                ),
+                // 홈은 이미 여기고, 달력은 아직 화면이 없다.
+                _ => null,
+              },
             ),
           ),
         ],
