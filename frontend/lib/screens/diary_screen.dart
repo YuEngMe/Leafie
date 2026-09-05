@@ -265,6 +265,17 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     setState(() => _photoPath = picked!.path);
   }
 
+  /// 앞뒤 버튼. 쓴 글을 저장하고 옆 날짜로 넘어간다.
+  void _shiftDay(int delta) {
+    final next = widget.entry.date.add(Duration(days: delta));
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiaryEntryScreen(entry: DiaryEntry(date: next)),
+      ),
+    );
+  }
+
   void _save() => Navigator.pop(
     context,
     widget.entry.copyWith(
@@ -299,6 +310,14 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           actions: [_EditAction(onPressed: _save)],
         ),
         body: DiaryScaffoldBody(
+          // 시안(2766:692)은 글쓰기에도 연필 버튼을 둔다. 이미 이 날의
+          // 글이므로 누르면 저장하고 나간다.
+          onFabPressed: _save,
+          // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
+          onNavTap: (tab) => switch (tab) {
+            FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
+            _ => null,
+          },
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -351,20 +370,29 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 height: 266,
                 child: _BodyBox(),
               ),
+              // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
+              // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
               Positioned(
                 left: 55,
                 top: 403,
                 width: 286,
-                child: TextField(
-                  controller: _titleController,
-                  style: kItemStyle.copyWith(color: kTextDark),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: '제목: ',
-                    hintStyle: kItemStyle.copyWith(color: kGrayLightest),
-                    contentPadding: EdgeInsets.zero,
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('제목: ', style: kItemStyle.copyWith(color: kTextDark)),
+                    Expanded(
+                      child: TextField(
+                        controller: _titleController,
+                        style: kItemStyle.copyWith(color: kTextDark),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Positioned(
@@ -400,6 +428,25 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               Positioned.fromRect(
                 rect: DiaryLayout.tab,
                 child: const DiaryTab(),
+              ),
+              // 시안(3173:178, 3173:181)은 글쓰기에도 앞뒤 버튼을 둔다.
+              Positioned.fromRect(
+                rect: DiaryLayout.prevButton,
+                child: _MonthButton(
+                  label: '이전 날',
+                  icon: Icons.arrow_left,
+                  color: kDiaryPrevGreen,
+                  onPressed: () => _shiftDay(-1),
+                ),
+              ),
+              Positioned.fromRect(
+                rect: DiaryLayout.nextButton,
+                child: _MonthButton(
+                  label: '다음 날',
+                  icon: Icons.arrow_right,
+                  color: kDiaryNextPink,
+                  onPressed: () => _shiftDay(1),
+                ),
               ),
             ],
           ),

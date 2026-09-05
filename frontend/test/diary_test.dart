@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 
 /// 시안이 그려진 기기 조건.
@@ -256,6 +257,56 @@ void main() {
       expect(back.body, '본문');
       expect(back.weather, DiaryWeather.cloudy);
       expect(DiaryEntry.sameDay(back.date, entry.date), isTrue);
+    });
+  });
+
+  group('시안 대조에서 놓쳤던 것들', () {
+    testWidgets('제목 앞에 "제목: "이 붙는다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15), title: '귀여운 새싹이'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 시안 2739:39792는 접두사가 힌트가 아니라 실제로 앞에 붙어 있다.
+      expect(find.text('제목: '), findsOneWidget);
+      expect(find.text('귀여운 새싹이'), findsOneWidget);
+    });
+
+    testWidgets('글쓰기에도 네비·앞뒤 버튼·연필이 있다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppBottomNav), findsOneWidget);
+      expect(find.bySemanticsLabel('이전 날'), findsOneWidget);
+      expect(find.bySemanticsLabel('다음 날'), findsOneWidget);
+      expect(find.bySemanticsLabel('다이어리 쓰기'), findsOneWidget);
+    });
+
+    testWidgets('달력은 그 달에 필요한 주만 그린다', (tester) async {
+      _setUpView(tester);
+      // 2026년 2월은 1일이 일요일이라 딱 네 주다.
+      await tester.pumpWidget(
+        MaterialApp(home: DiaryScreen(today: DateTime(2026, 2, 15))),
+      );
+      await tester.pumpAndSettle();
+
+      // 여섯 주를 고정해 그리면 종이(바닥 680) 밖으로 넘친다.
+      final cells = tester.widgetList(find.byType(DecoratedBox)).length;
+      expect(cells, greaterThan(0));
+      expect(find.text('28'), findsOneWidget);
+      expect(find.text('29'), findsNothing);
     });
   });
 }

@@ -452,6 +452,15 @@ Four things only a device screenshot caught (2026-09-05):
 - The mock keeps the **bottom navigation** on this screen. It moved out of
   `home_screen.dart` into `AppBottomNav` so both screens share it.
 
+Three more from the writing/reading screens:
+
+- The title reads **`제목: 귀여운 새싹이`** — the prefix sits in front of the
+  value (`2739:39792`), not as a hint that vanishes once you type.
+- Writing keeps the bottom nav, the green/pink page buttons *and* the pencil
+  FAB. Only the calendar had them at first.
+- The mock dates `2026년 7월 15일` as 토요일; it is a 수요일. The code computes
+  the weekday, so the two differ on purpose.
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real
