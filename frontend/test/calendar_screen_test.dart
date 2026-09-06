@@ -105,7 +105,7 @@ void main() {
     expect(repository.requests, hasLength(2));
   });
 
-  testWidgets('일정 추가 시 선택한 가지치기 일정을 등록한다', (tester) async {
+  testWidgets('일정 추가 시트에서 비료 주기를 골라 등록한다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(items: const []);
 
@@ -122,17 +122,21 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('calendar-add')));
     await tester.pumpAndSettle();
-    expect(find.text('일정 추가'), findsOneWidget);
+    // 시안 3429:1163에는 제목이 없고 `확인` 버튼과 3열 휠만 있다.
+    expect(find.text('일정 추가'), findsNothing);
+    expect(find.text('확인'), findsOneWidget);
+    expect(find.text('2026년'), findsOneWidget);
 
-    await tester.tap(find.text('가지치기'));
-    await tester.tap(find.text('등록하기'));
+    await tester.tap(find.byKey(const ValueKey('calendar-type-FERTILIZING')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('calendar-new-event-confirm')));
     await tester.pumpAndSettle();
 
     expect(repository.createdEvents, [
       _CreatedEvent(
         plantId: 'plant-1',
-        type: 'PRUNING',
-        title: '가지치기',
+        type: 'FERTILIZING',
+        title: '비료 주기',
         dueDate: DateTime(2026, 7, 15),
       ),
     ]);
@@ -143,6 +147,7 @@ void main() {
 void _setIPhone16ProViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(402, 874);
   tester.view.devicePixelRatio = 1;
+  tester.view.padding = const FakeViewPadding(top: 46, bottom: 34);
   addTearDown(tester.view.reset);
 }
 

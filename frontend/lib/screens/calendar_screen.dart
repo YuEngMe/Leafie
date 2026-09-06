@@ -10,6 +10,8 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
+import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 enum CalendarViewMode { month, week }
@@ -187,11 +189,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _showCreateSheet() async {
     final plantId = _plantId;
     if (plantId == null) return;
-    final result = await showModalBottomSheet<_NewCalendarEvent>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _NewEventSheet(initialDate: _selected),
+    final result = await showCalendarNewEventSheet(
+      context,
+      initialDate: _selected,
     );
     if (result == null || !mounted) return;
     try {
@@ -253,10 +253,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 if (_mode == CalendarViewMode.month)
                   Positioned(
-                    left: 13,
-                    right: 13,
-                    top: 562,
-                    height: 150,
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 175,
                     child: _MonthAgenda(
                       selected: _selected,
                       today: _today,
@@ -271,11 +271,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
                   )
                 else
+                  // 2687:17819 첫 헤딩 y=327, 카드 x=14.
                   Positioned(
-                    left: 13,
-                    right: 13,
-                    top: 316,
-                    height: 397,
+                    left: 14,
+                    width: 374,
+                    top: 327,
+                    height: 388,
                     child: _WeekAgenda(
                       weekStart: _startOfWeek(_selected),
                       items: _items,
@@ -286,24 +287,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       onRetry: _loadCalendar,
                     ),
                   ),
+                // 3341:493 원 45x45 @ (342,730). 에셋 캔버스 52.833은 그림자
+                // 여백 3.917을 사방에 두르고 있어 그만큼 당겨 앉힌다.
                 Positioned(
-                  left: 326,
-                  top: 726,
-                  width: 53,
-                  height: 53,
+                  left: 342 - 3.917,
+                  top: 730 - 3.917,
+                  width: 52.833,
+                  height: 52.833,
                   child: GestureDetector(
                     key: const ValueKey('calendar-add'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _showCreateSheet,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Color(0x33000000), blurRadius: 4),
-                        ],
-                      ),
-                      child: SvgPicture.asset('assets/images/calendar_fab.svg'),
-                    ),
+                    child: SvgPicture.asset('assets/images/calendar_fab.svg'),
                   ),
                 ),
                 Positioned(
@@ -356,11 +351,12 @@ class _CalendarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
+        // 3341:333 프로필 원 40.519.
         Positioned(
           left: 23,
           top: 50,
-          width: 41,
-          height: 41,
+          width: 40.519,
+          height: 40.519,
           child: Semantics(
             label: plantName == null ? '식물 프로필' : '$plantName 프로필',
             image: true,
@@ -390,74 +386,35 @@ class _CalendarHeader extends StatelessWidget {
             ),
           ),
         ),
+        // 3345:667 '캘린더' 43x19 x=179 y=60 → 16 Medium. kTitleStyle(21)은 너무 컸다.
         const Positioned(
           left: 0,
           right: 0,
           top: 60,
-          child: Center(child: Text('캘린더', style: kTitleStyle)),
+          height: 19,
+          child: Center(
+            child: Text('캘린더', style: kBodyStyle, textHeightBehavior: _tight),
+          ),
         ),
         Positioned(
           left: 335,
           top: 58,
-          child: _ModeSwitch(mode: mode, onChanged: onModeChanged),
+          child: CalendarModeSwitch(
+            weekSelected: mode == CalendarViewMode.week,
+            onChanged: (week) => onModeChanged(
+              week ? CalendarViewMode.week : CalendarViewMode.month,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _ModeSwitch extends StatelessWidget {
-  const _ModeSwitch({required this.mode, required this.onChanged});
-
-  final CalendarViewMode mode;
-  final ValueChanged<CalendarViewMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 25,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kOrangeMain, width: 1),
-      ),
-      child: Row(
-        children: [
-          _modeButton('월', CalendarViewMode.month),
-          _modeButton('주', CalendarViewMode.week),
-        ],
-      ),
-    );
-  }
-
-  Widget _modeButton(String label, CalendarViewMode value) {
-    final selected = mode == value;
-    return Expanded(
-      child: GestureDetector(
-        key: ValueKey('calendar-mode-${value.name}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(value),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: selected ? kOrangeMain : Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: kCaptionStyle.copyWith(
-                color: selected ? Colors.white : kTextDark,
-                fontSize: 11,
-                height: 1,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+const _tight = TextHeightBehavior(
+  applyHeightToFirstAscent: false,
+  applyHeightToLastDescent: false,
+);
 
 class _MonthCalendar extends StatelessWidget {
   const _MonthCalendar({
@@ -467,6 +424,12 @@ class _MonthCalendar extends StatelessWidget {
     required this.onSelect,
     required this.onShift,
   });
+
+  // 3341:498 격자: 첫 셀 (26.04, 232.571), 셀 50.132 x 56.525.
+  static const double gridLeft = 26.04;
+  static const double gridTop = 232.571;
+  static const double cellWidth = 50.132;
+  static const double cellHeight = 56.525;
 
   final DateTime month;
   final DateTime selected;
@@ -480,139 +443,58 @@ class _MonthCalendar extends StatelessWidget {
     final days = DateTime(month.year, month.month + 1, 0).day;
     final leading = first.weekday % 7;
     final rows = math.max(5, ((leading + days) / 7).ceil());
-    const gridWidth = 351.0;
-    final cellWidth = gridWidth / 7;
-    final cellHeight = 283.0 / rows;
     return Stack(
       children: [
+        // 3341:394 종이 380x423 @ (11, 122.96).
         const Positioned(
-          left: 10,
-          top: 123,
-          width: 381,
-          height: 424,
-          child: _PaperPanel(),
+          left: 11,
+          top: 122.961,
+          child: CalendarPaper(width: 380, height: 423),
         ),
-        const _PaperPins(top: 110),
+        calendarPins(week: false),
+        // 3341:401 라벨 중심 (201.45, 154.18) / 3341:402 꺾쇠 (143.348, 149).
         Positioned(
-          left: 133,
-          top: 141,
-          width: 136,
-          height: 28,
-          child: _PeriodNavigation(
+          left: 143.348,
+          top: 146,
+          width: CalendarPeriodBar.chevronsWidth,
+          height: 16.366,
+          child: CalendarPeriodBar(
             label: '${month.year}. ${month.month}',
             onShift: onShift,
           ),
         ),
+        // 3341:408~414 요일 16 SemiBold #FF8834. 격자 셀과 어긋나게 앉는다:
+        // 첫 글자 x=43.084, 간격 50.132, 폭 14.037 → 중심 50.10 / 100.23 / ...
         for (var i = 0; i < 7; i++)
           Positioned(
-            left: 26 + i * cellWidth,
-            top: 194,
-            width: cellWidth,
+            left: 43.084 + i * cellWidth,
+            top: 196,
+            width: 14.037,
+            height: 21.571,
             child: Center(
               child: Text(
                 _weekdays[i],
-                style: kSmallStyle.copyWith(
-                  color: kBrightOrange,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                ),
+                style: kItemStyle.copyWith(color: kBrightOrange),
+                textHeightBehavior: _tight,
               ),
             ),
           ),
         for (var index = 0; index < rows * 7; index++)
           Positioned(
-            left: 26 + (index % 7) * cellWidth,
-            top: 232 + (index ~/ 7) * cellHeight,
+            left: gridLeft + (index % 7) * cellWidth,
+            top: gridTop + (index ~/ 7) * cellHeight,
             width: cellWidth,
             height: cellHeight,
-            child: _MonthDayCell(
+            child: _DayCell(
               date: index >= leading && index - leading < days
                   ? DateTime(month.year, month.month, index - leading + 1)
                   : null,
               selected: selected,
-              items: index >= leading && index - leading < days
-                  ? items
-                        .where(
-                          (item) => _sameDay(
-                            item.date,
-                            DateTime(
-                              month.year,
-                              month.month,
-                              index - leading + 1,
-                            ),
-                          ),
-                        )
-                        .toList()
-                  : const [],
+              items: items,
               onSelect: onSelect,
             ),
           ),
       ],
-    );
-  }
-}
-
-class _MonthDayCell extends StatelessWidget {
-  const _MonthDayCell({
-    required this.date,
-    required this.selected,
-    required this.items,
-    required this.onSelect,
-  });
-
-  final DateTime? date;
-  final DateTime selected;
-  final List<CalendarItemData> items;
-  final ValueChanged<DateTime> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = date;
-    final isSelected = value != null && _sameDay(value, selected);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: value == null ? null : () => onSelect(value),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: kBrightOrange, width: 0.6),
-        ),
-        child: value == null
-            ? const SizedBox.expand()
-            : Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 7,
-                    child: Center(
-                      child: Text(
-                        '${value.day}',
-                        style: kBodyStyle.copyWith(
-                          color: isSelected ? kBrightOrange : kTextDark,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (items.isNotEmpty)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 3,
-                      child: Center(
-                        child: CalendarEventIcon(
-                          type: items.first.type,
-                          width: 17,
-                          height: 23,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-      ),
     );
   }
 }
@@ -633,94 +515,52 @@ class _WeekCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final start = _startOfWeek(selected);
-    final days = List.generate(7, (index) => start.add(Duration(days: index)));
-    const cellWidth = 350.0 / 7;
     return Stack(
       children: [
+        // 2687:15578 종이 379x165 @ (11, 132).
         const Positioned(
-          left: 10,
+          left: 11,
           top: 132,
-          width: 381,
-          height: 166,
-          child: _PaperPanel(),
+          child: CalendarPaper(width: 379, height: 165),
         ),
-        const _PaperPins(top: 119),
+        calendarPins(week: true),
+        // 2687:15579 라벨 (159, 152) / 2687:15580 꺾쇠 (144, 155).
         Positioned(
-          left: 133,
-          top: 142,
-          width: 136,
-          height: 28,
-          child: _PeriodNavigation(
+          left: 144,
+          top: 152,
+          width: CalendarPeriodBar.chevronsWidth,
+          height: 16.366,
+          child: CalendarPeriodBar(
             label: '${selected.year}. ${selected.month}',
             onShift: onShift,
           ),
         ),
+        // 3345:528~534 요일 (43, 186) 14x21.571, 간격 50 → 중심 50 / 100 / ...
         for (var i = 0; i < 7; i++) ...[
           Positioned(
-            left: 26 + i * cellWidth,
-            top: 190,
-            width: cellWidth,
+            left: 43 + i * 50.0,
+            top: 186,
+            width: 14,
+            height: 21.571,
             child: Center(
               child: Text(
                 _weekdays[i],
-                style: kSmallStyle.copyWith(
-                  color: kBrightOrange,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                ),
+                style: kItemStyle.copyWith(color: kBrightOrange),
+                textHeightBehavior: _tight,
               ),
             ),
           ),
+          // 3345:510 셀 (26, 222.571) 50x56.525.
           Positioned(
-            left: 26 + i * cellWidth,
-            top: 222,
-            width: cellWidth,
-            height: 57,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onSelect(days[i]),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: kBrightOrange, width: 0.6),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 8,
-                      child: Center(
-                        child: Text(
-                          '${days[i].day}',
-                          style: kBodyStyle.copyWith(
-                            color: _sameDay(days[i], selected)
-                                ? kBrightOrange
-                                : kTextDark,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (items.any((item) => _sameDay(item.date, days[i])))
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 2,
-                        child: Center(
-                          child: CalendarEventIcon(
-                            type: items
-                                .firstWhere(
-                                  (item) => _sameDay(item.date, days[i]),
-                                )
-                                .type,
-                            width: 17,
-                            height: 23,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            left: 26 + i * 50.0,
+            top: 222.571,
+            width: 50,
+            height: 56.525,
+            child: _DayCell(
+              date: start.add(Duration(days: i)),
+              selected: selected,
+              items: items,
+              onSelect: onSelect,
             ),
           ),
         ],
@@ -729,140 +569,76 @@ class _WeekCalendar extends StatelessWidget {
   }
 }
 
-class _PaperPanel extends StatelessWidget {
-  const _PaperPanel();
+/// 월간·주간이 같이 쓰는 날짜 칸. 격자선 1px, 숫자 16 SemiBold,
+/// 셀 왼쪽에서 8 / 위에서 7.762 (3341:419, 3345:511).
+class _DayCell extends StatelessWidget {
+  const _DayCell({
+    required this.date,
+    required this.selected,
+    required this.items,
+    required this.onSelect,
+  });
+
+  final DateTime? date;
+  final DateTime selected;
+  final List<CalendarItemData> items;
+  final ValueChanged<DateTime> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFFFDFDFD),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x4D444444),
-            blurRadius: 4,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: const CustomPaint(painter: _CalendarPaperPainter()),
-    );
-  }
-}
-
-class _CalendarPaperPainter extends CustomPainter {
-  const _CalendarPaperPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = math.Random(26);
-    final paint = Paint()..strokeWidth = 0.35;
-    for (var i = 0; i < 700; i++) {
-      paint.color = Color.fromARGB(18, 150, 150, 150 + random.nextInt(25));
-      final x = random.nextDouble() * size.width;
-      final y = random.nextDouble() * size.height;
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x + random.nextDouble() * 7, y + random.nextDouble() * 5),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CalendarPaperPainter oldDelegate) => false;
-}
-
-class _PaperPins extends StatelessWidget {
-  const _PaperPins({required this.top});
-
-  final double top;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        for (final left in const [36.0, 352.0])
-          Positioned(
-            left: left,
-            top: top,
-            width: 14,
-            height: 51,
-            child: Stack(
-              children: [
-                const Positioned(
-                  left: 0,
-                  bottom: 0,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFFECA6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox(width: 14, height: 14),
-                  ),
-                ),
-                Positioned(
-                  left: 3,
-                  top: 0,
-                  width: 9,
-                  height: 43,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD3D3D3),
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 2,
-                          offset: Offset(1, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _PeriodNavigation extends StatelessWidget {
-  const _PeriodNavigation({required this.label, required this.onShift});
-
-  final String label;
-  final ValueChanged<int> onShift;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _chevron(-1, Icons.chevron_left),
-        Expanded(
-          child: Center(
-            child: Text(
-              label,
-              style: kTitleStyle.copyWith(fontSize: 20, height: 1),
-            ),
-          ),
+    final value = date;
+    final isSelected = value != null && _sameDay(value, selected);
+    final dayItems = value == null
+        ? const <CalendarItemData>[]
+        : items.where((item) => _sameDay(item.date, value)).toList();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: value == null ? null : () => onSelect(value),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: kBrightOrange, width: 1),
         ),
-        _chevron(1, Icons.chevron_right),
-      ],
+        child: value == null
+            ? const SizedBox.expand()
+            : Stack(
+                children: [
+                  Positioned(
+                    left: 8,
+                    top: 7.762,
+                    width: 22,
+                    height: 19,
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${value.day}',
+                        style: kItemStyle.copyWith(
+                          color: isSelected ? kBrightOrange : kTextDark,
+                        ),
+                        textHeightBehavior: _tight,
+                      ),
+                    ),
+                  ),
+                  // 3341:426 / 3341:455 물방울 17.045x23.729, 셀 기준 (29.07, 27.59).
+                  // 일정 종류와 무관하게 '이 날 뭔가 있다' 표시 하나만 둔다.
+                  if (dayItems.isNotEmpty)
+                    Positioned(
+                      left: 29.07,
+                      top: 27.59,
+                      width: 17.045,
+                      height: 23.729,
+                      child: SvgPicture.asset(
+                        'assets/images/calendar_day_drop.svg',
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                ],
+              ),
+      ),
     );
   }
-
-  Widget _chevron(int delta, IconData icon) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: () => onShift(delta),
-    child: SizedBox(
-      width: 27,
-      height: 28,
-      child: Icon(icon, color: kBrightOrange, size: 26),
-    ),
-  );
 }
 
+/// 월간 아래 '오늘 할 일' 목록 (3341:362 + 3429:675/689).
 class _MonthAgenda extends StatelessWidget {
   const _MonthAgenda({
     required this.selected,
@@ -888,18 +664,29 @@ class _MonthAgenda extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = _sameDay(selected, today)
         ? '오늘 할 일'
-        : '${selected.year}. ${selected.month}.${selected.day} ${_weekdayLabel(selected)}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+        : _dateLabel(selected);
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 22, bottom: 7),
-          child: Text(
-            title,
-            style: kBodyStyle.copyWith(fontWeight: FontWeight.w600),
+        // 3341:362 제목 (35, 564.195) 16 SemiBold.
+        Positioned(
+          left: 35,
+          top: 564.195,
+          height: 19,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: kItemStyle,
+              textHeightBehavior: _tight,
+            ),
           ),
         ),
-        Expanded(
+        // 3429:677 첫 카드 top 588.195, 카드 간격 14 (653.195 - 639.195).
+        Positioned(
+          left: 13,
+          top: 588.195,
+          width: 374,
+          bottom: 0,
           child: _AgendaBody(
             items: items,
             loading: loading,
@@ -914,6 +701,7 @@ class _MonthAgenda extends StatelessWidget {
   }
 }
 
+/// 주간 아젠다 (2687:17819 첫 헤딩 y=327, 2687:17820 첫 카드 y=351).
 class _WeekAgenda extends StatelessWidget {
   const _WeekAgenda({
     required this.weekStart,
@@ -954,36 +742,58 @@ class _WeekAgenda extends StatelessWidget {
       if (dateItems.isNotEmpty) groups[date] = dateItems;
     }
     if (groups.isEmpty) return const _EmptyAgenda();
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 1),
+    return ListView.builder(
+      padding: EdgeInsets.zero,
       itemCount: groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 20),
       itemBuilder: (context, index) {
         final entry = groups.entries.elementAt(index);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 22, bottom: 7),
-              child: Text(
-                '${entry.key.year}. ${entry.key.month}.${entry.key.day} ${_weekdayLabel(entry.key)}',
-                style: kBodyStyle.copyWith(fontWeight: FontWeight.w600),
+        return Padding(
+          // 앞 그룹 카드 바닥(402) → 다음 헤딩(442) = 40.
+          padding: EdgeInsets.only(top: index == 0 ? 0 : 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 헤딩 19 → 카드까지 5 (327+19=346 → 351).
+              SizedBox(
+                height: 19,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 21),
+                    child: Text(
+                      _dateLabel(entry.key),
+                      style: kItemStyle,
+                      textHeightBehavior: _tight,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            for (var i = 0; i < entry.value.length; i++) ...[
-              _CalendarEventCard(
-                item: entry.value[i],
-                completing: completingIds.contains(entry.value[i].id),
-                onComplete: () => onComplete(entry.value[i]),
-              ),
-              if (i != entry.value.length - 1) const SizedBox(height: 9),
+              const SizedBox(height: 5),
+              for (var i = 0; i < entry.value.length; i++) ...[
+                if (i != 0) const SizedBox(height: kCardGap),
+                _card(entry.value[i]),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
   }
+
+  Widget _card(CalendarItemData item) => CalendarEventCard(
+    completeKey: ValueKey('calendar-complete-${item.id}'),
+    type: item.type,
+    title: _eventTitle(item),
+    dateLabel: _dateLabel(item.date),
+    completed: item.status == 'COMPLETED',
+    completing: completingIds.contains(item.id),
+    completable: item.completable,
+    onComplete: () => onComplete(item),
+  );
 }
+
+// 3429:689 y=653.195 - 3429:677 바닥 639.195.
+const double kCardGap = 14;
 
 class _AgendaBody extends StatelessWidget {
   const _AgendaBody({
@@ -1005,16 +815,21 @@ class _AgendaBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2, color: kOrangeMain),
+      return const Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.only(top: 14),
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2, color: kOrangeMain),
+          ),
         ),
       );
     }
     if (error != null) {
-      return Center(
+      return Align(
+        alignment: Alignment.topCenter,
         child: TextButton(
           onPressed: onRetry,
           child: Text('$error\n다시 불러오기', textAlign: TextAlign.center),
@@ -1025,12 +840,20 @@ class _AgendaBody extends StatelessWidget {
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 9),
-      itemBuilder: (context, index) => _CalendarEventCard(
-        item: items[index],
-        completing: completingIds.contains(items[index].id),
-        onComplete: () => onComplete(items[index]),
-      ),
+      separatorBuilder: (_, _) => const SizedBox(height: kCardGap),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return CalendarEventCard(
+          completeKey: ValueKey('calendar-complete-${item.id}'),
+          type: item.type,
+          title: _eventTitle(item),
+          dateLabel: _dateLabel(item.date),
+          completed: item.status == 'COMPLETED',
+          completing: completingIds.contains(item.id),
+          completable: item.completable,
+          onComplete: () => onComplete(item),
+        );
+      },
     );
   }
 }
@@ -1039,290 +862,16 @@ class _EmptyAgenda extends StatelessWidget {
   const _EmptyAgenda();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      '등록된 일정이 없어요.',
-      style: kCaptionStyle.copyWith(color: kTextDark),
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Text(
+        '등록된 일정이 없어요.',
+        style: kCaptionStyle.copyWith(color: kTextDark),
+      ),
     ),
   );
-}
-
-class _CalendarEventCard extends StatelessWidget {
-  const _CalendarEventCard({
-    required this.item,
-    required this.completing,
-    required this.onComplete,
-  });
-
-  final CalendarItemData item;
-  final bool completing;
-  final VoidCallback onComplete;
-
-  @override
-  Widget build(BuildContext context) {
-    final completed = item.status == 'COMPLETED';
-    return Container(
-      height: 51,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 4,
-            offset: Offset(1, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 20,
-            top: 10,
-            width: 26,
-            height: 31,
-            child: CalendarEventIcon(type: item.type),
-          ),
-          Positioned(
-            left: 95.29,
-            top: 0,
-            width: 108.61,
-            height: 51,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _eventTitle(item),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: kBodyStyle.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 214.15,
-            top: 0,
-            width: 78,
-            height: 51,
-            child: Center(
-              child: Text(
-                '${item.date.year}. ${item.date.month}.${item.date.day} ${_weekdayLabel(item.date)}',
-                maxLines: 1,
-                style: kCaptionStyle.copyWith(color: kTextLight, fontSize: 11),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 323,
-            top: 0,
-            width: 51,
-            height: 51,
-            child: GestureDetector(
-              key: ValueKey('calendar-complete-${item.id}'),
-              behavior: HitTestBehavior.opaque,
-              onTap: item.completable && !completing ? onComplete : null,
-              child: Center(
-                child: completing
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: kOrangeMain,
-                        ),
-                      )
-                    : Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: completed ? kOrangeMain : Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: completed
-                                ? kOrangeMain
-                                : const Color(0xFFE7E7E7),
-                          ),
-                        ),
-                        child: completed
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: 19,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class CalendarEventIcon extends StatelessWidget {
-  const CalendarEventIcon({
-    super.key,
-    required this.type,
-    this.width = 26,
-    this.height = 31,
-  });
-
-  final String type;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final asset = switch (type) {
-      'WATERING' => 'assets/images/calendar_event_water.svg',
-      'REPOTTING' => 'assets/images/calendar_event_repot.svg',
-      'FERTILIZING' => 'assets/images/calendar_event_fertilize.svg',
-      _ => null,
-    };
-    if (asset != null) {
-      final naturalSize = switch (type) {
-        'WATERING' => const Size(17, 24),
-        'REPOTTING' => const Size(26, 25),
-        'FERTILIZING' => const Size(19, 31),
-        _ => Size(width, height),
-      };
-      final scale = math.min(
-        width / naturalSize.width,
-        height / naturalSize.height,
-      );
-      return Center(
-        child: SvgPicture.asset(
-          asset,
-          width: naturalSize.width * scale,
-          height: naturalSize.height * scale,
-        ),
-      );
-    }
-    return Icon(
-      type == 'PRUNING' ? Icons.content_cut_rounded : Icons.eco_rounded,
-      size: math.min(width, height),
-      color: kOrangeMain,
-    );
-  }
-}
-
-class _NewCalendarEvent {
-  const _NewCalendarEvent({
-    required this.type,
-    required this.title,
-    required this.date,
-  });
-
-  final String type;
-  final String title;
-  final DateTime date;
-}
-
-class _NewEventSheet extends StatefulWidget {
-  const _NewEventSheet({required this.initialDate});
-
-  final DateTime initialDate;
-
-  @override
-  State<_NewEventSheet> createState() => _NewEventSheetState();
-}
-
-class _NewEventSheetState extends State<_NewEventSheet> {
-  String _type = 'FERTILIZING';
-  late DateTime _date = widget.initialDate;
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      builder: (context, child) => Theme(
-        data: Theme.of(
-          context,
-        ).copyWith(colorScheme: const ColorScheme.light(primary: kOrangeMain)),
-        child: child!,
-      ),
-    );
-    if (picked != null) setState(() => _date = picked);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(28, 22, 28, 30),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              '일정 추가',
-              style: kTitleStyle,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(child: _typeChoice('FERTILIZING', '비료 주기')),
-                const SizedBox(width: 12),
-                Expanded(child: _typeChoice('PRUNING', '가지치기')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _pickDate,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kTextDark,
-                side: const BorderSide(color: kOrangeMain),
-                minimumSize: const Size.fromHeight(51),
-                shape: const StadiumBorder(),
-              ),
-              child: Text('${_date.year}. ${_date.month}.${_date.day}'),
-            ),
-            const SizedBox(height: 14),
-            FilledButton(
-              onPressed: () {
-                final title = _type == 'FERTILIZING' ? '비료 주기' : '가지치기';
-                Navigator.pop(
-                  context,
-                  _NewCalendarEvent(type: _type, title: title, date: _date),
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: kOrangeMain,
-                minimumSize: const Size.fromHeight(51),
-                shape: const StadiumBorder(),
-              ),
-              child: const Text('등록하기', style: kButtonStyle),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _typeChoice(String value, String label) {
-    final selected = _type == value;
-    return GestureDetector(
-      onTap: () => setState(() => _type = value),
-      child: Container(
-        height: 51,
-        decoration: BoxDecoration(
-          color: selected ? kPaleYellow : Colors.white,
-          border: Border.all(color: selected ? kOrangeMain : kGrayLightest),
-          borderRadius: BorderRadius.circular(26),
-        ),
-        child: Center(child: Text(label, style: kBodyStyle)),
-      ),
-    );
-  }
 }
 
 const _weekdays = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1336,7 +885,8 @@ DateTime _startOfWeek(DateTime value) =>
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-String _weekdayLabel(DateTime date) => _weekdays[date.weekday % 7];
+String _dateLabel(DateTime date) =>
+    '${date.year}. ${date.month}.${date.day} ${_weekdays[date.weekday % 7]}';
 
 String _eventTitle(CalendarItemData item) {
   final custom = item.title?.trim();
