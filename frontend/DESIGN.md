@@ -487,6 +487,209 @@ Three more from the writing/reading screens:
 - The mock dates `2026년 7월 15일` as 토요일; it is a 수요일. The code computes
   the weekday, so the two differ on purpose.
 
+### Calendar (`3341:2`, `2687:15303`, `3429:1163`)
+
+Three frames: month, week, and the schedule-add sheet. `calendar_screen.dart`
+holds the two calendar frames; the shared card/toggle/pin pieces live in
+`calendar_pieces.dart` and the sheet in `calendar_new_event_sheet.dart`.
+
+**Everything inside an event card is measured from the card's own left edge**,
+which is why month (card x=13) and week (card x=14) can share one widget: title
++95.29, date +214.15, complete mark +336, and the icon +20 for 분갈이 but +24
+for 비료 — the two glyphs have different widths and the mock nudges each.
+
+Cards are 374 x 51 with **radius 50** — a stadium, not the rounded rectangle
+28 suggests — a `0 0 4 rgba(0,0,0,0.18)` shadow with no offset, and a
+**14 px** gap between them. Their titles are `#1F2E21`, not the usual `#444`.
+
+The **complete mark is a chevron (∨), not a check (✓)**: a 26 px orange circle
+with a white 12x8 stroke-2 round-cap V (`3429:1487`). Incomplete is a plain
+white circle with no border.
+
+The month/week toggle (`3341:484`) is a 48 x 24.923 orange pill with a
+**21.23 px white knob** that slides between the two ends — not a circle sized
+to half the track. Its `월`/`주` labels are 12 Regular, and the selected one
+turns `#444` while the other goes white.
+
+**Weekday headers do not line up with the grid columns.** The headers start at
+x=43.08 (width 14.04, pitch 50.13) while the cells start at x=26.04, so the
+header centres land at 50.10 / 100.23 / … — about 1 px left of each cell's
+centre. Both are 16 SemiBold. Date numbers are 16 SemiBold whether selected or
+not, sitting 8 px in and 7.76 px down inside each cell, and grid lines are a
+full 1 px.
+
+The pins differ between the two frames: month is a 332.876 x 52 group at
+(35.06, 110) with 20 x 20 heads, week is 342 x 39 at (30, 120) with 10 x 30
+bars. Both are `#FFF3C8` heads on `#D9D9D9` bars — the SVGs' inner shadows are
+stripped because `flutter_svg` cannot draw them.
+
+The `+` button's exported SVG carries **3.917 px of shadow margin on every
+side**, so the 52.833 canvas is placed at (338.08, 726.08) to land the drawn
+45 px circle at the mock's (342, 730).
+
+**The schedule-add sheet is a floating card, not a bottom sheet** — 334 x 180
+at (34, 590), radius 30, with the `확인` button as a separate 334 x 51 pill at
+(34, 790). It is pushed as a transparent route rather than `showDialog`, whose
+safe-area insets would shift every coordinate.
+
+Inside it, a **three-column wheel** (`ListWheelScrollView`, `diameterRatio` 100
+so the rows stay flat) replaces `showDatePicker`; the selected row is 18
+SemiBold `#444` over a 230 x 40 `#FFF3CA` pill at (53, 660), the neighbours 16
+Medium `#A1A1A1`. Schedule type is picked from **two 49 px icon buttons stacked
+down the right edge** at x=301 — 분갈이 and 비료, the only two the mock offers.
+`가지치기` is gone, and so is the `일정 추가` title the app had invented.
+
+### Notifications (`3448:2`)
+
+One flat list is wrong: the mock groups notifications into **`오늘의 알림`** and
+**`지난 알림`**, split on whether `createdAt` falls on today's local date. Each
+header is Paperlogy 16 SemiBold `#444` at x=34; the first header's ink sits at
+y=140 and the first tile at y=169.
+
+Tiles are **pills, not cards** (`3448:26`): 374 x 58.196 at x=14, radius 50,
+white on both read and unread, with a `0 0 4 rgba(0, 0, 0, 0.18)` shadow and no
+border. They stack 15 px apart, and the gap between one section's last tile and
+the next header is 40.
+
+Inside a tile, three things and nothing else:
+
+- a character PNG (`3448:4408`) 30.9 x 46.5 at x=32, vertically centred;
+- the title at x=109.293, Paperlogy 16 Medium `#1F2E21`, one line;
+- a dot at x=355, diameter 8.188, vertically centred — `#FF5E5E` unread
+  (`3448:113`), `#CCCBCB` read (`3456:4891`). Read notifications keep the dot;
+  only its colour changes.
+
+The mock has no filter chips, no "전체 읽음" action, no body line and no
+timestamp, so the screen draws none of them. `markAllRead` stays on
+`NotificationRepository` because the API contract still exposes it.
+
+The character is one asset for every notification: `NotificationData` carries a
+`type` string but no character or plant image, so there is nothing to pick a
+per-character PNG with. Marked `TODO(design)` in `lib/widgets/notification_tile.dart`.
+
+Flutter renders Paperlogy 16 at a 23 px line height where the mock's text box is
+19, so the header-to-tile gap is coded as `29 - 23`, not `29 - 19`.
+
+### My characters (plant management) flow
+
+Eight frames, one entry point: home's `onManagePlants` opens
+`PlantManagementScreen`. The old vertical card list is gone.
+
+#### Shelf house (`2316:5103`)
+
+Not a list — a **house**. `#FFECA6` background (`2316:5104`), a white house
+silhouette SVG (`2316:5240`, drawn at 368.032 x 729.991 because its shadow
+filter bleeds 3 px on each side), and three shelf rules at y=319 / 441 / 563
+(`2316:5255`~`5257`: x=57, w=287, h=3, painted in the same yellow so they read
+as gaps in the house). A cloud SVG (`2316:5225`) overhangs the top edge and is
+clipped.
+
+A white 41 x 86 chimney (`2316:5254`) sits at (278.036, 152.074); it is **not**
+part of the house SVG. Both the house and the cloud are drawn `BoxFit.contain` —
+`fill` stretched the cloud union and left a stray white ellipse under the title.
+
+Characters sit in a 3 x 3 grid — column centres 98.5 / 200.5 / 305.5, each one
+standing **on** its shelf. The first empty slot after the
+last plant gets the `+` (`3345:886`, 29 x 29 framed but drawn at 34.048 with its
+shadow); with nine plants there is no `+`. Everything the app had invented —
+cards, the `선택됨` pill, radio buttons, the species/tenure line, the three
+`TextButton` actions, the empty state — is deleted, because the mock has none of
+it. Tapping a character selects it (so home follows) and pushes the detail
+screen.
+
+#### Character detail (`2564:947`)
+
+`PlantDetailBody` is the shared spine for this flow: a `Stack` whose children
+take the mock's **absolute** y minus a 92 px band (46 status bar + 46 app bar),
+so every coordinate below is the number written in Figma.
+
+Nickname at y=115 (Paperlogy 21 SemiBold `#2E2E2E`, not `kTextDark`), tenure at
+y=146 (12 Regular), character at y=215, trash at (332, 426) 25.057 x 26.576, and
+a 344 x 198 card at (29, 465) radius **20** with `0 0 5 rgba(0,0,0,0.2)`. Inside
+it, a 12 Regular `#444` label at (52, 481) and three rows whose text tops are
+518.762 / 567.762 / 616.762, each with a chevron whose ink ends at x=350.
+
+The grass band is **not** a flat rectangle: `2564:1051` is `#C1E25F` from y=806,
+but its top edge is a grass texture and two sprouts (`2568:1085`~`1087`,
+`2568:1922`~`1924`) rise ~32 px above it. Those don't survive being re-drawn
+from coordinates, so `plant_detail_grass.png` is the mock's own render cropped
+to y=770..845 and hung at y=770 — the green starts 36 px into the asset, landing
+the band on 806.
+
+#### Character art is padded — compensate at every call site
+
+`leafie_character.png` is 331 x 298 with the drawing occupying only 243 x 206
+(73.41% wide); `leafie_character_sprout.png` is 512 x 512 around 362 x 413
+(70.70% wide). Passing a Figma node's width straight to `PlantCharacterArt`
+therefore renders the character at ~70% of the mock. `plantArtWidthFor(figmaW,
+{sprouted})` in `plant_detail_components.dart` divides by that fraction; the
+registration flow's hand-tuned 232 / 250 constants are the same correction.
+Because the drawn box is bigger than the Figma frame, the shelf grid positions
+by the sprout's **ink** bottom (7.03% of the drawn height is empty), not the box
+bottom.
+
+#### Delete (`2568:1926`)
+
+Reused verbatim: `CharacterDeleteDialog` in `onboarding_overlays.dart` already
+draws this exact 308 x 158.829 box with `삭제하시겠습니까?` / `네` / `아니오`.
+The old Material `AlertDialog` (`식물 삭제` / `취소` / `삭제`) is gone.
+
+#### Personality (`2568:1714`)
+
+Read-only — the registration flow picks the personality, this screen shows the
+one that stuck. Name at y=132, two 58.693 x 20.667 chips at y=170, character at
+y=287, speech bubble 253 x 47.053 at y=475, six dots at y=561.05 with only the
+current type lit. Labels, tags and dialogue are duplicated from the registration
+copy (`2318:3129`~`3430`) into `kPlantPersonalities`.
+
+#### Edit info (`2555:661`, `2568:1639`)
+
+Four fields on the standard 110 px label pitch: labels at x=45 y=145 / 255 / 365
+/ 475 in `kOrangeMain`, `RoundedInputField` at x=34 w=334 h=51.
+
+Dates open `PlantDatePickerSheet`, and the sheet is **orange, not white**
+(`2568:1686`: `#FFB52A`, 402 x 325 at y=549, top corners 35). Wheel text is
+white at 80% / 16 Medium; the selected row sits on a `rgba(255,197,136,0.42)`
+pill (`2568:1706`, 399.954 x 39.686, radius 20) in white 18 SemiBold. The button
+(`2568:1711`) inverts: white background, `#FFB52A` label.
+
+Two things must not be added inside this sheet, or it grows past 325 and the
+button rides up over the wheels on a real device: `showModalBottomSheet` is
+called with `useSafeArea: false`, and the button uses `PrimaryButton` directly
+rather than `PlantDetailBottomAction` (which wraps a `SafeArea`). The sheet is
+already flush to the bottom edge, so the 34 px inset is not its to pay. There is
+a regression test at `FakeViewPadding(top: 62, bottom: 34)` for exactly this.
+
+#### Appearance (`2568:1764`, `2568:1814`)
+
+Full screen, not a bottom sheet. A 443 px white circle at (-25, 576) carries an
+arc of **five** 60 px swatches (74 px with the selected ring, `2568:1799`, black
+15% at width 4) whose colours come straight from the export: `#BAEEDC`,
+`#E0B2FF`, `#FF9B9B`, `#FFDC9C`, `#FFCADC`. The bottom-centre position is **not**
+a sixth swatch — it is the orange check circle (`2568:1811`, `#FFB222` r19,
+drawn 46 x 46 with its shadow) at (182, 760), which **is** the apply button.
+There is no `적용하기` bar, and the old nine-swatch `Wrap` sheet is deleted.
+
+The `컬러` / `헤어` tab underline (`2568:1808`) is a **curve**, not a straight
+rule: a `#D9D9D9` arc across 115 x 11 with the active half overpainted in
+`#FFB52A`, round caps, 3 px. The exported SVG only has the left half filled, so
+`_TabIndicatorPainter` redraws both curves and mirrors the canvas for the hair
+tab.
+
+#### API gaps (`TODO(design)`)
+
+`PlantManagementRepository` only has `updateNickname` and `updateAppearance`.
+Marked in code:
+
+- `장소(별명)`, `마지막 물 준 날`, `분갈이 한 날` are drawn and hold local state
+  but never reach the server (`plant_edit_info_screen.dart`).
+- Personality has no `PATCH`, so that screen's `수정하기` stays disabled
+  (`plant_detail_screen.dart`).
+- The hair tab has no item PNGs and no agreed `hair_id` values, so it shows a
+  placeholder line (`plant_edit_appearance_screen.dart`).
+- Character art is still one shared `PlantCharacterArt`; there is no asset keyed
+  by `personalityType` / `colorId`.
+
 ### Device safe area vs. the mock's status bar
 
 The mocks are drawn on a 402 x 874 frame with a **46 px status bar**. Real

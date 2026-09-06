@@ -48,6 +48,16 @@ FCM 토큰 획득·등록은 FCM 자격 증명 설정 후 연결해야 한다. �
 | 회원가입 '완료' 버튼 | `signup_screen.dart` | 2395:46은 인증이 끝나면 발송 버튼이 '완료'가 되는데, 앱은 가입 마지막에 signUp이 메일을 보내는 흐름이라 그 전에 인증 완료 상태가 없다. 흐름을 바꿀지 결정 필요 |
 | 인앱 카메라 3화면 | `plant_species_search_screen.dart` | 2318:2609/2741/2788은 앱 안 카메라 UI인데 image_picker(OS 카메라)로 가기로 했었다. 유지할지 확인 |
 
+### 백엔드 API 공백 (2026-09-07 화면 재구성에서 드러남)
+
+| 항목 | 자리 | 내용 |
+|---|---|---|
+| 캐릭터 정보수정 3필드 | `plant_edit_info_screen.dart` | 장소(별명)·마지막 물 준 날·분갈이 한 날(2555:661)은 UI만 있고 저장 API가 없다. 화면 안 상태로만 남는다 |
+| 성격 수정 | `plant_detail_screen.dart` `PlantPersonalityScreen` | `personality_type` PATCH가 없어 '수정하기'를 잠가 뒀다 |
+| 헤어 탭 아이템 | `plant_edit_appearance_screen.dart` | `hair_id` 값 목록과 아이템 PNG 5장(2568:1857~1861)이 없다 |
+| 식물별 캐릭터 그림 | 알림 타일·내 캐릭터 격자·상세 | `personalityType`/`colorId`별 에셋이 없어 `PlantCharacterArt` 하나로 그린다 |
+| 가지치기 일정 | `calendar_new_event_sheet.dart` | 시안 시트는 분갈이·비료뿐이라 PRUNING 생성 경로가 닫혔다. 필요하면 시안 확인 |
+
 ## 디자이너 확인 대기
 
 | 항목 | 자리 | 내용 |

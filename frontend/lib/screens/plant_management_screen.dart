@@ -1,12 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:yeso_plant/screens/plant_detail_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_layout.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+
+/// 시안 2316:5103 "전체보기_내 캐릭터".
+///
+/// 노란 배경(#FFECA6) 위에 흰 집 실루엣을 얹고, 집 안 3단 선반에 캐릭터를
+/// 격자로 세운다. 빈 슬롯 하나에 `+`가 붙어 등록으로 넘어간다. 카드 리스트,
+/// "선택됨" 배지, 라디오 버튼, 카드 안 액션 3개는 시안에 없어 걷어냈다.
+const Color kPlantsHouseYellow = Color(0xFFFFECA6); // 2316:5104 연노랑
+
+/// 집 실루엣(2316:5240)의 프레임 좌표. 그림자 필터가 SVG 밖으로 6px씩
+/// 번져 나오므로 그리는 크기는 368.03 x 729.99다(원 프레임 362.03x723.99).
+const double _kHouseLeft = 20 - 3;
+const double _kHouseTop = 117 - 3;
+const double _kHouseWidth = 368.032;
+const double _kHouseHeight = 729.991;
+
+/// 선반 3줄(2316:5255~5257). x=57 w=287 h=3, 색은 배경과 같은 연노랑.
+const List<double> _kShelfTops = [319, 441, 563];
+const double _kShelfLeft = 57;
+const double _kShelfWidth = 287;
+const double _kShelfHeight = 3;
+
+/// 칸 가로 중심. 시안의 캐릭터 프레임(2316:5249/5243/5248 등) 중심값이다.
+/// 좌 66~67 + 폭 61~65, 중앙 167~170 + 폭 61~67, 우 274~276 + 폭 61~63.
+const List<double> _kColumnCenters = [98.5, 200.5, 305.5];
+
+/// 캐릭터가 선반 위에 서는 칸의 시안 폭. 시안 캐릭터(2316:5243~5253)는
+/// 61~67 x 74~93으로 제각각이라 가장 큰 2316:5243(61.22)을 쓰고, 밑선을
+/// 선반에 맞춘다. PNG 투명 여백 보정은 plantArtWidthFor가 한다.
+const double _kCharacterWidth = 61.219;
+
+/// `+` 버튼(3345:886). 시안 프레임은 x=186 y=520 29x29이지만 SVG는 그림자
+/// 때문에 34.05로 넘쳐 그려진다. 그려지는 크기를 그대로 쓴다.
+const double _kPlusDrawnSize = 34.048;
+
+/// 상단 구름(2316:5225). 프레임 밖으로 나가는 부분은 잘린다.
+const double _kCloudLeft = -33;
+const double _kCloudTop = -155;
+const double _kCloudWidth = 499;
+const double _kCloudHeight = 300;
 
 class PlantManagementScreen extends StatefulWidget {
   const PlantManagementScreen({
@@ -29,7 +68,6 @@ class _PlantManagementScreenState extends State<PlantManagementScreen> {
       widget.repository ?? PlantManagementApi();
   List<ManagedPlant> _plants = const [];
   bool _loading = true;
-  String? _busyPlantId;
 
   @override
   void initState() {
@@ -49,142 +87,39 @@ class _PlantManagementScreenState extends State<PlantManagementScreen> {
     }
   }
 
-  Future<void> _selectPlant(ManagedPlant plant) async {
-    if (plant.isSelected || _busyPlantId != null) return;
-    setState(() => _busyPlantId = plant.id);
-    try {
-      final selectedId = await _repository.selectPlant(plant.id);
-      if (!mounted) return;
-      setState(() {
-        _plants = [
-          for (final item in _plants)
-            item.copyWith(isSelected: item.id == selectedId),
-        ];
-      });
-      widget.onSelectedPlantChanged?.call(selectedId);
-    } on LeafieApiException catch (error) {
-      if (mounted) _showError(error.message);
-    } finally {
-      if (mounted) setState(() => _busyPlantId = null);
+  /// 시안에는 캐릭터를 누르면 상세로 가는 흐름만 있다. 선택 전환은 상세로
+  /// 들어가는 김에 함께 해 홈이 그 식물을 보게 한다.
+  Future<void> _openDetail(ManagedPlant plant) async {
+    if (!plant.isSelected) {
+      try {
+        final selectedId = await _repository.selectPlant(plant.id);
+        if (!mounted) return;
+        setState(() {
+          _plants = [
+            for (final item in _plants)
+              item.copyWith(isSelected: item.id == selectedId),
+          ];
+        });
+        widget.onSelectedPlantChanged?.call(selectedId);
+      } on LeafieApiException catch (error) {
+        if (mounted) _showError(error.message);
+        return;
+      }
     }
-  }
-
-  Future<void> _renamePlant(ManagedPlant plant) async {
-    var draftNickname = plant.nickname;
-    final nickname = await showDialog<String>(
-      context: context,
-      barrierColor: kModalBarrier,
-      builder: (context) => AlertDialog(
-        title: const Text('식물 이름 변경', style: kItemStyle),
-        content: TextFormField(
-          key: const ValueKey('plant_nickname_field'),
-          initialValue: plant.nickname,
-          autofocus: true,
-          maxLength: 100,
-          style: kBodyStyle,
-          decoration: const InputDecoration(hintText: '식물 이름을 입력하세요.'),
-          onChanged: (value) => draftNickname = value,
-          onFieldSubmitted: (value) => Navigator.pop(context, value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            key: const ValueKey('confirm_plant_rename'),
-            onPressed: () => Navigator.pop(context, draftNickname.trim()),
-            child: const Text('변경'),
-          ),
-        ],
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            PlantDetailScreen(plant: plant, repository: _repository),
       ),
     );
-    if (nickname == null || nickname.isEmpty || nickname == plant.nickname) {
-      return;
-    }
-    await _mutatePlant(
-      plant.id,
-      () => _repository.updateNickname(plant.id, nickname),
+    if (!mounted) return;
+    // 상세에서 이름·외형을 고치거나 삭제했을 수 있어 다시 읽는다.
+    await _loadPlants();
+    if (!mounted) return;
+    widget.onSelectedPlantChanged?.call(
+      _plants.where((item) => item.isSelected).firstOrNull?.id,
     );
-  }
-
-  Future<void> _editAppearance(ManagedPlant plant) async {
-    final selectedColor = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: kBackgroundWhite,
-      builder: (context) => _AppearanceSheet(plant: plant),
-    );
-    if (selectedColor == null || selectedColor == plant.colorId) return;
-    await _mutatePlant(
-      plant.id,
-      () => _repository.updateAppearance(plant.id, colorId: selectedColor),
-    );
-  }
-
-  Future<void> _deletePlant(ManagedPlant plant) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierColor: kModalBarrier,
-      builder: (context) => AlertDialog(
-        title: const Text('식물 삭제', style: kItemStyle),
-        content: Text(
-          '${plant.nickname}와 관련된 일정과 기록도 함께 삭제돼요.',
-          style: kSmallStyle.copyWith(color: kTextDark),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            key: const ValueKey('confirm_plant_delete'),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('삭제', style: TextStyle(color: kErrorRed)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    setState(() => _busyPlantId = plant.id);
-    try {
-      await _repository.deletePlant(plant.id);
-      final plants = await _repository.listPlants();
-      if (!mounted) return;
-      setState(() => _plants = plants);
-      widget.onSelectedPlantChanged?.call(
-        plants.where((item) => item.isSelected).firstOrNull?.id,
-      );
-    } on LeafieApiException catch (error) {
-      if (mounted) _showError(error.message);
-    } finally {
-      if (mounted) setState(() => _busyPlantId = null);
-    }
-  }
-
-  Future<void> _mutatePlant(
-    String plantId,
-    Future<ManagedPlant> Function() request,
-  ) async {
-    setState(() => _busyPlantId = plantId);
-    try {
-      final updated = await request();
-      if (!mounted) return;
-      setState(() {
-        _plants = [
-          for (final plant in _plants)
-            if (plant.id == plantId)
-              updated.copyWith(isSelected: plant.isSelected)
-            else
-              plant,
-        ];
-      });
-    } on LeafieApiException catch (error) {
-      if (mounted) _showError(error.message);
-    } finally {
-      if (mounted) setState(() => _busyPlantId = null);
-    }
   }
 
   void _showError(String message) {
@@ -196,294 +131,158 @@ class _PlantManagementScreenState extends State<PlantManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBackgroundWhite,
-      appBar: YesoAppBar(
-        title: '식물 관리',
-        actions: [
-          IconButton(
-            key: const ValueKey('add_plant'),
-            tooltip: '식물 등록',
-            onPressed: widget.onAddPlant,
-            icon: const Icon(Icons.add, color: kOrangeMain),
-          ),
-        ],
+      backgroundColor: kPlantsHouseYellow,
+      appBar: const YesoAppBar(
+        title: '내 캐릭터',
+        backgroundColor: Colors.transparent,
       ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: kOrangeMain))
-            : _plants.isEmpty
-            ? _EmptyPlants(onAddPlant: widget.onAddPlant)
-            : RefreshIndicator(
-                color: kOrangeMain,
-                onRefresh: _loadPlants,
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppLayout.myPageHorizontalPadding,
-                    24,
-                    AppLayout.myPageHorizontalPadding,
-                    32,
-                  ),
-                  itemCount: _plants.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) {
-                    final plant = _plants[index];
-                    return _PlantCard(
-                      plant: plant,
-                      busy: _busyPlantId == plant.id,
-                      onSelect: () => _selectPlant(plant),
-                      onRename: () => _renamePlant(plant),
-                      onAppearance: () => _editAppearance(plant),
-                      onDelete: () => _deletePlant(plant),
-                    );
-                  },
-                ),
-              ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: kOrangeMain))
+          : _PlantShelfHouse(
+              plants: _plants,
+              onTapPlant: _openDetail,
+              onAddPlant: widget.onAddPlant,
+            ),
     );
   }
 }
 
-class _PlantCard extends StatelessWidget {
-  const _PlantCard({
-    required this.plant,
-    required this.busy,
-    required this.onSelect,
-    required this.onRename,
-    required this.onAppearance,
-    required this.onDelete,
+/// 집 배경 + 선반 + 캐릭터 격자. 시안 좌표를 그대로 옮기려고 Stack을 쓴다.
+/// 시안 y는 프레임 절대값이라 상태바(46)와 앱바(46)를 뺀 값을 얹는다.
+class _PlantShelfHouse extends StatelessWidget {
+  const _PlantShelfHouse({
+    required this.plants,
+    required this.onTapPlant,
+    required this.onAddPlant,
   });
 
-  final ManagedPlant plant;
-  final bool busy;
-  final VoidCallback onSelect;
-  final VoidCallback onRename;
-  final VoidCallback onAppearance;
-  final VoidCallback onDelete;
+  static const double _appBarBand = 46 + YesoAppBar.height;
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 150),
-      opacity: busy ? 0.55 : 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: plant.isSelected ? kProfileCardYellow : kBackgroundWhite,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: plant.isSelected ? kOrangeMain : const Color(0xFFE8E8E8),
-            width: plant.isSelected ? 2 : 1,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
-          child: Column(
-            children: [
-              InkWell(
-                key: ValueKey('select_plant_${plant.id}'),
-                onTap: busy ? null : onSelect,
-                borderRadius: BorderRadius.circular(16),
-                child: Row(
-                  children: [
-                    const PlantCharacterArt(width: 66, sprouted: true),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(plant.nickname, style: kItemStyle),
-                              ),
-                              if (plant.isSelected) ...[
-                                const SizedBox(width: 7),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: kOrangeMain,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    '선택됨',
-                                    style: kCaptionStyle.copyWith(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '${plant.speciesDisplayName} · 함께한 지 ${plant.daysTogether}일',
-                            style: kSmallStyle,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      plant.isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: plant.isSelected ? kOrangeMain : kGrayLightest,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _CardAction(label: '이름 변경', onTap: busy ? null : onRename),
-                  _CardAction(label: '꾸미기', onTap: busy ? null : onAppearance),
-                  _CardAction(
-                    label: '삭제',
-                    color: kErrorRed,
-                    onTap: busy ? null : onDelete,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardAction extends StatelessWidget {
-  const _CardAction({required this.label, required this.onTap, this.color});
-
-  final String label;
-  final VoidCallback? onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onTap,
-      child: Text(
-        label,
-        style: kCaptionStyle.copyWith(color: color ?? kTextDark),
-      ),
-    );
-  }
-}
-
-class _EmptyPlants extends StatelessWidget {
-  const _EmptyPlants({required this.onAddPlant});
-
+  final List<ManagedPlant> plants;
+  final ValueChanged<ManagedPlant> onTapPlant;
   final VoidCallback? onAddPlant;
 
+  /// 슬롯은 3열 x 3단 = 9칸. 마지막 캐릭터 다음 칸이 `+`다.
+  static const int _slotCount = 9;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppLayout.registrationHorizontalPadding,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const PlantCharacterArt(width: 150),
-          const SizedBox(height: 24),
-          const Text('등록된 식물이 없어요', style: kTitleStyle),
-          const SizedBox(height: 8),
-          const Text('식물을 등록하면 여기에서 전환하고 관리할 수 있어요.', style: kSmallStyle),
-          const SizedBox(height: 30),
-          PrimaryButton(
-            label: '식물 등록하기',
-            variant: onAddPlant == null
-                ? PrimaryButtonVariant.disabled
-                : PrimaryButtonVariant.enabled,
-            onPressed: onAddPlant,
+    final visible = plants.take(_slotCount).toList();
+    // 빈 칸이 없으면 `+`를 못 놓는다. 시안(3345:886)은 7번째 칸이었다.
+    final plusSlot = visible.length < _slotCount ? visible.length : null;
+
+    // 구름(2316:5225)은 앱바·상태바 뒤까지 올라간다. 몸통을 자르면 제목
+    // 아래에 구름 밑동만 남으므로 자르지 않고 앱바를 투명하게 둔다.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: _kCloudLeft,
+          top: _kCloudTop - _appBarBand,
+          width: _kCloudWidth,
+          height: _kCloudHeight,
+          child: SvgPicture.asset(
+            'assets/images/plants_cloud_top.svg',
+            width: _kCloudWidth,
+            height: _kCloudHeight,
+            // contain으로 두면 SVG가 제 비율대로 그려진다. fill은 구름
+            // 덩어리를 늘려 제목 아래에 흰 타원 조각을 만들었다.
+            fit: BoxFit.contain,
           ),
-        ],
-      ),
+        ),
+        Positioned(
+          left: _kHouseLeft,
+          top: _kHouseTop - _appBarBand,
+          width: _kHouseWidth,
+          height: _kHouseHeight,
+          child: SvgPicture.asset(
+            'assets/images/plants_house_bg.svg',
+            width: _kHouseWidth,
+            height: _kHouseHeight,
+            fit: BoxFit.contain,
+            semanticsLabel: '식물들이 사는 집',
+          ),
+        ),
+        // 굴뚝 2316:5254. 지붕 오른쪽 흰 사각 x=278.04 y=152.07 41x86.
+        // 집 SVG에 포함되지 않아 따로 얹는다.
+        Positioned(
+          left: 278.036,
+          top: 152.074 - _appBarBand,
+          width: 41,
+          height: 86,
+          child: const ColoredBox(color: kBackgroundWhite),
+        ),
+        for (final shelfTop in _kShelfTops)
+          Positioned(
+            left: _kShelfLeft,
+            top: shelfTop - _appBarBand,
+            width: _kShelfWidth,
+            height: _kShelfHeight,
+            child: const ColoredBox(color: kPlantsHouseYellow),
+          ),
+        for (var index = 0; index < visible.length; index++)
+          _slot(
+            index: index,
+            child: GestureDetector(
+              key: ValueKey('plant_slot_${visible[index].id}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTapPlant(visible[index]),
+              child: Semantics(
+                button: true,
+                label: visible[index].nickname,
+                child: PlantCharacterArt(
+                  width: plantArtWidthFor(_kCharacterWidth, sprouted: true),
+                  sprouted: true,
+                ),
+              ),
+            ),
+          ),
+        if (plusSlot != null)
+          _slot(
+            index: plusSlot,
+            child: Center(
+              child: GestureDetector(
+                key: const ValueKey('add_plant'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onAddPlant,
+                child: Semantics(
+                  button: true,
+                  label: '식물 등록',
+                  child: SvgPicture.asset(
+                    'assets/images/plants_add_plus.svg',
+                    width: _kPlusDrawnSize,
+                    height: _kPlusDrawnSize,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
-}
 
-class _AppearanceSheet extends StatefulWidget {
-  const _AppearanceSheet({required this.plant});
+  /// 그려지는 캐릭터 상자. PNG 여백 때문에 시안 프레임보다 크다.
+  static final double _drawnWidth = plantArtWidthFor(
+    _kCharacterWidth,
+    sprouted: true,
+  );
+  static final double _drawnHeight = _drawnWidth * 512 / 512;
 
-  final ManagedPlant plant;
+  /// 새싹 PNG는 캔버스 위에서 6.4%(63/512) 아래부터, 아래로 7.0% 남기고
+  /// 그림이 있다. 그림 밑선이 선반에 닿도록 그만큼 더 내린다.
+  static final double _inkBottomGap = _drawnHeight * (512 - 476) / 512;
 
-  @override
-  State<_AppearanceSheet> createState() => _AppearanceSheetState();
-}
-
-class _AppearanceSheetState extends State<_AppearanceSheet> {
-  static const _colors = <String, Color>{
-    'color_orange_01': Color(0xFFFFC98B),
-    'color_purple_01': Color(0xFFD9B3FA),
-    'color_mint_01': Color(0xFFA8E6C1),
-    'color_yellow_01': Color(0xFFFFF176),
-    'color_red_01': Color(0xFFFF8A8A),
-    'color_skyblue_01': Color(0xFFA8D8FF),
-    'color_blue_01': Color(0xFF7FA6F5),
-    'color_gray_01': Color(0xFFB0B0B0),
-    'color_pink_01': Color(0xFFFFC1DA),
-  };
-
-  late String _selected = widget.plant.colorId;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(34, 4, 34, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${widget.plant.nickname} 꾸미기', style: kTitleStyle),
-            const SizedBox(height: 8),
-            const Text('헤어와 액세서리는 디자인 확정 후 추가돼요.', style: kSmallStyle),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 14,
-              runSpacing: 14,
-              alignment: WrapAlignment.center,
-              children: [
-                for (final entry in _colors.entries)
-                  GestureDetector(
-                    key: ValueKey('appearance_${entry.key}'),
-                    onTap: () => setState(() => _selected = entry.key),
-                    child: Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: entry.value,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _selected == entry.key
-                              ? kOrangeMain
-                              : Colors.white,
-                          width: _selected == entry.key ? 4 : 2,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            PrimaryButton(
-              label: '적용하기',
-              variant: PrimaryButtonVariant.enabled,
-              onPressed: () => Navigator.pop(context, _selected),
-            ),
-          ],
-        ),
-      ),
+  /// index를 3열 x 3단 격자 좌표로 편다. 캐릭터는 선반 위에 밑선을 맞춘다.
+  Widget _slot({required int index, required Widget child}) {
+    final row = index ~/ 3;
+    final column = index % 3;
+    final shelfTop = _kShelfTops[row];
+    return Positioned(
+      left: _kColumnCenters[column] - _drawnWidth / 2,
+      top: shelfTop - _appBarBand - _drawnHeight + _inkBottomGap,
+      width: _drawnWidth,
+      height: _drawnHeight,
+      child: child,
     );
   }
 }

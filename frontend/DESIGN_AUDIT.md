@@ -1,5 +1,7 @@
 # 시안 대조 감사 (2026-09-07)
 
+> 2026-09-07 처리 현황: 값 통일(a722355) · 문구(48fe3a5) · 누락 상태(bb4616d) · 다이어리 3(878d518) · 알림(e142b40) · 캘린더(4f5847c) · 내 캐릭터 8프레임(다음 커밋)까지 반영했다. 남은 것은 `TODOLIST.md`의 팀 확인·API 공백·에셋 대기 항목이다.
+
 Figma `KhDBMZrMNV5hisim2Kvr4x` 섹션 `산뜻한 새출발~와프4차`의 화면 프레임 88개를 앱과 대조했다.
 측정은 위젯 테스트(402×874, padding top 46 / bottom 34, `tester.getRect`)로 했고, 측정 테스트는 `.omc/audit/audit_<흐름>_test.dart`에 있다 (`cp .omc/audit/audit_X_test.dart test/ && flutter test test/audit_X_test.dart`).
 심각도: **상** 없는 요소·틀린 문구·색·에셋·10px 이상 / **중** 3~10px·폰트 / **하** 3px 미만.
