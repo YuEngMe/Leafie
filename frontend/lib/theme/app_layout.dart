@@ -45,8 +45,11 @@ abstract final class AppLayout {
   static const double loginSocialGap = 40;
   static const double loginSocialButtonSize = 49.41;
   static const double loginBottomGap = 39;
-  // 2395:40 첫 라벨 잉크 y=148(상태바 46 제외 102).
-  static const double authFormTopPadding = 42;
+  /// 회원가입(2307:933) 첫 라벨 top 145 = 앱바 92 + 53. 재설정(2307:1502)도 같다.
+  static const double authFormTopPadding = 53;
+
+  /// 라벨은 입력칸보다 11px 들여쓴다(x34 → x45). 모든 흐름 공통.
+  static const double inputLabelIndent = 11;
   // 시안 버튼 하단 33px + 홈 인디케이터 영역. 2395:40, 2395:52 공통.
   /// 시안은 버튼 바닥에서 화면 아래까지 33px을 두지만, 실기기의 하단
   /// SafeArea(34px)가 그 자리를 대신한다. 79는 상태바가 없는 골든만 보고
@@ -69,7 +72,7 @@ abstract final class AppLayout {
 
   /// 라벨만 입력칸보다 11px 들여쓴다(2315:2248 x=45). 마이페이지 쪽
   /// 화면들과 같은 규칙이다.
-  static const double registrationLabelIndent = 11;
+  static const double registrationLabelIndent = inputLabelIndent;
 
   /// 입력칸 바닥에서 다음 라벨까지. 라벨 사이가 110이 되어야 하는데
   /// 라벨+칸 묶음이 79로 렌더돼 시안의 35 대신 31을 준다(2318:2981).
@@ -143,7 +146,7 @@ abstract final class AppLayout {
   static const double editProfileTopGap = 53;
 
   /// 시안 2316:6397은 라벨(45)만 입력칸(34)보다 11px 들여쓴다.
-  static const double editProfileLabelIndent = 11;
+  static const double editProfileLabelIndent = inputLabelIndent;
 
   /// 비밀번호 변경(2346:2722). 입력칸 바닥(220)에서 다음 라벨(255)까지.
   static const double changePasswordFieldGap = 35;

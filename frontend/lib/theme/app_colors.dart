@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 // 팀이 메인 컬러를 초록 계열에서 오렌지 계열로 교체했다.
 const Color kOrangeMain = Color(0xFFFFB52A); // 오렌지_메인, 주요 버튼
 const Color kOrange = Color(0xFFFFB222); // 오렌지, 포인트
-const Color kBrightOrange = Color(0xFFFF8834); // 밝은 오렌지, 입력 라벨
+const Color kBrightOrange = Color(0xFFFF8834); // 밝은 오렌지, 달력 격자·요일
+const Color kOrangeAccent = Color(0xFFFFA13E); // 종 검색 라벨(2315:2583)·꾸미기 활성 탭(2318:3594)
 // 성격 태그 칩(2318:3966)의 Figma 변수 `메인컬러_주황`.
 const Color kTagOrange = Color(0xFFFF9F6D);
 // 성격 타이틀(2318:3964)만 쓰는 raw hex. kTextDark보다 진하다.

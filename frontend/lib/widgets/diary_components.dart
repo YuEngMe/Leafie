@@ -334,11 +334,8 @@ class DiaryCalendar extends StatelessWidget {
             top: 262.5,
             child: Text(
               _weekdays[i],
-              style: kSmallStyle.copyWith(
-                height: 1,
-                color: kOrangeMain,
-                fontWeight: FontWeight.w600,
-              ),
+              // 3496:12137 16 SemiBold #FF8834.
+              style: kItemStyle.copyWith(height: 1, color: kDiaryGridLine),
             ),
           ),
         // 시안(2739:34987)은 6주 42칸을 모두 그린다. 날짜가 없는 칸도

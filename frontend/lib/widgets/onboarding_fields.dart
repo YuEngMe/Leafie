@@ -60,7 +60,7 @@ class SignupEmailField extends StatelessWidget {
     required this.onSend,
     this.errorText,
     this.sendLabel,
-    this.labelIndent = 0,
+    this.labelIndent = AppLayout.inputLabelIndent,
   });
 
   final TextEditingController controller;
@@ -72,7 +72,6 @@ class SignupEmailField extends StatelessWidget {
   /// 회원가입은 발송/재발송 둘뿐이라 null로 두면 된다.
   final String? sendLabel;
 
-  /// 마이페이지 쪽 시안은 라벨만 입력칸보다 11px 들여쓴다.
   final double labelIndent;
 
   @override
@@ -173,7 +172,7 @@ class SignupPasswordField extends StatelessWidget {
     required this.variant,
     this.label = '비밀번호',
     this.errorText,
-    this.labelIndent = 0,
+    this.labelIndent = AppLayout.inputLabelIndent,
   });
 
   final TextEditingController controller;
@@ -181,7 +180,6 @@ class SignupPasswordField extends StatelessWidget {
   final String label;
   final String? errorText;
 
-  /// 마이페이지 쪽 시안(2346:2722)은 라벨만 입력칸보다 11px 들여쓴다.
   final double labelIndent;
 
   @override

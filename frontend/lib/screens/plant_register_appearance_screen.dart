@@ -126,7 +126,7 @@ class _PlantRegisterAppearanceScreenState
                   onTap: (index) => setState(() => _activeTab = index),
                   dividerColor: Colors.transparent,
                   indicatorColor: kOrangeMain,
-                  labelColor: kBrightOrange,
+                  labelColor: kOrangeAccent, // 2318:3594
                   unselectedLabelColor: kTextLight,
                   labelStyle: kCaptionStyle,
                   tabs: const [

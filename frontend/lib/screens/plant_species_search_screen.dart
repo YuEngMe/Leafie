@@ -228,6 +228,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
             const SizedBox(height: 42),
             RoundedInputField(
               label: '식물 명칭',
+              labelColor: kOrangeAccent, // 2315:2583
               labelIndent: AppLayout.registrationLabelIndent,
               labelGap: 5,
               height: AppLayout.onboardingControlHeight,

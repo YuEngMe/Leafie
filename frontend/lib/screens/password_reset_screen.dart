@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
@@ -159,9 +160,10 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
+            // 2395:52 첫 라벨 top 145 — 회원가입과 같은 자리.
             padding: const EdgeInsets.fromLTRB(
               AppLayout.authHorizontalPadding,
-              34,
+              AppLayout.authFormTopPadding,
               AppLayout.authHorizontalPadding,
               AppLayout.authBottomActionPadding,
             ),
@@ -169,7 +171,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
               constraints: BoxConstraints(
                 minHeight:
                     constraints.maxHeight -
-                    34 -
+                    AppLayout.authFormTopPadding -
                     AppLayout.authBottomActionPadding,
               ),
               child: IntrinsicHeight(
@@ -207,6 +209,10 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                                 hintText: '이메일을 입력하세요.',
                                 controller: _emailController,
                                 enabled: _step == _Step.emailInput,
+                                // 2307:1495 라벨+칸 75 — 회원가입 칸과 같다.
+                                height: AppLayout.onboardingControlHeight,
+                                labelGap: 1,
+                                centerVertically: true,
                                 errorText: _emailFormatError,
                                 // 2395:49는 남은 시간을 입력칸 안 우측에 얹는다.
                                 overlaySuffix: _step == _Step.linkSent,
@@ -225,57 +231,54 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                             const SizedBox(width: AppLayout.authEmailActionGap),
                             Padding(
                               padding: const EdgeInsets.only(top: 24),
-                              child: SizedBox(
-                                width: AppLayout.authEmailActionWidth,
-                                height: AppLayout.onboardingControlHeight,
-                                child: ElevatedButton(
-                                  onPressed:
-                                      _loading ||
-                                          !_emailNotEmpty ||
-                                          _emailFormatError != null ||
-                                          (_step == _Step.linkSent &&
-                                              _remaining.inSeconds > 0)
-                                      ? null
-                                      : _sendResetLink,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: kOrangeMain,
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor: kGrayLightest,
-                                    disabledForegroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        kButtonRadius,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _loading ? '발송 중' : _sendButtonLabel,
-                                    style: kItemStyle.copyWith(
-                                      fontSize: 14,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
+                              // 2307:1517 68×51, 라벨 16 Medium — 회원가입 버튼.
+                              child: SignupSendButton(
+                                label: _loading ? '발송 중' : _sendButtonLabel,
+                                variant:
+                                    _loading ||
+                                        !_emailNotEmpty ||
+                                        _emailFormatError != null ||
+                                        (_step == _Step.linkSent &&
+                                            _remaining.inSeconds > 0)
+                                    ? SignupSendButtonVariant.disabled
+                                    : SignupSendButtonVariant.enabled,
+                                onPressed:
+                                    _loading ||
+                                        !_emailNotEmpty ||
+                                        _emailFormatError != null ||
+                                        (_step == _Step.linkSent &&
+                                            _remaining.inSeconds > 0)
+                                    ? null
+                                    : _sendResetLink,
                               ),
                             ),
                           ],
                         ),
                         // 2395:51은 인증 완료를 버튼 라벨('완료')로만 알린다.
-                        if (_step == _Step.linkSent) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '인증메일이 발송 되었습니다.',
-                            style: TextStyle(color: kErrorRed, fontSize: 12),
+                        // 2307:1662 x45 y225 — 칸 바닥(220)+5, 라벨처럼 들여쓴다.
+                        if (_step == _Step.linkSent)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: 5,
+                              left: AppLayout.inputLabelIndent,
+                            ),
+                            child: Text(
+                              '인증메일이 발송 되었습니다.',
+                              style: kCaptionStyle.copyWith(
+                                color: kErrorRed,
+                                height: 1,
+                              ),
+                            ),
                           ),
-                        ],
                         const SizedBox(height: AppLayout.authFieldGap),
                       ],
                       RoundedInputField(
                         label: '새 비밀번호',
                         hintText: '비밀번호를 입력하세요.',
                         obscureText: true,
+                        height: AppLayout.onboardingControlHeight,
+                        labelGap: 1,
+                        centerVertically: true,
                         controller: _newPasswordController,
                         enabled: _step == _Step.setNewPassword,
                       ),
@@ -284,6 +287,9 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                         label: '비밀번호 확인',
                         hintText: '비밀번호를 입력하세요.',
                         obscureText: true,
+                        height: AppLayout.onboardingControlHeight,
+                        labelGap: 1,
+                        centerVertically: true,
                         controller: _newPasswordConfirmController,
                         enabled: _step == _Step.setNewPassword,
                       ),

@@ -30,7 +30,7 @@ class RoundedInputField extends StatefulWidget {
     this.height = AppLayout.controlHeight,
     this.labelGap = 8,
     this.centerVertically = false,
-    this.labelColor = kBrightOrange,
+    this.labelColor = kOrangeMain,
     this.suffixIconConstraints,
     this.errorTrailing,
     this.contentPadding,
@@ -40,7 +40,7 @@ class RoundedInputField extends StatefulWidget {
     this.obscuringCharacter = '•',
     this.showShadow = true,
     this.alwaysShowEye = false,
-    this.labelIndent = 0,
+    this.labelIndent = AppLayout.inputLabelIndent,
   });
 
   final String? label;
@@ -77,8 +77,8 @@ class RoundedInputField extends StatefulWidget {
   /// 빈 칸에도 띄운다. 화면마다 다르니 호출부가 정한다.
   final bool alwaysShowEye;
 
-  /// 마이페이지 쪽 시안(2316:6397, 2346:2722)은 라벨만 입력칸보다 11px
-  /// 들여쓴다. 회원가입은 둘이 같은 x라 0이다.
+  /// 시안은 모든 화면에서 라벨을 입력칸(x34)보다 11px 들여쓴다(x45).
+  /// 회원가입(2307:891)·재설정(2307:1502)·등록·마이페이지 전부 같다.
   final double labelIndent;
 
   @override

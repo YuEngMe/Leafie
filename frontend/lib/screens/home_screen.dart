@@ -79,8 +79,13 @@ enum HomeTimePeriod {
     };
   }
 
-  bool get usesLightHeader => this == lateEvening;
-  bool get usesWhiteCounter => this != day;
+  /// 방이름: 늦저녁(2431:14981)만 `#CCCBCB`, 나머지는 진한 텍스트.
+  Color get titleColor => this == lateEvening ? kGrayLightest : kTextDark;
+
+  /// D+와 알림 벨: 주간은 진한 텍스트·오렌지, 그 외 세 시간대는 연노랑
+  /// `#FFECA6`(2431:14986, 3429:1965).
+  Color get counterColor => this == day ? kTextDark : kPaleYellow;
+  Color get notificationColor => this == day ? kOrangeMain : kPaleYellow;
 }
 
 /// Figma 3441:2의 대표 홈 대화 상태.
@@ -475,13 +480,9 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = period.usesLightHeader ? Colors.white : kTextDark;
-    final counterColor = period.usesWhiteCounter ? Colors.white : kTextDark;
-    final notificationColor = switch (period) {
-      HomeTimePeriod.day => kOrangeMain,
-      HomeTimePeriod.afternoon => Colors.white,
-      _ => const Color(0xFFFFF08A),
-    };
+    final titleColor = period.titleColor;
+    final counterColor = period.counterColor;
+    final notificationColor = period.notificationColor;
 
     return Stack(
       children: [

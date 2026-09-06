@@ -107,21 +107,29 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
         appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
         body: SafeArea(
           child: Padding(
-            // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다.
+            // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다. 타이틀 top 140
+            // (2307:751) = 앱바 92 + 48.
             padding: const EdgeInsets.fromLTRB(
               AppLayout.authHorizontalPadding,
-              22,
+              48,
               AppLayout.authHorizontalPadding,
               AppLayout.signupCompleteBottomGap,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const OnboardingCopy(
-                  title: '닉네임을 설정해주세요!',
-                  subtitle: '당신을 뭐라고 부르면 좋을까요?',
+                // 문구는 라벨처럼 입력칸보다 11px 들여쓴다(2307:751 x45).
+                // 타이틀 140 → 부제 175라 21px 글자 아래 14를 띄운다.
+                const Padding(
+                  padding: EdgeInsets.only(left: AppLayout.inputLabelIndent),
+                  child: OnboardingCopy(
+                    title: '닉네임을 설정해주세요!',
+                    subtitle: '당신을 뭐라고 부르면 좋을까요?',
+                    gap: 14,
+                  ),
                 ),
-                const SizedBox(height: 46),
+                // 부제 bottom 189 → 라벨 top 237 (2307:744).
+                const SizedBox(height: 48),
                 SignupNicknameField(
                   controller: _nicknameController,
                   variant: _nicknameController.text.trim().isEmpty
