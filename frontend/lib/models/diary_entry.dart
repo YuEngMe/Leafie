@@ -80,8 +80,8 @@ enum DiaryWeather {
   sunny('icon_weather_sun.svg', '맑음', 21.02, 21.02),
   partlyCloudy('icon_weather_partly.svg', '구름 조금', 24.93, 19.99),
   cloudy('icon_weather_cloud.svg', '흐림', 25.36, 14.63),
-  rainy('icon_weather_rain.svg', '비', 19.70, 11.08),
-  shower('icon_weather_drop.svg', '소나기', 18.19, 21.46);
+  rainy('icon_weather_rain.svg', '비', 21.02, 21.02),
+  shower('icon_weather_drop.svg', '소나기', 17.67, 19.09);
 
   const DiaryWeather(this.assetName, this.label, this.width, this.height);
 

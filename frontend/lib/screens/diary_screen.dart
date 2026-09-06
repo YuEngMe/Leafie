@@ -388,12 +388,12 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // 사진칸 2739:39790.
+              // 사진칸 3496:10622.
               Positioned(
                 left: 46,
-                top: 143,
+                top: 144.74,
                 width: 304,
-                height: 242,
+                height: 259.58,
                 child: DiaryPhotoBox(
                   photoPath: _photoPath,
                   photoUrl: _photoUrl,
@@ -412,19 +412,19 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   ),
                 ),
               ),
-              // 2739:39788 세로 구분선, 2739:39787 가로선.
+              // 3496:10620 세로 구분선, 3496:10619 가로선.
               const Positioned(
                 left: 212.63,
-                top: 143,
+                top: 144.74,
                 child: SizedBox(
                   width: 1,
-                  height: 36.097,
+                  height: 38.72,
                   child: ColoredBox(color: kOrangeMain),
                 ),
               ),
               const Positioned(
                 left: 46,
-                top: 179,
+                top: 183.36,
                 width: 304,
                 height: 1,
                 child: ColoredBox(color: kOrangeMain),
@@ -433,19 +433,20 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 selected: _weather,
                 onSelect: (w) => setState(() => _weather = w),
               ),
-              // 본문칸 2739:39859.
+              // 본문칸 3496:10623.
               const Positioned(
                 left: 46,
-                top: 395,
+                top: 415,
                 width: 304,
-                height: 266,
+                height: 290,
                 child: _BodyBox(),
               ),
               // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
               // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
+              // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
               Positioned(
                 left: 55,
-                top: 403,
+                top: 423.4,
                 width: 286,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -466,18 +467,19 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   ],
                 ),
               ),
+              // 3496:10621 제목 밑줄, 3496:10625 본문.
               const Positioned(
                 left: 46,
-                top: 432,
+                top: 454.74,
                 width: 304,
                 height: 1,
                 child: ColoredBox(color: kOrangeMain),
               ),
               Positioned(
                 left: 54,
-                top: 437,
+                top: 460,
                 width: 288,
-                height: 216,
+                height: 232,
                 child: TextField(
                   controller: _bodyController,
                   maxLines: null,
@@ -487,7 +489,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: ' 다이어리를 기록하세요',
+                    hintText: '다이어리를 기록하세요',
                     hintStyle: kBodyStyle.copyWith(
                       height: 23 / 16,
                       color: kGrayLightest,
@@ -500,9 +502,9 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 rect: DiaryLayout.tab,
                 child: const DiaryTab(),
               ),
-              // 시안(3173:178, 3173:181)은 글쓰기에도 앞뒤 버튼을 둔다.
+              // 글쓰기의 앞뒤 버튼(3173:185)은 달력보다 위, 493·561에 있다.
               Positioned.fromRect(
-                rect: DiaryLayout.prevButton,
+                rect: DiaryLayout.entryPrevButton,
                 child: _MonthButton(
                   label: '이전 날',
                   pointsLeft: true,
@@ -511,7 +513,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 ),
               ),
               Positioned.fromRect(
-                rect: DiaryLayout.nextButton,
+                rect: DiaryLayout.entryNextButton,
                 child: _MonthButton(
                   label: '다음 날',
                   pointsLeft: false,

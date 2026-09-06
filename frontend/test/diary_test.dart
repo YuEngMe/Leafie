@@ -78,8 +78,10 @@ void main() {
 
       _expectAt(tester, '연도', find.text('2026'), 177, 162.72);
       _expectAt(tester, '월', find.text('7'), 181.67, 179.26);
-      _expectAt(tester, '일요일', find.text('일'), 59, 262.61);
-      _expectAt(tester, '토요일', find.text('토'), 318, 262.61);
+      // 3496:12138 / 12144 — 글자 중심 x 64.33, 327.90.
+      expect(tester.getCenter(find.text('일')).dx, closeTo(64.33, 1));
+      expect(tester.getCenter(find.text('토')).dx, closeTo(327.90, 1));
+      expect(tester.getRect(find.text('일')).top, closeTo(262.61, 1));
       _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 274);
       // 시안 3496:12213에서 자리가 바뀌었다.
       _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
@@ -150,7 +152,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      _expectAt(tester, '사진칸', find.byType(DiaryPhotoBox), 46, 143);
+      _expectAt(tester, '사진칸', find.byType(DiaryPhotoBox), 46, 144.74);
+      // 3496:10624 / 10625 / 10621 — 읽기 화면 제목·본문·밑줄.
+      expect(tester.getRect(find.text('제목: ')).center.dy, closeTo(434.9, 1));
+      expect(tester.getRect(find.byType(TextField).last).top, closeTo(460, 1));
       _expectAt(tester, '날짜', find.text('2026년 7월 15일 수요일'), 54, 149);
     });
 
@@ -166,7 +171,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('사진 추가하기'), findsOneWidget);
-      expect(find.text(' 다이어리를 기록하세요'), findsOneWidget);
+      expect(find.text('다이어리를 기록하세요'), findsOneWidget);
     });
 
     testWidgets('날씨를 고르면 표시가 바뀐다', (tester) async {

@@ -34,6 +34,11 @@ class DiaryLayout {
   static const Rect prevButton = Rect.fromLTWH(350, 535, 45, 42);
   static const Rect nextButton = Rect.fromLTWH(351, 603, 44, 42);
 
+  /// 글쓰기 화면(2739:39308, 3496:10291)의 앞뒤 날 버튼. 3173:185 그룹
+  /// 45×110이 y 493~603을 차지한다 — 위 42, 사이 26, 아래 42.
+  static const Rect entryPrevButton = Rect.fromLTWH(350, 493, 45, 42);
+  static const Rect entryNextButton = Rect.fromLTWH(350, 561, 45, 42);
+
   /// 글쓰기로 가는 연필 버튼(3496:12213).
   static const Rect fab = Rect.fromLTWH(302, 661, 45, 45);
 
@@ -247,14 +252,14 @@ class DiaryCalendar extends StatelessWidget {
 
   /// 시안 2739:34979의 요일 머리글 x좌표.
   /// 시안 3496:12137의 요일 머리글 x좌표.
-  static const List<double> _weekdayX = [
-    59,
-    104.25,
-    148.31,
-    190.73,
-    234.07,
-    272.82,
-    318,
+  static const List<double> _weekdayCenterX = [
+    64.33,
+    109.58,
+    153.64,
+    196.06,
+    239.40,
+    282.72,
+    327.90,
   ];
   static const List<String> _weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -303,8 +308,10 @@ class DiaryCalendar extends StatelessWidget {
           child: Center(
             child: Text(
               '${month.year}',
+              // 3496:12135 16 Medium.
               style: kSmallStyle.copyWith(
                 fontSize: 16,
+                fontWeight: FontWeight.w500,
                 height: 1,
                 color: kTextDark,
               ),
@@ -328,12 +335,15 @@ class DiaryCalendar extends StatelessWidget {
             ),
           ),
         ),
+        // 3496:12138~12144는 글자를 각 중심 x에 가운데 정렬한다.
         for (var i = 0; i < 7; i++)
           Positioned(
-            left: _weekdayX[i],
+            left: _weekdayCenterX[i] - 20,
+            width: 40,
             top: 262.5,
             child: Text(
               _weekdays[i],
+              textAlign: TextAlign.center,
               // 3496:12137 16 SemiBold #FF8834.
               style: kItemStyle.copyWith(height: 1, color: kDiaryGridLine),
             ),
@@ -359,7 +369,8 @@ class DiaryCalendar extends StatelessWidget {
       height: _rowHeight[row],
       child: DecoratedBox(
         decoration: BoxDecoration(
-          border: Border.all(color: kDiaryGridLine, width: 0.5),
+          // 3496:12146 border 0.769.
+          border: Border.all(color: kDiaryGridLine, width: 0.769),
         ),
         child: day == null
             ? const SizedBox.expand()
@@ -380,11 +391,10 @@ class DiaryCalendar extends StatelessWidget {
           padding: const EdgeInsets.only(top: 6),
           child: Text(
             '$day',
-            style: kSmallStyle.copyWith(
+            // 3496:12147 외 전부 16 SemiBold. 고른 날만 색이 다르다.
+            style: kItemStyle.copyWith(
               height: 1,
-              fontSize: 15,
               color: isSelected ? kOrangeMain : kTextDark,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),
@@ -402,11 +412,12 @@ class DiaryWeatherPicker extends StatelessWidget {
 
   /// 시안이 잡아 둔 아이콘별 좌표. 크기가 제각각이라 표로 둔다.
   static const Map<DiaryWeather, Offset> _positions = {
-    DiaryWeather.sunny: Offset(217, 152),
-    DiaryWeather.partlyCloudy: Offset(243.09, 152.95),
+    // 3496:10680 / 10703 / 10704 / 10715 / 10729.
+    DiaryWeather.sunny: Offset(216.09, 151.09),
+    DiaryWeather.partlyCloudy: Offset(242, 152),
     DiaryWeather.cloudy: Offset(271.99, 155.9),
     DiaryWeather.rainy: Offset(302.23, 152.95),
-    DiaryWeather.shower: Offset(326.81, 152),
+    DiaryWeather.shower: Offset(327.03, 154.06),
   };
 
   @override
@@ -463,23 +474,28 @@ class DiaryPhotoBox extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
         child: path == null && url == null
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/images/icon_diary_photo_add.svg',
-                      width: 96,
-                      height: 79,
-                    ),
-                    const SizedBox(height: 13),
-                    Text('사진 추가하기', style: kCaptionStyle.copyWith(height: 1)),
-                  ],
+            // 2739:39799 아이콘 y=232, 2739:39798 문구 y=317 — 칸 top 144.74 기준.
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 232 - 144.74),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/images/icon_diary_photo_add.svg',
+                        width: 96,
+                        height: 79,
+                      ),
+                      const SizedBox(height: 317 - 232 - 79),
+                      Text('사진 추가하기', style: kCaptionStyle.copyWith(height: 1)),
+                    ],
+                  ),
                 ),
               )
-            // 사진은 칸 아래쪽(y=176~)만 채운다. 위는 날짜 줄이 쓴다.
+            // 사진은 가로선 아래(3496:10751 y=183.38~)만 채운다. 위는 날짜 줄이 쓴다.
             : Padding(
-                padding: const EdgeInsets.only(top: 36),
+                padding: const EdgeInsets.only(top: 183.36 - 144.74),
                 child: path != null
                     ? Image.file(File(path), fit: BoxFit.cover)
                     : Image.network(
