@@ -23,6 +23,8 @@ class _PersonalityOption {
   final String dialogue;
 }
 
+// 이름·태그·대사는 시안 2318:3129~3430의 글자 그대로다(2026-09-07 대조).
+// 순서도 시안 프레임 순서(활발→시크→귀여운→소심→짝사랑→충청도)를 따른다.
 const _personalities = [
   _PersonalityOption(
     type: 'OUTGOING',
@@ -40,27 +42,30 @@ const _personalities = [
     type: 'CUTE',
     label: '귀여운 성격',
     tags: '#애교   #사랑둥이',
-    dialogue: '나에게 물을 주지않을랭?',
-  ),
-  _PersonalityOption(
-    type: 'CRUSH',
-    label: '박력있는 성격',
-    tags: '#당당함   #리더십',
-    dialogue: '오늘도 힘차게 자라볼까?',
+    dialogue: '새싹이 물 먹고시포!',
   ),
   _PersonalityOption(
     type: 'INTROVERTED',
     label: '소심한 성격',
-    tags: '#조심조심   #다정함',
-    dialogue: '오늘도 곁에 있어줄래?',
+    tags: '#내성적   #눈치',
+    dialogue: '저..물 좀 주시면..안될까요..?',
+  ),
+  _PersonalityOption(
+    type: 'CRUSH',
+    label: '짝사랑 성격',
+    tags: '#미연시   #적극적',
+    dialogue: '물 줄래, 나랑 사귈래',
   ),
   _PersonalityOption(
     type: 'CHUNGCHEONG',
-    label: '느긋한 성격',
-    tags: '#여유   #긍정적',
-    dialogue: '천천히 해도 괜찮아유.',
+    label: '충청도 성격',
+    tags: '#느긋한   #구수한',
+    dialogue: '말라죽겄슈',
   ),
 ];
+
+/// 시안 순서 그대로의 성격 이름. 테스트가 글자를 고정한다.
+List<String> get kPersonalityLabels => [for (final p in _personalities) p.label];
 
 class PlantRegisterPersonalityScreen extends StatefulWidget {
   const PlantRegisterPersonalityScreen({super.key, required this.draft});

@@ -225,7 +225,7 @@ class WithdrawCompleteScreen extends StatelessWidget {
               right: 0,
               top: 341,
               child: Text(
-                '탈퇴가\n완료되었습니다',
+                '회원 탈퇴가\n완료되었습니다',
                 textAlign: TextAlign.center,
                 style: kTitleStyle,
               ),

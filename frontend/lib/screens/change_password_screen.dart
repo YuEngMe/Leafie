@@ -266,7 +266,8 @@ class ChangePasswordDoneScreen extends StatelessWidget {
               // 시안 2346:2795는 y=387, 상태바를 빼면 341.
               top: 341,
               child: Text(
-                '비밀번호 설정이\n완료되었습니다',
+                // 2346:2795. 로그인 전 재설정(2307:1813)은 '설정이'로 다르다.
+                '비밀번호 변경이\n완료되었습니다',
                 textAlign: TextAlign.center,
                 style: kTitleStyle,
               ),
