@@ -89,7 +89,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(home: HomeScreen(signOut: () async {})),
+      const MaterialApp(home: HomeScreen()),
     );
     await tester.pumpAndSettle();
 

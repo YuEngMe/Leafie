@@ -8,12 +8,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
+import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 
 /// 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
 const double _statusBar = 46;
+
+class _FakeUserRepository implements UserRepository {
+  String nickname = '기존이름';
+  bool pushEnabled = false;
+  bool deleted = false;
+
+  UserProfileData get profile => UserProfileData(
+    nickname: nickname,
+    email: 'leafie@example.com',
+    gardenerDays: 12,
+    pushEnabled: pushEnabled,
+    profileCompleted: true,
+  );
+
+  @override
+  Future<void> deleteAccount() async => deleted = true;
+
+  @override
+  Future<UserProfileData> getProfile() async => profile;
+
+  @override
+  Future<bool> updateNotificationSettings(bool enabled) async =>
+      pushEnabled = enabled;
+
+  @override
+  Future<UserProfileData> updateNickname(String value) async {
+    nickname = value;
+    return profile;
+  }
+}
 
 void _expectAt(
   WidgetTester tester,
@@ -99,6 +130,7 @@ void main() {
 
     testWidgets('변경하기를 누르면 새 닉네임을 돌려준다', (tester) async {
       String? returned;
+      final repository = _FakeUserRepository();
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -108,7 +140,7 @@ void main() {
                   returned = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const EditProfileScreen(),
+                      builder: (_) => EditProfileScreen(repository: repository),
                     ),
                   );
                 },
@@ -127,6 +159,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(returned, '다다다');
+      expect(repository.nickname, '다다다');
     });
   });
 
@@ -192,6 +225,35 @@ void main() {
             .checked,
         isTrue,
       );
+    });
+
+    testWidgets('동의 후 서버 삭제를 요청하고 확인할 때 로그아웃한다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _FakeUserRepository();
+      var signOutCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WithdrawScreen(
+            repository: repository,
+            signOut: () async => signOutCount++,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(FigmaConsentCheckbox));
+      await tester.pump();
+      await tester.tap(find.text('탈퇴하기'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleted, isTrue);
+      expect(signOutCount, 0);
+      expect(find.byType(WithdrawCompleteScreen), findsOneWidget);
+
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+      expect(signOutCount, 1);
     });
   });
 

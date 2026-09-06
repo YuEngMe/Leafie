@@ -68,6 +68,21 @@ void main() {
           const AssetImage('assets/images/leafie_character_sprout.png'),
           context,
         ),
+        for (final asset in [
+          'assets/images/home_bg_default.png',
+          'assets/images/home_bg_afternoon.png',
+          'assets/images/home_bg_evening.png',
+          'assets/images/home_bg_late_evening.png',
+          'assets/images/icon_home_notification.png',
+          'assets/images/icon_home_view_all.png',
+          'assets/images/icon_home_view_diagnosis.png',
+          'assets/images/icon_home_mailbox.png',
+          'assets/images/icon_home_sun.png',
+          'assets/images/icon_home_afternoon.png',
+          'assets/images/icon_home_moon.png',
+          'assets/images/icon_home_check.png',
+        ])
+          precacheImage(AssetImage(asset), context),
       ]);
     });
     await tester.pumpAndSettle();
@@ -108,7 +123,10 @@ void main() {
     (
       '홈',
       'home_402',
-      () => HomeScreen(plant: _goldenPlant, signOut: () async {}),
+      () => HomeScreen(
+        plant: _goldenPlant,
+        period: HomeTimePeriod.day,
+      ),
     ),
   ];
 

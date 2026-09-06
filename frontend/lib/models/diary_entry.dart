@@ -5,6 +5,8 @@ class DiaryEntry {
     this.title = '',
     this.body = '',
     this.photoPath,
+    this.photoUrl,
+    this.mediaFileId,
     this.weather,
   });
 
@@ -15,20 +17,30 @@ class DiaryEntry {
 
   /// 기기에 저장된 사진 경로. 없으면 '사진 추가하기'가 뜬다.
   final String? photoPath;
+  final String? photoUrl;
+  final String? mediaFileId;
   final DiaryWeather? weather;
 
-  bool get isEmpty => title.isEmpty && body.isEmpty && photoPath == null;
+  bool get isEmpty =>
+      title.trim().isEmpty &&
+      body.trim().isEmpty &&
+      photoPath == null &&
+      photoUrl == null;
 
   DiaryEntry copyWith({
     String? title,
     String? body,
     String? photoPath,
+    String? photoUrl,
+    String? mediaFileId,
     DiaryWeather? weather,
   }) => DiaryEntry(
     date: date,
     title: title ?? this.title,
     body: body ?? this.body,
     photoPath: photoPath ?? this.photoPath,
+    photoUrl: photoUrl ?? this.photoUrl,
+    mediaFileId: mediaFileId ?? this.mediaFileId,
     weather: weather ?? this.weather,
   );
 
@@ -42,6 +54,8 @@ class DiaryEntry {
     'title': title,
     'body': body,
     'photo_path': photoPath,
+    'photo_url': photoUrl,
+    'media_file_id': mediaFileId,
     'weather': weather?.name,
   };
 
@@ -54,6 +68,8 @@ class DiaryEntry {
       title: raw['title'] as String? ?? '',
       body: raw['body'] as String? ?? '',
       photoPath: raw['photo_path'] as String?,
+      photoUrl: raw['photo_url'] as String?,
+      mediaFileId: raw['media_file_id'] as String?,
       weather: DiaryWeather.byName(raw['weather'] as String?),
     );
   }

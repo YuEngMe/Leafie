@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/main.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/widgets/login_credentials_form.dart';
 import 'package:yeso_plant/widgets/social_login_section.dart';
 
@@ -58,29 +59,31 @@ void main() {
   ) async {
     await tester.pumpWidget(MaterialApp(home: authenticatedLandingScreen()));
 
-    expect(find.text('좋은 하루야!'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('현재 습도'), findsNothing);
     expect(find.text('내 식물 등록하기'), findsNothing);
   });
 
-  testWidgets('홈의 로그아웃 버튼은 세션 종료를 요청한다', (WidgetTester tester) async {
-    var signOutRequested = false;
-
+  testWidgets('홈의 종 아이콘은 알림 화면을 연다', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: HomeScreen(
-          signOut: () async {
-            signOutRequested = true;
-          },
+          plant: const HomePlant(
+            id: 'plant-id',
+            name: '테스트 식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          plantRepository: _EmptyPlantRepository(),
+          notificationBuilder: (_) => const Scaffold(body: Text('알림 목록')),
         ),
       ),
     );
 
-    await tester.tap(find.text('알림'));
+    await tester.tap(find.byKey(const ValueKey('home-notifications')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('로그아웃'));
-    await tester.pump();
 
-    expect(signOutRequested, isTrue);
+    expect(find.text('알림 목록'), findsOneWidget);
   });
 
   testWidgets('카카오 버튼은 Supabase 표준 Kakao 제공자를 요청한다', (
@@ -157,4 +160,27 @@ void main() {
     expect(requestedRedirect, 'yesoplant://login-callback');
     expect(requestedScopes, 'openid profile');
   });
+}
+
+class _EmptyPlantRepository implements PlantManagementRepository {
+  @override
+  Future<void> deletePlant(String plantId) async {}
+
+  @override
+  Future<List<ManagedPlant>> listPlants() async => const [];
+
+  @override
+  Future<String?> selectPlant(String? plantId) async => plantId;
+
+  @override
+  Future<ManagedPlant> updateAppearance(
+    String plantId, {
+    String? colorId,
+    String? hairId,
+    String? accessoryId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<ManagedPlant> updateNickname(String plantId, String nickname) =>
+      throw UnimplementedError();
 }

@@ -90,8 +90,8 @@ void main() {
     );
   });
 
-  testWidgets('처방전 카드 379x622 스냅샷', (tester) async {
-    tester.view.physicalSize = const Size(379, 622);
+  testWidgets('처방전 카드 379x643 스냅샷', (tester) async {
+    tester.view.physicalSize = const Size(379, 643);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -9,60 +10,8 @@ import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-String _isoDate(DateTime d) => d.toIso8601String().split('T').first;
-
-// TODO(1-E): dio 붙이면 이 함수 내부만 POST /plants 실제 호출로 교체.
-// 지금은 등록 흐름이 끝까지 이어지는지 확인하기 위한 가짜 성공 응답.
-// 요청 본문 형태는 api-spec.md의 POST /plants 예시를 그대로 따른다.
 Future<String> _submitPlantRegistration(PlantRegistrationDraft draft) async {
-  // started_on은 사용자가 입력하지 않는다. 캐릭터 등록(이 요청)을 보내는 시점이
-  // 곧 함께한 1일차이므로 제출 시각을 그대로 쓴다(2026-08-04 팀 확인).
-  // 서버가 자기 시각 기준으로 다시 계산해 덮어쓸 수도 있음 — 참고용으로만 보낸다.
-  final startedOn = DateTime.now();
-
-  // dio 붙이면 이 requestBody를 그대로 POST /plants의 body로 전달하면 된다.
-  final requestBody = <String, Object?>{
-    'name': draft.name,
-    'category': draft.species.categorySuggestion,
-    'species_name': draft.species.displayName,
-    'species_scientific_name': draft.species.scientificName,
-    'species_reference_id': draft.species.referenceId,
-    'species_selection_method': 'SEARCH',
-    'started_on': _isoDate(startedOn),
-    'character': {
-      'base_type': 'SPROUT',
-      'body_color': draft.bodyColorId,
-      'head_item': draft.headItem,
-      'accessory': draft.accessory,
-      'personality_type': draft.personalityType,
-    },
-    'environment': {
-      'place_name': draft.placeName,
-      'pot_type': draft.potType,
-      'placement': draft.placement,
-    },
-    'initial_care': {
-      'last_watered_on': draft.lastWateredOn == null
-          ? null
-          : _isoDate(draft.lastWateredOn!),
-      'last_repotted_on': draft.lastRepottedOn == null
-          ? null
-          : _isoDate(draft.lastRepottedOn!),
-    },
-  };
-  debugPrint('POST /plants (dummy) body: $requestBody');
-
-  // dio가 붙기 전까지는 user_metadata에 담아 둔다. 닉네임도 같은 방식이라
-  // 홈 화면이 새로고침 없이 등록 결과를 읽을 수 있다.
-  final id = 'local-${startedOn.microsecondsSinceEpoch}';
-  await Supabase.instance.client.auth.updateUser(
-    UserAttributes(
-      data: {
-        'leafie_plant': {...requestBody, 'id': id},
-      },
-    ),
-  );
-  return id;
+  return PlantApi().registerPlant(draft);
 }
 
 class PlantRegisterCompleteScreen extends StatefulWidget {
@@ -89,13 +38,39 @@ class _PlantRegisterCompleteScreenState
   Future<void> _submit() async {
     setState(() => _submitting = true);
     try {
-      await (widget.submit ?? _submitPlantRegistration)(widget.draft);
+      final plantId = await (widget.submit ?? _submitPlantRegistration)(
+        widget.draft,
+      );
       if (mounted) {
+        final snapshot = widget.draft.submissionSnapshot;
         Navigator.of(context).pushAndRemoveUntil(
-          // 등록 결과는 세션에 저장했으니 홈이 직접 읽는다.
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              plant: HomePlant(
+                id: plantId,
+                name: snapshot?.name ?? widget.draft.name,
+                startedOn: snapshot?.startedOn ?? widget.draft.startedOn,
+                personalityType:
+                    snapshot?.personalityType ?? widget.draft.personalityType,
+              ),
+            ),
+          ),
           (route) => false,
         );
+      }
+    } on LeafieApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Plant registration failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('식물을 등록하지 못했어요.')));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

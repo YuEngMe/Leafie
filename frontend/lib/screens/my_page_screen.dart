@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -17,10 +19,11 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 /// 시안에 하단 네비게이션 바가 없다. 홈에서 밀어 올리는 화면이라
 /// 뒤로가기로 빠져나온다.
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({super.key, this.user});
+  const MyPageScreen({super.key, this.user, this.repository});
 
   /// 로그인한 사용자. 비워 두면 현재 세션에서 읽는다. 테스트에서만 넘긴다.
   final User? user;
+  final UserRepository? repository;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -48,18 +51,29 @@ class _Profile {
     );
   }
 
+  factory _Profile.fromApi(UserProfileData profile) => _Profile(
+    nickname: '${profile.nickname}님',
+    email: profile.email,
+    tenureDays: profile.gardenerDays,
+  );
+
   final String nickname;
   final String email;
   final int tenureDays;
 }
 
 class _MyPageScreenState extends State<MyPageScreen> {
-  // TODO(1-E): dio 붙이면 GET /users/me의 notification_enabled로 초기화하고
-  // 변경 시 PATCH /users/me를 호출한다. 시안 기본값은 꺼짐(2319:2).
   bool _notificationsEnabled = false;
+  late final UserRepository _repository = widget.repository ?? UserApi();
 
   /// 세션에서 읽은 프로필. 내 정보 수정에서 돌아오면 닉네임이 바뀐다(2353:290).
   late _Profile _profile = _Profile.of(widget.user ?? _currentUser());
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.user == null || widget.repository != null) _loadProfile();
+  }
 
   /// Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 한다.
   static User? _currentUser() {
@@ -70,10 +84,25 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
   }
 
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _repository.getProfile();
+      if (!mounted) return;
+      setState(() {
+        _profile = _Profile.fromApi(profile);
+        _notificationsEnabled = profile.pushEnabled;
+      });
+    } on LeafieApiException {
+      // 세션 metadata fallback을 유지한다. 마이페이지 자체는 계속 쓸 수 있다.
+    }
+  }
+
   Future<void> _editProfile() async {
     final next = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(repository: _repository),
+      ),
     );
     if (next == null || !mounted) return;
     setState(
@@ -83,6 +112,22 @@ class _MyPageScreenState extends State<MyPageScreen> {
         tenureDays: _profile.tenureDays,
       ),
     );
+  }
+
+  Future<void> _updateNotifications(bool value) async {
+    final previous = _notificationsEnabled;
+    setState(() => _notificationsEnabled = value);
+    if (widget.user != null && widget.repository == null) return;
+    try {
+      final saved = await _repository.updateNotificationSettings(value);
+      if (mounted) setState(() => _notificationsEnabled = saved);
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _notificationsEnabled = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
   Future<void> _confirmSignOut() async {
@@ -130,11 +175,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
                 onWithdraw: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const WithdrawScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => WithdrawScreen(repository: _repository),
+                  ),
                 ),
                 notificationsEnabled: _notificationsEnabled,
-                onNotificationsChanged: (value) =>
-                    setState(() => _notificationsEnabled = value),
+                onNotificationsChanged: _updateNotifications,
               ),
               // 카드와 버튼 사이는 시안에서 338px이지만, 고정하면 작은 화면에서
               // 넘친다. 버튼을 아래에 붙이고 여백으로 위치를 맞춘다.

@@ -1,81 +1,162 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:yeso_plant/screens/plant_register_name_screen.dart';
+import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
+import 'package:yeso_plant/screens/notification_screen.dart';
+import 'package:yeso_plant/screens/plant_management_screen.dart';
+import 'package:yeso_plant/screens/plant_register_name_screen.dart';
+import 'package:yeso_plant/services/home_api.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
-/// 등록한 식물. dio가 붙기 전까지는 등록 화면이 user_metadata에 넣어 둔
-/// 값을 읽는다(plant_register_complete_screen.dart).
+/// 홈 API가 반환한 등록 식물 정보.
 class HomePlant {
   const HomePlant({
     required this.name,
     required this.startedOn,
     required this.personalityType,
+    this.id,
+    this.daysTogether,
   });
 
-  /// 세션에 저장된 등록 결과를 읽는다. 아직 등록 전이면 null.
-  static HomePlant? of(User? user) {
-    final raw = user?.userMetadata?['leafie_plant'];
-    if (raw is! Map) return null;
-    final name = raw['name'];
-    if (name is! String || name.isEmpty) return null;
-    return HomePlant(
-      name: name,
-      startedOn: DateTime.tryParse(raw['started_on'] as String? ?? ''),
-      personalityType:
-          (raw['character'] as Map?)?['personality_type'] as String?,
-    );
-  }
-
   final String name;
+  final String? id;
   final DateTime? startedOn;
   final String? personalityType;
+  final int? daysTogether;
 
   /// 등록한 날이 1일차다(2026-08-04 팀 확인).
-  int get dayCount =>
-      startedOn == null ? 1 : DateTime.now().difference(startedOn!).inDays + 1;
-
-  /// 성격마다 말투가 다르다. 서버가 대사를 주기 전까지 쓰는 기본 묶음.
-  List<String> get moodLines => switch (personalityType) {
-    'CHIC' => const ['흠', '별로야', '나쁘지 않네'],
-    'CUTE' => const ['히히', '헤헤', '보고 싶었어!'],
-    'CRUSH' => const ['가보자고', '오늘도 화이팅', '내가 최고야!'],
-    'INTROVERTED' => const ['어..', '조금 부끄러워', '와줘서 고마워'],
-    'CHUNGCHEONG' => const ['음~', '천천히 하자', '좋은 하루여~'],
-    // OUTGOING이 기본값이고, 성격을 못 고른 경우도 여기로 온다.
-    _ => const ['히히', '신난다', '좋은 하루야!'],
-  };
+  int get dayCount {
+    final serverDays = daysTogether;
+    if (serverDays != null) return serverDays < 1 ? 1 : serverDays;
+    return startedOn == null
+        ? 1
+        : DateTime.now().difference(startedOn!).inDays + 1;
+  }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.plant, this.signOut});
+/// Figma 3441:2에 있는 시간대별 홈 배경 상태.
+enum HomeTimePeriod {
+  day(asset: 'assets/images/home_bg_default.png', phaseIcon: FigmaHomeIcon.sun),
+  afternoon(
+    asset: 'assets/images/home_bg_afternoon.png',
+    phaseIcon: FigmaHomeIcon.afternoon,
+  ),
+  evening(
+    asset: 'assets/images/home_bg_evening.png',
+    phaseIcon: FigmaHomeIcon.moon,
+  ),
+  lateEvening(
+    asset: 'assets/images/home_bg_late_evening.png',
+    phaseIcon: FigmaHomeIcon.moon,
+  );
 
-  /// 비워 두면 현재 세션에서 읽는다. 테스트에서만 직접 넘긴다.
-  final HomePlant? plant;
-  final Future<void> Function()? signOut;
+  const HomeTimePeriod({required this.asset, required this.phaseIcon});
 
-  /// Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 한다.
-  static User? _currentUser() {
-    try {
-      return Supabase.instance.client.auth.currentUser;
-    } catch (_) {
-      return null;
-    }
+  final String asset;
+  final FigmaHomeIcon phaseIcon;
+
+  /// 00~03 오후2, 03~06 오후, 06~15 기본, 15~18 오후,
+  /// 18~19 오후2, 19~24 늦저녁 순서로 전환한다.
+  static HomeTimePeriod fromDateTime(DateTime dateTime) {
+    return switch (dateTime.hour) {
+      >= 0 && < 3 => evening,
+      >= 3 && < 6 => afternoon,
+      >= 6 && < 15 => day,
+      >= 15 && < 18 => afternoon,
+      >= 18 && < 19 => evening,
+      _ => lateEvening,
+    };
   }
 
-  Future<void> _requestSignOut(BuildContext context) async {
-    try {
-      await (signOut ?? Supabase.instance.client.auth.signOut)();
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('로그아웃에 실패했어요. 다시 시도해주세요.')));
+  bool get usesLightHeader => this == lateEvening;
+  bool get usesWhiteCounter => this != day;
+}
+
+/// Figma 3441:2의 대표 홈 대화 상태.
+enum HomeScene { idle, needsWater, needsLight, cared }
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({
+    super.key,
+    this.plant,
+    this.period,
+    this.initialScene = HomeScene.idle,
+    this.initialGaugesExpanded = true,
+    this.loadHome,
+    this.loadHomeForPlant,
+    this.plantRepository,
+    this.notificationBuilder,
+    this.plantManagementBuilder,
+  });
+
+  /// 등록 직후 서버에 보낸 snapshot을 바로 표시할 때만 전달한다.
+  final HomePlant? plant;
+  final HomeTimePeriod? period;
+  final HomeScene initialScene;
+  final bool initialGaugesExpanded;
+
+  /// 기본값은 실제 GET /home 호출이다. 테스트에서는 고정 응답으로 교체한다.
+  final Future<HomeDashboardData> Function()? loadHome;
+  final Future<HomeDashboardData> Function(String? plantId)? loadHomeForPlant;
+  final PlantManagementRepository? plantRepository;
+  final WidgetBuilder? notificationBuilder;
+  final Widget Function(
+    BuildContext context,
+    PlantManagementRepository repository,
+    ValueChanged<String?> onSelectedPlantChanged,
+    VoidCallback onAddPlant,
+  )?
+  plantManagementBuilder;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late HomeScene _scene;
+  late bool _gaugesExpanded;
+  HomePlant? _serverPlant;
+  String? _serverDialogue;
+  bool _loadingHome = false;
+  String? _homeError;
+  int _unreadNotificationCount = 0;
+  List<ManagedPlant> _plants = const [];
+  bool _switchingPlant = false;
+
+  late final PlantManagementRepository _plantRepository =
+      widget.plantRepository ?? PlantManagementApi();
+
+  @override
+  void initState() {
+    super.initState();
+    _scene = widget.initialScene;
+    _gaugesExpanded = widget.initialGaugesExpanded;
+    if (widget.plant == null) {
+      _loadingHome = true;
+      _loadHome();
+    }
+    _loadPlants();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialScene != widget.initialScene) {
+      _scene = widget.initialScene;
+    }
+    if (oldWidget.initialGaugesExpanded != widget.initialGaugesExpanded) {
+      _gaugesExpanded = widget.initialGaugesExpanded;
     }
   }
 
@@ -85,157 +166,605 @@ class HomeScreen extends StatelessWidget {
     ).push(MaterialPageRoute(builder: (_) => const PlantRegisterNameScreen()));
   }
 
+  void _handlePeriodIconTap() {
+    if (_scene == HomeScene.needsLight) {
+      setState(() => _scene = HomeScene.cared);
+    }
+  }
+
+  Future<void> _loadHome([String? plantId]) async {
+    try {
+      final data = widget.loadHomeForPlant != null
+          ? await widget.loadHomeForPlant!(plantId)
+          : plantId == null && widget.loadHome != null
+          ? await widget.loadHome!()
+          : await HomeApi().fetchHome(plantId: plantId);
+      if (!mounted) return;
+      final character = data.character;
+      final hasWateringRequest = data.todayEvents.any(
+        (event) => event.type == 'WATERING' && event.completable,
+      );
+      setState(() {
+        final plant = data.plant;
+        _serverPlant = plant == null
+            ? null
+            : HomePlant(
+                id: plant.id,
+                name: plant.nickname,
+                startedOn: null,
+                personalityType: character?.personalityType,
+                daysTogether: plant.daysTogether,
+              );
+        _serverDialogue = character?.dialogue?.trim();
+        _unreadNotificationCount = data.unreadNotificationCount;
+        _loadingHome = false;
+        _homeError = null;
+        if (_serverDialogue?.isNotEmpty == true || hasWateringRequest) {
+          _scene = HomeScene.needsWater;
+        }
+      });
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingHome = false;
+        _homeError = error.message;
+      });
+    }
+  }
+
+  Future<void> _loadPlants() async {
+    try {
+      final plants = await _plantRepository.listPlants();
+      if (mounted) setState(() => _plants = plants);
+    } on LeafieApiException {
+      // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
+    }
+  }
+
+  Future<void> _switchPlant(int delta) async {
+    if (_switchingPlant || _plants.length < 2) return;
+    final currentId = (_serverPlant ?? widget.plant)?.id;
+    var currentIndex = _plants.indexWhere((plant) => plant.id == currentId);
+    if (currentIndex < 0) {
+      currentIndex = _plants.indexWhere((plant) => plant.isSelected);
+    }
+    if (currentIndex < 0) currentIndex = 0;
+    final nextIndex = (currentIndex + delta) % _plants.length;
+    final next = _plants[nextIndex];
+    setState(() => _switchingPlant = true);
+    try {
+      await _plantRepository.selectPlant(next.id);
+      await _loadHome(next.id);
+      await _loadPlants();
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _switchingPlant = false);
+    }
+  }
+
+  Future<void> _openPlantManagement() async {
+    String? selectedPlantId;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (routeContext) =>
+            widget.plantManagementBuilder?.call(
+              routeContext,
+              _plantRepository,
+              (value) => selectedPlantId = value,
+              () => Navigator.of(routeContext).push(
+                MaterialPageRoute(
+                  builder: (_) => const PlantRegisterNameScreen(),
+                ),
+              ),
+            ) ??
+            PlantManagementScreen(
+              repository: _plantRepository,
+              onSelectedPlantChanged: (value) => selectedPlantId = value,
+              onAddPlant: () => Navigator.of(routeContext).push(
+                MaterialPageRoute(
+                  builder: (_) => const PlantRegisterNameScreen(),
+                ),
+              ),
+            ),
+      ),
+    );
+    if (!mounted) return;
+    await _loadHome(selectedPlantId);
+    await _loadPlants();
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder:
+            widget.notificationBuilder ?? (_) => const NotificationScreen(),
+      ),
+    );
+    if (!mounted) return;
+    await _loadHome((_serverPlant ?? widget.plant)?.id);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final plant = this.plant ?? HomePlant.of(_currentUser());
-    // 아직 등록하지 않았으면 이름 대신 안내를 띄운다.
-    final roomName = plant?.name ?? '새싹이';
-    final moodLines = plant?.moodLines ?? const ['히히', '신난다', '좋은 하루야!'];
+    final plant = _serverPlant ?? widget.plant;
+    final period = widget.period ?? HomeTimePeriod.fromDateTime(DateTime.now());
 
     return Scaffold(
       backgroundColor: kHomeGreen,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const CustomPaint(painter: _RoomBackgroundPainter()),
-          SafeArea(
-            // 네비바는 화면 끝까지 닿아야 해서 이 안에 두지 않는다.
-            bottom: false,
-            child: Column(
+      body: SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: AppLayout.referenceViewport.width,
+            height: AppLayout.referenceViewport.height,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                SizedBox(
-                  height: AppLayout.homeTopBarHeight,
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 38),
-                      Text(
-                        'D+ ${plant?.dayCount ?? 1}',
-                        style: kCaptionStyle.copyWith(color: kTextDark),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.chevron_left, color: kTextDark),
-                      Text('$roomName 방', style: kItemStyle),
-                      const Icon(Icons.chevron_right, color: kTextDark),
-                      const Spacer(),
-                      PopupMenuButton<String>(
-                        tooltip: '알림 및 메뉴',
-                        onSelected: (value) {
-                          if (value == 'register') {
-                            _startPlantRegistration(context);
-                          } else if (value == 'sign_out') {
-                            _requestSignOut(context);
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: 'register',
-                            child: Text('식물 등록하기'),
-                          ),
-                          PopupMenuItem(value: 'sign_out', child: Text('로그아웃')),
-                        ],
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 14,
-                          ),
-                          child: Text('알림', style: kCaptionStyle),
+                Image.asset(
+                  period.asset,
+                  key: ValueKey(period.asset),
+                  fit: BoxFit.fill,
+                ),
+                _HomeHeader(
+                  roomName: plant?.name,
+                  dayCount: plant?.dayCount,
+                  period: period,
+                  unreadNotificationCount: _unreadNotificationCount,
+                  canSwitchPlant: _plants.length > 1 && !_switchingPlant,
+                  onPreviousPlant: () => _switchPlant(-1),
+                  onNextPlant: () => _switchPlant(1),
+                  onManagePlants: _openPlantManagement,
+                  onNotifications: _openNotifications,
+                ),
+                if (_scene == HomeScene.cared)
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(painter: _CareRaysPainter()),
+                    ),
+                  ),
+                Positioned(
+                  left: 29,
+                  top: 111,
+                  child: GestureDetector(
+                    key: const ValueKey('home-period-control'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _handlePeriodIconTap,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: FigmaHomeAssetIcon(period.phaseIcon),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 333,
+                  top: 113,
+                  child: FigmaHomeViewSwitch(
+                    onOverviewTap: () {},
+                    onDiagnosisTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DiagnosisScreen(
+                          plantId: plant?.id,
+                          plantName: plant?.name,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 26),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        children: const [
-                          _SideControl(label: '전체\n보기'),
-                          SizedBox(height: 10),
-                          _SideControl(label: '유채통'),
-                        ],
-                      ),
-                      const Spacer(),
-                      const _SideControl(label: '청진기'),
-                    ],
-                  ),
-                ),
-                Transform.translate(
-                  offset: const Offset(28, -14),
-                  child: Column(
-                    children: [
-                      _RoomBubble(label: moodLines[0], width: 103),
-                      Transform.translate(
-                        offset: Offset(19, -7),
-                        child: _RoomBubble(label: moodLines[1], width: 103),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _RoomBubble(label: moodLines[2], width: 114),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      // Figma node 2346:2542. 배경은 흰색 30%다.
-                      color: const Color(0x4DFFFFFF),
-                      borderRadius: BorderRadius.circular(35),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x33000000), blurRadius: 4),
-                      ],
                     ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(35),
+                  ),
+                ),
+                if (plant != null && !_gaugesExpanded)
+                  _HomeConversation(
+                    scene: _scene,
+                    serverDialogue: _serverDialogue,
+                  ),
+                if (plant != null)
+                  const Positioned(
+                    left: 78,
+                    top: 282,
+                    width: 248,
+                    height: 248,
+                    child: PlantCharacterArt(width: 248, sprouted: true),
+                  ),
+                if (plant != null)
+                  const Positioned(
+                    left: 304,
+                    top: 453,
+                    child: FigmaHomeAssetIcon(FigmaHomeIcon.mailbox),
+                  ),
+                if (_loadingHome)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 350,
+                    child: Center(
+                      child: CircularProgressIndicator(color: kOrangeMain),
+                    ),
+                  )
+                else if (_homeError != null)
+                  Positioned(
+                    left: 42,
+                    right: 42,
+                    top: 340,
+                    child: _HomeMessageCard(
+                      message: '$_homeError\n다시 불러오기',
+                      onTap: () {
+                        setState(() => _loadingHome = true);
+                        _loadHome();
+                      },
+                    ),
+                  )
+                else if (plant == null)
+                  Positioned(
+                    left: 42,
+                    right: 42,
+                    top: 340,
+                    child: _HomeMessageCard(
+                      message: '등록된 식물이 없어요.\n식물을 등록해주세요.',
                       onTap: () => _startPlantRegistration(context),
-                      child: SizedBox(
-                        height: AppLayout.homeHumidityCardHeight,
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 11),
-                            const FigmaMoistureIcon(),
-                            const SizedBox(width: 10.57),
-                            Text('조도 습도 체크하기', style: kItemStyle),
-                            const Spacer(),
-                            const SizedBox(width: 14),
-                          ],
+                    ),
+                  )
+                else if (_gaugesExpanded)
+                  _HomeEnvironmentPanel(
+                    onCollapse: () => setState(() => _gaugesExpanded = false),
+                  )
+                else
+                  _HomeStatusCard(
+                    onTap: () => setState(() => _gaugesExpanded = true),
+                  ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: AppBottomNav(
+                    onTap: (tab) => switch (tab) {
+                      FigmaNavIcon.diary => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DiaryScreen()),
+                      ),
+                      FigmaNavIcon.calendar => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CalendarScreen(
+                            plantId: plant?.id,
+                            plantName: plant?.name,
+                            diaryBuilder: (_) => const DiaryScreen(),
+                          ),
                         ),
                       ),
-                    ),
+                      FigmaNavIcon.my => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MyPageScreen()),
+                      ),
+                      _ => null,
+                    },
                   ),
                 ),
-                const SizedBox(height: 12),
               ],
             ),
           ),
-          // 시안(3173:113)은 네비바가 화면 맨 아래에 붙는다. SafeArea 안에
-          // 두면 홈 인디케이터만큼 떠서 아래에 빈 띠가 생긴다.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AppBottomNav(
-              onTap: (tab) => switch (tab) {
-                FigmaNavIcon.diary => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const DiaryScreen()),
-                ),
-                FigmaNavIcon.my => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyPageScreen()),
-                ),
-                // 홈은 이미 여기고, 달력은 아직 화면이 없다.
-                _ => null,
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.roomName,
+    required this.dayCount,
+    required this.period,
+    required this.unreadNotificationCount,
+    required this.canSwitchPlant,
+    required this.onPreviousPlant,
+    required this.onNextPlant,
+    required this.onManagePlants,
+    required this.onNotifications,
+  });
+
+  final String? roomName;
+  final int? dayCount;
+  final HomeTimePeriod period;
+  final int unreadNotificationCount;
+  final bool canSwitchPlant;
+  final VoidCallback onPreviousPlant;
+  final VoidCallback onNextPlant;
+  final VoidCallback onManagePlants;
+  final VoidCallback onNotifications;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleColor = period.usesLightHeader ? Colors.white : kTextDark;
+    final counterColor = period.usesWhiteCounter ? Colors.white : kTextDark;
+    final notificationColor = switch (period) {
+      HomeTimePeriod.day => kOrangeMain,
+      HomeTimePeriod.afternoon => Colors.white,
+      _ => const Color(0xFFFFF08A),
+    };
+
+    return Stack(
+      children: [
+        if (dayCount != null)
+          Positioned(
+            left: 43,
+            top: 63,
+            child: Text(
+              'D+ $dayCount',
+              style: kCaptionStyle.copyWith(color: counterColor, height: 1),
+            ),
+          ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 55,
+          height: 31,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  key: const ValueKey('home-previous-plant'),
+                  onTap: canSwitchPlant ? onPreviousPlant : null,
+                  child: Icon(
+                    Icons.chevron_left_rounded,
+                    color: titleColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                GestureDetector(
+                  key: const ValueKey('home-manage-plants'),
+                  onTap: onManagePlants,
+                  child: Text(
+                    roomName == null ? '내 식물' : '$roomName 방',
+                    style: kItemStyle.copyWith(color: titleColor),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                GestureDetector(
+                  key: const ValueKey('home-next-plant'),
+                  onTap: canSwitchPlant ? onNextPlant : null,
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: titleColor,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          right: 22,
+          top: 47,
+          width: 56,
+          height: 48,
+          child: Semantics(
+            button: true,
+            label: '알림',
+            child: GestureDetector(
+              key: const ValueKey('home-notifications'),
+              behavior: HitTestBehavior.opaque,
+              onTap: onNotifications,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  FigmaHomeAssetIcon(
+                    FigmaHomeIcon.notification,
+                    color: notificationColor,
+                  ),
+                  if (unreadNotificationCount > 0)
+                    Positioned(
+                      right: 3,
+                      top: 1,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 17,
+                          minHeight: 17,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF5A52),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          unreadNotificationCount > 99
+                              ? '99+'
+                              : '$unreadNotificationCount',
+                          style: kSmallStyle.copyWith(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeConversation extends StatelessWidget {
+  const _HomeConversation({required this.scene, required this.serverDialogue});
+
+  final HomeScene scene;
+  final String? serverDialogue;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (scene) {
+      HomeScene.needsWater => Positioned(
+        left: 0,
+        right: 0,
+        top: 209,
+        child: Center(
+          child: PlantRequestBubble(
+            message: serverDialogue?.isNotEmpty == true
+                ? serverDialogue!
+                : '나 지금 목말라.. 물이 필요해',
+          ),
+        ),
+      ),
+      HomeScene.needsLight => const Positioned(
+        left: 0,
+        right: 0,
+        top: 209,
+        child: Center(child: PlantRequestBubble(message: '나 햇빛이 부족해..')),
+      ),
+      HomeScene.cared => const Positioned(
+        left: 0,
+        right: 0,
+        top: 209,
+        child: Center(child: _RoomBubble(label: '아 따뜻해~고마워!', width: 132)),
+      ),
+      HomeScene.idle => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _HomeStatusCard extends StatelessWidget {
+  const _HomeStatusCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 21,
+      right: 21,
+      top: 727,
+      height: 49,
+      child: Semantics(
+        button: true,
+        label: '조도 습도 체크하기',
+        child: GestureDetector(
+          key: const ValueKey('home-environment-card'),
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.42),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x26000000), blurRadius: 4),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(width: 8),
+                    FigmaHomeAssetIcon(FigmaHomeIcon.environmentCheck),
+                    SizedBox(width: 14),
+                    Text('조도 습도 체크하기', style: kItemStyle),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeEnvironmentPanel extends StatelessWidget {
+  const _HomeEnvironmentPanel({required this.onCollapse});
+
+  final VoidCallback onCollapse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 575,
+      height: 220,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.55),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
+              ),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 4,
+                  height: 18,
+                  child: GestureDetector(
+                    key: const ValueKey('home-environment-collapse'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onCollapse,
+                    child: const Center(
+                      child: SizedBox(
+                        width: 70,
+                        height: 2,
+                        child: ColoredBox(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 34,
+                  right: 34,
+                  top: 82,
+                  child: Text(
+                    '측정 데이터가 없어요.\n센서 연동 후 습도와 조도가 표시됩니다.',
+                    textAlign: TextAlign.center,
+                    style: kCaptionStyle.copyWith(color: kTextDark),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeMessageCard extends StatelessWidget {
+  const _HomeMessageCard({required this.message, required this.onTap});
+
+  final String message;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [BoxShadow(color: Color(0x24000000), blurRadius: 8)],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: kBodyStyle.copyWith(color: kTextDark),
+        ),
+      ),
+    ),
+  );
 }
 
 class _RoomBubble extends StatelessWidget {
@@ -248,8 +777,7 @@ class _RoomBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      // Figma node 2346:2375.
-      height: 38,
+      height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: kBackgroundWhite,
@@ -266,61 +794,29 @@ class _RoomBubble extends StatelessWidget {
   }
 }
 
-class _SideControl extends StatelessWidget {
-  const _SideControl({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xEFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 3)],
-      ),
-      child: Text(label, style: kCaptionStyle, textAlign: TextAlign.center),
-    );
-  }
-}
-
-class _RoomBackgroundPainter extends CustomPainter {
-  const _RoomBackgroundPainter();
+class _CareRaysPainter extends CustomPainter {
+  const _CareRaysPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final background = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [kHomeGreen, kHomeYellow, kHomePeach],
-        stops: [0, 0.58, 1],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, background);
-
-    final yellowBand = Paint()
-      ..color = const Color(0x99FFF7B8)
-      ..strokeWidth = 112
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 34);
-    canvas.drawLine(
-      Offset(-80, size.height * 0.31),
-      Offset(size.width + 70, size.height * 0.04),
-      yellowBand,
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.27);
+    canvas.drawPath(
+      Path()
+        ..moveTo(75, 178)
+        ..lineTo(103, 456)
+        ..lineTo(164, 456)
+        ..lineTo(91, 174)
+        ..close(),
+      paint,
     );
-
-    final greenBand = Paint()
-      ..color = const Color(0x85A9EEA9)
-      ..strokeWidth = 138
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 38);
-    canvas.drawLine(
-      Offset(-70, size.height * 0.5),
-      Offset(size.width + 70, size.height * 0.2),
-      greenBand,
+    canvas.drawPath(
+      Path()
+        ..moveTo(103, 180)
+        ..lineTo(188, 429)
+        ..lineTo(248, 429)
+        ..lineTo(121, 172)
+        ..close(),
+      paint,
     );
   }
 

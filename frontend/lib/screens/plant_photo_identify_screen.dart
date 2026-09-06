@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
-import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -18,6 +19,8 @@ class PlantIdentification {
     required this.candidate,
     required this.familyName,
     required this.bloomSeason,
+    this.identificationId,
+    this.mediaFileId,
   });
 
   final PlantSpeciesCandidate candidate;
@@ -27,24 +30,21 @@ class PlantIdentification {
 
   /// 시안 2318:2949 '8월 ~ 9월'.
   final String bloomSeason;
+  final String? identificationId;
+  final String? mediaFileId;
 }
 
 /// 사진을 넘기면 종을 알려주는 함수. 테스트가 갈아끼운다.
 typedef PlantIdentifier = Future<PlantIdentification> Function(File photo);
 
-// TODO(1-E): dio 붙이면 사진을 올려 AI 인식 결과를 받는 API로 바꾼다.
-// 지금은 시안(2318:2890)이 보여주는 값을 그대로 돌려준다.
 Future<PlantIdentification> _identifyPlant(File photo) async {
-  await Future<void>.delayed(const Duration(milliseconds: 1800));
-  return const PlantIdentification(
-    candidate: PlantSpeciesCandidate(
-      referenceId: 'catalog:sedum-polytrichoides',
-      displayName: '바위채송화',
-      scientificName: 'Sedum polytrichoides',
-      categorySuggestion: 'SUCCULENT',
-    ),
-    familyName: '돌나무과',
-    bloomSeason: '8월 ~ 9월',
+  final result = await PlantApi().identifySpecies(await photo.readAsBytes());
+  return PlantIdentification(
+    candidate: result.candidate,
+    familyName: result.candidate.familyName ?? '정보 없음',
+    bloomSeason: result.candidate.floweringPeriod ?? '정보 없음',
+    identificationId: result.identificationId,
+    mediaFileId: result.mediaFileId,
   );
 }
 
@@ -99,6 +99,8 @@ class _PlantPhotoIdentifyScreenState extends State<PlantPhotoIdentifyScreen> {
           draft: PlantRegistrationDraft(
             name: widget.name,
             species: result.candidate,
+            speciesIdentificationId: result.identificationId,
+            primaryMediaFileId: result.mediaFileId,
           ),
         ),
       ),

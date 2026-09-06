@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -69,5 +70,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MyPageScreen), findsOneWidget);
+  });
+
+  testWidgets('캘린더 아이콘을 누르면 관리 캘린더로 간다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          plant: HomePlant(
+            id: 'plant-1',
+            name: '새싹이',
+            startedOn: null,
+            personalityType: null,
+          ),
+          period: HomeTimePeriod.day,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CalendarScreen), findsOneWidget);
   });
 }

@@ -19,6 +19,134 @@ class _AssetIcon extends StatelessWidget {
   }
 }
 
+/// Figma section 3436:4296의 홈 전용 아이콘.
+///
+/// 그림자 필터까지 보존되도록 Figma SVG 원본을 투명 PNG로 렌더링해 사용한다.
+enum FigmaHomeIcon {
+  notification('assets/images/icon_home_notification.png', Size(28, 31), '알림'),
+  mailbox('assets/images/icon_home_mailbox.png', Size(84.0994, 130), '우체통'),
+  sun('assets/images/icon_home_sun.png', Size(83.1301, 82.3485), '해'),
+  afternoon('assets/images/icon_home_afternoon.png', Size(76, 76), '오후 해'),
+  moon('assets/images/icon_home_moon.png', Size(65.0887, 79), '달'),
+  environmentCheck(
+    'assets/images/icon_home_check.png',
+    Size(35, 35),
+    '조도 습도 확인',
+  );
+
+  const FigmaHomeIcon(this.asset, this.figmaSize, this.label);
+
+  final String asset;
+  final Size figmaSize;
+  final String label;
+}
+
+class FigmaHomeAssetIcon extends StatelessWidget {
+  const FigmaHomeAssetIcon(this.icon, {super.key, this.color});
+
+  final FigmaHomeIcon icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: icon.label,
+    image: true,
+    child: Image.asset(
+      icon.asset,
+      width: icon.figmaSize.width,
+      height: icon.figmaSize.height,
+      fit: BoxFit.contain,
+      color: color,
+      colorBlendMode: color == null ? null : BlendMode.srcIn,
+    ),
+  );
+}
+
+/// Figma 3436:4357. 홈 전체보기와 진단 전환 컨트롤.
+class FigmaHomeViewSwitch extends StatelessWidget {
+  const FigmaHomeViewSwitch({
+    super.key,
+    this.onOverviewTap,
+    this.onDiagnosisTap,
+  });
+
+  static const Size figmaSize = Size(45, 117);
+
+  final VoidCallback? onOverviewTap;
+  final VoidCallback? onDiagnosisTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '전체보기와 진단 전환',
+      container: true,
+      child: Container(
+        width: figmaSize.width,
+        height: figmaSize.height,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(35),
+          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 7.87,
+              top: 9.23,
+              child: Image.asset(
+                'assets/images/icon_home_view_all.png',
+                width: 29.256,
+                height: 28.775,
+              ),
+            ),
+            Positioned(
+              left: 11.5,
+              top: 65,
+              child: Image.asset(
+                'assets/images/icon_home_view_diagnosis.png',
+                width: 22,
+                height: 32,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              width: 45,
+              height: 58.5,
+              child: Semantics(
+                label: '전체보기',
+                button: true,
+                child: GestureDetector(
+                  key: const ValueKey('home-overview-switch'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onOverviewTap,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 58.5,
+              width: 45,
+              height: 58.5,
+              child: Semantics(
+                label: '진단',
+                button: true,
+                child: GestureDetector(
+                  key: const ValueKey('home-diagnosis-switch'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onDiagnosisTap,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Figma node 3173:113의 하단 네비게이션 아이콘 넷.
 ///
 /// 디자이너가 2026-09-05에 넣었다. 시안은 알약 배경도 라벨도 없이 아이콘만
@@ -60,14 +188,19 @@ class FigmaBottomNavIcon extends StatelessWidget {
 /// 디자이너가 2026-09-05에 교체했다. 끝이 둥글고 꼭짓점이 살짝 뭉툭해
 /// 좌표로 옮기면 근사치가 되므로 에셋으로 둔다.
 class FigmaBackChevron extends StatelessWidget {
-  const FigmaBackChevron({super.key});
+  const FigmaBackChevron({super.key, this.color});
 
   static const Size figmaSize = Size(11.4824, 18.0019);
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => const _AssetIcon(
-    asset: 'assets/images/icon_back_chevron.svg',
-    size: figmaSize,
+  Widget build(BuildContext context) => SvgPicture.asset(
+    'assets/images/icon_back_chevron.svg',
+    width: figmaSize.width,
+    height: figmaSize.height,
+    colorFilter: color == null
+        ? null
+        : ColorFilter.mode(color!, BlendMode.srcIn),
   );
 }
 

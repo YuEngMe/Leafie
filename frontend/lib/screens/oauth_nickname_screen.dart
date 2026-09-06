@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/user_api.dart';
+import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -13,15 +15,18 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 // 카카오·네이버 등 소셜 로그인은 회원가입 화면이 없어 닉네임을 못 받으므로,
 // 최초 로그인 시 이 화면에서 한 번 물어본다.
 //
-// TODO: 신규 가입자 판단 기준이 아직 미확정(체크리스트 "팀에 확인 필요한 것"
-// 참고) — 지금은 이 화면 자체만 만들어두고, main.dart의 signedIn 이벤트에서
-// "신규 사용자면 여기로 이동" 연결은 판단 기준이 정해진 뒤에 한다.
+// main.dart가 GET /users/me의 profile_completed를 확인해 신규 사용자만 보낸다.
 class OAuthNicknameScreen extends StatefulWidget {
-  const OAuthNicknameScreen({super.key, required this.providerLabel});
+  const OAuthNicknameScreen({
+    super.key,
+    required this.providerLabel,
+    this.repository,
+  });
 
   // AppBar 타이틀에 쓰는 제공자 이름(예: '카카오톡', '네이버'). Figma 시안은
   // 제공자별로 "OO 로그인" 타이틀을 쓴다.
   final String providerLabel;
+  final UserRepository? repository;
 
   @override
   State<OAuthNicknameScreen> createState() => _OAuthNicknameScreenState();
@@ -31,6 +36,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
   final _nicknameController = TextEditingController();
   bool _submitting = false;
   bool _allowPop = false;
+  late final UserRepository _repository = widget.repository ?? UserApi();
 
   @override
   void initState() {
@@ -72,10 +78,18 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
 
     setState(() => _submitting = true);
     try {
-      await _saveNickname(nickname);
+      await _repository.updateNickname(nickname);
       if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
       }
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -135,12 +149,4 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       ),
     );
   }
-}
-
-// TODO(1-E): dio 붙이면 이 함수 내부만 PATCH /users/me 실제 호출로 교체.
-// Supabase user_metadata에 임시로 저장해 흐름은 지금 바로 확인 가능하게 한다.
-Future<void> _saveNickname(String nickname) async {
-  await Supabase.instance.client.auth.updateUser(
-    UserAttributes(data: {'leafie_nickname': nickname}),
-  );
 }

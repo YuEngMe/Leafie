@@ -298,9 +298,14 @@ class _ViewfinderPainter extends CustomPainter {
 
 /// Figma node 2318:3831. 연·월·일 휠 세 개를 담은 날짜 선택 바텀시트.
 class PlantDatePickerSheet extends StatefulWidget {
-  const PlantDatePickerSheet({super.key, required this.initialDate});
+  const PlantDatePickerSheet({
+    super.key,
+    required this.initialDate,
+    this.maximumDate,
+  });
 
   final DateTime initialDate;
+  final DateTime? maximumDate;
 
   @override
   State<PlantDatePickerSheet> createState() => _PlantDatePickerSheetState();
@@ -330,6 +335,19 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
   static const int _lastYear = 2035;
 
   int get _daysInMonth => DateTime(_year, _month + 1, 0).day;
+
+  DateTime get _selectedDate => DateTime(_year, _month, _day);
+
+  bool get _isAfterMaximum {
+    final maximumDate = widget.maximumDate;
+    if (maximumDate == null) return false;
+    final maximum = DateTime(
+      maximumDate.year,
+      maximumDate.month,
+      maximumDate.day,
+    );
+    return _selectedDate.isAfter(maximum);
+  }
 
   @override
   void dispose() {
@@ -427,8 +445,15 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
               height: AppLayout.onboardingControlHeight,
               background: kBackgroundWhite,
               textStyle: kLoginButtonStyle.copyWith(color: kOrangeMain),
-              onPressed: () =>
-                  Navigator.of(context).pop(DateTime(_year, _month, _day)),
+              onPressed: () {
+                if (_isAfterMaximum) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')),
+                  );
+                  return;
+                }
+                Navigator.of(context).pop(_selectedDate);
+              },
             ),
           ),
           // 드래그 핸들(2318:3802).

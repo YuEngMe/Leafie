@@ -1,0 +1,18 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1597881536" filter="url(#filter0_d_0_54)">
+<circle id="Ellipse 806" cx="22" cy="22" r="18" fill="white"/>
+<path id="Union" d="M20.4512 13.0669C21.304 11.6444 23.3659 11.6444 24.2188 13.0669L26.3076 16.5522L28.4111 20.0337C28.566 20.2591 28.7072 20.4942 28.8359 20.7368L28.8555 20.769H28.8525C29.3731 21.7619 29.6689 22.8878 29.6689 24.0825C29.6689 28.0752 26.3855 31.3119 22.335 31.312C18.2843 31.312 15 28.0753 15 24.0825C15 22.8879 15.2959 21.7618 15.8164 20.769H15.8145L15.8311 20.7407C15.9618 20.494 16.105 20.2548 16.2627 20.0259L18.3623 16.5522L20.4512 13.0669Z" fill="#9DE9E5"/>
+</g>
+<defs>
+<filter id="filter0_d_0_54" x="0" y="0" width="44" height="44" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_54"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_54" result="shape"/>
+</filter>
+</defs>
+</svg>

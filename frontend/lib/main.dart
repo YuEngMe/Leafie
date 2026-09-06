@@ -6,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
+import 'package:yeso_plant/screens/oauth_nickname_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
+import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 
@@ -91,17 +93,12 @@ class _YesoAppState extends State<YesoApp> {
         }
         break;
       case AuthChangeEvent.signedIn:
-        // TODO: 카카오·네이버로 처음 가입한 사용자는 닉네임이 없어
-        // oauth_nickname_screen.dart로 보내야 하는데, "신규 가입 vs
-        // 재로그인"을 프론트가 구분할 방법이 아직 없다(GET /users/me에
-        // profile_completed 같은 플래그가 없음, 2026-08-11 백엔드에 문의함).
-        // 판단 기준이 정해지면 이 분기에서 신규 사용자만 닉네임 화면으로
-        // 보내도록 갈라야 한다. 지금은 전부 홈으로 보낸다.
-        _openAuthenticatedScreen(navigator);
+        // 서버 프로필의 profile_completed로 신규 소셜 가입자를 가른다.
+        _openAuthenticatedScreen(navigator, data.session?.user);
         break;
       case AuthChangeEvent.initialSession:
         if (data.session != null) {
-          _openAuthenticatedScreen(navigator);
+          _openAuthenticatedScreen(navigator, data.session?.user);
         }
         break;
       case AuthChangeEvent.signedOut:
@@ -112,12 +109,38 @@ class _YesoAppState extends State<YesoApp> {
     }
   }
 
-  void _openAuthenticatedScreen(NavigatorState navigator) {
+  Future<void> _openAuthenticatedScreen(
+    NavigatorState navigator,
+    User? user,
+  ) async {
+    try {
+      final profile = await UserApi().getProfile();
+      if (!profile.profileCompleted) {
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                OAuthNicknameScreen(providerLabel: _providerLabel(user)),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+    } catch (_) {
+      // 프로필 확인 실패가 로그인 성공 자체를 막지는 않는다. 홈에서 재시도한다.
+    }
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => authenticatedLandingScreen()),
       (route) => false,
     );
   }
+
+  String _providerLabel(User? user) =>
+      switch (user?.appMetadata['provider']?.toString().toLowerCase()) {
+        'kakao' => '카카오톡',
+        'naver' => '네이버',
+        'apple' => 'Apple',
+        _ => '소셜',
+      };
 
   void _openLoginScreen(NavigatorState navigator) {
     navigator.pushAndRemoveUntil(

@@ -442,8 +442,20 @@ the paper grain (`2739:34974`, laid at 30% opacity).
 runs behind the status bar, so the screens set `extendBodyBehindAppBar` with a
 transparent `YesoAppBar` and place widgets at the mock's own y — no `- 92`.
 
-Paper 34/132 (334x548), photo box 46/143 (304x242), body box 46/395 (304x266),
-blue bookmark 350/232, month buttons 350/472 and 351/540, pencil FAB 330/730.
+Re-measured against `3496:11674` (2026-09-06) — the earlier node's numbers had
+drifted. Cover -57/119 (440x620), three stacked sheets at 132.94 (`#CCCCCC`
+342 wide, `#E6E5E5` 345, white 334) plus a white→`#999999` spine at -2. Blue
+bookmark 350/274, month buttons 350/535 and 351/603, pencil FAB 302/661.
+Photo box 46/143 (304x242), body box 46/395 (304x266).
+
+The mock lays those three buttons out with `rotateZ(3.14)`, so Figma prints
+their `left` as 395 — the drawn edge is `395 - width`.
+
+The calendar grid is **not** evenly divided: column widths run 44.30 / 44.30 /
+44.30 / 42.19 / 45.36 / 43.25 / 44.30 and row heights alternate 66.95 / 65.90,
+so both are tables rather than a multiplication. Grid lines are `#FF8834`,
+matching the weekday headers, and there are only five rows — a month needing
+six cannot draw its last one.
 The date line sits *inside* the photo box's top strip, divided by a vertical
 rule at x 212.63 and a horizontal one at y 179.
 
@@ -526,5 +538,8 @@ it is meaningless there.
 
 ## 8. Accepted MVP debt
 
-- Plant creation is still a local dummy response, so the just-registered plant name is held only for the current route.
-- Species search and character option identifiers remain local fixtures until their APIs are connected.
+- Species search and plant creation use the backend API. Until the home API is connected,
+  the registration route passes the frozen server request snapshot directly to the home screen.
+- The current Figma flow does not collect pot type, placement, hair, or accessory. Registration
+  sends the backend's explicit fallback values `OTHER`, `OTHER`, `NONE`, and `NONE` until those
+  controls and assets exist.

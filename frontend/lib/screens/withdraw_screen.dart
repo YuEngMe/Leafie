@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -11,7 +13,10 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 ///
 /// 안내 세 줄을 읽고 동의해야만 탈퇴 버튼이 열린다.
 class WithdrawScreen extends StatefulWidget {
-  const WithdrawScreen({super.key});
+  const WithdrawScreen({super.key, this.repository, this.signOut});
+
+  final UserRepository? repository;
+  final Future<void> Function()? signOut;
 
   /// 시안 2570:2038·2046·2049.
   static const List<String> notices = [
@@ -27,18 +32,26 @@ class WithdrawScreen extends StatefulWidget {
 class _WithdrawScreenState extends State<WithdrawScreen> {
   bool _agreed = false;
   bool _submitting = false;
+  late final UserRepository _repository = widget.repository ?? UserApi();
 
   Future<void> _withdraw() async {
     setState(() => _submitting = true);
     try {
-      // TODO(1-E): dio 붙이면 DELETE /users/me를 먼저 부르고, 성공하면
-      // 세션을 정리한다. 지금은 로그아웃까지만 한다.
-      await Supabase.instance.client.auth.signOut();
+      await _repository.deleteAccount();
       if (!mounted) return;
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const WithdrawCompleteScreen()),
+        MaterialPageRoute(
+          builder: (_) => WithdrawCompleteScreen(
+            signOut: widget.signOut ?? Supabase.instance.client.auth.signOut,
+          ),
+        ),
       );
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -196,7 +209,9 @@ class _ConsentRow extends StatelessWidget {
 
 /// Figma node 2570:11895. 탈퇴가 끝났음을 알리는 화면.
 class WithdrawCompleteScreen extends StatelessWidget {
-  const WithdrawCompleteScreen({super.key});
+  const WithdrawCompleteScreen({super.key, required this.signOut});
+
+  final Future<void> Function() signOut;
 
   @override
   Widget build(BuildContext context) {
@@ -223,9 +238,12 @@ class WithdrawCompleteScreen extends StatelessWidget {
                 label: '확인',
                 variant: PrimaryButtonVariant.enabled,
                 textStyle: kLoginButtonStyle,
-                // 세션은 이미 끊겼다. 첫 화면(로그인)까지 스택을 걷어낸다.
-                onPressed: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
+                onPressed: () async {
+                  await signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                },
               ),
             ),
           ],

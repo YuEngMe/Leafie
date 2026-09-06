@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/models/plant_species_candidate.dart';
+import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -13,78 +16,71 @@ import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 
-class PlantSpeciesCandidate {
-  const PlantSpeciesCandidate({
-    required this.referenceId,
-    required this.displayName,
-    required this.scientificName,
-    required this.categorySuggestion,
-  });
+export 'package:yeso_plant/models/plant_species_candidate.dart';
 
-  final String referenceId;
-  final String displayName;
-  final String scientificName;
-  // PlantCategory enum 값(api-spec.md). 사용자가 별도로 고르는 화면 없이
-  // 검색 결과의 추천값을 그대로 POST /plants의 category로 보낸다.
-  final String categorySuggestion;
-}
+typedef PlantSpeciesSearch =
+    Future<List<PlantSpeciesCandidate>> Function(String query);
+typedef PlantPhotoPicker = Future<File?> Function();
 
-// TODO(1-E): dio 붙이면 이 함수 내부만 GET /plant-species/search?query= 호출로 교체
-Future<List<PlantSpeciesCandidate>> _searchPlantSpecies(String query) async {
-  const dummyAll = [
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:ocimum-basilicum',
-      displayName: '바질',
-      scientificName: 'Ocimum basilicum',
-      categorySuggestion: 'HERB',
-    ),
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:monstera-deliciosa',
-      displayName: '몬스테라',
-      scientificName: 'Monstera deliciosa',
-      categorySuggestion: 'FOLIAGE',
-    ),
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:epipremnum-aureum',
-      displayName: '스킨답서스',
-      scientificName: 'Epipremnum aureum',
-      categorySuggestion: 'FOLIAGE',
-    ),
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:solanum-lycopersicum',
-      displayName: '방울토마토',
-      scientificName: 'Solanum lycopersicum',
-      categorySuggestion: 'FRUIT',
-    ),
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:peperomia-tetraphylla',
-      displayName: '백담청잎장',
-      scientificName: 'Peperomia tetraphylla',
-      categorySuggestion: 'FOLIAGE',
-    ),
-    PlantSpeciesCandidate(
-      referenceId: 'catalog:monarda-didyma',
-      displayName: '베르가못',
-      scientificName: 'Monarda didyma',
-      categorySuggestion: 'HERB',
-    ),
-  ];
-  await Future.delayed(const Duration(milliseconds: 200));
-  if (query.isEmpty) return dummyAll;
-  return dummyAll
-      .where((c) => c.displayName.contains(query))
-      .toList(growable: false);
-}
+/// 검색 전에도 시안의 결과 카드 구조를 유지하되, 서버 카탈로그에 실제 존재하는
+/// 종만 추천한다. 검색 버튼을 누르면 이 목록은 API 결과로 교체된다.
+const initialPlantSuggestions = [
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:ocimum-basilicum',
+    displayName: '바질',
+    scientificName: 'Ocimum basilicum',
+    categorySuggestion: 'HERB',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:monstera-deliciosa',
+    displayName: '몬스테라',
+    scientificName: 'Monstera deliciosa',
+    categorySuggestion: 'FOLIAGE',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:epipremnum-aureum',
+    displayName: '스킨답서스',
+    scientificName: 'Epipremnum aureum',
+    categorySuggestion: 'FOLIAGE',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:philodendron-hederaceum',
+    displayName: '필로덴드론',
+    scientificName: 'Philodendron hederaceum',
+    categorySuggestion: 'FOLIAGE',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:hedera-helix',
+    displayName: '아이비',
+    scientificName: 'Hedera helix',
+    categorySuggestion: 'FOLIAGE',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:zamioculcas-zamiifolia',
+    displayName: '금전수',
+    scientificName: 'Zamioculcas zamiifolia',
+    categorySuggestion: 'FOLIAGE',
+  ),
+];
+
+Future<List<PlantSpeciesCandidate>> searchPlantSpecies(String query) =>
+    PlantApi().searchSpecies(query);
 
 class PlantSpeciesSearchScreen extends StatefulWidget {
-  const PlantSpeciesSearchScreen({super.key, this.name, this.imagePicker});
+  const PlantSpeciesSearchScreen({
+    super.key,
+    this.name,
+    this.search,
+    this.photoPicker,
+  });
 
   /// 이름 화면(2315:2189)에서 받은 애칭. 이 값이 있으면 종을 고른 뒤
   /// 다음 단계로 넘어가고, 없으면 고른 종을 pop으로 돌려준다.
   final String? name;
 
-  /// 위젯 테스트에서 갈아끼운다.
-  final ImagePicker? imagePicker;
+  /// 네트워크 없이 화면 상태를 검증할 때 갈아끼운다.
+  final PlantSpeciesSearch? search;
+  final PlantPhotoPicker? photoPicker;
 
   @override
   State<PlantSpeciesSearchScreen> createState() =>
@@ -93,8 +89,9 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
 
 class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
   final _queryController = TextEditingController();
-  List<PlantSpeciesCandidate> _results = const [];
+  List<PlantSpeciesCandidate> _results = initialPlantSuggestions;
   bool _loading = false;
+  int _searchGeneration = 0;
 
   // 하이라이트만 먼저 주고, 사용자가 한 번 더 눌러야 확정되는 게 아니라
   // 탭 즉시 이전 화면으로 돌려보낸다. 시안의 노란 강조는 눌리는 순간의 표시다.
@@ -106,65 +103,29 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     return _results[i];
   }
 
-  /// 시안 3~6단계. 사진을 고르면 인식 화면으로 넘긴다.
   Future<void> _pickPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      barrierColor: kModalBarrier,
-      backgroundColor: kBackgroundWhite,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('사진 찍기', style: kBodyStyle),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('앨범에서 고르기', style: kBodyStyle),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null || !mounted) return;
-
-    final XFile? picked;
+    final name = widget.name;
+    if (name == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('식물 이름을 먼저 입력해주세요.')));
+      return;
+    }
     try {
-      picked = await (widget.imagePicker ?? ImagePicker()).pickImage(
-        source: source,
-        // 인식에만 쓰는 사진이라 원본 해상도까지 필요하지 않다.
-        maxWidth: 1600,
-        imageQuality: 85,
+      final photo = await (widget.photoPicker ?? _pickCameraPhoto)();
+      if (photo == null || !mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlantPhotoIdentifyScreen(photo: photo, name: name),
+        ),
       );
-    } on Exception {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('사진을 불러오지 못했어요.')));
-      return;
     }
-    if (picked == null || !mounted) return;
-
-    final name = widget.name;
-    if (name == null) {
-      // 이름을 모르는 채로 들어온 경우엔 사진 인식을 쓸 수 없다.
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('애칭을 먼저 지어주세요.')));
-      return;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            PlantPhotoIdentifyScreen(photo: File(picked!.path), name: name),
-      ),
-    );
   }
 
   void _confirmSelection() {
@@ -187,26 +148,58 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _runSearch('');
-  }
-
-  @override
   void dispose() {
     _queryController.dispose();
     super.dispose();
   }
 
   Future<void> _runSearch(String query) async {
+    final generation = ++_searchGeneration;
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      setState(() {
+        _results = initialPlantSuggestions;
+        _highlightedIndex = null;
+        _loading = false;
+      });
+      return;
+    }
+    if (normalized.length < 2) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('검색어를 두 글자 이상 입력해 주세요.')));
+      return;
+    }
     setState(() => _loading = true);
-    final results = await _searchPlantSpecies(query);
-    if (mounted) {
+    try {
+      final results = await (widget.search ?? searchPlantSpecies)(normalized);
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _results = results;
         _highlightedIndex = null;
         _loading = false;
       });
+    } on LeafieApiException catch (error) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _results = const [];
+        _highlightedIndex = null;
+        _loading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _results = const [];
+        _highlightedIndex = null;
+        _loading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('식물을 검색하지 못했어요.')));
     }
   }
 
@@ -313,4 +306,13 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
       ),
     );
   }
+}
+
+Future<File?> _pickCameraPhoto() async {
+  final photo = await ImagePicker().pickImage(
+    source: ImageSource.camera,
+    maxWidth: 1600,
+    imageQuality: 85,
+  );
+  return photo == null ? null : File(photo.path);
 }

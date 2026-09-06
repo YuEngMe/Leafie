@@ -1,36 +1,21 @@
-// 홈은 모든 사용자가 로그인 직후 보는 화면이라, 이름·D+·말풍선이 상수로
-// 남아 있으면 남의 식물이 보인다. 세션에서 읽는지 여기서 잠근다.
+// 홈은 API가 반환한 데이터만 표시해야 한다. 세션 fallback과 Figma 예시값이
+// 남아 있으면 다른 사용자의 데이터처럼 보이므로 여기서 회귀를 막는다.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
-
-User _userWithPlant(Map<String, Object?> plant) => User(
-  id: 'test-user',
-  appMetadata: const {},
-  userMetadata: {'leafie_plant': plant},
-  aud: 'authenticated',
-  createdAt: DateTime.now().toIso8601String(),
-);
+import 'package:yeso_plant/services/home_api.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 
 void main() {
-  testWidgets('식물 이름과 D+를 세션에서 읽는다', (tester) async {
-    final plant = HomePlant.of(
-      _userWithPlant({
-        'name': '씩씩이',
-        'started_on': DateTime.now()
-            .subtract(const Duration(days: 9))
-            .toIso8601String(),
-        'character': {'personality_type': 'OUTGOING'},
-      }),
+  testWidgets('전달받은 실제 식물 이름과 D+를 표시한다', (tester) async {
+    final plant = HomePlant(
+      name: '씩씩이',
+      startedOn: DateTime.now().subtract(const Duration(days: 9)),
+      personalityType: 'OUTGOING',
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HomeScreen(plant: plant, signOut: () async {}),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: HomeScreen(plant: plant)));
 
     expect(find.text('씩씩이 방'), findsOneWidget);
     // 등록한 날이 1일차라 9일 전이면 D+ 10.
@@ -41,43 +26,41 @@ void main() {
     expect(find.text('D+ 1281'), findsNothing);
   });
 
-  testWidgets('말풍선은 성격을 따라간다', (tester) async {
-    final chic = HomePlant.of(
-      _userWithPlant({
-        'name': '까칠이',
-        'started_on': DateTime.now().toIso8601String(),
-        'character': {'personality_type': 'CHIC'},
-      }),
+  testWidgets('서버 대사가 없으면 예시 말풍선을 표시하지 않는다', (tester) async {
+    const chic = HomePlant(
+      name: '까칠이',
+      startedOn: null,
+      personalityType: 'CHIC',
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: HomeScreen(plant: chic, signOut: () async {}),
-      ),
+      MaterialApp(home: HomeScreen(plant: chic, initialGaugesExpanded: false)),
     );
 
-    expect(find.text('흠'), findsOneWidget);
-    expect(find.text('별로야'), findsOneWidget);
-    // 활발한 성격의 대사가 섞이면 안 된다.
+    expect(find.text('흠'), findsNothing);
+    expect(find.text('별로야'), findsNothing);
     expect(find.text('신난다'), findsNothing);
   });
 
-  testWidgets('등록 전에는 기본 문구로 뜬다', (tester) async {
+  testWidgets('등록 전에는 가짜 식물 대신 등록 안내가 뜬다', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: HomeScreen(signOut: () async {})),
+      MaterialApp(
+        home: HomeScreen(
+          loadHome: () async => const HomeDashboardData(
+            plant: null,
+            character: null,
+            todayEvents: [],
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
     );
+    await tester.pumpAndSettle();
 
-    // 세션도 식물도 없지만 화면은 떠야 한다.
-    expect(find.text('새싹이 방'), findsOneWidget);
-    expect(find.text('D+ 1'), findsOneWidget);
-  });
-
-  testWidgets('이름이 비어 있으면 등록 전으로 본다', (tester) async {
-    final plant = HomePlant.of(
-      _userWithPlant({'name': '', 'character': const {}}),
-    );
-
-    expect(plant, isNull);
+    expect(find.text('내 식물'), findsOneWidget);
+    expect(find.textContaining('등록된 식물이 없어요.'), findsOneWidget);
+    expect(find.text('새싹이 방'), findsNothing);
+    expect(find.text('D+ 1'), findsNothing);
   });
 
   group('HomePlant', () {
@@ -99,13 +82,232 @@ void main() {
       expect(plant.dayCount, 1);
     });
 
-    test('모르는 성격은 기본 대사를 쓴다', () {
+    test('서버가 등록 당일 0일을 보내도 화면에는 D+ 1로 보인다', () {
       const plant = HomePlant(
-        name: '씩씩이',
+        name: '새싹이',
         startedOn: null,
-        personalityType: 'UNKNOWN_TYPE',
+        personalityType: null,
+        daysTogether: 0,
       );
-      expect(plant.moodLines, ['히히', '신난다', '좋은 하루야!']);
+      expect(plant.dayCount, 1);
     });
   });
+
+  group('HomeTimePeriod', () {
+    test('시간대 경계에서 배경 variant를 바꾼다', () {
+      const cases = <int, HomeTimePeriod>{
+        0: HomeTimePeriod.evening,
+        2: HomeTimePeriod.evening,
+        3: HomeTimePeriod.afternoon,
+        5: HomeTimePeriod.afternoon,
+        6: HomeTimePeriod.day,
+        14: HomeTimePeriod.day,
+        15: HomeTimePeriod.afternoon,
+        17: HomeTimePeriod.afternoon,
+        18: HomeTimePeriod.evening,
+        19: HomeTimePeriod.lateEvening,
+        23: HomeTimePeriod.lateEvening,
+      };
+
+      for (final entry in cases.entries) {
+        expect(
+          HomeTimePeriod.fromDateTime(DateTime(2026, 9, 5, entry.key)),
+          entry.value,
+          reason: '${entry.key}시 배경',
+        );
+      }
+    });
+  });
+
+  testWidgets('센서 API 전에는 조도 습도 예시 수치를 표시하지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('측정 데이터가 없어요.'), findsOneWidget);
+    expect(find.textContaining('43%'), findsNothing);
+    expect(find.textContaining('10%'), findsNothing);
+    expect(find.textContaining('65%'), findsNothing);
+    expect(find.textContaining('80%'), findsNothing);
+    expect(find.byKey(const ValueKey('home-environment-card')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('home-environment-card')), findsOneWidget);
+  });
+
+  testWidgets('햇빛 요청에서 해를 누르면 감사 상태가 된다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          initialScene: HomeScene.needsLight,
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('나 햇빛이 부족해..'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-period-control')));
+    await tester.pump();
+
+    expect(find.text('아 따뜻해~고마워!'), findsOneWidget);
+    expect(find.text('나 햇빛이 부족해..'), findsNothing);
+  });
+
+  testWidgets('GET /home 결과로 이름과 D+를 갱신한다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          loadHome: () async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-id',
+              nickname: '서버새싹',
+              daysTogether: 128,
+              primaryPhotoUrl: null,
+            ),
+            character: HomeCharacterData(
+              personalityType: 'OUTGOING',
+              dialogue: null,
+            ),
+            todayEvents: [],
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('서버새싹 방'), findsOneWidget);
+    expect(find.text('D+ 128'), findsOneWidget);
+  });
+
+  testWidgets('홈 화살표로 다음 식물을 선택하고 홈 데이터를 다시 조회한다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakePlantManagementRepository([
+      _managedPlant('plant-a', '첫째', selected: true),
+      _managedPlant('plant-b', '둘째'),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          plantRepository: repository,
+          loadHomeForPlant: (plantId) async => HomeDashboardData(
+            plant: HomePlantData(
+              id: plantId!,
+              nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            character: const HomeCharacterData(
+              personalityType: 'OUTGOING',
+              dialogue: null,
+            ),
+            todayEvents: const [],
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+    await tester.pumpAndSettle();
+
+    expect(repository.selectedIds, ['plant-b']);
+    expect(find.text('둘째 방'), findsOneWidget);
+    expect(find.text('D+ 3'), findsOneWidget);
+  });
+}
+
+ManagedPlant _managedPlant(
+  String id,
+  String nickname, {
+  bool selected = false,
+}) => ManagedPlant(
+  id: id,
+  nickname: nickname,
+  speciesReferenceId: 'species-$id',
+  speciesDisplayName: '몬스테라',
+  primaryPhotoUrl: null,
+  personalityType: 'OUTGOING',
+  colorId: 'color_orange_01',
+  hairId: 'NONE',
+  accessoryId: 'NONE',
+  daysTogether: 3,
+  isSelected: selected,
+);
+
+class _FakePlantManagementRepository implements PlantManagementRepository {
+  _FakePlantManagementRepository(this.plants);
+
+  List<ManagedPlant> plants;
+  final List<String?> selectedIds = [];
+
+  @override
+  Future<List<ManagedPlant>> listPlants() async => plants;
+
+  @override
+  Future<String?> selectPlant(String? plantId) async {
+    selectedIds.add(plantId);
+    plants = [
+      for (final plant in plants)
+        plant.copyWith(isSelected: plant.id == plantId),
+    ];
+    return plantId;
+  }
+
+  @override
+  Future<void> deletePlant(String plantId) async {}
+
+  @override
+  Future<ManagedPlant> updateAppearance(
+    String plantId, {
+    String? colorId,
+    String? hairId,
+    String? accessoryId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<ManagedPlant> updateNickname(String plantId, String nickname) =>
+      throw UnimplementedError();
 }

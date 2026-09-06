@@ -44,8 +44,10 @@ class _PlantRegisterEnvironmentScreenState
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: kModalBarrier,
-      builder: (_) =>
-          PlantDatePickerSheet(initialDate: current ?? DateTime.now()),
+      builder: (_) => PlantDatePickerSheet(
+        initialDate: current ?? DateTime.now(),
+        maximumDate: DateTime.now(),
+      ),
     );
     if (picked == null) return;
     setState(() {
@@ -64,6 +66,30 @@ class _PlantRegisterEnvironmentScreenState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('장소를 입력해주세요')));
+      return;
+    }
+    if (_lastWateredOn == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('마지막 물 준 날을 선택해주세요')));
+      return;
+    }
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final wateredOnly = DateTime(
+      _lastWateredOn!.year,
+      _lastWateredOn!.month,
+      _lastWateredOn!.day,
+    );
+    final repotted = _lastRepottedOn;
+    final repottedOnly = repotted == null
+        ? null
+        : DateTime(repotted.year, repotted.month, repotted.day);
+    if (wateredOnly.isAfter(todayOnly) ||
+        (repottedOnly != null && repottedOnly.isAfter(todayOnly))) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')));
       return;
     }
 

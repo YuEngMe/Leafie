@@ -1,11 +1,15 @@
 // 식물 등록 마법사가 화면 사이로 값을 잃지 않고 전달하는지 확인한다.
 // (POST /plants는 마지막 화면에서 한 번에 보내므로 값 유실이 곧 등록 실패다.)
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
@@ -14,6 +18,9 @@ import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/plant_api.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 PlantRegistrationDraft _sampleDraft() => PlantRegistrationDraft(
   name: '씩씩이',
@@ -106,6 +113,78 @@ void main() {
     );
   });
 
+  testWidgets('장소만 입력하고 물 준 날을 고르지 않으면 다음으로 넘어가지 않는다', (
+    WidgetTester tester,
+  ) async {
+    final draft = _sampleDraft();
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterEnvironmentScreen(draft: draft)),
+    );
+    await tester.enterText(find.byType(TextField).first, '학교');
+    await tester.tap(find.text('다음'));
+    await tester.pump();
+
+    expect(find.text('마지막 물 준 날을 선택해주세요'), findsOneWidget);
+    expect(find.byType(PlantRegisterPersonalityScreen), findsNothing);
+  });
+
+  testWidgets('늦게 끝난 이전 검색은 최신 검색 결과를 덮어쓰지 않는다', (WidgetTester tester) async {
+    final first = Completer<List<PlantSpeciesCandidate>>();
+    final second = Completer<List<PlantSpeciesCandidate>>();
+    var calls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          search: (_) => calls++ == 0 ? first.future : second.future,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '첫검색');
+    await tester.tap(find.byType(FigmaSearchIcon));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '둘검색');
+    await tester.tap(find.byType(FigmaSearchIcon));
+    second.complete(const [
+      PlantSpeciesCandidate(
+        referenceId: 'catalog:latest',
+        displayName: '최신 결과',
+        scientificName: 'Latest species',
+        categorySuggestion: 'FOLIAGE',
+      ),
+    ]);
+    await tester.pump();
+    first.complete(const [
+      PlantSpeciesCandidate(
+        referenceId: 'catalog:stale',
+        displayName: '이전 결과',
+        scientificName: 'Stale species',
+        categorySuggestion: 'FOLIAGE',
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.text('최신 결과'), findsOneWidget);
+    expect(find.text('이전 결과'), findsNothing);
+  });
+
+  testWidgets('카메라 사진을 고르면 식물 인식 화면으로 간다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          photoPicker: () async => File('assets/images/leafie_character.png'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(PlantPhotoIdentifyScreen), findsOneWidget);
+  });
+
   testWidgets('성격 화면에서 스와이프로 고른 성격이 draft에 반영되어 꾸미기 화면으로 전달된다', (
     WidgetTester tester,
   ) async {
@@ -183,5 +262,63 @@ void main() {
     // 이름과 D+는 홈이 세션에서 직접 읽는다. 여기는 Supabase가 없어
     // 등록 전 화면이 뜨고, 실제 값 표시는 home_screen_test.dart가 본다.
     expect(find.byType(PlantRegisterCompleteScreen), findsNothing);
+  });
+
+  testWidgets('재시도 중 draft가 바뀌어도 홈은 서버에 보낸 snapshot을 표시한다', (
+    WidgetTester tester,
+  ) async {
+    final draft = _sampleDraft()
+      ..placeName = '학교'
+      ..lastWateredOn = DateTime.now()
+      ..personalityType = 'OUTGOING'
+      ..bodyColorId = 'color_orange_01';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantRegisterCompleteScreen(
+          draft: draft,
+          submit: (submittedDraft) async {
+            buildPlantCreateRequest(submittedDraft);
+            submittedDraft.personalityType = 'CHIC';
+            return 'test-plant-id';
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+    await tester.pump();
+
+    expect(find.text('신난다'), findsNothing);
+    expect(find.text('별로야'), findsNothing);
+  });
+
+  testWidgets('등록 API 오류가 나면 화면에 남아 서버 메시지를 보여준다', (WidgetTester tester) async {
+    final draft = _sampleDraft()
+      ..placeName = '학교'
+      ..lastWateredOn = DateTime(2026, 9, 5)
+      ..personalityType = 'OUTGOING'
+      ..bodyColorId = 'color_orange_01';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantRegisterCompleteScreen(
+          draft: draft,
+          submit: (_) async => throw const LeafieApiException(
+            code: 'SPECIES_NOT_FOUND',
+            message: '지원하는 식물을 찾을 수 없습니다.',
+            statusCode: 404,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('다음'));
+    await tester.pump();
+
+    expect(find.byType(PlantRegisterCompleteScreen), findsOneWidget);
+    expect(find.text('지원하는 식물을 찾을 수 없습니다.'), findsOneWidget);
   });
 }

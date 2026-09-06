@@ -21,6 +21,8 @@ const _mockResult = PlantIdentification(
   ),
   familyName: '돌나무과',
   bloomSeason: '8월 ~ 9월',
+  identificationId: 'identification-id',
+  mediaFileId: 'media-id',
 );
 
 /// 사진 자체는 화면에 안 그려져도 되지만 File은 실재해야 한다.
@@ -99,6 +101,8 @@ void main() {
     expect(env.draft.name, '씩씩이');
     expect(env.draft.species.displayName, '바위채송화');
     expect(env.draft.species.referenceId, 'catalog:sedum-polytrichoides');
+    expect(env.draft.speciesIdentificationId, 'identification-id');
+    expect(env.draft.primaryMediaFileId, 'media-id');
   });
 
   testWidgets('인식에 실패하면 안내를 띄운다', (tester) async {

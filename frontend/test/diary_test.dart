@@ -76,11 +76,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      _expectAt(tester, '연도', find.text('2026'), 177, 162.7);
-      _expectAt(tester, '월', find.text('7'), 181.7, 179.3);
-      _expectAt(tester, '일요일', find.text('일'), 62, 262.5);
-      _expectAt(tester, '토요일', find.text('토'), 321, 262.5);
-      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 232);
+      _expectAt(tester, '연도', find.text('2026'), 177, 162.72);
+      _expectAt(tester, '월', find.text('7'), 181.67, 179.26);
+      _expectAt(tester, '일요일', find.text('일'), 59, 262.61);
+      _expectAt(tester, '토요일', find.text('토'), 318, 262.61);
+      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 274);
       // 시안 3496:12213에서 자리가 바뀌었다.
       _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
       expect(find.byKey(const ValueKey('diary-appbar-edit')), findsNothing);

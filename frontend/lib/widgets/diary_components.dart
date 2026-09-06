@@ -13,21 +13,26 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 class DiaryLayout {
   const DiaryLayout._();
 
-  /// 노란 책 표지(2739:38324). 왼쪽으로 넘쳐 나간다.
-  static const Rect book = Rect.fromLTWH(-38, 119, 440, 578);
+  /// 노란 책 표지(3496:11987). 왼쪽으로 넘쳐 나간다.
+  static const Rect book = Rect.fromLTWH(-57, 119, 440, 620);
 
-  /// 흰 종이(2739:34974).
-  static const Rect paper = Rect.fromLTWH(34, 132, 334, 548);
+  /// 흰 종이(3496:11999).
+  static const Rect paper = Rect.fromLTWH(30, 132.94, 334, 587.82);
 
-  /// 종이 왼쪽에 겹쳐 보이는 책등(2739:35054).
-  static const Rect spine = Rect.fromLTWH(-2, 132, 32, 547);
+  /// 종이 뒤에 겹쳐 보이는 두 장(3496:11988, 3496:11989).
+  static const Rect paperBack2 = Rect.fromLTWH(32, 132.94, 342, 587.82);
+  static const Rect paperBack1 = Rect.fromLTWH(24, 132.94, 345, 587.82);
 
-  /// 오른쪽 파란 책갈피(2766:203).
-  static const Rect tab = Rect.fromLTWH(350, 232, 45, 42);
+  /// 종이 왼쪽에 겹쳐 보이는 책등(3496:12001).
+  static const Rect spine = Rect.fromLTWH(-2, 132.94, 32, 586.75);
 
-  /// 이전/다음 달 버튼(3496:11993, 3496:11996).
-  static const Rect prevButton = Rect.fromLTWH(350, 493, 45, 42);
-  static const Rect nextButton = Rect.fromLTWH(351, 561, 44, 42);
+  /// 오른쪽 파란 책갈피(3496:11990). 시안은 180도 돌려 놓아 left가
+  /// 395로 적히지만 실제로 그려지는 자리는 395 - 45 = 350이다.
+  static const Rect tab = Rect.fromLTWH(350, 274, 45, 42);
+
+  /// 이전/다음 달 버튼(3496:11992).
+  static const Rect prevButton = Rect.fromLTWH(350, 535, 45, 42);
+  static const Rect nextButton = Rect.fromLTWH(351, 603, 44, 42);
 
   /// 글쓰기로 가는 연필 버튼(3496:12213).
   static const Rect fab = Rect.fromLTWH(302, 661, 45, 45);
@@ -67,26 +72,53 @@ class DiaryScaffoldBody extends StatelessWidget {
           ),
         ),
         // 노란 표지. 종이보다 조금 크고 왼쪽으로 빠져나간다.
+        // 노란 표지(3496:11987). 단색 사각형이라 직접 그린다.
         Positioned.fromRect(
           rect: DiaryLayout.book,
-          child: Image.asset('assets/images/diary_book.png', fit: BoxFit.fill),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: kDiaryCover,
+              borderRadius: BorderRadius.circular(11.79),
+            ),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        // 뒤에 겹친 종이 두 장이 두께를 만든다(3496:11988, 3496:11989).
+        Positioned.fromRect(
+          rect: DiaryLayout.paperBack2,
+          child: const _PaperSheet(color: kDiaryPaperBack2, blur: 3.70),
+        ),
+        Positioned.fromRect(
+          rect: DiaryLayout.paperBack1,
+          child: const _PaperSheet(color: kDiaryPaperBack1, blur: 3.68),
         ),
         Positioned.fromRect(
           rect: DiaryLayout.paper,
+          child: const _PaperSheet(
+            color: kDiaryPaper,
+            blur: 3.45,
+            // 종이 질감(3496:12000). 내보낸 PNG가 순백이라 쓸 수 없어
+            // 시안에서 잰 노이즈(밝기 243~253)를 직접 뿌린다.
+            child: CustomPaint(painter: _PaperGrainPainter()),
+          ),
+        ),
+        // 책등(3496:12001). 흰색에서 회색으로 빠지는 그라디언트다.
+        Positioned.fromRect(
+          rect: DiaryLayout.spine,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: kDiaryPaper,
-              boxShadow: const [
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [kBackgroundWhite, Color(0xFF999999)],
+              ),
+              boxShadow: [
                 BoxShadow(
                   color: Color(0x40000000),
-                  blurRadius: 3.452,
-                  offset: Offset(0, 3.452),
+                  blurRadius: 3.45,
+                  offset: Offset(0, 3.45),
                 ),
               ],
             ),
-            // 종이 질감(2739:34975). 내보낸 PNG가 순백이라 쓸 수 없어
-            // 시안에서 잰 노이즈(밝기 243~253)를 직접 뿌린다.
-            child: const CustomPaint(painter: _PaperGrainPainter()),
+            child: const SizedBox.expand(),
           ),
         ),
         child,
@@ -113,6 +145,30 @@ class DiaryScaffoldBody extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 겹쳐 놓는 종이 한 장. 세 장이 두께를 만든다(3496:11988~11999).
+class _PaperSheet extends StatelessWidget {
+  const _PaperSheet({required this.color, required this.blur, this.child});
+
+  final Color color;
+  final double blur;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: color,
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0x40000000),
+          blurRadius: blur,
+          offset: Offset(0, blur),
+        ),
+      ],
+    ),
+    child: child ?? const SizedBox.expand(),
+  );
 }
 
 /// 종이의 오돌토돌한 결. 시안은 밝기 243~253 사이의 잔 알갱이다.
@@ -190,24 +246,41 @@ class DiaryCalendar extends StatelessWidget {
   final Set<int> markedDays;
 
   /// 시안 2739:34979의 요일 머리글 x좌표.
+  /// 시안 3496:12137의 요일 머리글 x좌표.
   static const List<double> _weekdayX = [
-    62,
-    107.3,
-    151.3,
-    193.7,
-    237.1,
-    275.8,
-    321,
+    59,
+    104.25,
+    148.31,
+    190.73,
+    234.07,
+    272.82,
+    318,
   ];
   static const List<String> _weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
-  /// 격자 첫 칸(2739:35026)과 칸 크기.
-  static const double _gridLeft = 45;
-  static const double _gridTop = 292.9;
-  static const double _cellWidth = 44;
+  /// 격자 칸의 x좌표와 폭(3496:12145). 시안은 균등 분할이 아니다.
+  static const List<double> _colX = [
+    44,
+    88.30,
+    132.60,
+    176.90,
+    219.10,
+    264.45,
+    307.70,
+  ];
+  static const List<double> _colWidth = [
+    44.30,
+    44.30,
+    44.30,
+    42.19,
+    45.36,
+    43.25,
+    44.30,
+  ];
 
-  /// 시안 격자는 332.65 높이에 다섯 줄이다(2739:34987).
-  static const double _cellHeight = 332.65 / 5;
+  /// 줄의 y좌표. 66.95와 65.90이 섞여 있다.
+  static const List<double> _rowY = [292.89, 359.83, 426.78, 492.69, 559.63];
+  static const List<double> _rowHeight = [66.95, 66.95, 65.90, 66.95, 65.90];
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +288,9 @@ class DiaryCalendar extends StatelessWidget {
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     // DateTime.weekday는 월요일이 1이다. 시안은 일요일이 첫 칸이다.
     final leading = first.weekday % 7;
-    final weeks = ((leading + daysInMonth) / 7).ceil();
+    // 시안 격자(3496:12145)는 다섯 줄뿐이라 여섯 주가 필요한 달은
+    // 마지막 줄을 그리지 못한다.
+    final weeks = ((leading + daysInMonth) / 7).ceil().clamp(1, _rowY.length);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -281,10 +356,10 @@ class DiaryCalendar extends StatelessWidget {
     final row = index ~/ 7;
     final col = index % 7;
     final cell = Positioned(
-      left: _gridLeft + col * _cellWidth,
-      top: _gridTop + row * _cellHeight,
-      width: _cellWidth,
-      height: _cellHeight,
+      left: _colX[col],
+      top: _rowY[row],
+      width: _colWidth[col],
+      height: _rowHeight[row],
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: kDiaryGridLine, width: 0.5),
