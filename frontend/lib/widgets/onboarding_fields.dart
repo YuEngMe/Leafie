@@ -61,6 +61,9 @@ class SignupEmailField extends StatelessWidget {
     this.errorText,
     this.sendLabel,
     this.labelIndent = AppLayout.inputLabelIndent,
+    this.message,
+    this.countdownText = '03:21',
+    this.sentBorder = false,
   });
 
   final TextEditingController controller;
@@ -74,6 +77,17 @@ class SignupEmailField extends StatelessWidget {
 
   final double labelIndent;
 
+  /// 발송 뒤 칸 아래 붉은 한 줄. 비우면 '인증메일이 발송 되었습니다.'
+  /// (2315:2419). 만료되면 '시간이 만료 되었습니다.'(2307:1086)를 넘긴다.
+  final String? message;
+
+  /// 칸 안 오른쪽의 남은 시간(2315:2416).
+  final String countdownText;
+
+  /// 마이페이지 재설정(2346:2668)은 발송 뒤 칸에 붉은 1px 테두리가 생긴다.
+  /// 회원가입(2315:2414)은 그대로 흰 칸이다.
+  final bool sentBorder;
+
   @override
   Widget build(BuildContext context) {
     final verificationSent =
@@ -82,8 +96,10 @@ class SignupEmailField extends StatelessWidget {
         ? SignupSendButtonVariant.disabled
         : SignupSendButtonVariant.enabled;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // 시안은 발송 전후로 아래 칸들이 움직이지 않는다(2395:40 ↔ 2395:42).
+    // 안내 문구는 자리를 차지하지 않고 칸 바닥(+5)에 얹힌다.
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,6 +114,7 @@ class SignupEmailField extends StatelessWidget {
                 controller: controller,
                 readOnly: verificationSent,
                 errorText: errorText,
+                hasError: verificationSent && sentBorder,
                 height: AppLayout.onboardingControlHeight,
                 labelGap: 1,
                 centerVertically: true,
@@ -106,7 +123,7 @@ class SignupEmailField extends StatelessWidget {
                 // 입력 폭을 뺏어 이메일 끝 글자가 잘린다.
                 overlaySuffix: verificationSent,
                 suffix: verificationSent
-                    ? const _VerificationCountdown()
+                    ? _VerificationCountdown(text: countdownText)
                     : null,
               ),
             ),
@@ -122,10 +139,12 @@ class SignupEmailField extends StatelessWidget {
           ],
         ),
         if (verificationSent)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 11),
+          Positioned(
+            left: AppLayout.inputLabelIndent,
+            // 칸 바닥 아래 5px(2315:2419 y=225 − 칸 바닥 220).
+            bottom: -17,
             child: Text(
-              '인증메일이 발송 되었습니다.',
+              message ?? '인증메일이 발송 되었습니다.',
               style: kCaptionStyle.copyWith(color: kErrorRed, height: 1),
             ),
           ),
@@ -242,18 +261,20 @@ class SignupNicknameField extends StatelessWidget {
 }
 
 class _VerificationCountdown extends StatelessWidget {
-  const _VerificationCountdown();
+  const _VerificationCountdown({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     // Figma는 03:21을 이메일과 같은 줄에 둔다(중심 48.5 vs 49.5). 필드가
     // isDense라 입력 텍스트가 세로 중앙보다 위에 붙으므로 카운트다운도
     // 같은 만큼 올린다.
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Text(
-        '03:21',
-        style: TextStyle(
+        text,
+        style: const TextStyle(
           fontFamily: kFontFamily,
           fontSize: 10,
           color: kErrorRed,

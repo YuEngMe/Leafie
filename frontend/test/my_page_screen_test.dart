@@ -66,6 +66,10 @@ void main() {
       tester.widget<FigmaToggleSwitch>(find.byType(FigmaToggleSwitch)).value,
       isTrue,
     );
+    // 3562:196 — 켤 때 토스트가 잠깐 떴다가 사라진다.
+    expect(find.text('알림이 설정되었어요!'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('알림이 설정되었어요!'), findsNothing);
   });
 
   testWidgets('로그아웃을 누르면 확인 모달이 시안 딤과 함께 뜬다', (tester) async {

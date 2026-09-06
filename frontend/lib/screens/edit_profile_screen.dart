@@ -5,6 +5,7 @@ import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -47,6 +48,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _submitting = true);
     try {
       final profile = await _repository.updateNickname(next);
+      if (!mounted) return;
+      // 2353:440 — 화면 바닥(y 790)에 토스트를 잠깐 띄운 뒤 돌아간다.
+      await showLeafieToast(
+        context,
+        text: '닉네임 변경이 완료되었어요!',
+        top: MediaQuery.paddingOf(context).top + (790 - 46),
+      );
       if (mounted) Navigator.pop(context, profile.nickname);
     } on LeafieApiException catch (error) {
       if (!mounted) return;

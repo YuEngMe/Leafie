@@ -8,6 +8,7 @@ import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -117,6 +118,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Future<void> _updateNotifications(bool value) async {
     final previous = _notificationsEnabled;
     setState(() => _notificationsEnabled = value);
+    // 3562:196 — 켤 때만 "알림이 설정되었어요!" 토스트(y 744, 종 아이콘).
+    if (value) {
+      showLeafieToast(
+        context,
+        text: '알림이 설정되었어요!',
+        top: MediaQuery.paddingOf(context).top + (744 - 46),
+        bell: true,
+      );
+    }
     if (widget.user != null && widget.repository == null) return;
     try {
       final saved = await _repository.updateNotificationSettings(value);

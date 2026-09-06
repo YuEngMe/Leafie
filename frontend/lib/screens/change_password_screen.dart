@@ -60,6 +60,9 @@ class ChangePasswordAuth {
   }
 }
 
+/// 2346:2627의 03:21.
+const _verificationWindow = Duration(minutes: 3, seconds: 21);
+
 /// 이메일 칸 오른쪽 버튼이 밟는 단계.
 enum _Verification {
   /// 아직 안 보냄 — '발송'(2353:142, 2346:2639).
@@ -86,6 +89,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   String? _confirmError;
   bool _submitting = false;
   bool _sending = false;
+  Timer? _countdown;
+  Duration _remaining = _verificationWindow;
 
   ChangePasswordAuth get _auth => widget.auth ?? const ChangePasswordAuth();
   StreamSubscription<AuthState>? _authSub;
@@ -116,6 +121,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   void dispose() {
+    _countdown?.cancel();
     ChangePasswordAuth.isOpen = false;
     _authSub?.cancel();
     for (final c in [
@@ -151,12 +157,30 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
     try {
       await _auth.sendLink(email);
-      if (mounted) setState(() => _step = _Verification.sent);
+      if (mounted) {
+        setState(() => _step = _Verification.sent);
+        _startCountdown();
+      }
     } on AuthException catch (e) {
       if (mounted) setState(() => _emailError = e.message);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  void _startCountdown() {
+    _countdown?.cancel();
+    _remaining = _verificationWindow;
+    _countdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _remaining <= Duration.zero) return timer.cancel();
+      setState(() => _remaining -= const Duration(seconds: 1));
+    });
+  }
+
+  String get _countdownText {
+    final m = _remaining.inMinutes.toString().padLeft(2, '0');
+    final s = (_remaining.inSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   Future<void> _submit() async {
@@ -197,11 +221,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: [
               // 앱바 아래(92)에서 첫 라벨(145)까지.
               const SizedBox(height: AppLayout.editProfileTopGap),
+              // 발송 뒤(2346:2681)는 붉은 테두리·03:21·안내 문구가 붙고,
+              // 링크로 돌아와 '완료'(2353:212)가 되면 다시 걷힌다.
               SignupEmailField(
                 controller: _emailController,
-                variant: _emailController.text.isEmpty
+                variant: _step == _Verification.sent
+                    ? SignupEmailFieldVariant.verificationSent
+                    : _emailController.text.isEmpty
                     ? SignupEmailFieldVariant.empty
                     : SignupEmailFieldVariant.filled,
+                sentBorder: true,
+                countdownText: _countdownText,
                 sendLabel: _step.label,
                 labelIndent: AppLayout.editProfileLabelIndent,
                 errorText: _emailError,

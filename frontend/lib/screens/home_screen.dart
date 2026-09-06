@@ -89,7 +89,9 @@ enum HomeTimePeriod {
 }
 
 /// Figma 3441:2의 대표 홈 대화 상태.
-enum HomeScene { idle, needsWater, needsLight, cared }
+/// idle은 말풍선 없음(2590:12165), happy는 "히히/신난다/좋은 하루야!" 세 개
+/// (2346:479 등 6프레임). happy를 띄우는 조건은 팀 확인 대기(TODOLIST).
+enum HomeScene { idle, happy, needsWater, needsLight, cared }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -624,7 +626,51 @@ class _HomeConversation extends StatelessWidget {
         left: 0,
         right: 0,
         top: 209,
-        child: Center(child: _RoomBubble(label: '아 따뜻해~고마워!', width: 132)),
+        child: Center(
+          child: _RoomBubble(
+            label: '아 따뜻해~고마워!',
+            width: 132,
+            height: 41,
+            color: kBubbleGreenLight,
+          ),
+        ),
+      ),
+      // 2346:594 / 592 / 590 — 102×38, 흰 60%.
+      HomeScene.happy => const Positioned.fill(
+        child: Stack(
+          children: [
+            Positioned(
+              left: 130,
+              top: 156,
+              child: _RoomBubble(
+                label: '히히',
+                width: 102,
+                height: 38,
+                opacity: 0.6,
+              ),
+            ),
+            Positioned(
+              left: 169,
+              top: 184,
+              child: _RoomBubble(
+                label: '신난다',
+                width: 102,
+                height: 38,
+                opacity: 0.6,
+              ),
+            ),
+            Positioned(
+              left: 145,
+              top: 251,
+              child: _RoomBubble(
+                label: '좋은 하루야!',
+                width: 102,
+                height: 38,
+                opacity: 0.6,
+              ),
+            ),
+          ],
+        ),
       ),
       HomeScene.idle => const SizedBox.shrink(),
     };
@@ -769,19 +815,28 @@ class _HomeMessageCard extends StatelessWidget {
 }
 
 class _RoomBubble extends StatelessWidget {
-  const _RoomBubble({required this.label, required this.width});
+  const _RoomBubble({
+    required this.label,
+    required this.width,
+    this.height = 40,
+    this.color = kTextDark,
+    this.opacity = 1,
+  });
 
   final String label;
   final double width;
+  final double height;
+  final Color color;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      height: 40,
+      height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: kBackgroundWhite,
+        color: kBackgroundWhite.withValues(alpha: opacity),
         borderRadius: BorderRadius.circular(AppLayout.controlRadius),
         boxShadow: const [
           BoxShadow(color: Color(0x2E000000), blurRadius: 3.338),
@@ -789,7 +844,7 @@ class _RoomBubble extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: kSmallStyle.copyWith(fontSize: 13.353, color: kTextDark),
+        style: kSmallStyle.copyWith(fontSize: 13.353, color: color),
       ),
     );
   }

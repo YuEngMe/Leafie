@@ -157,6 +157,10 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('변경하기'));
       await tester.pumpAndSettle();
+      // 2353:440 토스트가 잠깐 떴다가 돌아간다.
+      expect(find.text('닉네임 변경이 완료되었어요!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
 
       expect(returned, '다다다');
       expect(repository.nickname, '다다다');

@@ -36,6 +36,7 @@ const Color kTextLight = Color(0xFFA1A1A1); // 연한 텍스트
 const Color kBubbleDot = Color(0xFFFF5E5E);
 // 홈 상태요청 말풍선 문구(2346:2368)와 그래프 수치의 짙은 초록.
 const Color kBubbleGreen = Color(0xFF315E2D);
+const Color kBubbleGreenLight = Color(0xFF4B7248); // 고마워 말풍선(2346:147)
 // 하단 네비 미선택 라벨(2346:2519).
 const Color kNavLabelInactive = Color(0xFF919191);
 // 식물 결과 카드(2318:3765)의 라벨. kTextLight보다 한 단계 어둡다.

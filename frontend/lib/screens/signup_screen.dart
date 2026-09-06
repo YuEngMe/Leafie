@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/screens/signup_complete_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -11,6 +13,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 // 이메일 형식만 검사 — 실제 서버 확인이 아니라 클라이언트 형식 체크.
 final _emailFormatRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+/// 2315:2416의 03:21. 다 지나면 2395:42처럼 만료 문구로 바뀐다.
+const _verificationWindow = Duration(minutes: 3, seconds: 21);
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -33,6 +38,9 @@ class _SignupScreenState extends State<SignupScreen> {
   // 호출하지 않는다 — 인증 메일은 signUp 호출 시 Supabase가 자동 발송.
   String? _emailFormatError;
   bool _emailChecked = false;
+  Timer? _countdown;
+  Duration _remaining = _verificationWindow;
+  bool get _expired => _remaining <= Duration.zero;
 
   bool get _emailNotEmpty => _emailcontroller.text.trim().isNotEmpty;
   SignupEmailFieldVariant get _emailVariant {
@@ -59,6 +67,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool get _canSubmit =>
       _emailChecked &&
+      !_expired &&
       _passwordController.text.length >= 8 &&
       _passwordController.text == _passwordConfirmController.text &&
       _nicknameController.text.trim().isNotEmpty;
@@ -83,7 +92,10 @@ class _SignupScreenState extends State<SignupScreen> {
     // 발송 버튼의 활성 여부가 입력값에 달려 있어 컨트롤러를 직접 듣는다.
     _emailcontroller.addListener(() {
       setState(() {
-        if (_emailChecked) _emailChecked = false;
+        if (_emailChecked) {
+          _emailChecked = false;
+          _countdown?.cancel();
+        }
       });
     });
     _passwordController.addListener(_refreshForm);
@@ -97,6 +109,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
+    _countdown?.cancel();
     _passwordController.removeListener(_refreshForm);
     _passwordConfirmController.removeListener(_refreshForm);
     _nicknameController.removeListener(_refreshForm);
@@ -115,6 +128,24 @@ class _SignupScreenState extends State<SignupScreen> {
           : '이메일 형식이 올바르지 않습니다.';
       _emailChecked = _emailFormatError == null;
     });
+    if (_emailChecked) _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdown?.cancel();
+    _remaining = _verificationWindow;
+    _countdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _remaining -= const Duration(seconds: 1));
+      if (_expired) timer.cancel();
+    });
+  }
+
+  String get _countdownText {
+    final left = _expired ? Duration.zero : _remaining;
+    final m = left.inMinutes.toString().padLeft(2, '0');
+    final s = (left.inSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   Future<void> _confirmExit() async {
@@ -218,6 +249,9 @@ class _SignupScreenState extends State<SignupScreen> {
                         variant: _emailVariant,
                         errorText: _emailFormatError,
                         onSend: _checkEmailFormat,
+                        countdownText: _countdownText,
+                        // 2395:42: 시간이 다 되면 문구만 바뀌고 재발송은 열려 있다.
+                        message: _expired ? '시간이 만료 되었습니다.' : null,
                       ),
                       const SizedBox(height: AppLayout.authFieldGap),
                       SignupPasswordField(
