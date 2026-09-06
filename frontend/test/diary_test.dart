@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
+import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 
@@ -34,12 +35,35 @@ class _MemoryStore implements DiaryStore {
   int saveCount = 0;
 
   @override
-  Future<List<DiaryEntry>> load() async => entries;
+  Future<List<DiaryEntry>> loadMonth(DateTime month) async => entries
+      .where(
+        (entry) =>
+            entry.date.year == month.year && entry.date.month == month.month,
+      )
+      .toList();
 
   @override
-  Future<void> save(List<DiaryEntry> next) async {
-    entries = next;
+  Future<DiaryEntry?> loadDay(DateTime date) async {
+    for (final entry in entries) {
+      if (DiaryEntry.sameDay(entry.date, date)) return entry;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> save(DiaryEntry next) async {
+    entries = [
+      ...entries.where((entry) => !DiaryEntry.sameDay(entry.date, next.date)),
+      next,
+    ];
     saveCount++;
+  }
+
+  @override
+  Future<void> delete(DateTime date) async {
+    entries = entries
+        .where((entry) => !DiaryEntry.sameDay(entry.date, date))
+        .toList();
   }
 }
 
@@ -57,6 +81,9 @@ void main() {
       _expectAt(tester, '일요일', find.text('일'), 62, 262.5);
       _expectAt(tester, '토요일', find.text('토'), 321, 262.5);
       _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 232);
+      // 시안 3496:12213에서 자리가 바뀌었다.
+      _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
+      expect(find.byKey(const ValueKey('diary-appbar-edit')), findsNothing);
     });
 
     testWidgets('그 달의 날짜를 빠짐없이 그린다', (tester) async {
@@ -277,7 +304,7 @@ void main() {
       expect(find.text('귀여운 새싹이'), findsOneWidget);
     });
 
-    testWidgets('글쓰기에도 네비·앞뒤 버튼·연필이 있다', (tester) async {
+    testWidgets('글쓰기는 네비·앞뒤 버튼·상단 연필이 있다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
         MaterialApp(
@@ -291,7 +318,8 @@ void main() {
       expect(find.byType(AppBottomNav), findsOneWidget);
       expect(find.bySemanticsLabel('이전 날'), findsOneWidget);
       expect(find.bySemanticsLabel('다음 날'), findsOneWidget);
-      expect(find.bySemanticsLabel('다이어리 쓰기'), findsOneWidget);
+      expect(find.byKey(const ValueKey('diary-appbar-edit')), findsOneWidget);
+      expect(find.bySemanticsLabel('다이어리 쓰기'), findsNothing);
     });
 
     testWidgets('달력은 그 달에 필요한 주만 그린다', (tester) async {

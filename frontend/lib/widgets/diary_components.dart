@@ -25,12 +25,12 @@ class DiaryLayout {
   /// 오른쪽 파란 책갈피(2766:203).
   static const Rect tab = Rect.fromLTWH(350, 232, 45, 42);
 
-  /// 이전/다음 달 버튼(2739:38803, 2739:38804).
-  static const Rect prevButton = Rect.fromLTWH(350, 472, 45, 42);
-  static const Rect nextButton = Rect.fromLTWH(351, 540, 44, 42);
+  /// 이전/다음 달 버튼(3496:11993, 3496:11996).
+  static const Rect prevButton = Rect.fromLTWH(350, 493, 45, 42);
+  static const Rect nextButton = Rect.fromLTWH(351, 561, 44, 42);
 
-  /// 글쓰기로 가는 연필 버튼(2739:36041).
-  static const Rect fab = Rect.fromLTWH(330, 730, 45, 45);
+  /// 글쓰기로 가는 연필 버튼(3496:12213).
+  static const Rect fab = Rect.fromLTWH(302, 661, 45, 45);
 
   /// 앱바 오른쪽 편집 아이콘(2739:34955).
   static const Size editIcon = Size(28.656, 29);
@@ -370,20 +370,27 @@ class DiaryWeatherPicker extends StatelessWidget {
 
 /// 사진칸(2739:39790). 비어 있으면 '사진 추가하기'를 띄운다.
 class DiaryPhotoBox extends StatelessWidget {
-  const DiaryPhotoBox({super.key, required this.photoPath, this.onTap});
+  const DiaryPhotoBox({
+    super.key,
+    required this.photoPath,
+    this.photoUrl,
+    this.onTap,
+  });
 
   final String? photoPath;
+  final String? photoUrl;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final path = photoPath;
+    final url = photoUrl;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
-        child: path == null
+        child: path == null && url == null
             ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -401,7 +408,18 @@ class DiaryPhotoBox extends StatelessWidget {
             // 사진은 칸 아래쪽(y=176~)만 채운다. 위는 날짜 줄이 쓴다.
             : Padding(
                 padding: const EdgeInsets.only(top: 36),
-                child: Image.file(File(path), fit: BoxFit.cover),
+                child: path != null
+                    ? Image.file(File(path), fit: BoxFit.cover)
+                    : Image.network(
+                        url!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const ColoredBox(
+                          color: kDiaryPaper,
+                          child: Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
               ),
       ),
     );

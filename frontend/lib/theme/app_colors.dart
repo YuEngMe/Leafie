@@ -59,9 +59,9 @@ const Color kDiaryGridLine = Color(0xFFFCB27E);
 // 종이 바탕(2739:34974). 순백이 아니라 살짝 눌린 흰색이다.
 const Color kDiaryPaper = Color(0xFFF8F8F8);
 
-// 달 넘김 버튼(2739:38803 초록, 2739:38804 분홍).
-const Color kDiaryPrevGreen = Color(0xFFA8D66E);
-const Color kDiaryNextPink = Color(0xFFF9C6DC);
+// 달 넘김 버튼(3496:11993 초록, 3496:11996 분홍).
+const Color kDiaryPrevGreen = Color(0xFFC1E25F);
+const Color kDiaryNextPink = Color(0xFFFFCAE3);
 const Color kHomeGreen = Color(0xFFBFF4C8);
 const Color kHomeYellow = Color(0xFFFFFFB7);
 const Color kHomePeach = Color(0xFFFFD2B1);

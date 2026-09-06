@@ -1,53 +1,21 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
+import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/services/diary_api.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-/// 날짜별 다이어리 저장소. dio가 붙기 전까지는 세션에 담아 둔다.
-///
-/// 닉네임·식물과 같은 방식이라 서버가 생기면 이 클래스만 갈아끼우면 된다.
-class DiaryStore {
-  const DiaryStore();
-
-  static const _key = 'leafie_diary';
-
-  Future<List<DiaryEntry>> load() async {
-    try {
-      final raw =
-          Supabase.instance.client.auth.currentUser?.userMetadata?[_key];
-      if (raw is! String) return const [];
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      return decoded.map(DiaryEntry.fromJson).nonNulls.toList();
-    } catch (_) {
-      // Supabase를 초기화하지 않은 위젯 테스트에서도 화면은 떠야 한다.
-      return const [];
-    }
-  }
-
-  Future<void> save(List<DiaryEntry> entries) async {
-    // TODO(1-E): dio 붙이면 다이어리 API로 바꾼다.
-    await Supabase.instance.client.auth.updateUser(
-      UserAttributes(
-        data: {_key: jsonEncode(entries.map((e) => e.toJson()).toList())},
-      ),
-    );
-  }
-}
-
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
 class DiaryScreen extends StatefulWidget {
-  const DiaryScreen({super.key, this.store = const DiaryStore(), this.today});
+  const DiaryScreen({super.key, this.store, this.today});
 
-  final DiaryStore store;
+  final DiaryStore? store;
 
   /// 테스트에서 오늘을 고정한다.
   final DateTime? today;
@@ -57,6 +25,7 @@ class DiaryScreen extends StatefulWidget {
 }
 
 class _DiaryScreenState extends State<DiaryScreen> {
+  late final DiaryStore _store = widget.store ?? ApiDiaryStore();
   late final DateTime _today = widget.today ?? DateTime.now();
   late DateTime _month = DateTime(_today.year, _today.month);
   late DateTime _selected = _today;
@@ -69,36 +38,56 @@ class _DiaryScreenState extends State<DiaryScreen> {
   }
 
   Future<void> _reload() async {
-    final entries = await widget.store.load();
-    if (mounted) setState(() => _entries = entries);
+    try {
+      final entries = await _store.loadMonth(_month);
+      if (mounted) setState(() => _entries = entries);
+    } on LeafieApiException {
+      // 인증이 없는 위젯 테스트와 네트워크 오류에서도 달력은 계속 보인다.
+    }
   }
-
-  DiaryEntry _entryFor(DateTime date) => _entries.firstWhere(
-    (e) => DiaryEntry.sameDay(e.date, date),
-    orElse: () => DiaryEntry(date: date),
-  );
 
   Future<void> _openDay(DateTime date) async {
     setState(() => _selected = date);
+    final DiaryEntry entry;
+    try {
+      entry = await _store.loadDay(date) ?? DiaryEntry(date: date);
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    if (!mounted) return;
     final saved = await Navigator.push<DiaryEntry>(
       context,
       MaterialPageRoute(
-        builder: (_) => DiaryEntryScreen(entry: _entryFor(date)),
+        builder: (_) => DiaryEntryScreen(entry: entry, store: _store),
       ),
     );
     if (saved == null || !mounted) return;
 
-    final next = [
-      ..._entries.where((e) => !DiaryEntry.sameDay(e.date, saved.date)),
-      if (!saved.isEmpty) saved,
-    ]..sort((a, b) => a.date.compareTo(b.date));
-    setState(() => _entries = next);
-    await widget.store.save(next);
+    try {
+      if (saved.isEmpty) {
+        await _store.delete(saved.date);
+      } else {
+        await _store.save(saved);
+      }
+      await _reload();
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
-  void _shiftMonth(int delta) => setState(() {
-    _month = DateTime(_month.year, _month.month + delta);
-  });
+  void _shiftMonth(int delta) {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + delta);
+    });
+    _reload();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,13 +99,17 @@ class _DiaryScreenState extends State<DiaryScreen> {
       appBar: YesoAppBar(
         title: '다이어리',
         backgroundColor: Colors.transparent,
-        actions: [_EditAction(onPressed: () => _openDay(_selected))],
+        backIconColor: kOrangeMain,
       ),
       body: DiaryScaffoldBody(
         onFabPressed: () => _openDay(_selected),
         onNavTap: (tab) => switch (tab) {
           // 다이어리는 이미 여기다. 홈·마이는 뒤로 돌아가면 된다.
           FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
+          FigmaNavIcon.calendar => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CalendarScreen()),
+          ),
           _ => null,
         },
         child: Stack(
@@ -138,7 +131,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               rect: DiaryLayout.prevButton,
               child: _MonthButton(
                 label: '이전 달',
-                icon: Icons.arrow_left,
+                pointsLeft: true,
                 color: kDiaryPrevGreen,
                 onPressed: () => _shiftMonth(-1),
               ),
@@ -147,7 +140,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               rect: DiaryLayout.nextButton,
               child: _MonthButton(
                 label: '다음 달',
-                icon: Icons.arrow_right,
+                pointsLeft: false,
                 color: kDiaryNextPink,
                 onPressed: () => _shiftMonth(1),
               ),
@@ -174,22 +167,23 @@ class _EditAction extends StatelessWidget {
         width: DiaryLayout.editIcon.width,
         height: DiaryLayout.editIcon.height,
       ),
+      key: const ValueKey('diary-appbar-edit'),
       tooltip: '오늘 다이어리 쓰기',
     );
   }
 }
 
-/// 달 넘김 버튼(2739:38803, 2739:38804). 시안은 색만 다른 삼각형이다.
+/// 달 넘김 버튼(3496:11993, 3496:11996). 색과 방향만 다르다.
 class _MonthButton extends StatelessWidget {
   const _MonthButton({
     required this.label,
-    required this.icon,
+    required this.pointsLeft,
     required this.color,
     required this.onPressed,
   });
 
   final String label;
-  final IconData icon;
+  final bool pointsLeft;
   final Color color;
   final VoidCallback onPressed;
 
@@ -211,23 +205,64 @@ class _MonthButton extends StatelessWidget {
               ),
             ],
           ),
-          child: Icon(icon, color: kBackgroundWhite, size: 28),
+          child: Center(
+            child: CustomPaint(
+              // 시안 Polygon 59는 폭 12.7 x 높이 22.4다. Material 화살표
+              // 아이콘은 이보다 훨씬 커서 직접 그린다.
+              size: const Size(12.67, 22.44),
+              painter: _ArrowPainter(pointsLeft: pointsLeft),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+/// 모서리가 살짝 둥근 삼각형(3496:11993 Polygon 59).
+class _ArrowPainter extends CustomPainter {
+  const _ArrowPainter({required this.pointsLeft});
+
+  final bool pointsLeft;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(0, size.height / 2)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.save();
+    if (!pointsLeft) {
+      canvas
+        ..translate(size.width, 0)
+        ..scale(-1, 1);
+    }
+    canvas.drawPath(path, Paint()..color = kBackgroundWhite);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ArrowPainter oldDelegate) =>
+      oldDelegate.pointsLeft != pointsLeft;
+}
+
 /// Figma "다이어리 작성"(2739:39308)과 "읽기"(2739:39860).
 ///
 /// 시안은 두 화면이지만 같은 종이에 글이 있느냐 없느냐만 다르다.
 class DiaryEntryScreen extends StatefulWidget {
-  const DiaryEntryScreen({super.key, required this.entry, this.imagePicker});
+  const DiaryEntryScreen({
+    super.key,
+    required this.entry,
+    this.imagePicker,
+    this.store,
+  });
 
   final DiaryEntry entry;
 
   /// 위젯 테스트에서 갈아끼운다.
   final ImagePicker? imagePicker;
+  final DiaryStore? store;
 
   @override
   State<DiaryEntryScreen> createState() => _DiaryEntryScreenState();
@@ -237,6 +272,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   late final _titleController = TextEditingController(text: widget.entry.title);
   late final _bodyController = TextEditingController(text: widget.entry.body);
   late String? _photoPath = widget.entry.photoPath;
+  late final String? _photoUrl = widget.entry.photoUrl;
   late DiaryWeather? _weather = widget.entry.weather;
 
   @override
@@ -266,8 +302,37 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   }
 
   /// 앞뒤 버튼. 쓴 글을 저장하고 옆 날짜로 넘어간다.
-  void _shiftDay(int delta) {
+  Future<void> _shiftDay(int delta) async {
     final next = widget.entry.date.add(Duration(days: delta));
+    final store = widget.store;
+    if (store != null) {
+      try {
+        final current = _currentEntry();
+        if (current.isEmpty) {
+          await store.delete(current.date);
+        } else {
+          await store.save(current);
+        }
+        final nextEntry = await store.loadDay(next) ?? DiaryEntry(date: next);
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DiaryEntryScreen(
+              entry: nextEntry,
+              store: store,
+              imagePicker: widget.imagePicker,
+            ),
+          ),
+        );
+      } on LeafieApiException catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      return;
+    }
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -276,15 +341,15 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     );
   }
 
-  void _save() => Navigator.pop(
-    context,
-    widget.entry.copyWith(
-      title: _titleController.text,
-      body: _bodyController.text,
-      photoPath: _photoPath,
-      weather: _weather,
-    ),
+  DiaryEntry _currentEntry() => widget.entry.copyWith(
+    title: _titleController.text,
+    body: _bodyController.text,
+    photoPath: _photoPath,
+    photoUrl: _photoUrl,
+    weather: _weather,
   );
+
+  void _save() => Navigator.pop(context, _currentEntry());
 
   /// 시안 2739:39851 '2026년 7월 15일 토요일'.
   String get _dateLabel {
@@ -307,15 +372,17 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
         appBar: YesoAppBar(
           title: '다이어리',
           backgroundColor: Colors.transparent,
+          backIconColor: kOrangeMain,
           actions: [_EditAction(onPressed: _save)],
         ),
         body: DiaryScaffoldBody(
-          // 시안(2766:692)은 글쓰기에도 연필 버튼을 둔다. 이미 이 날의
-          // 글이므로 누르면 저장하고 나간다.
-          onFabPressed: _save,
           // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
           onNavTap: (tab) => switch (tab) {
             FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
+            FigmaNavIcon.calendar => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+            ),
             _ => null,
           },
           child: Stack(
@@ -327,7 +394,11 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 top: 143,
                 width: 304,
                 height: 242,
-                child: DiaryPhotoBox(photoPath: _photoPath, onTap: _pickPhoto),
+                child: DiaryPhotoBox(
+                  photoPath: _photoPath,
+                  photoUrl: _photoUrl,
+                  onTap: _pickPhoto,
+                ),
               ),
               // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851).
               Positioned(
@@ -434,7 +505,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 rect: DiaryLayout.prevButton,
                 child: _MonthButton(
                   label: '이전 날',
-                  icon: Icons.arrow_left,
+                  pointsLeft: true,
                   color: kDiaryPrevGreen,
                   onPressed: () => _shiftDay(-1),
                 ),
@@ -443,7 +514,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 rect: DiaryLayout.nextButton,
                 child: _MonthButton(
                   label: '다음 날',
-                  icon: Icons.arrow_right,
+                  pointsLeft: false,
                   color: kDiaryNextPink,
                   onPressed: () => _shiftDay(1),
                 ),
