@@ -3,13 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/notification_tile.dart';
 
 class _FakeNotificationRepository implements NotificationRepository {
   _FakeNotificationRepository(this.notifications);
 
   final List<NotificationData> notifications;
-  bool unreadOnly = false;
-  int markAllCount = 0;
   final List<String> markedIds = [];
 
   @override
@@ -18,11 +17,8 @@ class _FakeNotificationRepository implements NotificationRepository {
     bool unreadOnly = false,
     int limit = 20,
   }) async {
-    this.unreadOnly = unreadOnly;
     return NotificationPage(
-      items: notifications
-          .where((notification) => !unreadOnly || !notification.isRead)
-          .toList(),
+      items: List.of(notifications),
       nextCursor: null,
       hasNext: false,
     );
@@ -41,7 +37,6 @@ class _FakeNotificationRepository implements NotificationRepository {
 
   @override
   Future<void> markAllRead() async {
-    markAllCount++;
     for (var index = 0; index < notifications.length; index++) {
       if (!notifications[index].isRead) {
         notifications[index] = notifications[index].copyWith(
@@ -61,8 +56,11 @@ class _FakeNotificationRepository implements NotificationRepository {
   Future<void> revokeDevice(String deviceId) => throw UnimplementedError();
 }
 
-NotificationData _notification({required String id, DateTime? readAt}) =>
-    NotificationData(
+NotificationData _notification({
+  required String id,
+  DateTime? readAt,
+  DateTime? createdAt,
+}) => NotificationData(
       id: id,
       plantId: null,
       type: 'WATERING_REMINDER',
@@ -71,7 +69,7 @@ NotificationData _notification({required String id, DateTime? readAt}) =>
       sourceType: null,
       sourceId: null,
       readAt: readAt,
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
     );
 
 Future<void> _pumpScreen(
@@ -104,9 +102,12 @@ void main() {
     await _pumpScreen(tester, repository);
 
     expect(find.text('알림'), findsOneWidget);
+    expect(find.text('오늘의 알림'), findsOneWidget);
     expect(find.text('물을 줄 시간이에요'), findsOneWidget);
     expect(find.text('진단이 완료됐어요'), findsOneWidget);
-    expect(find.byKey(const Key('unread-unread')), findsOneWidget);
+    // 시안 3448:113 / 3456:4891: 읽음 알림도 점을 그린다(색만 다르다).
+    expect(find.byKey(const Key('notification-dot-unread')), findsOneWidget);
+    expect(find.byKey(const Key('notification-dot-read')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -126,22 +127,37 @@ void main() {
 
     expect(repository.markedIds, ['unread']);
     expect(selected?.isRead, isTrue);
-    expect(find.byKey(const Key('unread-unread')), findsNothing);
+    // 읽어도 점은 남고 색만 회색으로 바뀐다.
+    final dot = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: find.byKey(const Key('notification-dot-unread')),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    expect((dot.decoration as BoxDecoration).color, kNotificationDotRead);
   });
 
-  testWidgets('전체 읽음과 안 읽음 필터를 서버 계약으로 호출한다', (tester) async {
+  testWidgets('어제 온 알림은 "지난 알림" 절로 내려간다', (tester) async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final repository = _FakeNotificationRepository([
       _notification(id: 'unread'),
+      _notification(id: 'read', readAt: yesterday, createdAt: yesterday),
     ]);
+
     await _pumpScreen(tester, repository);
 
-    await tester.tap(find.byKey(const Key('notification-read-all')));
-    await tester.pump();
-    expect(repository.markAllCount, 1);
+    expect(find.text('오늘의 알림'), findsOneWidget);
+    expect(find.text('지난 알림'), findsOneWidget);
+    final today = tester.getRect(find.text('오늘의 알림'));
+    final past = tester.getRect(find.text('지난 알림'));
+    expect(past.top, greaterThan(today.top));
+  });
 
-    await tester.tap(find.text('안 읽음'));
-    await tester.pump();
-    expect(repository.unreadOnly, isTrue);
-    expect(find.text('읽지 않은 알림이 없어요.'), findsOneWidget);
+  testWidgets('알림이 없으면 빈 문구만 보여준다', (tester) async {
+    final repository = _FakeNotificationRepository([]);
+    await _pumpScreen(tester, repository);
+
+    expect(find.text('도착한 알림이 없어요.'), findsOneWidget);
+    expect(find.byKey(const Key('notification-list')), findsNothing);
   });
 }
