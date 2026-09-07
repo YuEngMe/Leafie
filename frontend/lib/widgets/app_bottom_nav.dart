@@ -3,7 +3,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
-/// Figma node 3173:113의 하단 네비게이션. 홈과 다이어리가 함께 쓴다.
+/// Figma 컴포넌트 3628:2411의 하단 네비게이션. 홈·다이어리·캘린더가 함께 쓴다.
 ///
 /// 시안은 알약 배경도 글자 라벨도 없이 아이콘 넷만 놓는다. 아이콘 중심
 /// 간격이 101 / 101.5 / 96.5로 고르지 않아 균등 배치 대신 시안 x를 쓴다.
@@ -13,12 +13,13 @@ class AppBottomNav extends StatelessWidget {
   /// 눌린 탭을 알려준다. 아직 화면이 없는 탭은 호출부가 무시하면 된다.
   final ValueChanged<FigmaNavIcon>? onTap;
 
-  /// 시안 3173:103/87/94/108의 좌표. 바 안쪽 기준이다.
+  /// 시안 3628:2139/2123/2130/2144의 좌표. 바 안쪽 기준이다.
+  /// 2026-09-07 갱신: 아이콘 네 개가 5px 위로 올라갔다(y 817 → 812).
   static const Map<FigmaNavIcon, Offset> iconOffsets = {
-    FigmaNavIcon.home: Offset(35, 22),
-    FigmaNavIcon.diary: Offset(139, 24),
-    FigmaNavIcon.calendar: Offset(240, 22),
-    FigmaNavIcon.my: Offset(338, 25),
+    FigmaNavIcon.home: Offset(35, 17),
+    FigmaNavIcon.diary: Offset(139, 19),
+    FigmaNavIcon.calendar: Offset(240, 17),
+    FigmaNavIcon.my: Offset(338, 20),
   };
 
   @override

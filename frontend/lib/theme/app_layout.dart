@@ -111,7 +111,7 @@ abstract final class AppLayout {
   static const double homeTopBarHeight = 68;
   static const double homeHumidityCardHeight = 54;
 
-  /// 시안 3173:113. 아이콘이 들어오며 88 -> 79로 낮아졌다.
+  /// 시안 3628:2411. 아이콘이 들어오며 88 -> 79로 낮아졌다.
   static const double homeBottomNavHeight = 79;
 
   /// 시안은 버튼 바닥에서 화면 아래까지 33px을 두지만 실기기의 하단

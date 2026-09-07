@@ -147,7 +147,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
   }
 }
 
-/// Figma node 3173:113의 하단 네비게이션 아이콘 넷.
+/// Figma 컴포넌트 3628:2411의 하단 네비게이션 아이콘 넷.
 ///
 /// 디자이너가 2026-09-05에 넣었다. 시안은 알약 배경도 라벨도 없이 아이콘만
 /// 놓는다. 셋은 내보낸 SVG 그대로이고, 다이어리(3173:87)만 도형 조합이라
@@ -167,7 +167,7 @@ enum FigmaNavIcon {
   final String label;
 }
 
-/// 네비게이션 아이콘 하나. 시안(3173:113)은 선택 상태를 따로 그리지 않아
+/// 네비게이션 아이콘 하나. 시안(3628:2411)은 선택 상태를 따로 그리지 않아
 /// 넷이 같은 오렌지다.
 class FigmaBottomNavIcon extends StatelessWidget {
   const FigmaBottomNavIcon(this.icon, {super.key});
