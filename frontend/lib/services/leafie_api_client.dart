@@ -253,10 +253,35 @@ String _configuredBaseUrl() {
   throw StateError('API_BASE_URL must be set for non-debug builds.');
 }
 
+/// 만료된 토큰을 그대로 보내면 서버가 401을 주고, main.dart는 그 실패를
+/// 로그인 실패로 보지 않고 홈으로 보내 닉네임 화면을 건너뛴다. 앱을 오래
+/// 뒀다 켠 콜드스타트에서 실제로 났던 문제라, 요청 전에 표부터 갈아 둔다.
 Future<String?> _supabaseAccessToken() async {
   try {
-    return Supabase.instance.client.auth.currentSession?.accessToken;
+    final auth = Supabase.instance.client.auth;
+    final session = auth.currentSession;
+    if (session == null) return null;
+    if (sessionExpiresSoon(session)) {
+      try {
+        final refreshed = (await auth.refreshSession()).session;
+        if (refreshed != null) return refreshed.accessToken;
+      } catch (_) {
+        // 갱신 실패(오프라인, 폐기된 refresh token)는 기존 토큰으로 보내고
+        // 서버의 401 처리에 맡긴다.
+      }
+    }
+    return session.accessToken;
   } catch (_) {
     return null;
   }
+}
+
+/// 만료 30초 전부터 새 토큰으로 본다. 요청이 서버에 닿기 전에 끊기는 틈을 막는다.
+@visibleForTesting
+bool sessionExpiresSoon(Session session, {DateTime? now}) {
+  final expiresAt = session.expiresAt;
+  if (expiresAt == null) return false;
+  final expiry = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+  return expiry.difference(now ?? DateTime.now()) <=
+      const Duration(seconds: 30);
 }
