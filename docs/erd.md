@@ -1,467 +1,230 @@
 # ERD 및 데이터 정책
 
-이 문서는 확정된 와이어프레임에 필요한 MVP 데이터만 정의합니다. Supabase의
-`auth.users`, Storage, Queues 내부 테이블은 Supabase가 관리하므로 애플리케이션
-테이블로 다시 만들지 않습니다.
+이 문서는 최신 제품 기준의 목표 스키마입니다. Alembic migration과 SQLAlchemy 모델은
+이 계약에 맞춰 별도 구현합니다. 센서 소유 테이블은 포함하지 않습니다.
 
-## 1. ERD
+표는 변경 대상의 개념 요약입니다. 생략된 기존 컬럼을 삭제하지 않습니다. 실제 변경은
+[전환 기준](product-transition.md)과 기능별 migration에서 확정합니다.
+
+## 1. 관계
 
 ```mermaid
 erDiagram
     AUTH_USERS ||--|| USER_PROFILES : extends
-    AUTH_USERS ||--o{ MEDIA_FILES : uploads
-    AUTH_USERS ||--o{ SPECIES_IDENTIFICATIONS : requests
-    AUTH_USERS ||--o{ PLANTS : owns
-    AUTH_USERS ||--o{ NOTIFICATIONS : receives
-    AUTH_USERS ||--o{ DEVICE_TOKENS : registers
-
-    MEDIA_FILES ||--o{ SPECIES_IDENTIFICATIONS : identifies
-    MEDIA_FILES ||--o{ PLANTS : primary_photo
-    MEDIA_FILES o|--o| PLANT_DIARIES : diary_photo
-    MEDIA_FILES ||--o| DIAGNOSES : diagnosis_photo
-    MEDIA_FILES ||--o{ AI_MESSAGES : chat_attachment
-
+    USER_PROFILES ||--o{ PLANTS : owns
+    USER_PROFILES ||--o{ MEDIA_FILES : uploads
+    USER_PROFILES ||--o{ NOTIFICATIONS : receives
+    USER_PROFILES ||--o{ DEVICE_TOKENS : registers
     SPECIES_CARE_GUIDES ||--o{ PLANTS : classifies
-    SPECIES_IDENTIFICATIONS o|--o| PLANTS : selected_for
-
-    PLANTS ||--o{ PLANT_DAILY_MEMOS : has
-    PLANTS ||--o{ PLANT_DIARIES : has
     PLANTS ||--o{ CARE_SCHEDULES : schedules
     PLANTS ||--o{ CARE_EVENTS : records
-    PLANTS ||--o{ DIAGNOSES : receives
-    PLANTS ||--o{ AI_CONVERSATIONS : chats_about
-    PLANTS ||--o{ AI_ACTIONS : affected_by
-    PLANTS ||--o{ NOTIFICATIONS : concerns
-
-    CARE_SCHEDULES o|--o{ CARE_EVENTS : generates
-    DIAGNOSES o|--o{ CARE_EVENTS : recommends
-    AI_CONVERSATIONS o|--o{ DIAGNOSES : starts
-    AI_CONVERSATIONS ||--o{ AI_MESSAGES : contains
-    AI_MESSAGES ||--o{ AI_TOOL_CALLS : invokes
-    AI_MESSAGES ||--o{ AI_ACTIONS : proposes
-
-    AUTH_USERS {
-        uuid id PK
-        varchar email UK
-        timestamptz email_confirmed_at
-        timestamptz created_at
-    }
-
-    USER_PROFILES {
-        uuid user_id PK,FK
-        varchar nickname
-        varchar timezone
-        uuid selected_plant_id FK
-        boolean push_enabled
-        timestamptz profile_completed_at
-        varchar deletion_status
-        timestamptz created_at
-        timestamptz updated_at
-        timestamptz deleted_at
-    }
-
-    MEDIA_FILES {
-        uuid id PK
-        uuid user_id FK
-        varchar purpose
-        varchar status
-        varchar bucket_name
-        varchar object_path UK
-        varchar content_type
-        bigint size_bytes
-        varchar checksum_sha256
-        int width
-        int height
-        timestamptz created_at
-        timestamptz deleted_at
-    }
-
-    SPECIES_IDENTIFICATIONS {
-        uuid id PK
-        uuid user_id FK
-        uuid media_file_id FK,UK
-        varchar status
-        varchar provider
-        jsonb candidates
-        varchar failure_code
-        timestamptz created_at
-        timestamptz completed_at
-    }
-
-    SPECIES_CARE_GUIDES {
-        varchar species_reference_id PK
-        varchar display_name
-        varchar scientific_name
-        varchar plantnet_species_id
-        bigint gbif_id
-        jsonb aliases
-        varchar family_name
-        varchar flowering_period
-        varchar category
-        int recommended_water_min_ml
-        int recommended_water_max_ml
-        int default_watering_interval_days
-        int default_repotting_interval_days
-        jsonb care_profile
-        jsonb diagnosis_profile
-        jsonb source_references
-        varchar data_version
-        date reviewed_at
-        boolean active
-        timestamptz updated_at
-    }
-
-    PLANTS {
-        uuid id PK
-        uuid user_id FK
-        uuid client_registration_id
-        varchar registration_request_hash
-        varchar species_reference_id FK
-        uuid species_identification_id FK
-        uuid primary_media_file_id FK
-        varchar nickname
-        varchar species_selection_method
-        date started_on
-        varchar place_name
-        varchar pot_type
-        varchar placement
-        varchar personality_type
-        varchar color_id
-        varchar hair_id
-        varchar accessory_id
-        timestamptz created_at
-        timestamptz updated_at
-        timestamptz deleted_at
-    }
-
-    PLANT_DAILY_MEMOS {
-        uuid id PK
-        uuid plant_id FK
-        date memo_date
-        text content
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    PLANT_DIARIES {
-        uuid id PK
-        uuid plant_id FK
-        uuid media_file_id FK
-        date diary_date
-        text content
-        int condition_score
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    CARE_SCHEDULES {
-        uuid id PK
-        uuid plant_id FK
-        varchar type
-        int interval_days
-        date next_due_date
-        int recommended_water_min_ml
-        int recommended_water_max_ml
-        varchar recommendation_source
-        boolean enabled
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    CARE_EVENTS {
-        uuid id PK
-        uuid plant_id FK
-        uuid schedule_id FK
-        uuid source_diagnosis_id FK
-        uuid client_event_id
-        varchar creation_request_hash
-        varchar type
-        varchar title
-        varchar status
-        varchar source
-        date due_date
-        date performed_on
-        timestamptz recorded_at
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    DIAGNOSES {
-        uuid id PK
-        uuid plant_id FK
-        uuid related_conversation_id FK
-        uuid media_file_id FK,UK
-        varchar status
-        varchar overall_condition
-        jsonb input_context_snapshot
-        jsonb image_quality_result
-        text condition_label
-        jsonb observations
-        jsonb possible_causes
-        jsonb recommended_care
-        varchar retake_reason_code
-        varchar failure_code
-        varchar diagnosis_provider
-        varchar diagnosis_model_name
-        varchar provider_response_id
-        varchar care_rule_version
-        int latency_ms
-        numeric estimated_cost
-        varchar cost_currency
-        timestamptz created_at
-        timestamptz started_at
-        timestamptz completed_at
-    }
-
-    AI_CONVERSATIONS {
-        uuid id PK
-        uuid plant_id FK
-        varchar title
-        text context_summary
-        uuid summarized_through_message_id FK
-        varchar summary_version
-        timestamptz summary_updated_at
-        timestamptz last_message_at
-        timestamptz created_at
-        timestamptz updated_at
-        timestamptz deleted_at
-    }
-
-    AI_MESSAGES {
-        uuid id PK
-        uuid conversation_id FK
-        uuid client_message_id UK
-        uuid related_diagnosis_id FK
-        uuid media_file_id FK
-        varchar role
-        varchar status
-        text content
-        varchar provider
-        varchar model_name
-        varchar provider_response_id
-        int input_tokens
-        int output_tokens
-        timestamptz created_at
-    }
-
-    AI_TOOL_CALLS {
-        uuid id PK
-        uuid message_id FK
-        varchar provider_call_id UK
-        varchar tool_name
-        jsonb arguments
-        jsonb result_summary
-        varchar status
-        int latency_ms
-        varchar error_code
-        timestamptz created_at
-        timestamptz completed_at
-    }
-
-    AI_ACTIONS {
-        uuid id PK
-        uuid user_id FK
-        uuid message_id FK
-        uuid plant_id FK
-        varchar action_type
-        jsonb payload
-        varchar status
-        timestamptz expires_at
-        timestamptz confirmed_at
-        timestamptz executed_at
-        timestamptz created_at
-    }
-
-    NOTIFICATIONS {
-        uuid id PK
-        uuid user_id FK
-        uuid plant_id FK
-        varchar type
-        varchar title
-        text body
-        varchar source_type
-        uuid source_id
-        timestamptz read_at
-        timestamptz created_at
-    }
-
-    DEVICE_TOKENS {
-        uuid id PK
-        uuid user_id FK
-        varchar platform
-        varchar token UK "Firebase Installation ID"
-        timestamptz last_used_at
-        timestamptz created_at
-        timestamptz revoked_at
-    }
+    CARE_SCHEDULES ||--o{ CARE_EVENTS : creates
+    PLANTS ||--o{ PLANT_DIARIES : journals
+    PLANT_DIARIES ||--|| LETTERS : produces
+    PLANTS ||--o{ DIAGNOSES : diagnoses
+    USER_PROFILES ||--o{ SPECIES_IDENTIFICATIONS : requests
+    MEDIA_FILES ||--o| PLANTS : primary_photo
+    MEDIA_FILES ||--o| PLANT_DIARIES : diary_photo
+    MEDIA_FILES ||--o| DIAGNOSES : diagnosis_photo
+    MEDIA_FILES ||--o| SPECIES_IDENTIFICATIONS : input_photo
 ```
 
-## 2. 모델 원칙
+## 2. 핵심 테이블
 
-- `USER_PROFILES`에는 닉네임과 앱 설정만 저장합니다. 이메일, 비밀번호, 로그인
-  Provider는 Supabase Auth가 관리합니다.
-- 프로필 사진과 한 줄 소개는 제품에 없으므로 관련 필드를 저장하지 않습니다.
-- 식물은 지원하는 23종 중 하나를 반드시 참조합니다. 7개 대분류와 식물명은
-  `SPECIES_CARE_GUIDES`에서 파생하며 `PLANTS`에 중복 저장하지 않습니다.
-- 캐릭터와 환경은 식물과 항상 함께 존재하고 필드 수도 적으므로 별도 1:1 테이블을
-  두지 않고 `PLANTS`에 포함합니다.
-- 식물 등록 임시저장은 Flutter 로컬 저장소가 담당하며 서버 초안 테이블을 만들지 않습니다.
-- 홈 메모는 완료 상태가 없는 식물별 하루 한 개의 기록입니다. 관리 이벤트나
-  다이어리에 섞지 않습니다.
-- 컨디션 단계는 `condition_score`에서 계산하며 중복 저장하지 않습니다.
-- MVP에서 물주기와 분갈이를 `CARE_SCHEDULES`로 반복합니다. 식물 등록 시 알려진
-  마지막 분갈이 날짜 또는 `NEVER`의 `started_on`을 기준으로 최초 일정을 계산하고,
-  비료, 가지치기, 자유 할 일은 `CARE_EVENTS`의 일회성 이벤트로 저장합니다.
-- 식물별 영구 채팅방은 제품 개념입니다. 데이터베이스에서는 값이 없는 `AI_CHATS`
-  테이블을 만들지 않고 `AI_CONVERSATIONS.plant_id`로 직접 연결합니다.
-- 진단은 사진을 정확히 한 장 사용하므로 연결 테이블 없이
-  `DIAGNOSES.media_file_id`에 직접 저장합니다.
-- 앱 푸시 설정은 전체 ON/OFF 하나뿐이므로 `USER_PROFILES.push_enabled`에 저장합니다.
-- 월간 컨디션 통계는 다이어리 점수를 조회 시 집계합니다. 별도 통계·월간 AI 리포트
-  테이블을 만들지 않습니다.
+### `user_profiles`
 
-## 3. 핵심 제약조건
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `user_id` | uuid | PK, `auth.users.id` FK |
+| `nickname` | varchar(30) | 필수 |
+| `profile_completed_at` | timestamptz | OAuth 닉네임 완료 여부 |
+| `selected_plant_id` | uuid | nullable, 소유 식물 FK |
+| `timezone` | varchar(50) | 기본 `Asia/Seoul` |
+| `notifications_enabled` | boolean | 기본 true |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+| `deleted_at` | timestamptz | nullable |
 
-| 테이블 | 제약조건 |
-|---|---|
-| `user_profiles` | `user_id`는 `auth.users.id`, `selected_plant_id`는 본인 소유 식물, `push_enabled` 기본값은 `true` |
-| `user_profiles` | `deletion_status`는 null·`PENDING`·`FAILED`, OAuth 최초 로그인은 `profile_completed_at`이 null이면 닉네임 입력 필요 |
-| `species_identifications` | `media_file_id` unique, 사진 한 장당 식별 작업 하나, 후보는 지원 23종과 매칭된 값만 저장 |
-| `species_care_guides` | `species_reference_id` 고정, GBIF ID 우선 매칭, 기본 주기는 양수 또는 null |
-| `plants` | `nickname`, `species_reference_id`, `species_selection_method`, `started_on`, 환경·성격·외형 필드 필수 |
-| `plants` | `started_on`은 미래 불가, 성격은 확정된 6개 Enum, 화분·위치는 확정 Enum만 허용 |
-| `plants` | `(user_id, client_registration_id)` unique, 같은 ID와 같은 요청은 기존 결과 반환, 다른 요청은 409 |
-| `plant_daily_memos` | `(plant_id, memo_date)` unique, 완료 상태 없음, 본문 `1~500자` |
-| `plant_diaries` | `(plant_id, diary_date)` unique, 미래 날짜 불가, 본문 `1~2,000자`, 점수는 `0·25·50·75·100` |
-| `plant_diaries` | `media_file_id` unique, 사진은 null 또는 본인 소유 `DIARY`·`READY` 한 장 |
-| `care_schedules` | `WATERING`·`REPOTTING` 반복, `(plant_id, type)` unique |
-| `care_events` | `source`는 `AUTO_SCHEDULE`·`USER_CREATED`·`AI_RECOMMENDED`, 사용자 일정은 제목 필수 |
-| `care_events` | `(plant_id, client_event_id)` unique, 같은 생성 ID와 같은 요청은 기존 결과, 다른 요청은 409 |
-| `care_events` | 반복 schedule마다 `SCHEDULED` 이벤트는 최대 하나, 사용자 일회성 `due_date`는 오늘·미래만 허용 |
-| `care_events` | 완료 시 `performed_on`과 `recorded_at` 필수, `performed_on`은 미래 불가, `recorded_at`은 서버 시각 |
-| `care_events` | 다음 반복 일정은 `recorded_at`이 아닌 `performed_on`을 기준으로 계산 |
-| `diagnoses` | `media_file_id` 필수·unique, 같은 사진은 진단 한 건만 생성, 상태는 `PENDING`·`PROCESSING`·`COMPLETED`·`NEEDS_RETAKE`·`FAILED`·`CANCELLED` |
-| `diagnoses` | `overall_condition`은 `HEALTHY`·`UNHEALTHY`·`UNCERTAIN`, 원인은 최대 3개 |
-| `diagnoses` | 원인 확률은 진단 Provider 값만 허용하고 건강점수와 LLM 생성 확률은 저장하지 않음 |
-| `ai_conversations` | 식물의 영구 채팅방 안에서 생성되는 새 채팅 단위, 제목 검색과 soft delete 지원 |
-| `ai_messages` | 첨부 사진은 null 또는 한 장, 메시지는 반드시 본인 식물의 대화에 포함 |
-| `ai_actions` | `PENDING_CONFIRMATION` 상태만 승인·취소 가능, 비료·가지치기 일회성 일정만 생성 |
-| `device_tokens` | `token` 컬럼에 FID 저장, 활성 FID unique, 로그아웃·권한 철회 시 `revoked_at` 기록 |
+이메일과 비밀번호는 Supabase Auth가 소유합니다. 프로필 사진과 한 줄 소개 필드는 두지
+않습니다.
 
-Tool 인자는 Pydantic schema로 검증합니다. `AI_TOOL_CALLS.arguments`와
-`AI_ACTIONS.payload`에는 비밀값, 원본 이미지, 다른 사용자의 식별자를 저장하지 않습니다.
+### `species_care_guides`
 
-## 4. Enum
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `species_reference_id` | varchar | PK |
+| `display_name` | varchar | 필수 |
+| `scientific_name`, `family_name` | varchar | 필수 |
+| `gbif_id`, `plantnet_species_id` | bigint/varchar | nullable, 인식 매핑 키 |
+| `category` | varchar | 7개 내부 대분류 중 하나 |
+| `flowering_period`, `care_summary` | text/jsonb | nullable |
+| `default_watering_interval_days` | integer | 양수 |
+| `default_repotting_interval_days` | integer | 양수 |
+| `active` | boolean | 기본 true |
+
+사용자가 선택하는 값은 이 테이블의 정확한 23종이며 `category`는 파생 정보입니다.
+
+### `plants`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `user_id` | uuid | 소유자 FK |
+| `species_reference_id` | varchar | 지원 종 FK |
+| `nickname` | varchar(30) | 필수 |
+| `place_name` | varchar(50) | 필수 |
+| `started_on` | date | 필수, 미래 불가 |
+| `personality_type` | enum | 6종 중 하나 |
+| `color_id`, `hair_id` | varchar | 필수 |
+| `primary_media_file_id` | uuid | nullable, 소유 미디어 FK |
+| `client_registration_id` | uuid | 사용자별 멱등 키 |
+| `registration_request_hash` | varchar | 멱등 요청 검증 |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+| `deleted_at` | timestamptz | nullable |
+
+`(user_id, client_registration_id)`는 unique입니다. 컨디션, 화분, 위치 분류와 장식 필드는
+두지 않습니다.
+
+### `plant_diaries`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | 소유 식물 FK |
+| `diary_date` | date | 미래 불가 |
+| `weather` | enum | 필수 |
+| `title` | varchar(80) | 필수 |
+| `content` | varchar(2000) | 필수 |
+| `media_file_id` | uuid | nullable, 최대 한 장 |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+
+`(plant_id, diary_date)`는 unique입니다. 컨디션 점수는 저장하지 않습니다.
+
+### `letters`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | 소유 식물 FK |
+| `diary_id` | uuid | unique, 다이어리 FK |
+| `status` | enum | `PENDING` 기본 |
+| `content` | text | 완료 전 nullable |
+| `scheduled_at` | timestamptz | 다이어리 생성 후 5~15분 |
+| `started_at`, `generated_at` | timestamptz | nullable |
+| `read_at` | timestamptz | nullable |
+| `provider`, `model` | varchar | nullable |
+| `input_tokens`, `output_tokens` | integer | nullable |
+| `retry_count` | integer | 기본 0 |
+| `failure_code` | varchar | nullable |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+| `deleted_at` | timestamptz | nullable |
+
+`diary_id` unique로 다이어리당 편지 한 통을 보장합니다. `COMPLETED` 편지의 `content`,
+`generated_at`, `provider`, `model`은 변경하지 않습니다. 다이어리 수정은 완료된 편지를
+갱신하거나 새 편지를 만들지 않습니다.
+
+### `care_schedules`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | FK |
+| `care_type` | enum | `WATERING` 또는 `REPOTTING` |
+| `interval_days` | integer | 양수 |
+| `next_due_date` | date | 필수 |
+| `enabled` | boolean | 기본 true |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+
+활성 반복 규칙은 `(plant_id, care_type)`당 최대 한 개입니다.
+
+### `care_events`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | FK |
+| `schedule_id` | uuid | 일회성이면 nullable |
+| `care_type` | enum | 3종 중 하나 |
+| `due_date` | date | 필수 |
+| `status` | enum | `SCHEDULED` 또는 `COMPLETED` |
+| `performed_on` | date | 완료 전 nullable |
+| `recorded_at` | timestamptz | 완료 전 nullable |
+| `client_event_id` | uuid | 일회성 생성 멱등 키, nullable |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+
+`TODAY`와 `OVERDUE`는 저장 상태가 아닙니다. `PRUNING`, `CONDITION`, `CUSTOM` 이벤트는
+사용하지 않습니다.
+
+### `diagnoses`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | FK |
+| `media_file_id` | uuid | FK, 사진 한 장 |
+| `status` | enum | 비동기 상태 |
+| `overall_condition`, `condition_label` | varchar/text | 완료 전 nullable |
+| `observations`, `possible_causes`, `recommended_care` | jsonb | 완료 전 nullable |
+| `diagnosis_provider`, `provider_response_id` | varchar | nullable |
+| `retry_count`, `failure_code` | integer/varchar | 재시도 정보 |
+| `created_at`, `started_at`, `completed_at` | timestamptz | 상태별 시각 |
+
+대화 연결 필드는 두지 않습니다. Provider 원본 전체를 영구 저장하지 않고 정규화 결과와
+추적에 필요한 최소 정보만 보관합니다.
+
+### 기타 공통 테이블
+
+- `media_files`: 소유자, Storage key, 용도, MIME, 크기, 완료·삭제 상태를 저장합니다.
+- `species_identifications`: 입력 사진, 비동기 상태, 순서가 있는 지원 종 후보를 저장합니다.
+- `notifications`: 사용자, 종류, 제목·본문, 대상 화면과 리소스 ID, `read_at`을 저장합니다.
+- `device_tokens`: 기존 푸시 설치 정보 테이블을 유지합니다.
+- Queue 발행은 기존 DB 트랜잭션 연동을 재사용합니다. 별도 outbox 테이블 추가는
+  기존 구조로 원자성을 보장할 수 없는 경우에만 검토합니다.
+
+센서 장치와 측정값 테이블은 센서 담당 스키마에 둡니다. `device_tokens`는 푸시 수신 설치
+정보이며 센서 장치가 아닙니다.
+
+## 3. Enum
 
 ```text
-species_selection_method: SEARCH, PHOTO
-
-pot_type: TERRACOTTA, PLASTIC, GLASS, CERAMIC, HYDROPONIC, OTHER
-placement: VERANDA, WINDOW, LIVING_ROOM, BEDROOM, DESK, OTHER
-
-personality_type:
-  OUTGOING, CHIC, CUTE, CRUSH, INTROVERTED, CHUNGCHEONG
-
-care_type:
-  WATERING, REPOTTING, FERTILIZING, PRUNING, CUSTOM
-
-care_event_status:
-  SCHEDULED, COMPLETED, CANCELLED
+PersonalityType = OUTGOING | CHIC | CUTE | CRUSH | INTROVERTED | CHUNGCHEONG
+DiaryWeather = SUNNY | PARTLY_CLOUDY | CLOUDY | RAINY | SNOWY
+CareType = WATERING | REPOTTING | FERTILIZING
+CareEventStatus = SCHEDULED | COMPLETED
+AsyncStatus = PENDING | PROCESSING | COMPLETED | FAILED
+DiagnosisStatus = PENDING | PROCESSING | COMPLETED | NEEDS_RETAKE | FAILED | CANCELLED
+DiagnosisCondition = HEALTHY | UNHEALTHY | UNCERTAIN
+LetterStatus = PENDING | PROCESSING | COMPLETED | FAILED
+MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 ```
 
-`TODAY`와 `OVERDUE`는 저장 상태가 아니라 `due_date`와 사용자 시간대의 오늘 날짜로
-계산합니다.
+## 4. 핵심 제약과 인덱스
 
-## 5. 인덱스
+- 모든 사용자 데이터는 RLS와 서비스 계층 소유권 검사를 함께 적용합니다.
+- `plants(user_id, client_registration_id)` unique
+- `plant_diaries(plant_id, diary_date)` unique
+- `letters(diary_id)` unique
+- 활성 `care_schedules(plant_id, care_type)` partial unique
+- `care_events(plant_id, due_date, status)` index
+- `letters(status, scheduled_at)` index
+- `notifications(user_id, read_at, created_at desc)` index
+- `diagnoses(plant_id, created_at desc)` index
+- 사용자 입력 날짜는 사용자 시간대로 해석하고 저장 시 date 또는 UTC timestamptz를 구분합니다.
 
-```text
-user_profiles(deletion_status)
-plants(user_id, deleted_at)
-plants(user_id, client_registration_id) UNIQUE
-species_care_guides(display_name)
-species_care_guides(gbif_id) UNIQUE WHERE gbif_id IS NOT NULL
-species_care_guides(plantnet_species_id) UNIQUE WHERE plantnet_species_id IS NOT NULL
-species_identifications(user_id, created_at DESC)
-plant_daily_memos(plant_id, memo_date) UNIQUE
-plant_diaries(plant_id, diary_date) UNIQUE
-plant_diaries(media_file_id) UNIQUE
-care_schedules(plant_id, type) UNIQUE
-care_schedules(enabled, next_due_date)
-care_events(plant_id, due_date)
-care_events(plant_id, performed_on)
-care_events(status, due_date)
-care_events(plant_id, client_event_id) UNIQUE
-care_events(schedule_id) UNIQUE WHERE status = 'SCHEDULED' AND schedule_id IS NOT NULL
-diagnoses(plant_id, created_at DESC)
-diagnoses(status, created_at)
-ai_conversations(plant_id, last_message_at DESC)
-ai_conversations(plant_id, title)
-ai_messages(conversation_id, created_at)
-ai_tool_calls(message_id, created_at)
-ai_actions(user_id, status, expires_at)
-notifications(user_id, read_at, created_at DESC)
-media_files(user_id, status, created_at)
-device_tokens(user_id, revoked_at)
-```
+## 5. 삭제 정책
 
-## 6. 인증과 보안
+- 식물 삭제는 관련 일정, 다이어리, 편지, 진단과 연결 알림을 더 이상 노출하지 않게 합니다.
+- 다이어리 사진, 대표 사진과 진단 사진의 실제 Storage 삭제는 Queue 작업으로 처리합니다.
+- 편지 삭제는 우편함에서의 soft delete이며 원본 다이어리는 유지합니다.
+- 회원 탈퇴는 JWT 사용 차단을 우선하고 데이터·Storage 삭제는 멱등 Worker로 마무리합니다.
 
-- 이메일·비밀번호, Kakao·Apple OAuth와 Naver Custom OAuth2를 Supabase Auth로 처리합니다.
-- 이메일 가입자는 인증 링크 확인 전 로그인할 수 없습니다.
-- Flutter에는 publishable key만 포함하고 `service_role`과 외부 API Key는 FastAPI와
-  Worker 환경변수에만 저장합니다.
-- Storage 버킷은 비공개이며 조회할 때 짧게 만료되는 Signed URL을 발급합니다.
-- 앱은 업무 테이블을 직접 수정하지 않고 FastAPI를 호출합니다.
-- Data API에 노출된 업무 테이블에는 RLS를 적용하고 FastAPI도 JWT와 소유권을 다시
-  검증합니다.
-- Queue에는 작업 종류와 리소스 ID만 저장하며 원본 사진과 프롬프트를 넣지 않습니다.
+## 6. 제거된 구조
 
-## 7. 삭제 정책
+다음 구조는 최신 제품 범위에 포함하지 않습니다.
 
-- 식물과 대화 세션 삭제는 `deleted_at`을 기록하는 soft delete로 시작합니다.
-- 식물 삭제 API는 식물 soft delete, 연결 미디어의 `DELETED` 전환, 선택 식물 변경과
-  `PLANT_DELETE` Queue 등록을 한 DB 트랜잭션에서 처리합니다. 선택 식물을 삭제하면
-  `created_at ASC, id ASC` 기준으로 가장 오래된 남은 식물을 선택하고 없으면 null로 만듭니다.
-- `PLANT_DELETE` Worker는 대표·인식·다이어리·진단·채팅 Storage 객체를 먼저 멱등하게
-  삭제하고, 전부 성공한 뒤 식물을 hard delete하여 메모, 다이어리, 일정, 진단, 대화,
-  AI 작업과 알림을 cascade 삭제합니다. 중간 실패 시 식물을 복구하거나 hard delete하지
-  않고 재시도하며, 재시도 소진 시 soft delete 상태와 로그를 기준으로 운영자가 재처리합니다.
-- 다이어리 삭제를 지원합니다. 연결 사진은 DB에서 soft delete한 뒤 같은 트랜잭션으로
-  Queue에 등록하며 Storage 객체는 Worker가 멱등하게 삭제합니다.
-- 회원 탈퇴는 `PENDING`으로 전환한 뒤 Worker가 Storage 객체를 삭제하고 마지막에
-  Supabase Auth 계정을 제거합니다. `auth.users` 삭제의 `ON DELETE CASCADE`로
-  프로필·식물·미디어 등 업무 데이터가 함께 정리됩니다. 진단·식물 인식의
-  `media_file_id` FK는 `ON DELETE CASCADE`라서 미디어 정리 중 RESTRICT로 막히지
-  않습니다.
-- 계정 삭제 재시도가 소진되면 `FAILED` 상태와 Worker 로그를 기준으로 운영자가 재처리합니다.
-- 사용자 사진과 대화를 품질 개선이나 모델 학습에 재사용하려면 별도 동의가 필요합니다.
-
-## 8. 파생 데이터
-
-- `days_together`: `plants.started_on`부터 사용자 시간대의 오늘까지의 일수
-- `gardener_days`: `auth.users.created_at`부터 사용자 시간대의 오늘까지의 일수
-- `current_condition`: 오늘 다이어리의 `condition_score`, 없으면 null
-- `condition_level`: 0=1, 25=2, 50=3, 75=4, 100=5
-- `monthly_condition`: 해당 월 점수의 산술평균을 반올림한 정수와 중간값 경계의 5단계
-- `care_event_view_status`: `due_date` 기준 `UPCOMING`·`TODAY`·`OVERDUE`, 완료 시 `COMPLETED`
-
-기록이 없는 달의 평균은 0이 아니라 null입니다. 홈 캐릭터 대사는 성격, 오늘
-컨디션, 일정 상태를 기준으로 코드의 고정 문구 중 하나를 선택하며 데이터베이스에
-저장하지 않습니다.
-
-## 9. MVP에서 제거한 구조
-
-| 제거 대상 | 이유 |
-|---|---|
-| `USER_PROFILES.profile_media_file_id`, `bio` | 프로필 사진과 한 줄 소개를 제공하지 않음 |
-| `PLANT_CHARACTERS` | 식물과 항상 1:1이며 필드가 적어 `PLANTS`에 통합 |
-| `PLANT_ENVIRONMENTS` | 식물과 항상 1:1이며 필드가 적어 `PLANTS`에 통합 |
-| `PLANTS.category`, 종명 복사 필드 | `SPECIES_CARE_GUIDES`에서 파생 가능 |
-| `PLANT_DIARIES.condition_level` | 점수에서 계산 가능 |
-| `DIAGNOSIS_IMAGES` | 진단당 사진이 정확히 한 장이므로 FK로 통합 |
-| `AI_CHATS` | 식물별 빈 컨테이너 테이블 없이 대화를 식물에 직접 연결 |
-| `NOTIFICATION_SETTINGS` | 전체 푸시 ON/OFF 한 개를 사용자 프로필에 통합 |
-| `AI_BATCH_JOBS`, `AI_BATCH_ITEMS`, `MONTHLY_REPORTS` | 확정된 화면과 사용자 기능에 월간 AI 리포트가 없음 |
-
-OpenAI Batch가 실제 사용자 기능으로 확정되면 그 작업의 입력·출력 보관 요구에 맞춰
-테이블을 추가합니다. 사용처가 없는 상태에서 미리 만들지 않습니다.
+- `ai_conversations`, `ai_messages`, `ai_tool_calls`, `ai_actions`
+- `plant_daily_memos`
+- 다이어리 컨디션 점수와 월별 컨디션 통계
+- 가지치기와 자유 할 일 이벤트
+- 장식, 화분 재질, 위치 분류
+- 진단과 채팅 연결
+- 센서 원시 데이터와 판정 로직

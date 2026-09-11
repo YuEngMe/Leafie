@@ -169,7 +169,7 @@ Supabase migration은 로컬 또는 staging에서 적용 순서와 rollback 가�
 
 ## 계약 변경
 
-API, Enum, 데이터 모델, Queue 작업, Tool Calling, Batch 계약을 변경할 때는 관련
+API, Enum, 데이터 모델, Queue 작업과 외부 Provider 계약을 변경할 때는 관련
 코드와 함께 다음 문서를 갱신합니다.
 
 - `docs/api-spec.md`

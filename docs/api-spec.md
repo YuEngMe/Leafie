@@ -1,119 +1,64 @@
-# API 명세 v1
+# API 명세 v2
 
-구현 후 FastAPI `/openapi.json`이 요청·응답 schema의 최종 기준입니다. Supabase Auth
-SDK가 직접 처리하는 인증 동작은 이 문서의 Auth 절을 따릅니다.
+최신 화면과 제품 결정을 기준으로 한 목표 계약입니다. 실제 배포 계약은 구현 완료 후
+FastAPI OpenAPI를 기준으로 검증합니다. 센서 API와 센서 데이터 필드는 이 문서 범위가
+아닙니다.
+
+세부 제안과 미확정 정책은 [전환 기준](product-transition.md)을 우선 확인합니다.
 
 ## 1. 공통 규칙
 
-- Base path: `/api/v1`
-- 인증: `Authorization: Bearer <supabase_access_token>`
-- 식별자: UUID
-- 날짜: `YYYY-MM-DD`
-- 시각: ISO 8601 UTC
-- 기본 사용자 시간대: `Asia/Seoul`
-- 목록: 커서 페이지네이션, 기본 최신순
-- 앱은 다른 사용자의 ID를 보내더라도 접근할 수 없음
-
-```json
-{
-  "items": [],
-  "next_cursor": null,
-  "has_next": false
-}
-```
+- Base URL: `/api/v1`
+- 보호 API: `Authorization: Bearer <Supabase access token>` 필수
+- UUID와 날짜는 각각 UUID 문자열, `YYYY-MM-DD`를 사용합니다.
+- 시각은 UTC ISO 8601로 반환하고 사용자 날짜 계산은 프로필 `timezone`을 사용합니다.
+- 목록은 cursor pagination을 사용합니다.
+- 생성·완료 요청의 재전송은 client UUID 또는 리소스 상태로 멱등하게 처리합니다.
+- 다른 사용자의 리소스는 존재 여부를 감추기 위해 `404`를 반환합니다.
 
 오류 형식:
 
 ```json
 {
   "error": {
-    "code": "PLANT_NOT_FOUND",
-    "message": "식물을 찾을 수 없습니다.",
-    "details": null,
-    "request_id": "req_01J..."
+    "code": "VALIDATION_ERROR",
+    "message": "요청값을 확인해 주세요.",
+    "details": {}
   }
 }
 ```
 
-| HTTP | 주요 code |
-|---:|---|
-| 400 | `INVALID_REQUEST`, `FUTURE_DATE_NOT_ALLOWED` |
-| 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `RECENT_AUTH_REQUIRED` |
-| 403 | `EMAIL_NOT_VERIFIED`, `RESOURCE_FORBIDDEN` |
-| 404 | `*_NOT_FOUND` |
-| 409 | `INVALID_STATE_TRANSITION`, `ACCOUNT_DELETION_PENDING`, `PLANT_REGISTRATION_ID_REUSED` |
-| 413 | `FILE_TOO_LARGE` |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` |
-| 422 | `VALIDATION_ERROR` |
-| 429 | `RATE_LIMITED` |
-| 503 | `DEPENDENCY_UNAVAILABLE` |
+주요 상태 코드는 `200`, `201`, `202`, `204`, `400`, `401`, `404`, `409`, `422`,
+`429`, `503`입니다.
 
 ## 2. Enum
 
-| 이름 | 값 |
-|---|---|
-| `SpeciesSelectionMethod` | `SEARCH`, `PHOTO` |
-| `PlantCategory` | `FOLIAGE`, `FLOWER`, `SUCCULENT_CACTUS`, `TREE`, `HERB`, `FRUIT`, `VINE` |
-| `PotType` | `TERRACOTTA`, `PLASTIC`, `GLASS`, `CERAMIC`, `HYDROPONIC`, `OTHER` |
-| `Placement` | `VERANDA`, `WINDOW`, `LIVING_ROOM`, `BEDROOM`, `DESK`, `OTHER` |
-| `PersonalityType` | `OUTGOING`, `CHIC`, `CUTE`, `CRUSH`, `INTROVERTED`, `CHUNGCHEONG` |
-| `RepottingHistoryStatus` | `KNOWN`, `NEVER`, `UNKNOWN` |
-| `CareType` | `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING`, `CUSTOM` |
-| `CareStoredStatus` | `SCHEDULED`, `COMPLETED`, `CANCELLED` |
-| `CareViewStatus` | `UPCOMING`, `TODAY`, `OVERDUE`, `COMPLETED`, `CANCELLED` |
-| `CareSource` | `AUTO_SCHEDULE`, `USER_CREATED`, `AI_RECOMMENDED` |
-| `MediaPurpose` | `PLANT_PROFILE`, `SPECIES_IDENTIFICATION`, `DIARY`, `DIAGNOSIS`, `CHAT` |
-| `AsyncStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
-| `DiagnosisStatus` | `PENDING`, `PROCESSING`, `COMPLETED`, `NEEDS_RETAKE`, `FAILED`, `CANCELLED` |
-| `DiagnosisCondition` | `HEALTHY`, `UNHEALTHY`, `UNCERTAIN` |
-| `AIActionStatus` | `PENDING_CONFIRMATION`, `EXECUTING`, `COMPLETED`, `CANCELLED`, `EXPIRED`, `FAILED` |
-
-컨디션은 다음 다섯 정수 중 하나만 저장합니다.
-
 ```text
-0=1단계, 25=2단계, 50=3단계, 75=4단계, 100=5단계
+PersonalityType = OUTGOING | CHIC | CUTE | CRUSH | INTROVERTED | CHUNGCHEONG
+SpeciesSelectionMethod = SEARCH | PHOTO
+DiaryWeather = SUNNY | PARTLY_CLOUDY | CLOUDY | RAINY | SNOWY
+CareType = WATERING | REPOTTING | FERTILIZING
+CareEventStatus = SCHEDULED | COMPLETED
+AsyncStatus = PENDING | PROCESSING | COMPLETED | FAILED
+DiagnosisStatus = PENDING | PROCESSING | COMPLETED | NEEDS_RETAKE | FAILED | CANCELLED
+DiagnosisCondition = HEALTHY | UNHEALTHY | UNCERTAIN
+LetterStatus = PENDING | PROCESSING | COMPLETED | FAILED
+MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 ```
 
-월평균 점수는 해당 월 점수의 산술평균을 반올림한 정수입니다. 평균 단계는 점수 사이의
-중간값을 경계로 `0~12.49=1`, `12.5~37.49=2`, `37.5~62.49=3`,
-`62.5~87.49=4`, `87.5~100=5`로 계산합니다. 정확히 경계값이면 높은 단계를 사용합니다.
+`TODAY`와 `OVERDUE`는 저장 상태가 아니라 `due_date`와 사용자 시간대로 계산한 표시값입니다.
 
-## 3. Supabase Auth
+## 3. 인증
 
-FastAPI `/auth/*` 엔드포인트는 만들지 않습니다.
+인증 요청은 Flutter의 Supabase Auth SDK가 직접 처리합니다.
 
-### 이메일 회원가입
-
-Flutter가 Supabase `signUp`을 호출합니다.
-
-```json
-{
-  "email": "user@example.com",
-  "password": "********",
-  "options": {
-    "data": {
-      "leafie_nickname": "새싹집사"
-    },
-    "emailRedirectTo": "leafie://auth/confirm"
-  }
-}
-```
-
-- 입력: 이메일, 비밀번호, 비밀번호 확인, 닉네임
-- 이메일 인증 링크 확인 전 로그인 불가
-- 비밀번호 확인은 앱에서만 검증하고 전송하지 않음
-
-### OAuth
-
-지원 Provider는 Naver, Kakao, Apple입니다. Kakao와 Apple은 Supabase 기본 Provider,
-Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 제공이 필수이며
-`GET /users/me`의 `profile_completed=false`이면 닉네임 입력 화면으로 이동합니다.
-
-### 비밀번호 재설정·변경
-
-현재 계정 이메일로 Supabase recovery 링크를 전송합니다. 링크가 앱으로 돌아오면
-새 비밀번호와 확인을 입력하고 Supabase `updateUser`를 호출합니다. 소셜 전용 계정은
-`can_change_password=false`입니다.
+- 이메일 회원가입: 이메일, 비밀번호와 `leafie_nickname` metadata를 전달하고 인증 링크를
+  발송합니다. 비밀번호 확인과 필수 약관 동의는 호출 전에 앱에서 검증합니다.
+- 로그인: 이메일·비밀번호 또는 Naver·Kakao·Apple OAuth를 사용합니다.
+- OAuth는 이메일 제공이 필수입니다. 최초 로그인에서 `/users/me`의
+  `profile_completed=false`이면 닉네임 입력 화면으로 갑니다.
+- 비밀번호 찾기: 이메일 재설정 링크가 앱 딥링크로 돌아온 뒤 앱에서 새 비밀번호를 설정합니다.
+- 비밀번호와 확인값은 FastAPI에 보내지 않습니다.
 
 ## 4. 사용자·마이페이지
 
@@ -123,63 +68,42 @@ Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 �
 {
   "user_id": "uuid",
   "email": "user@example.com",
-  "email_verified_at": "2026-07-31T10:00:00Z",
-  "auth_providers": ["email"],
-  "can_change_password": true,
-  "nickname": "새싹집사",
-  "timezone": "Asia/Seoul",
-  "selected_plant_id": "uuid",
-  "push_enabled": true,
+  "nickname": "초록이",
   "profile_completed": true,
-  "profile_completed_at": "2026-07-31T10:00:00Z",
+  "selected_plant_id": "uuid",
+  "timezone": "Asia/Seoul",
+  "notifications_enabled": true,
+  "can_change_password": true,
   "gardener_days": 128
 }
 ```
 
-프로필 사진과 한 줄 소개는 없습니다.
+`gardener_days`는 사용자의 가장 오래된 식물 `started_on` 기준이며 식물이 없으면 `0`입니다.
+소셜 전용 계정은 `can_change_password=false`입니다. 프로필 사진과 한 줄 소개는 반환하지
+않습니다.
 
 ### `PATCH /users/me`
 
-닉네임만 수정합니다. OAuth 최초 닉네임 입력도 같은 API를 사용합니다.
-
 ```json
-{"nickname": "초록집사"}
+{ "nickname": "잎새" }
 ```
 
 ### `PATCH /users/me/selected-plant`
 
 ```json
-{"selected_plant_id": "uuid-or-null"}
-```
-
-### `GET /users/me/stats`
-
-활성 식물 수와, 그 식물에 연결된 다이어리·진단 건수를 반환합니다. 삭제된 식물과
-그 하위 기록은 포함하지 않습니다.
-
-```json
-{
-  "plant_count": 2,
-  "diary_count": 14,
-  "diagnosis_count": 3
-}
+{ "plant_id": "uuid-or-null" }
 ```
 
 ### `PATCH /users/me/notification-settings`
 
 ```json
-{"push_enabled": false}
+{ "notifications_enabled": true }
 ```
 
 ### `DELETE /users/me`
 
-최근 재인증 토큰과 다음 body가 필요합니다.
-
-```json
-{"confirmation": "DELETE"}
-```
-
-응답은 `204`입니다. 계정은 즉시 접근 차단 후 Worker가 데이터를 삭제합니다.
+최근 재인증을 확인한 뒤 계정을 비활성화하고 `202 Accepted`를 반환합니다. 연관 데이터와
+Storage 파일은 멱등 Worker가 삭제합니다.
 
 ## 5. 미디어
 
@@ -189,189 +113,108 @@ Naver는 Custom OAuth2 Provider를 사용합니다. OAuth 계정은 이메일 �
 {
   "purpose": "DIARY",
   "content_type": "image/jpeg",
-  "size_bytes": 1048576,
-  "checksum_sha256": "64자리-sha256-hex"
+  "size_bytes": 542312
 }
 ```
 
-```json
-{
-  "media_file_id": "uuid",
-  "upload_url": "https://...",
-  "upload_method": "PUT",
-  "upload_headers": {"Content-Type": "image/jpeg"},
-  "expires_at": "2026-07-31T10:05:00Z"
-}
-```
+응답은 `media_file_id`, `upload_url`, 필요한 헤더와 만료 시각을 반환합니다.
 
 ### `POST /media/{media_file_id}/complete`
 
-Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기를 검증합니다.
+업로드 객체의 크기, 형식, 소유권을 검증합니다.
 
 ### `GET /media/{media_file_id}/download-url`
 
-본인 소유 파일에 대한 짧은 만료 Signed URL을 반환합니다.
+만료 시간이 짧은 비공개 다운로드 URL을 반환합니다.
 
 ### `DELETE /media/{media_file_id}`
 
-리소스에 연결되지 않은 업로드를 삭제합니다. 식물·다이어리·식물 인식·진단·채팅에
-연결된 파일은 `MEDIA_FILE_IN_USE`로 거부합니다. 응답은 `204`입니다.
+미사용 파일만 삭제할 수 있으며 Storage 삭제는 비동기로 처리합니다.
 
-## 6. 지원 식물 검색·사진 인식
+## 6. 지원 식물과 사진 인식
 
 ### `GET /species?query=바질&limit=20&cursor=`
 
-내부 지원 23종의 표시명과 별칭만 검색합니다.
+지원하는 정확한 23종에서 이름과 학명으로 검색합니다.
 
 ```json
 {
   "items": [
     {
-      "reference_id": "catalog:ocimum-basilicum",
+      "species_reference_id": "basil",
       "display_name": "바질",
       "scientific_name": "Ocimum basilicum",
-      "family_name": "Lamiaceae",
-      "flowering_period": "여름",
+      "family_name": "꿀풀과",
       "category": "HERB",
-      "recommended_water": {
-        "min_ml": 150,
-        "max_ml": 250,
-        "source": "SPECIES_GUIDE"
-      },
-      "default_care": {
-        "watering_interval_days": 3,
-        "repotting_interval_days": 365,
-        "source": "SPECIES_GUIDE",
-        "derived": true
-      }
+      "flowering_period": "6~9월"
     }
   ],
-  "next_cursor": null,
-  "has_next": false
+  "next_cursor": null
 }
 ```
+
+`category`는 표시용 파생값이며 사용자가 7개 대분류를 고르지 않습니다.
 
 ### `POST /species/identifications`
 
 ```json
-{"media_file_id": "uuid"}
+{ "media_file_id": "uuid" }
 ```
 
-응답 `202`:
-
-```json
-{
-  "identification_id": "uuid",
-  "status": "PENDING",
-  "created_at": "2026-07-31T10:05:00Z"
-}
-```
-
-동일 사진은 기존 결과를 반환하며 사용량을 추가로 소비하지 않습니다. 신규 사진 인식은
-사용자별 최근 24시간 20회가 기본 상한입니다.
+`202 Accepted`와 `identification_id`, `status=PENDING`을 반환합니다.
 
 ### `GET /species/identifications/{identification_id}`
 
-후보는 확률순이며 지원 23종과 매칭된 값만 반환합니다. 사용자가 `맞아요`를 누르면
-해당 `reference_id`로 등록하고 `다시 검색`은 앱이 다음 후보를 보여줍니다.
-지원 종과 매칭되는 후보가 없으면 `FAILED`와 `SPECIES_NO_CANDIDATES`를 반환합니다.
+완료 시 내부 23종과 매칭된 후보를 confidence 내림차순으로 반환합니다. 앱은 `아니에요`를
+누를 때 다음 후보를 보여주고 후보가 끝나면 검색 화면으로 이동합니다. 선택된 인식 사진의
+`media_file_id`는 식물 대표 사진으로 재사용합니다.
 
 ## 7. 식물 등록·조회·수정
 
 ### `POST /plants`
 
-등록 마지막 단계에서 한 번 호출합니다.
-
 ```json
 {
   "client_registration_id": "uuid",
   "nickname": "새싹이",
-  "species_reference_id": "catalog:ocimum-basilicum",
+  "species_reference_id": "basil",
   "species_selection_method": "PHOTO",
-  "species_identification_id": "uuid",
-  "primary_media_file_id": "uuid",
-  "started_on": "2026-03-01",
-  "place_name": "학교",
-  "pot_type": "PLASTIC",
-  "placement": "WINDOW",
+  "species_identification_id": "uuid-or-null",
+  "primary_media_file_id": "uuid-or-null",
+  "place_name": "내 방 창가",
+  "started_on": "2026-07-01",
   "last_watered_on": "2026-07-30",
-  "repotting_history": {
-    "status": "UNKNOWN",
-    "date": null
-  },
-  "personality_type": "OUTGOING",
-  "color_id": "color_green_01",
-  "hair_id": "hair_leaf_01",
-  "accessory_id": "accessory_star_01"
+  "last_repotted_on": null,
+  "personality_type": "INTROVERTED",
+  "color_id": "GREEN_01",
+  "hair_id": "LEAF_03"
 }
 ```
 
-- Flutter는 등록 흐름을 시작할 때 `client_registration_id` UUID를 한 번 생성하고 등록
-  결과를 받을 때까지 로컬에 보관합니다. 네트워크 오류나 타임아웃으로 재전송할 때는
-  반드시 같은 UUID와 같은 요청 내용을 사용합니다. 새로운 식물을 등록할 때는 새 UUID를
-  생성합니다.
-- 같은 사용자의 동일한 `client_registration_id`와 동일한 요청은 식물·일정·대화를 다시
-  만들지 않고 최초 `201 Created` 응답을 반환합니다. 같은 ID를 다른 요청 내용에 재사용하면
-  `409 PLANT_REGISTRATION_ID_REUSED`를 반환합니다.
-- `SEARCH` 등록은 `species_identification_id`와 `primary_media_file_id`를 null로
-  보냅니다.
-- `PHOTO` 등록은 두 ID가 모두 필요하며, `primary_media_file_id`는 해당 인식 작업에
-  사용한 사진 ID와 같아야 합니다.
-- 캐릭터 외형 ID 목록은 디자인 확정 전까지 공백과 최대 길이만 검증합니다. 확정 목록을
-  전달받은 뒤 `color_id`, `hair_id`, `accessory_id` 허용 목록 검증을 추가합니다.
-
-서버는 다음을 한 트랜잭션에서 처리합니다.
-
-- `(user_id, client_registration_id)` 멱등성 확인과 요청 해시 검증
-- 식물과 외형·환경 저장
-- 마지막 물 준 날짜를 기준으로 최초 물주기 일정 계산
-- 마지막 물주기 완료 이력 저장
-- 분갈이 상태가 `KNOWN`이면 입력 날짜를 완료 이력으로 저장하고 최초 반복 일정 계산
-- 분갈이 상태가 `NEVER`이면 사용자가 입력한 `started_on`을 기준으로 최초 반복 일정 계산
-- 첫 AI 대화 세션 생성
-- 선택 식물 갱신
-
-`started_on`, 마지막 관리일과 분갈이 날짜는 미래일 수 없습니다. 사진 인식으로 등록한
-경우 인식 사진을 대표 사진으로 재사용합니다. 검색 등록은 대표 사진 없이 등록하며,
-종별 분갈이 주기가 있으면 `KNOWN`과 `NEVER`에 최초 분갈이 반복 일정을 생성합니다.
-계산된 예정일이 과거이면 주기 단위로 더해 오늘 이후의 첫 예정일로 이동합니다.
-`NEVER`는 완료 이력을 만들지 않고 `UNKNOWN`은 기준 날짜가 없어 최초 일정과 완료
-이력을 모두 만들지 않습니다. 종별 분갈이 주기가 없으면 `KNOWN` 날짜는 완료 이력으로만
-저장합니다.
-
-성공 응답은 `201 Created`입니다.
-
-```json
-{
-  "id": "uuid",
-  "created_at": "2026-08-01T12:30:00Z"
-}
-```
-
-클라이언트는 반환된 `id`를 사용해 `GET /home?plant_id={id}`로 등록한 식물의 홈을
-조회합니다. 첫 AI 대화 세션 ID는 등록 응답에 포함하지 않으며 대화 목록 API에서
-조회합니다.
+- 검색 등록은 `species_identification_id`와 대표 사진이 null일 수 있습니다.
+- 분갈이 날짜는 선택값입니다.
+- 같은 사용자와 `client_registration_id`의 동일 요청은 최초 결과를 반환하고 다른 요청은
+  `409 IDEMPOTENCY_KEY_REUSED`를 반환합니다.
+- 성공 시 식물, 물주기 반복 일정, 알려진 경우 분갈이 반복 일정을 한 번만 생성합니다.
+- `last_watered_on`과 `last_repotted_on`은 식물 행의 수정 필드가 아니라 최초 완료 이력과
+  다음 예정일 계산에 사용합니다. 분갈이 날짜가 null이면 분갈이 이력과 일정을 만들지 않습니다.
+- 장식, 화분, 위치 분류, 컨디션과 대화 세션은 생성하지 않습니다.
 
 ### `GET /plants`
 
-삭제되지 않은 소유 식물을 `created_at ASC, id ASC` 순서로 반환합니다. 캐릭터 전체 보기에서
-필요한 종명, 외형, D+, 대표 사진 Signed URL과 현재 선택 여부를 포함합니다.
-
 ```json
 {
-  "plants": [
+  "items": [
     {
       "id": "uuid",
       "nickname": "새싹이",
-      "species_reference_id": "catalog:monstera-deliciosa",
-      "species_display_name": "몬스테라",
-      "primary_photo_url": "https://...",
-      "personality_type": "OUTGOING",
-      "color_id": "color_green_01",
-      "hair_id": "hair_leaf_01",
-      "accessory_id": "accessory_star_01",
-      "days_together": 153,
-      "is_selected": true
+      "species_reference_id": "basil",
+      "species_display_name": "바질",
+      "personality_type": "INTROVERTED",
+      "color_id": "GREEN_01",
+      "hair_id": "LEAF_03",
+      "primary_photo_url": "signed-url-or-null",
+      "started_on": "2026-07-01"
     }
   ]
 }
@@ -379,515 +222,166 @@ Storage 업로드 후 호출합니다. 서버가 객체 존재, 형식과 크기
 
 ### `GET /plants/{plant_id}`
 
-종명, 대분류, 학명, 과, 개화기, 환경, 캐릭터 외형, D+와 오늘 컨디션을 반환합니다.
-삭제된 식물과 다른 사용자의 식물은 `404 PLANT_NOT_FOUND`로 처리합니다.
+등록 정보, 종 정보, 외형, 대표 사진과 식물 시작일을 반환합니다.
 
 ### `PATCH /plants/{plant_id}`
 
 ```json
 {
-  "nickname": "새싹이",
-  "place_name": "우리 집",
-  "pot_type": "CERAMIC",
-  "placement": "LIVING_ROOM"
+  "nickname": "새잎이",
+  "place_name": "거실 창가"
 }
 ```
 
-식물 종, 성격과 마지막 물주기·분갈이 날짜는 이 API에서 변경하지 않습니다.
-전달한 필드만 수정하며 null과 빈 요청은 허용하지 않습니다. 성공 시 식물 상세 응답을
-반환합니다.
+종, 시작일과 성격 변경은 현재 화면 범위에 포함하지 않습니다.
 
 ### `PATCH /plants/{plant_id}/appearance`
 
 ```json
-{
-  "color_id": "color_yellow_01",
-  "hair_id": "hair_cactus_02",
-  "accessory_id": "accessory_glasses_01"
-}
+{ "color_id": "MINT_02", "hair_id": "LEAF_05" }
 ```
-
-전달한 외형 필드만 수정하고 식물 상세 응답을 반환합니다. 디자인 ID 목록이 확정되기
-전에는 공백과 최대 길이만 검증합니다.
 
 ### `DELETE /plants/{plant_id}`
 
-확인 팝업 후 호출합니다. 식물은 즉시 soft delete하고 같은 DB 트랜잭션에서 연결 미디어를
-`DELETED`로 전환한 뒤 `PLANT_DELETE` Queue 작업을 등록합니다. 선택하지 않은 식물을
-삭제하면 현재 선택을 유지합니다. 선택 식물을 삭제하면 `created_at ASC, id ASC` 기준으로
-가장 오래된 남은 식물을 선택하고, 남은 식물이 없으면 `selected_plant_id=null`로 만듭니다.
-
-Worker는 대표·인식·다이어리·진단·채팅 사진을 멱등하게 Storage에서 삭제한 뒤 식물을
-hard delete하여 메모, 다이어리, 일정, 진단, 대화, AI 작업과 알림을 cascade 삭제합니다.
-Storage 정리가 실패하면 식물을 복구하거나 hard delete하지 않고 soft delete 상태로 유지해
-재시도하며, 재시도 소진 시 로그와 `plant_id`를 기준으로 운영자가 재처리합니다. 이미 soft delete됐거나 Worker hard delete가 끝난 뒤, 또는 본인 소유가 아닌·없는
-식물 ID에 대한 삭제 요청도 Queue 작업을 만들지 않고 `204`를 반환합니다.
+확인 팝업을 거친 뒤 호출합니다. 삭제가 끝나면 다음 선택 식물 ID 또는 null을 반환합니다.
 
 ## 8. 홈
 
 ### `GET /home?plant_id={optional}`
-
-`plant_id`가 없으면 현재 선택 식물을 사용합니다.
 
 ```json
 {
   "plant": {
     "id": "uuid",
     "nickname": "새싹이",
-    "days_together": 153,
-    "primary_photo_url": "https://..."
+    "started_on": "2026-07-01",
+    "days_together": 32,
+    "personality_type": "INTROVERTED",
+    "color_id": "MINT_02",
+    "hair_id": "LEAF_05",
+    "primary_photo_url": "signed-url-or-null"
   },
-  "character": {
-    "personality_type": "OUTGOING",
-    "color_id": "color_green_01",
-    "hair_id": "hair_leaf_01",
-    "accessory_id": "accessory_star_01",
-    "expression_level": 4,
-    "dialogue": "오늘도 같이 잘 지내보자!"
+  "room": {
+    "background_phase": "DAY",
+    "dialogue_key": "NORMAL",
+    "dialogue": "오늘도 옆에 있어 줘서 고마워요."
   },
-  "condition": {"recorded": true, "score": 75, "level": 4},
-  "today_events": [],
-  "daily_memo": {"content": "새잎이 보였다."},
-  "unread_notification_count": 2
+  "unread_letter_count": 1,
+  "unread_notification_count": 2,
+  "device_connection_required": false
 }
 ```
 
-오늘 다이어리가 없으면 `condition.recorded=false`, 점수와 단계는 null입니다. 대사는
-성격·컨디션·일정 상태에 맞는 고정 문구 중 하나를 반환합니다. 고정 문구 목록과 오늘
-컨디션이 없을 때의 기본 표정이 확정되기 전에는 `dialogue`와 `expression_level`을 null로
-반환합니다. 오늘 컨디션이 있으면 점수의 1~5단계를 `expression_level`로 사용합니다.
-
-선택 식물이 없고 소유 식물도 없으면 오류 대신 `200 OK`로 빈 홈을 반환합니다.
-
-```json
-{
-  "plant": null,
-  "character": null,
-  "condition": null,
-  "today_events": [],
-  "daily_memo": null,
-  "unread_notification_count": 0
-}
-```
-
-홈은 사용자 시간대의 오늘 일정만 반환합니다. 완료하지 않아 예정일이 지난 이벤트는
-`due_date`를 다음 날로 변경하지 않고 `OVERDUE`로 계산하며 캐릭터 상세의 agenda에서
-조회합니다.
-
-### `PUT /plants/{plant_id}/daily-memos/{date}`
-
-식물별 하루 메모 한 개를 생성하거나 수정합니다.
-
-```json
-{"content": "오늘 새잎이 보였다."}
-```
-
-본문은 공백을 제외한 `1~500자`입니다. 완료 상태는 없으며 `date`는 사용자 시간대의
-오늘만 허용합니다.
-
-### `DELETE /plants/{plant_id}/daily-memos/{date}`
-
-오늘 홈 메모를 삭제합니다. 이미 메모가 없어도 `204`를 반환합니다.
+`background_phase`는 사용자 시간대로 계산합니다. 대사는 성격별 고정 목록에서 선택합니다.
+해 아이콘 교감은 앱 애니메이션이며 API 호출이 없습니다. 센서 값과 표정 상태는 센서 담당
+계약에서 별도로 합성하고 이 응답에 원시 측정값을 추가하지 않습니다. 식물이 없으면
+`plant`, `room`은 null입니다. 읽지 않은 편지와 알림 개수는 선택 식물이 아니라 사용자의
+전체 식물을 기준으로 계산합니다.
 
 ## 9. 관리 일정과 캘린더
 
 ### `GET /plants/{plant_id}/agenda?scope=active`
 
-캐릭터 상세의 미완료 지연·오늘·미래 일정만 예정일 순으로 반환합니다. `OVERDUE`,
-`TODAY`, `UPCOMING`은 저장하지 않고 사용자 시간대의 오늘과 `due_date`로 계산합니다.
-
-```json
-{
-  "events": [
-    {
-      "id": "uuid",
-      "type": "WATERING",
-      "title": null,
-      "due_date": "2026-08-02",
-      "view_status": "TODAY",
-      "source": "AUTO_SCHEDULE",
-      "completable": true
-    }
-  ]
-}
-```
+지연·오늘·미래의 미완료 일정만 반환합니다.
 
 ### `POST /plants/{plant_id}/care-events`
 
-비료, 가지치기와 자유 할 일 같은 일회성 이벤트를 생성합니다.
+사용자가 분갈이 또는 비료 일정을 추가합니다. 기존 미완료 분갈이가 있을 때 예정일을
+바꿀지 별도 회차로 기록할지는 구현 전에 확정합니다. 비료는 일회성입니다.
 
 ```json
 {
   "client_event_id": "uuid",
-  "type": "CUSTOM",
-  "title": "화분 방향 돌려주기",
-  "due_date": "2026-08-01"
+  "care_type": "REPOTTING",
+  "due_date": "2026-08-10"
 }
 ```
-
-사용자 생성 일회성 이벤트는 `FERTILIZING`, `PRUNING`, `CUSTOM`만 허용하며 제목은
-필수입니다. `due_date`는 사용자 시간대의 오늘 또는 미래만 허용합니다. Flutter는 생성
-흐름마다 `client_event_id` UUID를 만들고 성공 응답을 받을 때까지 유지합니다. 같은 ID와
-같은 요청은 기존 이벤트를 반환하고 다른 요청에 재사용하면 `409 CLIENT_EVENT_ID_REUSED`로
-차단합니다.
 
 ### `POST /care-events/{event_id}/complete`
 
-오늘 완료:
-
 ```json
-{}
+{ "performed_on": "2026-08-01" }
 ```
 
-과거 소급 완료:
+미래 완료는 거부합니다. 물주기·분갈이 반복 일정은 완료일 기준으로 다음 회차를 한 번
+생성합니다. 과거 날짜를 선택해 놓친 완료를 기록할 수 있습니다.
 
-```json
-{"performed_on": "2026-07-30"}
-```
-
-```json
-{
-  "id": "uuid",
-  "status": "COMPLETED",
-  "due_date": "2026-07-30",
-  "performed_on": "2026-07-30",
-  "recorded_at": "2026-07-31T12:30:00Z",
-  "next_event": {"id": "uuid", "due_date": "2026-08-06"}
-}
-```
-
-`recorded_at`은 서버 시각이며 수정할 수 없습니다. 미래 `performed_on`은 거부합니다.
-중복 완료 요청은 기존 완료 결과를 반환합니다. 반복 일정은 현재 `SCHEDULED` 이벤트를
-완료한 뒤 `performed_on + interval_days`를 기준으로 `care_schedule.next_due_date`를
-갱신하고 다음 `SCHEDULED` 이벤트 하나를 같은 트랜잭션에서 생성합니다. 계산된 날짜가
-이미 과거이면 주기 단위로 오늘 이후 첫 날짜까지 이동합니다.
-
-### `GET /plants/{plant_id}/calendar?from=2026-07-01&to=2026-07-31&types=WATERING,CONDITION`
-
-- 월·주 모드는 같은 범위 API 사용
-- 필터: `WATERING`, `REPOTTING`, `FERTILIZING`, `PRUNING`, `CONDITION`
-- `types`를 생략하면 위 5종을 모두 반환
-- 아이디어가 확정되지 않은 `CUSTOM` 일정은 캘린더 조회·필터에서 제외
-- `from`, `to`는 양 끝 날짜를 포함하며 `from <= to`여야 함
-- `to`는 `from`으로부터 3개월 뒤 날짜보다 앞서야 함
-- 미완료 일정은 `due_date`, 완료 기록은 `performed_on`에 표시
-- 컨디션은 다이어리 날짜에 표시하고 완료할 수 없음
-- 일정과 컨디션은 날짜별 중첩 객체가 아닌 하나의 `items` 배열로 평탄화하여 반환
+### `GET /plants/{plant_id}/calendar?from=2026-07-01&to=2026-07-31`
 
 ```json
 {
   "items": [
     {
-      "id": "care-event-uuid",
-      "date": "2026-07-20",
-      "type": "WATERING",
+      "event_id": "uuid",
+      "care_type": "WATERING",
+      "due_date": "2026-07-15",
       "status": "COMPLETED",
-      "view_status": "COMPLETED",
-      "title": null,
-      "source": "AUTO_SCHEDULE",
-      "condition_score": null,
-      "condition_level": null,
-      "completable": false
-    },
-    {
-      "id": "diary-uuid",
-      "date": "2026-07-20",
-      "type": "CONDITION",
-      "status": null,
-      "view_status": null,
-      "title": null,
-      "source": null,
-      "condition_score": 75,
-      "condition_level": 4,
-      "completable": false
+      "display_status": "COMPLETED",
+      "performed_on": "2026-07-15"
     }
   ]
 }
 ```
 
-일정 항목의 `date`는 미완료이면 `due_date`, 완료이면 `performed_on`입니다. 미완료
-항목의 `view_status`는 사용자 시간대의 오늘을 기준으로 `OVERDUE`, `TODAY`,
-`UPCOMING` 중 하나를 반환합니다. 취소된 일정과 `CUSTOM` 일정은 반환하지 않습니다.
-응답은 `date`, `created_at`, `id` 순으로 정렬합니다.
-
-지원하지 않는 필터는 `422 INVALID_CALENDAR_TYPES`, 역전되거나 3개월을 초과한 범위는
-`422 INVALID_CALENDAR_RANGE`를 반환합니다.
+월·주 화면은 같은 API를 사용합니다. 반환 종류는 물주기, 분갈이, 비료뿐입니다.
 
 ## 10. 다이어리
 
 ### `GET /plants/{plant_id}/diaries?year=2026&month=7`
 
-```json
-{
-  "entries": [
-    {
-      "id": "uuid",
-      "diary_date": "2026-07-20",
-      "condition_score": 75,
-      "condition_level": 4,
-      "has_photo": true
-    }
-  ],
-  "statistics": {
-    "entry_count": 1,
-    "average_score": 75,
-    "average_level": 4
-  }
-}
-```
-
-기록 없는 달의 평균과 단계는 null입니다.
+달력 표시용 작성 날짜와 상세 요약을 반환합니다. 컨디션 통계는 반환하지 않습니다.
 
 ### `PUT /plants/{plant_id}/diaries/{date}`
 
-같은 날짜의 기록이 없으면 생성하고 있으면 수정합니다.
-
 ```json
 {
-  "content": "오늘 새잎이 조금 더 펼쳐졌다.",
-  "condition_score": 75,
+  "weather": "SUNNY",
+  "title": "새잎이 난 날",
+  "content": "아침에 새잎을 발견했다.",
   "media_file_id": "uuid-or-null"
 }
 ```
 
-- 본문은 공백 제거 후 `1~2,000자`, 점수는 `0`, `25`, `50`, `75`, `100` 중 하나
-- 사진 최대 한 장
-- 오늘과 과거 작성 가능, 미래 불가
-- 생성할 때 사진 필드를 생략하거나 null로 보내면 사진 없이 저장
-- 수정할 때 `media_file_id`를 생략하면 기존 사진 유지, null이면 기존 사진 제거,
-  새 UUID이면 교체
-- 사진 UUID는 본인 소유의 `DIARY`, `READY` 파일이어야 하며 하나의 다이어리에만 연결
-- 같은 원본 이미지를 다른 다이어리에 사용하려면 새 업로드로 별도 UUID 생성
+- 식물별·날짜별 한 건을 생성하거나 수정합니다.
+- 미래 날짜는 허용하지 않습니다.
+- 생성 시 같은 트랜잭션에서 편지 한 건을 예약하고 `scheduled_at`을 현재 시각의 5~15분
+  뒤로 정합니다.
+- 이미 다이어리에 편지가 있으면 수정 요청은 편지를 새로 만들지 않습니다.
+- 편지 생성 전 수정은 Worker가 읽는 최신 다이어리에 반영됩니다.
+- 편지 생성 후 수정은 기존 편지에 영향을 주지 않습니다.
 
-최초 생성은 `201 Created`, 기존 날짜 수정은 `200 OK`입니다. 생성·수정·상세 조회는
-다음 형식을 반환합니다.
+응답:
 
 ```json
 {
-  "id": "uuid",
-  "plant_id": "uuid",
-  "diary_date": "2026-07-20",
-  "content": "오늘 새잎이 조금 더 펼쳐졌다.",
-  "condition_score": 75,
-  "condition_level": 4,
-  "media": {
+  "diary": {
     "id": "uuid",
-    "download_url": "signed-url",
-    "expires_at": "2026-07-20T12:35:00Z"
+    "diary_date": "2026-07-20",
+    "weather": "SUNNY",
+    "title": "새잎이 난 날",
+    "content": "아침에 새잎을 발견했다.",
+    "photo_url": "signed-url-or-null"
   },
-  "created_at": "2026-07-20T12:30:00Z",
-  "updated_at": "2026-07-20T12:30:00Z"
+  "letter": {
+    "id": "uuid",
+    "status": "PENDING",
+    "scheduled_at": "2026-07-20T07:12:00Z"
+  }
 }
 ```
-
-사진이 없으면 `media`는 null입니다. 날짜는 경로로 고정되며 수정할 수 없습니다.
 
 ### `GET /plants/{plant_id}/diaries/{date}`
 
-위 다이어리 응답 형식으로 본문, 사진 Signed URL, 점수와 5단계를 반환합니다.
+해당 날짜의 다이어리를 반환합니다.
 
-### `DELETE /plants/{plant_id}/diaries/{date}`
+## 11. 우편함과 편지
 
-다이어리를 삭제하고 `204 No Content`를 반환합니다. 이미 없는 다이어리도 204로 처리합니다.
-연결된 사진이 있으면 DB에서 `DELETED`로 전환하고 같은 트랜잭션에서 Storage 삭제 작업을
-Queue에 넣습니다. 실제 Storage 객체는 Worker가 멱등하게 삭제하며 실패하면 재시도합니다.
+클라이언트가 편지를 직접 생성하거나 재생성하는 API는 제공하지 않습니다.
 
-## 11. AI 대화와 Tool Calling
+### `GET /letters?plant_id={optional}&cursor=&unread_only=false&limit=20`
 
-식물별 별도 `ai_chats` 리소스는 없습니다. 대화 세션을 식물에 직접 연결합니다.
-
-### `GET /plants/{plant_id}/conversations?query=&cursor=`
-
-현재 식물의 대화 제목과 최근 사용일을 반환합니다.
-
-### `POST /plants/{plant_id}/conversations`
-
-새 채팅 세션을 생성합니다.
-
-```json
-{"title": "새 채팅"}
-```
-
-제목이 `새 채팅`인 세션은 첫 질문을 최대 30자로 정리해 대화목록 제목으로 사용합니다.
-글 없이 사진만 보낸 첫 질문은 `사진 질문`으로 표시합니다.
-
-### `DELETE /conversations/{conversation_id}`
-
-대화 세션만 soft delete합니다. 식물의 다른 대화는 유지합니다.
-
-### `GET /conversations/{conversation_id}/messages?cursor=`
-
-메시지를 생성일 순으로 반환합니다. 사진 메시지는 `PENDING`, `PROCESSING`,
-`COMPLETED`, `FAILED` 상태로 처리 진행 상황을 표시합니다.
-
-### `POST /conversations/{conversation_id}/messages`
-
-```json
-{
-  "client_message_id": "uuid",
-  "content": "잎이 노랗게 변했어요.",
-  "media_file_id": null
-}
-```
-
-텍스트와 사진 중 하나는 필수이며 사진은 미리 `CHAT` 용도로 업로드를 완료해야 합니다.
-한 대화에서 응답은 한 번에 하나만 생성합니다. Flutter는 전송할 때마다
-`client_message_id`를 생성하고 결과를 받을 때까지 같은 값을 유지합니다. 같은 대화에서
-동일 ID를 재전송하면 새 OpenAI 호출 없이 기존 사용자 메시지를 `200`으로 반환합니다.
-동일 ID를 다른 내용이나 사진에 재사용하면 `409 CLIENT_MESSAGE_ID_REUSED`를 반환합니다.
-
-텍스트 응답은 `text/event-stream`으로 반환합니다.
-Tool Calling 루프가 끝나면 완성된 텍스트를 한 `message.delta`로 전달합니다.
-
-```text
-event: message.started
-data: {"message_id":"assistant-message-uuid"}
-
-event: message.delta
-data: {"delta":"답변 일부"}
-
-event: action.proposed
-data: {"action_id":"uuid","status":"PENDING_CONFIRMATION","proposal":{"care_type":"FERTILIZING","due_date":"2026-08-03","title":"비료 주기","reason":"생장기 관리 제안"},"expires_at":"2026-08-02T12:00:00Z","requires_user_confirmation":true}
-
-event: message.completed
-data: {"message_id":"assistant-message-uuid","content":"전체 답변"}
-```
-
-생성 실패 시 `message.failed` 이벤트와 `error_code`를 반환합니다. 사진 메시지는
-`202`와 사용자 메시지 ID를 반환한 뒤 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다.
-클라이언트는 메시지 목록을 다시 조회해 처리 상태와 생성된 답변을 확인합니다.
-메시지 목록의 각 항목에는 연결된 `actions` 배열이 포함되므로 화면 재진입 후에도
-승인 대기·완료·취소 상태를 복원할 수 있습니다.
-
-AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니다. 모델 입력은 식물명,
-애칭, 장소·화분·위치, 종별 관리 가이드, 현재 대화의 누적 요약과
-최근 메시지만 사용합니다. 다른 식물이나 다른 대화 세션의 메시지는 섞지 않습니다.
-식물 캐릭터의 성격은 AI 응답 말투에 적용하지 않으며 홈 대사와 푸시 알림 문구에만
-사용합니다.
-
-기본 사용량 상한은 사용자별 최근 1분 채팅 10회, 최근 24시간 채팅 100회입니다. 초과
-요청은 `429`와 `Retry-After`를 반환하며 배포 환경변수로 조정할 수 있습니다.
-
-읽기 Tool은 서버가 실행합니다. 비료·가지치기 일정 변경은 `AI_ACTIONS` 제안만
-만들고 승인 전에는 실행하지 않습니다.
-
-지원 Tool:
-
-- 식물 기본 정보, 종별 관리 가이드, 환경
-- 지연·오늘·예정 관리 일정, 최근 완료 관리 이력
-- 최근 다이어리 컨디션, 최근 완료 진단
-- 비료·가지치기 1회성 일정 제안
-
-모델이 생성한 Tool 인자에는 `user_id`, `plant_id`를 받지 않습니다. 서버가 인증 사용자와
-현재 대화의 식물을 주입하며, 모든 호출은 `ai_tool_calls`에 성공·실패 상태로 기록합니다.
-일정 제안은 24시간 동안 승인할 수 있습니다.
-
-### `POST /ai-actions/{action_id}/confirm`
-
-본인 식물의 `PENDING_CONFIRMATION` 제안만 승인할 수 있습니다. 승인하면
-`AI_RECOMMENDED` 출처의 비료 또는 가지치기 1회성 일정이 생성됩니다.
-
-```json
-{
-  "id": "uuid",
-  "plant_id": "uuid",
-  "action_type": "CREATE_ONE_TIME_CARE_EVENT",
-  "payload": {
-    "care_type": "FERTILIZING",
-    "due_date": "2026-08-03",
-    "title": "비료 주기",
-    "reason": "생장기 관리 제안"
-  },
-  "status": "COMPLETED",
-  "expires_at": "2026-08-02T12:00:00Z",
-  "confirmed_at": "2026-08-01T12:10:00Z",
-  "executed_at": "2026-08-01T12:10:00Z",
-  "created_at": "2026-08-01T12:00:00Z"
-}
-```
-
-### `POST /ai-actions/{action_id}/cancel`
-
-본인 식물의 승인 대기 제안을 취소하고 같은 응답 구조에 `CANCELLED` 상태를 반환합니다.
-이미 처리됐거나 만료된 제안은 `409`를 반환합니다.
-
-## 12. 사진 진단
-
-### `POST /plants/{plant_id}/diagnoses`
-
-진단은 채팅 화면의 `진단하기`에서만 시작합니다.
-
-```json
-{
-  "conversation_id": "uuid",
-  "media_file_id": "uuid"
-}
-```
-
-응답 `202`:
-
-```json
-{
-  "diagnosis_id": "uuid",
-  "status": "PENDING",
-  "created_at": "2026-07-31T12:30:00Z"
-}
-```
-
-동일한 `media_file_id`로 다시 요청하면 외부 API를 중복 호출하지 않고 기존 진단 ID를
-반환합니다. 취소된 진단은 같은 ID를 `PENDING`으로 되돌려 다시 처리하고, 재시도할 수
-없는 실패는 `409 DIAGNOSIS_NEW_PHOTO_REQUIRED`를 반환합니다. 사진은 `DIAGNOSIS`
-용도로 업로드 완료된 JPEG·PNG·WebP 한 장이어야 합니다.
-신규 진단은 사용자별 최근 24시간 10회가 기본 상한이며 동일 사진 재요청은 상한을 추가로
-소비하지 않습니다.
-
-### `GET /plants/{plant_id}/diagnoses?cursor=`
-
-현재 식물의 전체 진단 이력을 최신순으로 반환합니다.
-
-### `GET /diagnoses/{diagnosis_id}`
-
-```json
-{
-  "id": "uuid",
-  "plant_id": "uuid",
-  "status": "COMPLETED",
-  "diagnosed_at": "2026-07-31T12:30:00Z",
-  "photo_url": "https://...",
-  "overall_condition": "UNHEALTHY",
-  "condition_label": "조금 관리가 필요해요",
-  "observations": ["잎 끝 마름", "잎 처짐"],
-  "possible_causes": [
-    {"name": "물 부족", "confidence": 0.76},
-    {"name": "습도 부족", "confidence": 0.58}
-  ],
-  "recommended_care": [
-    "흙 상태를 확인한 뒤 물을 주세요.",
-    "밝은 간접광이 드는 곳으로 옮겨주세요."
-  ],
-  "related_conversation_id": "uuid"
-}
-```
-
-원인 확률은 진단 Provider 값이 있을 때만 반환합니다. 건강점수, 단일 AI 신뢰도와
-진단 점수 그래프는 제공하지 않습니다. 낮은 품질이나 식물 미검출은
-`NEEDS_RETAKE`와 `retake_reason_code`, 처리 실패는 `FAILED`와 `failure_code`로
-반환합니다.
-
-### `POST /diagnoses/{diagnosis_id}/retry`
-
-재시도 가능한 실패만 다시 Queue에 등록합니다.
-
-### `POST /diagnoses/{diagnosis_id}/cancel`
-
-`PENDING`만 취소할 수 있습니다.
-
-## 13. 알림
-
-### `GET /notifications?cursor=&unread_only=false&limit=20`
-
-모든 식물의 앱 내 알림을 최신순으로 반환합니다. `limit`은 기본 `20`, 최소 `1`, 최대
-`100`이며 잘못된 `cursor`는 `422 INVALID_CURSOR`를 반환합니다.
+기본값은 사용자가 소유한 모든 식물의 우편함이며 `plant_id`로 한 식물만 필터링할 수
+있습니다.
 
 ```json
 {
@@ -895,75 +389,121 @@ AI 응답자는 식물 캐릭터가 아니라 `AI 식물박사 똑똑이`입니�
     {
       "id": "uuid",
       "plant_id": "uuid",
-      "type": "CARE_DUE",
-      "title": "물 줄 시간이에요",
-      "body": "새싹이에게 물을 주세요.",
-      "source_type": "CARE_EVENT",
-      "source_id": "uuid",
-      "read_at": null,
-      "created_at": "2026-08-02T09:00:00Z"
+      "plant_nickname": "새싹이",
+      "diary_id": "uuid",
+      "diary_date": "2026-07-20",
+      "status": "COMPLETED",
+      "preview": "오늘 네가 새잎을 발견해 줘서...",
+      "generated_at": "2026-07-20T07:12:00Z",
+      "is_read": false
     }
   ],
-  "next_cursor": null,
-  "has_next": false
+  "next_cursor": null
 }
 ```
 
-### `POST /notifications/{notification_id}/read`
+### `GET /letters/{letter_id}`
 
-본인 알림만 읽음 처리하며 이미 읽은 알림은 기존 결과를 반환합니다.
-본인 알림이 아니거나 존재하지 않으면 `404 NOTIFICATION_NOT_FOUND`를 반환합니다.
+식물 정보, 다이어리 날짜, 편지 본문과 생성 시각을 반환합니다.
+
+### `POST /letters/{letter_id}/read`
+
+`read_at`을 최초 한 번 기록하며 재호출해도 성공합니다.
+
+### `DELETE /letters/{letter_id}`
+
+우편함에서 편지만 soft delete합니다. 연결된 다이어리는 유지하고 재생성하지 않습니다.
+
+## 12. 사진 진단
+
+### `POST /plants/{plant_id}/diagnoses`
+
+```json
+{ "media_file_id": "uuid" }
+```
+
+`202 Accepted`와 `diagnosis_id`, `status=PENDING`을 반환합니다.
+
+### `GET /plants/{plant_id}/diagnoses?cursor=`
+
+오늘 진단과 지난 진단을 최신순으로 반환합니다.
+
+### `GET /diagnoses/{diagnosis_id}`
+
+```json
+{
+  "id": "uuid",
+  "status": "COMPLETED",
+  "photo_url": "signed-url",
+  "overall_condition": "UNHEALTHY",
+  "condition_label": "조금 관리가 필요해요",
+  "observations": ["잎 끝 마름", "잎 처짐"],
+  "possible_causes": [
+    { "name": "수분 부족", "confidence": 0.76 }
+  ],
+  "recommended_care": ["물을 충분히 주세요.", "밝은 곳으로 옮겨 주세요."]
+}
+```
+
+진단은 채팅이나 편지와 연결하지 않습니다.
+
+### `POST /diagnoses/{diagnosis_id}/retry`
+
+재시도 가능한 실패 상태에서만 새 작업을 enqueue합니다.
+
+### `POST /diagnoses/{diagnosis_id}/cancel`
+
+처리 전 상태만 취소합니다.
+
+## 13. 알림과 푸시 기기
+
+### `GET /notifications?cursor=&unread_only=false&limit=20`
+
+오늘과 이전 알림을 최신순으로 반환합니다. 각 항목은 `type`, 제목, 본문, `read_at`,
+`target_type`, `target_id`, `created_at`을 포함합니다. 편지 도착 알림은 해당 편지 상세로
+이동합니다. 센서 알림은 센서 도메인이 발생시키되 같은 알림 구조를 사용합니다.
+
+### `POST /notifications/{notification_id}/read`
 
 ### `POST /notifications/read-all`
 
-현재 사용자의 읽지 않은 알림을 모두 읽음 처리하고 `204`를 반환합니다.
+읽음 처리는 멱등합니다.
 
 ### `POST /devices`
 
 ```json
-{"platform": "IOS", "installation_id": "firebase-installation-id"}
+{
+  "installation_id": "firebase-installation-id",
+  "platform": "IOS"
+}
 ```
-
-같은 활성 FID를 다시 등록하면 새 행을 만들지 않고 사용자, 플랫폼과 마지막 사용 시각을
-갱신합니다. 응답의 `id`를 로컬에 저장해 로그아웃할 때 폐기 요청에 사용합니다.
 
 ### `DELETE /devices/{device_id}`
 
-신규 Firebase 앱 인스턴스의 FID를 등록합니다. 로그아웃 또는 푸시 권한 철회 시
-등록을 폐기합니다.
-본인의 활성 기기가 아니면 `404 DEVICE_NOT_FOUND`를 반환합니다.
+`devices`는 푸시 수신용 앱 설치 정보이며 식물 센서 장치가 아닙니다.
 
 ## 14. 내부 비동기 작업
 
-외부에 노출하지 않는 Queue job type:
+외부에 노출하지 않는 작업 종류:
 
 ```text
-SPECIES_IDENTIFICATION_RUN
+SPECIES_IDENTIFICATION
 DIAGNOSIS_RUN
-CHAT_IMAGE_ANALYSIS
-CARE_NOTIFICATION_COLLECT
-PUSH_NOTIFICATION_SEND
-STORAGE_OBJECT_DELETE
+LETTER_GENERATION_RUN
+PUSH_DELIVERY
+MEDIA_DELETE
 ACCOUNT_DELETE
-PLANT_DELETE
 ```
 
-`PUSH_NOTIFICATION_SEND.resource_id`는 `notifications.id`입니다. Worker는 사용자의
-`push_enabled`와 활성 `device_tokens`를 다시 확인한 뒤 FCM으로 발송합니다. 미등록
-FID는 폐기하고 일시 오류만 Queue 재시도 대상으로 처리합니다.
+`LETTER_GENERATION_RUN` 규칙:
 
-`PLANT_DELETE.resource_id`는 `plants.id`입니다. Worker는 연결 미디어 Storage 객체를
-먼저 멱등 삭제한 뒤 식물을 hard delete하여 하위 업무 데이터를 cascade 삭제합니다.
-Storage 실패 시 soft delete 상태를 유지하고 Queue 정책으로 재시도합니다.
+1. `scheduled_at <= now()`인 `PENDING` 편지를 원자적으로 `PROCESSING`으로 선점합니다.
+2. 처리 직전 최신 다이어리, 식물, 성격과 센서 담당자의 날짜별 요약을 읽습니다.
+3. OpenAI 응답을 편지 한 통으로 저장하고 `COMPLETED`로 전환합니다.
+4. 편지 도착 알림을 만들고 푸시가 켜져 있으면 `PUSH_DELIVERY`를 enqueue합니다.
+5. 인증·요청 오류는 `FAILED`, timeout·429·5xx는 재시도합니다.
+6. 중복 전달이나 Worker 재시작에도 `diary_id` unique와 상태 조건으로 두 번째 편지를
+   만들지 않습니다.
 
-`CARE_NOTIFICATION_COLLECT`는 Supabase Cron이 매시간 발행합니다. Worker는 사용자
-시간대의 오전 9시인 계정만 확인하여 오늘 또는 지연된 물주기·분갈이 일정마다
-`CARE_DUE` 알림을 한 번 생성하고 `PUSH_NOTIFICATION_SEND`를 발행합니다.
-
-Supabase Cron은 다음 작업만 시작합니다.
-
-- 오늘·지연 일정 알림 대상 수집
-- 재시도 대상 발행
-- 고아 미디어 정리
-
-OpenAI Batch API는 현재 MVP에서 사용하지 않습니다.
+센서 요약이 언제나 제공된다는 제품 전제를 따르되, 구체 데이터 형식과 산출 방식은 센서
+담당 계약에서 정의합니다.
