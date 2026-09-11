@@ -5,6 +5,15 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 
+
+def test_diagnosis_openapi_has_no_conversation_contract() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    request = schemas["DiagnosisCreateRequest"]
+    assert request["required"] == ["media_file_id"]
+    assert "conversation_id" not in request["properties"]
+    assert request["additionalProperties"] is False
+    assert "related_conversation_id" not in schemas["DiagnosisDetailResponse"]["properties"]
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     (
         "POST",
@@ -123,7 +132,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     (
         "POST",
         f"/api/v1/plants/{uuid4()}/diagnoses",
-        {"conversation_id": str(uuid4()), "media_file_id": str(uuid4())},
+        {"media_file_id": str(uuid4())},
         None,
     ),
     ("GET", f"/api/v1/plants/{uuid4()}/diagnoses", None, None),

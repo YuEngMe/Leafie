@@ -106,6 +106,8 @@ def test_conversations_belong_directly_to_a_plant() -> None:
 
 def test_diagnosis_accepts_only_one_image() -> None:
     diagnoses = Base.metadata.tables["diagnoses"]
+    assert "related_conversation_id" not in diagnoses.columns
+    assert all(fk.column.table.name != "ai_conversations" for fk in diagnoses.foreign_keys)
     unique_columns = {
         tuple(column.name for column in constraint.columns)
         for constraint in diagnoses.constraints

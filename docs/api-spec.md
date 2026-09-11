@@ -447,6 +447,11 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 
 진단은 채팅이나 편지와 연결하지 않습니다.
 
+진단 분리 구현(#43): 생성 요청은 `media_file_id`만 받습니다. 기존 `conversation_id`를
+계속 보내면 추가 필드 검증으로 거부합니다. 상세 응답에는 `related_conversation_id`가
+없습니다. 같은 사진을 다른 식물의 진단에 재사용하면 `409 DIAGNOSIS_MEDIA_ALREADY_USED`를
+반환하며 기존 진단을 재시작하지 않습니다. 같은 식물·사진 재전송의 멱등성은 유지합니다.
+
 ### `POST /diagnoses/{diagnosis_id}/retry`
 
 재시도 가능한 실패 상태에서만 새 작업을 enqueue합니다.

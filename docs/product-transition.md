@@ -54,6 +54,21 @@
 
 ## DB 전환 원칙
 
+### 진단 분리 migration (#43)
+
+`a7d921e4b603`은 `diagnoses.related_conversation_id`의 FK와 컬럼만 제거합니다.
+진단 결과, 사진, 기존 채팅 메시지와 진단 완료 알림은 보존합니다. 역방향의 기존
+`ai_messages.related_diagnosis_id`는 채팅 폐기 #49에서 정리합니다.
+
+기존 API·Worker는 제거할 컬럼을 참조하므로 배포 시 구버전 프로세스를 중지하고 진행
+작업을 마친 뒤 migration을 적용하고 새 API·Worker를 시작합니다. 앱 요청에서도
+`conversation_id`를 제거해야 합니다. 이번 PR은 공유 DB에 migration을 자동 적용하지 않습니다.
+
+downgrade는 nullable 컬럼과 FK만 복구하며 이전 연결값을 복원하지 못합니다. 연결값 복구가
+필요하면 적용 전 백업이 필요합니다.
+
+### 공통 원칙
+
 - 기존 migration을 지우지 않고 새 revision으로 변경합니다.
 - ERD의 표는 변경 대상 중심의 개념 요약입니다. 생략된 기존 보안·감사·멱등성 필드를
   삭제 대상으로 해석하지 않습니다. 기존 필드명은 기능상 필요한 경우에만 변경합니다.
