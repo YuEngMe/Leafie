@@ -93,9 +93,9 @@ hard delete된 편지는 재삭제 시 404입니다. 읽음 해제 API는 현재
 
 ## 배포·검증
 
-- revision `b2f416a83d09`는 `f1a8c3e05d92` 위에 새 테이블만 추가합니다. 기존 데이터 삭제 없음.
-- #53에도 migration이 있으므로 두 PR 병합 시 부모 revision을 최신 head에 맞춰 재검증합니다.
-  `alembic heads`는 반드시 한 개여야 합니다. downgrade는 편지 데이터 전체를 제거합니다.
+- revision `b2f416a83d09`는 #53의 `a7d921e4b603` 다음에 새 테이블만 추가합니다.
+  기존 데이터 삭제 없음. `alembic heads`는 반드시 한 개여야 합니다.
+  downgrade는 편지 데이터 전체를 제거합니다.
 - RLS 활성화, `anon`/`authenticated` 직접 테이블 권한 제거. 조회·변경은 JWT 검증 백엔드 API로만
   제공하며 DB 역할은 기존 백엔드 역할을 사용합니다. 스냅샷/실패코드/선점 정보는 API에 미노출입니다.
 - migration → 새 Worker/API 배포 → #42/#52 연결 → 신규 저장 활성화 순서입니다.

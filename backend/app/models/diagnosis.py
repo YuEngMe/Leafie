@@ -49,10 +49,6 @@ class Diagnosis(Base, UUIDPrimaryKeyMixin):
     plant_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
     )
-    related_conversation_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("ai_conversations.id", ondelete="SET NULL", use_alter=True),
-    )
     media_file_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("media_files.id", ondelete="CASCADE"),

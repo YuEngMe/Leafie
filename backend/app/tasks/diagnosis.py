@@ -21,9 +21,8 @@ from app.integrations.diagnosis import (
 )
 from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
-from app.models.chat import AIConversation, AIMessage
 from app.models.diagnosis import Diagnosis
-from app.models.enums import AIMessageStatus, ChatRole, DiagnosisCondition, DiagnosisStatus
+from app.models.enums import DiagnosisCondition, DiagnosisStatus
 from app.models.media import MediaFile
 from app.models.notification import Notification
 from app.models.plant import Plant
@@ -149,29 +148,6 @@ class SQLAlchemyDiagnosisRepository:
             diagnosis.estimated_cost = result.estimated_cost
             diagnosis.cost_currency = result.cost_currency
             diagnosis.completed_at = datetime.now(UTC)
-
-            if diagnosis.related_conversation_id is not None:
-                session.add(
-                    AIMessage(
-                        id=uuid4(),
-                        conversation_id=diagnosis.related_conversation_id,
-                        related_diagnosis_id=diagnosis.id,
-                        media_file_id=diagnosis.media_file_id,
-                        role=ChatRole.ASSISTANT.value,
-                        status=AIMessageStatus.COMPLETED.value,
-                        content="진단 결과가 생성되었습니다. 진단표에서 확인해 주세요.",
-                        provider=result.provider_name,
-                        model_name=result.model_name,
-                        provider_response_id=result.response_id,
-                        created_at=datetime.now(UTC),
-                    )
-                )
-                conversation = await session.get(
-                    AIConversation,
-                    diagnosis.related_conversation_id,
-                )
-                if conversation is not None:
-                    conversation.last_message_at = datetime.now(UTC)
 
             plant = await session.get(Plant, diagnosis.plant_id)
             if plant is not None:

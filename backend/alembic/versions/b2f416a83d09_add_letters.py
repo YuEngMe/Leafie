@@ -1,7 +1,7 @@
 """add letters without backfilling existing diaries
 
 Revision ID: b2f416a83d09
-Revises: f1a8c3e05d92
+Revises: a7d921e4b603
 """
 
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision = "b2f416a83d09"
-down_revision = "f1a8c3e05d92"
+down_revision = "a7d921e4b603"
 branch_labels = None
 depends_on = None
 
