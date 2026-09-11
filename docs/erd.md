@@ -108,8 +108,9 @@ erDiagram
 | `diary_id` | uuid | unique, 다이어리 FK |
 | `status` | enum | `PENDING` 기본 |
 | `content` | text | 완료 전 nullable |
-| `scheduled_at` | timestamptz | 다이어리 생성 후 5~15분 |
+| `scheduled_at` | timestamptz | 최초 저장 후 5~15분, 고정 공개 목표 시각 |
 | `started_at`, `generated_at` | timestamptz | nullable |
+| `published_at` | timestamptz | nullable, 실제 공개 시각; 공개 전 우편함·알림 제외 |
 | `read_at` | timestamptz | nullable |
 | `provider`, `model` | varchar | nullable |
 | `input_tokens`, `output_tokens` | integer | nullable |
