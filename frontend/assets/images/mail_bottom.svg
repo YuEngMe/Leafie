@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="283.722" height="106.262" viewBox="0 0 283.722 106.262" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Polygon 73" filter="url(#filter0_d_0_4)">
+<path d="M137.75 6.99301C139.414 5.91448 141.554 5.90441 143.229 6.96724L275.181 90.7272C279.469 93.4493 277.541 100.085 272.462 100.085H11.2603C6.20584 100.085 4.2592 93.5018 8.50084 90.753L137.75 6.99301Z" fill="#FFFCE5"/>
+</g>
+<defs>
+<filter id="filter0_d_0_4" x="0" y="1.78814e-07" width="283.722" height="106.262" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="3.08853"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.1 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_4" result="shape"/>
+</filter>
+</defs>
+</svg>

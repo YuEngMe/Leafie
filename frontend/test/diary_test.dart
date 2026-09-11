@@ -82,10 +82,30 @@ void main() {
       expect(tester.getCenter(find.text('일')).dx, closeTo(64.33, 1));
       expect(tester.getCenter(find.text('토')).dx, closeTo(327.90, 1));
       expect(tester.getRect(find.text('일')).top, closeTo(262.61, 1));
-      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 274);
+      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 232);
+      _expectAt(tester, '이전 달', find.bySemanticsLabel('이전 달'), 350, 493);
+      _expectAt(tester, '다음 달', find.bySemanticsLabel('다음 달'), 351, 561);
+      final body = tester.widget<DiaryScaffoldBody>(
+        find.byType(DiaryScaffoldBody),
+      );
+      expect(body.paperTabs, hasLength(3));
       // 시안 3496:12213에서 자리가 바뀌었다.
       _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
       expect(find.byKey(const ValueKey('diary-appbar-edit')), findsNothing);
+      await tester.runAsync(() async {
+        final context = tester.element(find.byType(DiaryScreen));
+        for (final asset in [
+          'diary_background.png',
+          'icon_diary_fab.png',
+        ]) {
+          await precacheImage(AssetImage('assets/images/$asset'), context);
+        }
+      });
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(DiaryScreen),
+        matchesGoldenFile('goldens/diary_calendar_controls_402.png'),
+      );
     });
 
     testWidgets('그 달의 날짜를 빠짐없이 그린다', (tester) async {

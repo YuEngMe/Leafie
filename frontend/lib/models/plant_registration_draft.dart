@@ -42,7 +42,7 @@ class PlantRegistrationDraft {
   // CHAR-01에서 채움. 값은 api-spec.md의 PersonalityType enum 그대로.
   String? personalityType;
 
-  // CHAR-02에서 채움 — 컬러만 구현. 헤어·장식 ID는 디자이너 에셋 납품 전이라 미확정.
+  // CHAR-02에서 컬러와 헤어를 선택. 장식은 아직 선택 UI 없음.
   String? bodyColorId;
   String? headItem;
   String? accessory;

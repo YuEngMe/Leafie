@@ -1,10 +1,11 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:yeso_plant/models/plant_letter.dart';
+import 'package:yeso_plant/screens/mailbox_screen.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
-import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
@@ -14,7 +15,7 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
@@ -105,10 +106,12 @@ class HomeScreen extends StatefulWidget {
     this.plantRepository,
     this.notificationBuilder,
     this.plantManagementBuilder,
+    this.letterRepository,
   });
 
   /// 등록 직후 서버에 보낸 snapshot을 바로 표시할 때만 전달한다.
   final HomePlant? plant;
+  final PlantLetterRepository? letterRepository;
   final HomeTimePeriod? period;
   final HomeScene initialScene;
   final bool initialGaugesExpanded;
@@ -298,6 +301,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final plant = _serverPlant ?? widget.plant;
+    return MainTabShell(
+      home: _buildHome(context),
+      diaryBuilder: (_) => const DiaryScreen(showBottomNav: false),
+      calendarBuilder: (_) => CalendarScreen(
+        key: ValueKey(plant?.id),
+        plantId: plant?.id,
+        plantName: plant?.name,
+        showBottomNav: false,
+      ),
+    );
+  }
+
+  Widget _buildHome(BuildContext context) {
+    final plant = _serverPlant ?? widget.plant;
     final period = widget.period ?? HomeTimePeriod.fromDateTime(DateTime.now());
 
     return Scaffold(
@@ -375,10 +392,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: PlantCharacterArt(width: 248, sprouted: true),
                   ),
                 if (plant != null)
-                  const Positioned(
+                  Positioned(
                     left: 304,
                     top: 453,
-                    child: FigmaHomeAssetIcon(FigmaHomeIcon.mailbox),
+                    child: Semantics(
+                      button: true,
+                      label: '우편함 열기',
+                      child: GestureDetector(
+                        key: const ValueKey('home-mailbox'),
+                        onTap: () => showPlantMailbox(
+                          context,
+                          plantId: plant.id,
+                          repository: widget.letterRepository,
+                        ),
+                        child: const FigmaHomeAssetIcon(FigmaHomeIcon.mailbox),
+                      ),
+                    ),
                   ),
                 if (_loadingHome)
                   const Positioned(
@@ -420,34 +449,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   _HomeStatusCard(
                     onTap: () => setState(() => _gaugesExpanded = true),
                   ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AppBottomNav(
-                    onTap: (tab) => switch (tab) {
-                      FigmaNavIcon.diary => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DiaryScreen()),
-                      ),
-                      FigmaNavIcon.calendar => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CalendarScreen(
-                            plantId: plant?.id,
-                            plantName: plant?.name,
-                            diaryBuilder: (_) => const DiaryScreen(),
-                          ),
-                        ),
-                      ),
-                      FigmaNavIcon.my => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MyPageScreen()),
-                      ),
-                      _ => null,
-                    },
-                  ),
-                ),
               ],
             ),
           ),
@@ -738,14 +739,14 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       top: 575,
       height: 220,
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.55),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
+                top: Radius.circular(35),
               ),
             ),
             child: Stack(
@@ -753,7 +754,7 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                 Positioned(
                   left: 0,
                   right: 0,
-                  top: 4,
+                  top: 1,
                   height: 18,
                   child: GestureDetector(
                     key: const ValueKey('home-environment-collapse'),
@@ -761,7 +762,7 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                     onTap: onCollapse,
                     child: const Center(
                       child: SizedBox(
-                        width: 70,
+                        width: 71.6,
                         height: 2,
                         child: ColoredBox(color: Colors.white),
                       ),
@@ -771,11 +772,12 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                 Positioned(
                   left: 34,
                   right: 34,
-                  top: 82,
+                  // Figma 3822:601: y=683, relative to the panel at y=575.
+                  top: 108,
                   child: Text(
-                    '측정 데이터가 없어요.\n센서 연동 후 습도와 조도가 표시됩니다.',
+                    '기기연결이 필요합니다',
                     textAlign: TextAlign.center,
-                    style: kCaptionStyle.copyWith(color: kTextDark),
+                    style: kTitleStyle.copyWith(color: const Color(0xFF434343)),
                   ),
                 ),
               ],

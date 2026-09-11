@@ -5,9 +5,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/services/diagnosis_api.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 void main() {
   setUp(() {});
+
+  testWidgets('빈 진단 화면과 사진 확인에서 공통 뒤로가기로 빠져나온다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeDiagnosisRepository(records: const []);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => DiagnosisScreen(
+                      plantId: 'plant-id',
+                      repository: repository,
+                      photoPicker: () async => DiagnosisPhoto(_greenPixelPng),
+                    ),
+                  ),
+                ),
+                child: const Text('진단 열기'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('진단 열기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FigmaBackChevron), findsOneWidget);
+    await tester.tap(find.text('진단하기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DiagnosisPhotoConfirmScreen), findsOneWidget);
+    await tester.tap(find.byType(FigmaBackChevron));
+    await tester.pumpAndSettle();
+    expect(find.byType(DiagnosisPhotoConfirmScreen), findsNothing);
+    expect(find.text('진단 기록이 없습니다'), findsOneWidget);
+    expect(repository.submittedPlantId, isNull);
+    await tester.tap(find.byType(FigmaBackChevron));
+    await tester.pumpAndSettle();
+    expect(find.text('진단 열기'), findsOneWidget);
+    expect(find.byType(DiagnosisScreen), findsNothing);
+  });
 
   testWidgets('기록이 없으면 Figma 빈 상태와 진단 버튼을 보여준다', (tester) async {
     _setIPhone16ProViewport(tester);

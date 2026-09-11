@@ -28,11 +28,11 @@ class DiaryLayout {
 
   /// 오른쪽 파란 책갈피(3496:11990). 시안은 180도 돌려 놓아 left가
   /// 395로 적히지만 실제로 그려지는 자리는 395 - 45 = 350이다.
-  static const Rect tab = Rect.fromLTWH(350, 274, 45, 42);
+  static const Rect tab = Rect.fromLTWH(350, 232, 45, 42);
 
   /// 이전/다음 달 버튼(3496:11992).
-  static const Rect prevButton = Rect.fromLTWH(350, 535, 45, 42);
-  static const Rect nextButton = Rect.fromLTWH(351, 603, 44, 42);
+  static const Rect prevButton = Rect.fromLTWH(350, 493, 45, 42);
+  static const Rect nextButton = Rect.fromLTWH(351, 561, 44, 42);
 
   /// 글쓰기 화면(2739:39308, 3496:10291)의 앞뒤 날 버튼. 3173:185 그룹
   /// 45×110이 y 493~603을 차지한다 — 위 42, 사이 26, 아래 42.
@@ -56,10 +56,14 @@ class DiaryScaffoldBody extends StatelessWidget {
     required this.child,
     this.onFabPressed,
     this.onNavTap,
+    this.paperTabs = const [],
   });
 
   /// 종이 위에 놓일 내용. 좌표는 화면 절대값을 그대로 쓴다.
   final Widget child;
+
+  /// Figma tabs are behind the front sheet, which hides their left 14px.
+  final List<Widget> paperTabs;
   final VoidCallback? onFabPressed;
 
   /// 하단 네비를 띄울지. null이면 그리지 않는다(글쓰기 화면).
@@ -97,6 +101,7 @@ class DiaryScaffoldBody extends StatelessWidget {
           rect: DiaryLayout.paperBack1,
           child: const _PaperSheet(color: kDiaryPaperBack1, blur: 3.68),
         ),
+        ...paperTabs,
         Positioned.fromRect(
           rect: DiaryLayout.paper,
           child: const _PaperSheet(
@@ -143,7 +148,20 @@ class DiaryScaffoldBody extends StatelessWidget {
               child: Semantics(
                 label: '다이어리 쓰기',
                 button: true,
-                child: SvgPicture.asset('assets/images/icon_diary_fab.svg'),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: -4,
+                      top: -4,
+                      child: Image.asset(
+                        'assets/images/icon_diary_fab.png',
+                        width: 53,
+                        height: 53,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

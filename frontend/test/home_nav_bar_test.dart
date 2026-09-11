@@ -8,11 +8,98 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/main_tab_shell.dart';
+
+class _StatefulTab extends StatefulWidget {
+  const _StatefulTab();
+
+  @override
+  State<_StatefulTab> createState() => _StatefulTabState();
+}
+
+class _StatefulTabState extends State<_StatefulTab> {
+  int count = 0;
+  @override
+  Widget build(BuildContext context) => Center(
+    child: TextButton(
+      onPressed: () => setState(() => count++),
+      child: Text('calendar:$count'),
+    ),
+  );
+}
 
 Finder _navIcon(FigmaNavIcon icon) =>
     find.byWidgetPredicate((w) => w is FigmaBottomNavIcon && w.icon == icon);
 
 void main() {
+  testWidgets('탭은 바와 상태를 유지하고 마이페이지 뒤로가기는 홈으로 간다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainTabShell(
+          home: const Center(child: Text('home-tab')),
+          diaryBuilder: (_) => const Center(child: Text('diary-tab')),
+          calendarBuilder: (_) => const _StatefulTab(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bar = tester.element(find.byType(AppBottomNav));
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('calendar:0'));
+    await tester.pump();
+    await tester.tap(_navIcon(FigmaNavIcon.diary));
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.element(find.byType(AppBottomNav)), same(bar));
+    await tester.pumpAndSettle();
+    expect(find.text('diary-tab'), findsOneWidget);
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    expect(find.text('calendar:1'), findsOneWidget);
+    expect(
+      Navigator.of(tester.element(find.byType(MainTabShell))).canPop(),
+      isFalse,
+    );
+    await tester.tap(_navIcon(FigmaNavIcon.my));
+    await tester.pumpAndSettle();
+    expect(find.byType(MyPageScreen), findsOneWidget);
+    expect(find.byType(AppBottomNav), findsNothing);
+    await tester.tap(find.byType(FigmaBackChevron));
+    await tester.pumpAndSettle();
+    expect(find.text('home-tab'), findsOneWidget);
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    expect(find.text('calendar:1'), findsOneWidget);
+  });
+
+  testWidgets('3628:2412 기본 바는 그림자 없이 위쪽만 30px 둥글다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(child: SizedBox(width: 402, child: AppBottomNav())),
+      ),
+    );
+    final container = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byType(AppBottomNav),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final decoration = container.decoration! as BoxDecoration;
+    expect(tester.getSize(find.byType(AppBottomNav)), const Size(402, 79));
+    expect(decoration.color, Colors.white);
+    expect(decoration.boxShadow, isNull);
+    expect(
+      decoration.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(30)),
+    );
+  });
+
   testWidgets('아이콘 넷이 시안 좌표에 앉는다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;

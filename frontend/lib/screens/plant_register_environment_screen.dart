@@ -44,12 +44,14 @@ class _PlantRegisterEnvironmentScreenState
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: kModalBarrier,
+      isScrollControlled: true,
+      useSafeArea: false,
       builder: (_) => PlantDatePickerSheet(
         initialDate: current ?? DateTime.now(),
         maximumDate: DateTime.now(),
       ),
     );
-    if (picked == null) return;
+    if (!mounted || picked == null) return;
     setState(() {
       if (watered) {
         _lastWateredOn = picked;

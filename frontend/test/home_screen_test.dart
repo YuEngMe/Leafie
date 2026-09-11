@@ -138,7 +138,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('측정 데이터가 없어요.'), findsOneWidget);
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget);
+    final message = tester.widget<Text>(find.text('기기연결이 필요합니다'));
+    expect(message.style?.fontSize, 21);
+    expect(message.style?.fontWeight, FontWeight.w600);
+    expect(tester.getTopLeft(find.text('기기연결이 필요합니다')).dy, 683);
+    await tester.runAsync(() async {
+      final context = tester.element(find.byType(HomeScreen));
+      for (final widget in tester.widgetList<Image>(find.byType(Image))) {
+        await precacheImage(widget.image, context);
+      }
+    });
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(HomeScreen),
+      matchesGoldenFile('goldens/home_device_required_402.png'),
+    );
     expect(find.textContaining('43%'), findsNothing);
     expect(find.textContaining('10%'), findsNothing);
     expect(find.textContaining('65%'), findsNothing);
@@ -149,6 +164,9 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const ValueKey('home-environment-card')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+    await tester.pump();
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget);
   });
 
   testWidgets('햇빛 요청에서 해를 누르면 감사 상태가 된다', (tester) async {

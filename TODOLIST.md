@@ -64,6 +64,18 @@ FCM 토큰 획득·등록은 FCM 자격 증명 설정 후 연결해야 한다. �
 | 식물별 캐릭터 그림 | 알림 타일·내 캐릭터 격자·상세 | `personalityType`/`colorId`별 에셋이 없어 `PlantCharacterArt` 하나로 그린다 |
 | 가지치기 일정 | `calendar_new_event_sheet.dart` | 시안 시트는 분갈이·비료뿐이라 PRUNING 생성 경로가 닫혔다. 필요하면 시안 확인 |
 
+## 편지 API 연동 후 정리
+
+### 실제 편지 API 연결 후 개발용 미리보기 제거 (2026-09-10)
+
+- [ ] 편지 API 계약 확정 후 `PlantLetterRepository` 구현 및 홈 연결: 목록·내용·읽음 상태 조회/저장.
+- [ ] 실제 편지로 NEW 분기, 당겨오기 → 열기 → 펼치기, 읽음 저장·재시도 확인.
+- [ ] 위 검증 완료 후 ‘편지 모션 미리보기’ 버튼·격리된 샘플 편지·미리보기 전용 테스트 제거. 실제 편지 모션과 회귀 테스트는 유지.
+
+현재 미리보기는 `kDebugMode`에서만 표시되며 서버에 저장하지 않는다.
+수정 위치: `frontend/lib/screens/mailbox_screen.dart`, `frontend/test/mailbox_test.dart`.
+상세: [우편함 구현 문서](frontend/docs/mailbox.md).
+
 ## 디자이너 확인 대기
 
 | 항목 | 자리 | 내용 |

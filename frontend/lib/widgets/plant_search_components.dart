@@ -437,7 +437,7 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
           Positioned(
             left: 34,
             top: 241,
-            width: 334,
+            right: 34,
             height: AppLayout.onboardingControlHeight,
             child: PrimaryButton(
               label: '다음',

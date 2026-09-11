@@ -3,7 +3,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
-/// Figma 컴포넌트 3628:2411의 하단 네비게이션. 홈·다이어리·캘린더가 함께 쓴다.
+/// Figma 3628:2412의 기본 variant 3628:2411. 홈·다이어리·캘린더가 함께 쓴다.
 ///
 /// 시안은 알약 배경도 글자 라벨도 없이 아이콘 넷만 놓는다. 아이콘 중심
 /// 간격이 101 / 101.5 / 96.5로 고르지 않아 균등 배치 대신 시안 x를 쓴다.
@@ -29,7 +29,6 @@ class AppBottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: kBackgroundWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 5)],
       ),
       child: Stack(
         children: [

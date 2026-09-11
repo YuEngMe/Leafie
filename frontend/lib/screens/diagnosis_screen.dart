@@ -150,9 +150,9 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
             snapshot.hasData && snapshot.requireData.records.isEmpty;
         return Scaffold(
           backgroundColor: kBackgroundWhite,
-          appBar: isEmpty ? null : const YesoAppBar(title: '진단기록'),
+          appBar: YesoAppBar(title: isEmpty ? '' : '진단기록'),
           body: SafeArea(
-            top: isEmpty,
+            top: false,
             child: switch (snapshot.connectionState) {
               != ConnectionState.done => const Center(
                 child: CircularProgressIndicator(),
@@ -411,6 +411,13 @@ class _DiagnosisPhotoConfirmScreenState
         canPop: !_submitting,
         child: Scaffold(
           backgroundColor: Colors.black,
+          extendBodyBehindAppBar: true,
+          appBar: YesoAppBar(
+            title: '',
+            showBack: !_submitting,
+            backgroundColor: Colors.black54,
+            backIconColor: Colors.white,
+          ),
           body: Stack(
             fit: StackFit.expand,
             children: [

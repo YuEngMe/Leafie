@@ -27,6 +27,7 @@ class CalendarScreen extends StatefulWidget {
     this.loadHome,
     this.today,
     this.diaryBuilder,
+    this.showBottomNav = true,
   });
 
   final String? plantId;
@@ -36,6 +37,7 @@ class CalendarScreen extends StatefulWidget {
   final Future<HomeDashboardData> Function()? loadHome;
   final DateTime? today;
   final WidgetBuilder? diaryBuilder;
+  final bool showBottomNav;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -298,33 +300,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     key: const ValueKey('calendar-add'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _showCreateSheet,
-                    child: SvgPicture.asset('assets/images/calendar_fab.svg'),
+                    child: CustomPaint(
+                      painter: const _CalendarAddShadow(),
+                      child: SvgPicture.asset('assets/images/calendar_fab.svg'),
+                    ),
                   ),
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AppBottomNav(
-                    onTap: (tab) => switch (tab) {
-                      FigmaNavIcon.home => Navigator.pop(context),
-                      FigmaNavIcon.diary =>
-                        widget.diaryBuilder == null
-                            ? Navigator.pop(context)
-                            : Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: widget.diaryBuilder!,
+                if (widget.showBottomNav)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: AppBottomNav(
+                      onTap: (tab) => switch (tab) {
+                        FigmaNavIcon.home => Navigator.pop(context),
+                        FigmaNavIcon.diary =>
+                          widget.diaryBuilder == null
+                              ? Navigator.pop(context)
+                              : Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: widget.diaryBuilder!,
+                                  ),
                                 ),
-                              ),
-                      FigmaNavIcon.my => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MyPageScreen()),
-                      ),
-                      _ => null,
-                    },
+                        FigmaNavIcon.my => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyPageScreen(),
+                          ),
+                        ),
+                        _ => null,
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -332,6 +340,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+}
+
+/// flutter_svg omits SVG filters. Reproduce only the exported circle's shadow;
+/// the circle and plus glyph themselves remain the unmodified Figma asset.
+class _CalendarAddShadow extends CustomPainter {
+  const _CalendarAddShadow();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final circle = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: 22.5,
+    );
+    canvas.save();
+    canvas.clipPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(Offset.zero & size),
+        Path()..addOval(circle),
+      ),
+    );
+    canvas.drawOval(
+      circle,
+      Paint()
+        ..color = const Color(0x29000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.95833),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CalendarAddShadow oldDelegate) => false;
 }
 
 class _CalendarHeader extends StatelessWidget {
@@ -662,9 +702,7 @@ class _MonthAgenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = _sameDay(selected, today)
-        ? '오늘 할 일'
-        : _dateLabel(selected);
+    final title = _sameDay(selected, today) ? '오늘 할 일' : _dateLabel(selected);
     return Stack(
       children: [
         // 3341:362 제목 (35, 564.195) 16 SemiBold.
@@ -674,11 +712,7 @@ class _MonthAgenda extends StatelessWidget {
           height: 19,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              title,
-              style: kItemStyle,
-              textHeightBehavior: _tight,
-            ),
+            child: Text(title, style: kItemStyle, textHeightBehavior: _tight),
           ),
         ),
         // 3429:677 첫 카드 top 588.195, 카드 간격 14 (653.195 - 639.195).
@@ -822,7 +856,10 @@ class _AgendaBody extends StatelessWidget {
           child: SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: kOrangeMain),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: kOrangeMain,
+            ),
           ),
         ),
       );

@@ -13,7 +13,14 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
 class DiaryScreen extends StatefulWidget {
-  const DiaryScreen({super.key, this.store, this.today});
+  const DiaryScreen({
+    super.key,
+    this.store,
+    this.today,
+    this.showBottomNav = true,
+  });
+
+  final bool showBottomNav;
 
   final DiaryStore? store;
 
@@ -103,15 +110,23 @@ class _DiaryScreenState extends State<DiaryScreen> {
       ),
       body: DiaryScaffoldBody(
         onFabPressed: () => _openDay(_selected),
-        onNavTap: (tab) => switch (tab) {
-          // 다이어리는 이미 여기다. 홈·마이는 뒤로 돌아가면 된다.
-          FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
-          FigmaNavIcon.calendar => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CalendarScreen()),
-          ),
-          _ => null,
-        },
+        paperTabs: _paperTabs(
+          previousLabel: '이전 달',
+          nextLabel: '다음 달',
+          onPrevious: () => _shiftMonth(-1),
+          onNext: () => _shiftMonth(1),
+        ),
+        onNavTap: !widget.showBottomNav
+            ? null
+            : (tab) => switch (tab) {
+                // 다이어리는 이미 여기다. 홈·마이는 뒤로 돌아가면 된다.
+                FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
+                FigmaNavIcon.calendar => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                ),
+                _ => null,
+              },
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -125,25 +140,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       e.date.month == _month.month)
                     e.date.day,
               },
-            ),
-            Positioned.fromRect(rect: DiaryLayout.tab, child: const DiaryTab()),
-            Positioned.fromRect(
-              rect: DiaryLayout.prevButton,
-              child: _MonthButton(
-                label: '이전 달',
-                pointsLeft: true,
-                color: kDiaryPrevGreen,
-                onPressed: () => _shiftMonth(-1),
-              ),
-            ),
-            Positioned.fromRect(
-              rect: DiaryLayout.nextButton,
-              child: _MonthButton(
-                label: '다음 달',
-                pointsLeft: false,
-                color: kDiaryNextPink,
-                onPressed: () => _shiftMonth(1),
-              ),
             ),
           ],
         ),
@@ -178,13 +174,11 @@ class _MonthButton extends StatelessWidget {
   const _MonthButton({
     required this.label,
     required this.pointsLeft,
-    required this.color,
     required this.onPressed,
   });
 
   final String label;
   final bool pointsLeft;
-  final Color color;
   final VoidCallback onPressed;
 
   @override
@@ -194,58 +188,61 @@ class _MonthButton extends StatelessWidget {
       child: Semantics(
         label: label,
         button: true,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 4,
-                offset: Offset(2, 2),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: pointsLeft ? kDiaryPrevGreen : kDiaryNextPink,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x40000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-          child: Center(
-            child: CustomPaint(
-              // 시안 Polygon 59는 폭 12.7 x 높이 22.4다. Material 화살표
-              // 아이콘은 이보다 훨씬 커서 직접 그린다.
-              size: const Size(12.67, 22.44),
-              painter: _ArrowPainter(pointsLeft: pointsLeft),
             ),
-          ),
+            Positioned(
+              left: -4,
+              top: -0.9,
+              child: SvgPicture.asset(
+                pointsLeft
+                    ? 'assets/images/icon_diary_prev.svg'
+                    : 'assets/images/icon_diary_next.svg',
+                width: pointsLeft ? 53 : 52,
+                height: 50.9,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 모서리가 살짝 둥근 삼각형(3496:11993 Polygon 59).
-class _ArrowPainter extends CustomPainter {
-  const _ArrowPainter({required this.pointsLeft});
-
-  final bool pointsLeft;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(0, size.height / 2)
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.save();
-    if (!pointsLeft) {
-      canvas
-        ..translate(size.width, 0)
-        ..scale(-1, 1);
-    }
-    canvas.drawPath(path, Paint()..color = kBackgroundWhite);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_ArrowPainter oldDelegate) =>
-      oldDelegate.pointsLeft != pointsLeft;
-}
+List<Widget> _paperTabs({
+  required String previousLabel,
+  required String nextLabel,
+  required VoidCallback onPrevious,
+  required VoidCallback onNext,
+}) => [
+  Positioned.fromRect(rect: DiaryLayout.tab, child: const DiaryTab()),
+  Positioned.fromRect(
+    rect: DiaryLayout.prevButton,
+    child: _MonthButton(
+      label: previousLabel,
+      pointsLeft: true,
+      onPressed: onPrevious,
+    ),
+  ),
+  Positioned.fromRect(
+    rect: DiaryLayout.nextButton,
+    child: _MonthButton(label: nextLabel, pointsLeft: false, onPressed: onNext),
+  ),
+];
 
 /// Figma "다이어리 작성"(2739:39308)과 "읽기"(2739:39860).
 ///
@@ -376,6 +373,12 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           actions: [_EditAction(onPressed: _save)],
         ),
         body: DiaryScaffoldBody(
+          paperTabs: _paperTabs(
+            previousLabel: '이전 날',
+            nextLabel: '다음 날',
+            onPrevious: () => _shiftDay(-1),
+            onNext: () => _shiftDay(1),
+          ),
           // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
           onNavTap: (tab) => switch (tab) {
             FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
@@ -496,29 +499,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
-                ),
-              ),
-              Positioned.fromRect(
-                rect: DiaryLayout.tab,
-                child: const DiaryTab(),
-              ),
-              // 글쓰기의 앞뒤 버튼(3173:185)은 달력보다 위, 493·561에 있다.
-              Positioned.fromRect(
-                rect: DiaryLayout.entryPrevButton,
-                child: _MonthButton(
-                  label: '이전 날',
-                  pointsLeft: true,
-                  color: kDiaryPrevGreen,
-                  onPressed: () => _shiftDay(-1),
-                ),
-              ),
-              Positioned.fromRect(
-                rect: DiaryLayout.entryNextButton,
-                child: _MonthButton(
-                  label: '다음 날',
-                  pointsLeft: false,
-                  color: kDiaryNextPink,
-                  onPressed: () => _shiftDay(1),
                 ),
               ),
             ],

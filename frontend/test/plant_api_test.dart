@@ -26,6 +26,15 @@ PlantRegistrationDraft _completeDraft() =>
       ..bodyColorId = 'color_orange_01';
 
 void main() {
+  test('선택한 헤어 ID가 등록 요청과 고정된 초안에 유지된다', () {
+    final draft = _completeDraft()..headItem = 'hair_cactus_heart_01';
+    expect(buildPlantCreateRequest(draft)['hair_id'], 'hair_cactus_heart_01');
+    final snapshot = draft.freezeForSubmission();
+    draft.headItem = 'hair_cactus_column_01';
+    expect(snapshot.headItem, 'hair_cactus_heart_01');
+    expect(draft.freezeForSubmission().headItem, 'hair_cactus_heart_01');
+  });
+
   LeafieApiClient client(
     LeafieTransport transport, {
     Duration requestTimeout = const Duration(seconds: 15),

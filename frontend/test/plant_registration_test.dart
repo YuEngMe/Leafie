@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:yeso_plant/models/plant_registration_draft.dart';
@@ -183,6 +184,81 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(PlantPhotoIdentifyScreen), findsOneWidget);
+  });
+
+  testWidgets('카메라를 쓸 수 없으면 한국어 안내 후 갤러리로 계속한다', (WidgetTester tester) async {
+    var cameraCalls = 0;
+    var galleryCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          cameraAvailability: () => false,
+          photoPicker: () async {
+            cameraCalls++;
+            return null;
+          },
+          galleryPhotoPicker: () async {
+            galleryCalls++;
+            return File('assets/images/leafie_character.png');
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    await tester.pumpAndSettle();
+
+    expect(find.text('카메라를 사용할 수 없어요'), findsOneWidget);
+    expect(find.text('갤러리에서 선택'), findsOneWidget);
+    expect(cameraCalls, 0);
+
+    await tester.tap(find.text('갤러리에서 선택'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(galleryCalls, 1);
+    expect(find.byType(PlantPhotoIdentifyScreen), findsOneWidget);
+  });
+
+  testWidgets('카메라 권한 거절은 설정 안내와 갤러리 대안을 보여준다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          cameraAvailability: () => true,
+          photoPicker: () async =>
+              throw PlatformException(code: 'camera_access_denied'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    await tester.pumpAndSettle();
+
+    expect(find.text('카메라 권한이 필요해요'), findsOneWidget);
+    expect(find.textContaining('설정에서 카메라 권한을 허용'), findsOneWidget);
+    expect(find.text('갤러리에서 선택'), findsOneWidget);
+  });
+
+  testWidgets('예상하지 못한 카메라 오류도 재시도와 갤러리 대안을 보여준다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          cameraAvailability: () => true,
+          photoPicker: () async =>
+              throw PlatformException(code: 'unknown_camera_error'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    await tester.pumpAndSettle();
+
+    expect(find.text('카메라를 열지 못했어요'), findsOneWidget);
+    expect(find.textContaining('잠시 후 다시 시도'), findsOneWidget);
+    expect(find.text('갤러리에서 선택'), findsOneWidget);
   });
 
   testWidgets('성격 화면에서 스와이프로 고른 성격이 draft에 반영되어 꾸미기 화면으로 전달된다', (

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
@@ -21,6 +22,7 @@ export 'package:yeso_plant/models/plant_species_candidate.dart';
 typedef PlantSpeciesSearch =
     Future<List<PlantSpeciesCandidate>> Function(String query);
 typedef PlantPhotoPicker = Future<File?> Function();
+typedef CameraAvailability = bool Function();
 
 /// 검색 전에도 시안의 결과 카드 구조를 유지하되, 서버 카탈로그에 실제 존재하는
 /// 종만 추천한다. 검색 버튼을 누르면 이 목록은 API 결과로 교체된다.
@@ -72,6 +74,8 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
     this.name,
     this.search,
     this.photoPicker,
+    this.galleryPhotoPicker,
+    this.cameraAvailability,
   });
 
   /// 이름 화면(2315:2189)에서 받은 애칭. 이 값이 있으면 종을 고른 뒤
@@ -81,6 +85,8 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
   /// 네트워크 없이 화면 상태를 검증할 때 갈아끼운다.
   final PlantSpeciesSearch? search;
   final PlantPhotoPicker? photoPicker;
+  final PlantPhotoPicker? galleryPhotoPicker;
+  final CameraAvailability? cameraAvailability;
 
   @override
   State<PlantSpeciesSearchScreen> createState() =>
@@ -111,20 +117,61 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
       ).showSnackBar(const SnackBar(content: Text('식물 이름을 먼저 입력해주세요.')));
       return;
     }
+    final cameraAvailable =
+        widget.cameraAvailability?.call() ?? _cameraIsAvailable();
+    if (!cameraAvailable) {
+      await _showCameraRecovery(_CameraIssue.unavailable, name);
+      return;
+    }
     try {
       final photo = await (widget.photoPicker ?? _pickCameraPhoto)();
-      if (photo == null || !mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlantPhotoIdentifyScreen(photo: photo, name: name),
-        ),
-      );
+      await _openPhoto(photo, name);
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      await _showCameraRecovery(_cameraIssueFor(error), name);
+    } catch (_) {
+      if (!mounted) return;
+      await _showCameraRecovery(_CameraIssue.failed, name);
+    }
+  }
+
+  Future<void> _openPhoto(File? photo, String name) async {
+    if (photo == null || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlantPhotoIdentifyScreen(photo: photo, name: name),
+      ),
+    );
+  }
+
+  Future<void> _showCameraRecovery(_CameraIssue issue, String name) async {
+    final useGallery = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(issue.title),
+        content: Text(issue.message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('닫기'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('갤러리에서 선택'),
+          ),
+        ],
+      ),
+    );
+    if (useGallery != true || !mounted) return;
+    try {
+      final photo = await (widget.galleryPhotoPicker ?? _pickGalleryPhoto)();
+      await _openPhoto(photo, name);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('사진을 불러오지 못했어요.')));
+      ).showSnackBar(const SnackBar(content: Text('갤러리에서 사진을 불러오지 못했어요.')));
     }
   }
 
@@ -316,4 +363,61 @@ Future<File?> _pickCameraPhoto() async {
     imageQuality: 85,
   );
   return photo == null ? null : File(photo.path);
+}
+
+Future<File?> _pickGalleryPhoto() async {
+  final photo = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    maxWidth: 1600,
+    imageQuality: 85,
+  );
+  return photo == null ? null : File(photo.path);
+}
+
+bool _cameraIsAvailable() {
+  if (!Platform.isIOS) return true;
+  final environment = Platform.environment;
+  final isSimulator =
+      environment.containsKey('SIMULATOR_DEVICE_NAME') ||
+      environment.containsKey('SIMULATOR_UDID') ||
+      Platform.operatingSystemVersion.toLowerCase().contains('simulator');
+  return !isSimulator;
+}
+
+enum _CameraIssue { unavailable, permissionDenied, failed }
+
+extension on _CameraIssue {
+  String get title => switch (this) {
+    _CameraIssue.unavailable => '카메라를 사용할 수 없어요',
+    _CameraIssue.permissionDenied => '카메라 권한이 필요해요',
+    _CameraIssue.failed => '카메라를 열지 못했어요',
+  };
+
+  String get message => switch (this) {
+    _CameraIssue.unavailable =>
+      '현재 기기에서는 카메라를 사용할 수 없어요. '
+          '갤러리에서 식물 사진을 선택해주세요.',
+    _CameraIssue.permissionDenied =>
+      '설정에서 카메라 권한을 허용하거나 '
+          '갤러리에서 식물 사진을 선택해주세요.',
+    _CameraIssue.failed =>
+      '잠시 후 다시 시도하거나 '
+          '갤러리에서 식물 사진을 선택해주세요.',
+  };
+}
+
+_CameraIssue _cameraIssueFor(PlatformException error) {
+  final code = error.code.toLowerCase();
+  final message = (error.message ?? '').toLowerCase();
+  if (code.contains('denied') ||
+      code.contains('restricted') ||
+      code.contains('permission')) {
+    return _CameraIssue.permissionDenied;
+  }
+  if (code.contains('unavailable') ||
+      code.contains('no_available_camera') ||
+      message.contains('camera not available')) {
+    return _CameraIssue.unavailable;
+  }
+  return _CameraIssue.failed;
 }
