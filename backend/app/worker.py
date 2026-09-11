@@ -9,6 +9,7 @@ from app.integrations.auth import SupabaseAuthAdminGateway
 from app.integrations.diagnosis import LocalDiagnosisImageQualityChecker
 from app.integrations.kindwise import KindwiseDiagnosisProvider
 from app.integrations.openai_chat import OpenAIChatProvider
+from app.integrations.openai_letter import OpenAILetterProvider
 from app.integrations.plantnet import PlantNetProvider
 from app.integrations.push import FirebasePushGateway
 from app.integrations.queue import PgmqQueue
@@ -25,6 +26,12 @@ from app.tasks.diagnosis import (
     DiagnosisHandler,
     SQLAlchemyDiagnosisRepository,
     build_recommended_care,
+)
+from app.tasks.letter import (
+    LetterGenerationHandler,
+    LetterPublishHandler,
+    SQLAlchemyLetterRepository,
+    UnconfiguredLetterSensorSummary,
 )
 from app.tasks.plant import PlantDeleteHandler, SQLAlchemyPlantCleanupRepository
 from app.tasks.push import PushNotificationHandler, SQLAlchemyPushRepository
@@ -48,10 +55,27 @@ async def run_worker() -> None:
     auth_admin = SupabaseAuthAdminGateway(settings)
     plantnet = PlantNetProvider(settings)
     openai_chat = OpenAIChatProvider(settings)
+    openai_letter = OpenAILetterProvider(settings)
     kindwise = KindwiseDiagnosisProvider(settings)
     push = FirebasePushGateway(settings)
     queue = PgmqQueue(database, settings)
     registry = TaskRegistry()
+    letter_repository = SQLAlchemyLetterRepository(
+        database,
+        queue,
+        lease_seconds=max(120, int(settings.openai_timeout_seconds * 2) + 30),
+        max_attempts=settings.worker_max_attempts,
+    )
+    registry.register(
+        JobType.LETTER_GENERATION_RUN,
+        LetterGenerationHandler(
+            letter_repository,
+            openai_letter,
+            UnconfiguredLetterSensorSummary(),
+            timeout_seconds=settings.openai_timeout_seconds + 15,
+        ),
+    )
+    registry.register(JobType.LETTER_PUBLISH, LetterPublishHandler(letter_repository))
     registry.register(
         JobType.STORAGE_OBJECT_DELETE,
         StorageObjectDeleteHandler(
@@ -135,6 +159,7 @@ async def run_worker() -> None:
         await auth_admin.close()
         await plantnet.close()
         await openai_chat.close()
+        await openai_letter.close()
         await kindwise.close()
         await storage.close()
         await database.close()

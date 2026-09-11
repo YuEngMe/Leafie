@@ -38,8 +38,10 @@ JPEG와 PNG만 인식 입력으로 사용합니다.
 한도는 `OPENAI_LETTER_MODEL`, `OPENAI_LETTER_MAX_OUTPUT_TOKENS`로 조정합니다. 실제
 키는 `.env`에만 넣고 커밋하지 않습니다.
 
-현재 `app/integrations/openai_letter.py`의 독립 Provider와 HTTP mock 테스트만 구현했습니다.
-DB·예약·Worker 연결은 #45·#46, 우편함은 #47, 실제 센서 요약은 #52에서 연결합니다.
+현재 Provider, 편지 DB·예약 함수·생성/공개 Worker, 우편함 API와 도착 알림을 구현했습니다.
+다이어리 저장에서의 호출(#42/#45)과 실제 센서 요약(#52)은 아직 연결하지 않았습니다.
+연결 전에는 자동 생성되지 않으며 센서 미설정 작업은 유료 호출 전에 실패합니다.
+역할별 연결 방법과 배포 순서는 [편지 연동 가이드](../docs/letter-integration.md)를 따릅니다.
 `LetterInput.sensor_summary`는 내부 입력 문자열이며 센서 API/필드 계약이 아닙니다.
 센서 원시값을 계산하거나 운영용 가짜 값을 만들지 않습니다. 제목·날씨는 #42 연동 전
 선택 입력이며 다이어리 API의 필수 여부를 바꾸지 않습니다.

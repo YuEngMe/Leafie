@@ -6,6 +6,11 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
+    ("GET", "/api/v1/letters", None, None),
+    ("GET", "/api/v1/letters/unread-count", None, None),
+    ("GET", f"/api/v1/letters/{uuid4()}", None, None),
+    ("POST", f"/api/v1/letters/{uuid4()}/read", None, None),
+    ("DELETE", f"/api/v1/letters/{uuid4()}", None, None),
     (
         "POST",
         "/api/v1/media/presign",
@@ -133,6 +138,11 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
 ]
 
 EXPECTED_API_OPERATIONS = {
+    ("GET", "/api/v1/letters"),
+    ("GET", "/api/v1/letters/unread-count"),
+    ("GET", "/api/v1/letters/{letter_id}"),
+    ("POST", "/api/v1/letters/{letter_id}/read"),
+    ("DELETE", "/api/v1/letters/{letter_id}"),
     ("GET", "/api/v1/health"),
     ("GET", "/api/v1/ready"),
     ("POST", "/api/v1/media/presign"),
