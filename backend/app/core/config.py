@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     openai_chat_model: str = "gpt-5-mini"
+    openai_letter_model: str = "gpt-5-mini"
+    openai_letter_max_output_tokens: int = Field(default=1200, ge=100, le=4000)
     openai_timeout_seconds: float = Field(default=45.0, gt=0)
     openai_chat_max_output_tokens: int = Field(default=800, ge=100, le=4000)
     ai_chat_context_message_limit: int = Field(default=20, ge=4, le=100)

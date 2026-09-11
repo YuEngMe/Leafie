@@ -32,10 +32,19 @@ JPEG와 PNG만 인식 입력으로 사용합니다.
 요청은 Queue 정책에 따라 재시도합니다.
 
 다이어리 기반 편지 생성에는 `OPENAI_API_KEY`가 필요합니다. 다이어리 최초 생성 시
-편지를 5~15분 뒤로 예약하고 `LETTER_GENERATION_RUN` Worker가 최신 다이어리, 식물,
-성격과 센서 담당자가 제공한 날짜별 요약을 읽어 편지 한 통을 생성합니다. 모델과 응답
+공개 시각을 5~15분 뒤로 한 번 예약하고, 생성은 커밋 직후 시작하는 것이 목표입니다.
+생성 시작 시 읽은 다이어리, 식물, 성격과 날짜별 센서 요약 스냅샷으로 한 통을 생성합니다.
+완료 본문은 예약 시각까지 숨기며 지연 시 완료 후 공개합니다. 모델과 응답
 한도는 `OPENAI_LETTER_MODEL`, `OPENAI_LETTER_MAX_OUTPUT_TOKENS`로 조정합니다. 실제
 키는 `.env`에만 넣고 커밋하지 않습니다.
+
+현재 `app/integrations/openai_letter.py`의 독립 Provider와 HTTP mock 테스트만 구현했습니다.
+DB·예약·Worker 연결은 #45·#46, 우편함은 #47, 실제 센서 요약은 #52에서 연결합니다.
+`LetterInput.sensor_summary`는 내부 입력 문자열이며 센서 API/필드 계약이 아닙니다.
+센서 원시값을 계산하거나 운영용 가짜 값을 만들지 않습니다. 제목·날씨는 #42 연동 전
+선택 입력이며 다이어리 API의 필수 여부를 바꾸지 않습니다.
+`OPENAI_LETTER_MODEL` 기본값은 기존과 같은 `gpt-5-mini`, 출력 한도는 1200토큰입니다.
+성격은 기존 6개 enum을 사용하며 모델 출력의 실제 어조 품질 평가는 별도 smoke test 대상입니다.
 
 앱 푸시는 Firebase Cloud Messaging HTTP v1을 사용합니다. Worker는 Application Default
 Credentials를 우선 사용합니다. 비-GCP 환경에서는 Firebase 서비스 계정 JSON 전체를
