@@ -1,0 +1,30 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="29.1661" height="29.1652" viewBox="0 0 29.1661 29.1652" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1597881847">
+<g id="Union" filter="url(#filter0_g_0_22)">
+<path d="M14.5845 2.98297C17.7504 2.98297 20.3649 5.33823 20.774 8.39215C23.8276 8.80149 26.1831 11.4159 26.1832 14.5816C26.1832 17.7472 23.8275 20.3607 20.774 20.7701C20.3662 23.8255 17.7515 26.1822 14.5845 26.1822C11.4181 26.182 8.80318 23.8259 8.39508 20.7711C5.33979 20.3632 2.98297 17.7485 2.98297 14.5816C2.983 11.4144 5.34025 8.79853 8.39606 8.39117C8.80554 5.33786 11.4192 2.98317 14.5845 2.98297Z" fill="#FFDBCD"/>
+</g>
+<g id="Ellipse 582" filter="url(#filter1_g_0_22)">
+<ellipse cx="14.5834" cy="14.5824" rx="3.86681" ry="3.86681" transform="rotate(-90 14.5834 14.5824)" fill="#FFFCB9"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_g_0_22" x="0" y="0" width="29.1661" height="29.1652" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="0.045256916433572769 0.045256916433572769" numOctaves="3" seed="6234" />
+<feDisplacementMap in="shape" scale="5.9659385681152344" xChannelSelector="R" yChannelSelector="G" result="displacedImage" width="100%" height="100%" />
+<feMerge result="effect1_texture_0_22">
+<feMergeNode in="displacedImage"/>
+</feMerge>
+</filter>
+<filter id="filter1_g_0_22" x="8.61747" y="8.61649" width="11.9319" height="11.9319" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="0.99900001287460327 0.99900001287460327" numOctaves="3" seed="6234" />
+<feDisplacementMap in="shape" scale="4.1982531547546387" xChannelSelector="R" yChannelSelector="G" result="displacedImage" width="100%" height="100%" />
+<feMerge result="effect1_texture_0_22">
+<feMergeNode in="displacedImage"/>
+</feMerge>
+</filter>
+</defs>
+</svg>

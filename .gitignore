@@ -36,3 +36,10 @@ android/.gradle/
 # Runtime
 *.log
 tmp/
+
+# Agent tooling state (oh-my-claudecode 등)
+.omc/
+.omo/
+
+# 골든 테스트 실패 시 생기는 비교 이미지
+test/failures/

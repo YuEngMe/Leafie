@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
-import 'package:yeso_plant/widgets/app_text_field.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/brand_logo.dart';
+import 'package:yeso_plant/widgets/login_credentials_form.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
-import 'package:yeso_plant/widgets/social_login_button.dart';
+import 'package:yeso_plant/widgets/social_login_section.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 typedef OAuthSignInLauncher =
@@ -28,6 +32,34 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _passwordError;
+
+  LoginEmailFieldVariant get _emailVariant => _emailController.text.isEmpty
+      ? LoginEmailFieldVariant.empty
+      : LoginEmailFieldVariant.filled;
+
+  LoginPasswordFieldVariant get _passwordVariant => _passwordError == null
+      ? LoginPasswordFieldVariant.standard
+      : LoginPasswordFieldVariant.error;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_refreshForm);
+    _passwordController.addListener(_refreshForm);
+  }
+
+  void _refreshForm() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _emailController.removeListener(_refreshForm);
+    _passwordController.removeListener(_refreshForm);
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
     setState(() {
@@ -95,118 +127,65 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showNotReadyYet(String provider) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$provider 로그인은 준비 중이에요')));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBackgroundWhite,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 상단 제목
-                const Text(
-                  '로그인',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 40),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppLayout.authHorizontalPadding,
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: AppLayout.loginTitleTopGap),
+              Text('로그인', style: kBodyStyle),
+              const SizedBox(height: AppLayout.loginTitleToLogoGap),
+              const BrandLogo(
+                width: AppLayout.loginLogoWidth,
+                markWidthFactor: AppLayout.loginLogoMarkWidthFactor,
+              ),
+              const SizedBox(height: AppLayout.loginLogoToFormGap),
 
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    shape: BoxShape.circle,
+              LoginCredentialsForm(
+                emailController: _emailController,
+                passwordController: _passwordController,
+                emailVariant: _emailVariant,
+                passwordVariant: _passwordVariant,
+                passwordError: _passwordError,
+                onSignup: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SignupScreen()),
+                ),
+                onForgotPassword: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PasswordResetScreen(),
                   ),
                 ),
-                const SizedBox(height: 40),
+              ),
+              const SizedBox(height: AppLayout.loginLinkToButtonGap),
 
-                AppTextField(label: '이메일', controller: _emailController),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: '비밀번호',
-                  obscureText: true,
-                  controller: _passwordController,
-                  errorText: _passwordError,
-                ),
-                const SizedBox(height: 12),
+              PrimaryButton(
+                label: _loading ? '로그인 중...' : '로그인',
+                variant: _loading
+                    ? PrimaryButtonVariant.disabled
+                    : PrimaryButtonVariant.enabled,
+                onPressed: _loading ? null : _login,
+                textStyle: kLoginButtonStyle,
+                height: AppLayout.onboardingControlHeight,
+              ),
+              const SizedBox(height: AppLayout.loginButtonToDividerGap),
 
-                // 회원가입 / 비밀번호 재설정 (양쪽 끝 정렬)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignupScreen()),
-                      ),
-                      child: const Text('회원가입'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PasswordResetScreen(),
-                        ),
-                      ),
-                      child: const Text('비밀번호 재설정'),
-                    ),
-                  ],
+              SocialLoginSection(
+                onNaver: () => _signInWithOAuth(
+                  const OAuthProvider('custom:naver'),
+                  scopes: 'openid profile',
                 ),
-                const SizedBox(height: 8),
-
-                PrimaryButton(
-                  label: _loading ? '로그인 중...' : '로그인',
-                  onPressed: _loading ? () {} : _login,
-                ),
-                const SizedBox(height: 40),
-
-                // 간편로그인 구분선
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey.shade400)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        '간편로그인',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: Colors.grey.shade400)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // 간편로그인 버튼들 (네이버·카카오·애플)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    SocialLoginButton(
-                      label: '네이버',
-                      onTap: () => _signInWithOAuth(
-                        const OAuthProvider('custom:naver'),
-                        scopes: 'openid profile',
-                      ),
-                    ),
-                    SocialLoginButton(
-                      label: '카카오',
-                      onTap: () => _signInWithOAuth(OAuthProvider.kakao),
-                    ),
-                    SocialLoginButton(
-                      label: '애플',
-                      onTap: () => _showNotReadyYet('애플'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                onKakao: () => _signInWithOAuth(OAuthProvider.kakao),
+              ),
+              const SizedBox(height: AppLayout.loginBottomGap),
+            ],
           ),
         ),
       ),

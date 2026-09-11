@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
+import 'package:yeso_plant/screens/oauth_nickname_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
+import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 
 // OAuth·이메일 인증·비밀번호 재설정 링크가 모두 이 스킴으로 앱에 돌아온다.
 // android/ios에 등록해둔 값과 반드시 일치해야 한다.
@@ -76,26 +80,25 @@ class _YesoAppState extends State<YesoApp> {
     switch (data.event) {
       case AuthChangeEvent.passwordRecovery:
         // 비밀번호 재설정 이메일의 링크를 눌러 돌아온 경우.
-        // password_reset_screen.dart를 새 비밀번호 입력 단계로 열어준다.
-        navigator.push(
-          MaterialPageRoute(
-            builder: (_) =>
-                const PasswordResetScreen(startAtSetNewPassword: true),
-          ),
-        );
+        // 마이페이지 쪽 화면(ChangePasswordScreen)이 이미 열려 있으면 그
+        // 화면이 스스로 이 이벤트를 받아 '완료'로 넘어간다. 여기서 또
+        // 띄우면 같은 일을 하는 화면이 두 장 겹친다.
+        if (!ChangePasswordAuth.isOpen) {
+          navigator.push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  const PasswordResetScreen(startAtSetNewPassword: true),
+            ),
+          );
+        }
         break;
       case AuthChangeEvent.signedIn:
-        // TODO: 카카오·네이버로 처음 가입한 사용자는 닉네임이 없어
-        // oauth_nickname_screen.dart로 보내야 하는데, "신규 가입 vs
-        // 재로그인"을 프론트가 구분할 방법이 아직 없다(GET /users/me에
-        // profile_completed 같은 플래그가 없음, 2026-08-11 백엔드에 문의함).
-        // 판단 기준이 정해지면 이 분기에서 신규 사용자만 닉네임 화면으로
-        // 보내도록 갈라야 한다. 지금은 전부 홈으로 보낸다.
-        _openAuthenticatedScreen(navigator);
+        // 서버 프로필의 profile_completed로 신규 소셜 가입자를 가른다.
+        _openAuthenticatedScreen(navigator, data.session?.user);
         break;
       case AuthChangeEvent.initialSession:
         if (data.session != null) {
-          _openAuthenticatedScreen(navigator);
+          _openAuthenticatedScreen(navigator, data.session?.user);
         }
         break;
       case AuthChangeEvent.signedOut:
@@ -106,12 +109,38 @@ class _YesoAppState extends State<YesoApp> {
     }
   }
 
-  void _openAuthenticatedScreen(NavigatorState navigator) {
+  Future<void> _openAuthenticatedScreen(
+    NavigatorState navigator,
+    User? user,
+  ) async {
+    try {
+      final profile = await UserApi().getProfile();
+      if (!profile.profileCompleted) {
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                OAuthNicknameScreen(providerLabel: _providerLabel(user)),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+    } catch (_) {
+      // 프로필 확인 실패가 로그인 성공 자체를 막지는 않는다. 홈에서 재시도한다.
+    }
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => authenticatedLandingScreen()),
       (route) => false,
     );
   }
+
+  String _providerLabel(User? user) =>
+      switch (user?.appMetadata['provider']?.toString().toLowerCase()) {
+        'kakao' => '카카오톡',
+        'naver' => '네이버',
+        'apple' => 'Apple',
+        _ => '소셜',
+      };
 
   void _openLoginScreen(NavigatorState navigator) {
     navigator.pushAndRemoveUntil(
@@ -131,11 +160,16 @@ class _YesoAppState extends State<YesoApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
       title: '리피 - 내 식물 친구',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: kButtonGreen),
-        fontFamily: 'Pretendard',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: kOrangeMain,
+          surface: kBackgroundWhite,
+        ),
+        scaffoldBackgroundColor: kBackgroundWhite,
+        fontFamily: kFontFamily,
       ),
       home: const LoginScreen(),
     );

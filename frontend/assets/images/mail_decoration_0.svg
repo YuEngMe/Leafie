@@ -1,0 +1,31 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="35.4331" height="35.9746" viewBox="0 0 35.4331 35.9746" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1597881843">
+<g id="Ellipse 570" filter="url(#filter0_g_0_29)">
+<ellipse cx="12.6506" cy="11.0123" rx="10.6183" ry="7.93924" transform="rotate(19.3743 12.6506 11.0123)" fill="#C1E25F"/>
+</g>
+<g id="Ellipse 571" filter="url(#filter1_g_0_29)">
+<ellipse cx="6.51744" cy="4.87306" rx="6.51744" ry="4.87306" transform="matrix(-0.649151 0.76066 0.76066 0.649151 28.0194 1.30343)" fill="#C1E25F"/>
+</g>
+<path id="Vector 1219" d="M21.9706 12.1529C22.3611 17.2035 22.0487 28.9144 17.6748 35.3538" stroke="#C1E25F" stroke-width="2.20961"/>
+</g>
+<defs>
+<filter id="filter0_g_0_29" x="1.62773" y="2.07077" width="22.0457" height="17.883" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="0.22628459334373474 0.22628459334373474" numOctaves="3" seed="2298" />
+<feDisplacementMap in="shape" scale="1.3257641792297363" xChannelSelector="R" yChannelSelector="G" result="displacedImage" width="100%" height="100%" />
+<feMerge result="effect1_texture_0_29">
+<feMergeNode in="displacedImage"/>
+</feMerge>
+</filter>
+<filter id="filter1_g_0_29" x="21.2075" y="2.87989" width="12.5757" height="13.0889" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="0.22628459334373474 0.22628459334373474" numOctaves="3" seed="2298" />
+<feDisplacementMap in="shape" scale="1.3257641792297363" xChannelSelector="R" yChannelSelector="G" result="displacedImage" width="100%" height="100%" />
+<feMerge result="effect1_texture_0_29">
+<feMergeNode in="displacedImage"/>
+</feMerge>
+</filter>
+</defs>
+</svg>

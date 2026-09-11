@@ -7,32 +7,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
 
 void main() {
-  testWidgets('이메일 형식이 틀리면 인증 링크 발송을 눌러도 에러만 뜬다', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: PasswordResetScreen()),
-    );
+  testWidgets('이메일 형식이 틀리면 발송을 눌러도 에러만 뜬다', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: PasswordResetScreen()));
 
     await tester.enterText(find.byType(TextField).first, 'not-an-email');
-    await tester.tap(find.text('인증 링크 발송'));
+    await tester.pump();
+    await tester.tap(find.text('발송'));
     await tester.pump();
 
     expect(find.text('이메일 형식이 올바르지 않습니다.'), findsOneWidget);
     // 형식 오류 상태에서는 여전히 이메일 입력 단계에 머문다.
-    expect(find.text('인증 링크 발송'), findsOneWidget);
+    expect(find.text('시작하기'), findsOneWidget);
   });
 
   testWidgets('startAtSetNewPassword로 열면 이메일 UI 없이 바로 새 비밀번호 입력이 보인다', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: PasswordResetScreen(startAtSetNewPassword: true),
-      ),
+      const MaterialApp(home: PasswordResetScreen(startAtSetNewPassword: true)),
     );
 
     // 딥링크로 바로 들어온 경우라 이메일을 물어본 적이 없어야 한다.
     expect(find.text('이메일'), findsNothing);
-    expect(find.text('인증 링크 발송'), findsNothing);
+    expect(find.text('시작하기'), findsNothing);
 
     expect(find.text('새 비밀번호'), findsOneWidget);
     expect(find.text('비밀번호 확인'), findsOneWidget);
@@ -41,9 +38,7 @@ void main() {
 
   testWidgets('새 비밀번호 단계에서 8자 미만이면 막힌다', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: PasswordResetScreen(startAtSetNewPassword: true),
-      ),
+      const MaterialApp(home: PasswordResetScreen(startAtSetNewPassword: true)),
     );
 
     await tester.enterText(find.byType(TextField).at(0), '1234567');
