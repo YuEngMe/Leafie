@@ -1,4 +1,7 @@
 import asyncio
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -11,11 +14,16 @@ from app.integrations.diagnosis import (
     DiagnosisRetakeError,
     DiagnosisTransientError,
 )
+from app.models.diagnosis import Diagnosis
+from app.models.enums import DiagnosisStatus
+from app.models.notification import Notification
+from app.models.plant import Plant
 from app.schemas.queue import JobType, QueueJob
 from app.tasks.base import PermanentTaskError
 from app.tasks.diagnosis import (
     DiagnosisHandler,
     DiagnosisWork,
+    SQLAlchemyDiagnosisRepository,
     build_recommended_care,
     diagnosis_notification_copy,
 )
@@ -153,6 +161,50 @@ async def test_diagnosis_handler_completes_normalized_result() -> None:
     assert repository.retake == []
     assert repository.released == []
     assert repository.failed == []
+
+
+async def test_repository_completes_without_chat_and_notifies_once() -> None:
+    diagnosis = Diagnosis(
+        id=uuid4(),
+        plant_id=uuid4(),
+        media_file_id=uuid4(),
+        status=DiagnosisStatus.PROCESSING.value,
+    )
+    plant = Plant(
+        id=diagnosis.plant_id,
+        user_id=uuid4(),
+        nickname="새싹이",
+        personality_type="CHIC",
+    )
+    added = []
+
+    async def get(model, key):
+        assert model is Plant
+        assert key == plant.id
+        return plant
+
+    session = SimpleNamespace(scalar=AsyncMock(return_value=diagnosis), get=get, add=added.append)
+
+    @asynccontextmanager
+    async def session_context():
+        yield session
+
+    queue = SimpleNamespace(enqueue=AsyncMock())
+    repository = SQLAlchemyDiagnosisRepository(
+        SimpleNamespace(session_context=session_context), queue
+    )
+    result = await FakeProvider().diagnose(b"image", "image/jpeg", {"species_name": "바질"})
+    for _ in range(2):
+        await repository.complete(diagnosis.id, accepted_quality(), result, ["물을 주세요."])
+    assert diagnosis.status == DiagnosisStatus.COMPLETED
+    assert diagnosis.possible_causes == [{"name": "물 부족", "confidence": 0.76}]
+    assert diagnosis.recommended_care == ["물을 주세요."]
+    assert len(added) == 1
+    assert isinstance(added[0], Notification)
+    assert added[0].source_id == diagnosis.id
+    queue.enqueue.assert_awaited_once()
+    assert queue.enqueue.call_args.args[0].job_type == JobType.PUSH_NOTIFICATION_SEND
+    assert queue.enqueue.call_args.kwargs["session"] is session
 
 
 def test_recommended_care_uses_species_rules_and_recent_watering() -> None:

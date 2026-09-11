@@ -9,7 +9,6 @@ from app.models.enums import DiagnosisCondition, DiagnosisStatus
 class DiagnosisCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    conversation_id: UUID
     media_file_id: UUID
 
 
@@ -53,7 +52,6 @@ class DiagnosisDetailResponse(BaseModel):
     recommended_care: list[str]
     retake_reason_code: str | None
     failure_code: str | None
-    related_conversation_id: UUID | None
 
 
 class DiagnosisStatusResponse(BaseModel):

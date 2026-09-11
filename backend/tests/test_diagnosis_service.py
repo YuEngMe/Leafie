@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.errors import AppError
-from app.models.chat import AIConversation
 from app.models.diagnosis import Diagnosis
 from app.models.enums import DiagnosisStatus, MediaPurpose, MediaStatus
 from app.models.media import MediaFile
@@ -43,11 +42,6 @@ class FakeRepository:
             category="HERB",
             diagnosis_profile={},
         )
-        self.conversation = AIConversation(
-            id=uuid4(),
-            plant_id=plant_id,
-            title="바질 상담",
-        )
         self.media = MediaFile(
             id=uuid4(),
             user_id=user_id,
@@ -63,11 +57,6 @@ class FakeRepository:
         if (plant_id, user_id) != (self.plant_id, self.user_id):
             return None
         return PlantDiagnosisContext(self.plant, self.guide, "2026-07-30", None)
-
-    async def conversation_owned(self, conversation_id: UUID, user_id: UUID):
-        if conversation_id == self.conversation.id and user_id == self.user_id:
-            return self.conversation
-        return None
 
     async def media_owned(self, media_file_id: UUID, user_id: UUID):
         if media_file_id == self.media.id and user_id == self.user_id:
@@ -123,7 +112,6 @@ async def test_create_diagnosis_is_idempotent_for_same_photo() -> None:
     plant_id = uuid4()
     repository = FakeRepository(user_id, plant_id)
     request = DiagnosisCreateRequest(
-        conversation_id=repository.conversation.id,
         media_file_id=repository.media.id,
     )
 
@@ -141,7 +129,6 @@ async def test_create_diagnosis_restarts_cancelled_photo() -> None:
     plant_id = uuid4()
     repository = FakeRepository(user_id, plant_id)
     request = DiagnosisCreateRequest(
-        conversation_id=repository.conversation.id,
         media_file_id=repository.media.id,
     )
     first, _ = await _service(repository).create(user_id, plant_id, request)
@@ -163,7 +150,6 @@ async def test_create_diagnosis_rejects_wrong_media_purpose() -> None:
     repository = FakeRepository(user_id, plant_id)
     repository.media.purpose = MediaPurpose.DIARY.value
     request = DiagnosisCreateRequest(
-        conversation_id=repository.conversation.id,
         media_file_id=repository.media.id,
     )
 
@@ -178,7 +164,6 @@ async def test_create_diagnosis_requires_configured_provider() -> None:
     plant_id = uuid4()
     repository = FakeRepository(user_id, plant_id)
     request = DiagnosisCreateRequest(
-        conversation_id=repository.conversation.id,
         media_file_id=repository.media.id,
     )
 
@@ -195,7 +180,6 @@ async def test_retry_only_allows_retryable_failures() -> None:
     diagnosis = Diagnosis(
         id=uuid4(),
         plant_id=plant_id,
-        related_conversation_id=repository.conversation.id,
         media_file_id=repository.media.id,
         status=DiagnosisStatus.FAILED.value,
         failure_code="DIAGNOSIS_PROVIDER_UNAVAILABLE",
@@ -257,3 +241,63 @@ async def test_diagnosis_detail_rejects_another_user() -> None:
         await _service(repository).get(uuid4(), diagnosis.id)
 
     assert error.value.code == "DIAGNOSIS_NOT_FOUND"
+
+
+async def test_diagnosis_lifecycle_without_conversation() -> None:
+    user_id, plant_id = uuid4(), uuid4()
+    repository = FakeRepository(user_id, plant_id)
+    service = _service(repository)
+    created, _ = await service.create(
+        user_id, plant_id, DiagnosisCreateRequest(media_file_id=repository.media.id)
+    )
+    detail = await service.get(user_id, created.diagnosis_id)
+    assert "related_conversation_id" not in detail.model_dump()
+    listed = await service.list(user_id, plant_id, None, 20)
+    assert [item.id for item in listed.items] == [created.diagnosis_id]
+    await service.cancel(user_id, created.diagnosis_id)
+    assert repository.diagnoses[0].status == DiagnosisStatus.CANCELLED
+
+
+@pytest.mark.parametrize("race", [False, True])
+async def test_photo_cannot_return_or_restart_another_plants_diagnosis(race: bool) -> None:
+    user_id, plant_id = uuid4(), uuid4()
+    repository = FakeRepository(user_id, plant_id)
+    existing = Diagnosis(
+        id=uuid4(),
+        plant_id=uuid4(),
+        media_file_id=repository.media.id,
+        status=DiagnosisStatus.CANCELLED.value,
+        created_at=datetime.now(UTC),
+    )
+    if race:
+
+        async def concurrent_add(_diagnosis):
+            return existing
+
+        repository.add = concurrent_add
+    else:
+        repository.diagnoses.append(existing)
+    with pytest.raises(AppError) as error:
+        await _service(repository).create(
+            user_id, plant_id, DiagnosisCreateRequest(media_file_id=repository.media.id)
+        )
+    assert error.value.code == "DIAGNOSIS_MEDIA_ALREADY_USED"
+    assert existing.status == DiagnosisStatus.CANCELLED
+
+
+@pytest.mark.parametrize("resource", ["plant", "media"])
+async def test_create_rejects_unowned_resource(resource: str) -> None:
+    user_id, plant_id = uuid4(), uuid4()
+    repository = FakeRepository(user_id, plant_id)
+    with pytest.raises(AppError) as error:
+        await _service(repository).create(
+            user_id,
+            uuid4() if resource == "plant" else plant_id,
+            DiagnosisCreateRequest(
+                media_file_id=uuid4() if resource == "media" else repository.media.id
+            ),
+        )
+    assert error.value.code == (
+        "PLANT_NOT_FOUND" if resource == "plant" else "MEDIA_FILE_NOT_FOUND"
+    )
+    assert repository.diagnoses == []

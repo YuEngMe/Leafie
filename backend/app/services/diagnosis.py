@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
 from app.models.care import CareEvent
-from app.models.chat import AIConversation
 from app.models.diagnosis import Diagnosis
 from app.models.enums import (
     CareEventStatus,
@@ -61,10 +60,6 @@ class DiagnosisAPIRepository(Protocol):
     async def plant_context_owned(
         self, plant_id: UUID, user_id: UUID
     ) -> PlantDiagnosisContext | None: ...
-
-    async def conversation_owned(
-        self, conversation_id: UUID, user_id: UUID
-    ) -> AIConversation | None: ...
 
     async def media_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None: ...
 
@@ -127,20 +122,6 @@ class SQLAlchemyDiagnosisAPIRepository:
             guide=guide,
             last_watered_on=latest.get(CareEventType.WATERING),
             last_repotted_on=latest.get(CareEventType.REPOTTING),
-        )
-
-    async def conversation_owned(
-        self, conversation_id: UUID, user_id: UUID
-    ) -> AIConversation | None:
-        return await self._session.scalar(
-            select(AIConversation)
-            .join(Plant, Plant.id == AIConversation.plant_id)
-            .where(
-                AIConversation.id == conversation_id,
-                AIConversation.deleted_at.is_(None),
-                Plant.user_id == user_id,
-                Plant.deleted_at.is_(None),
-            )
         )
 
     async def media_owned(self, media_file_id: UUID, user_id: UUID) -> MediaFile | None:
@@ -245,13 +226,6 @@ class DiagnosisService:
             raise AppError(
                 code="PLANT_NOT_FOUND", message="식물을 찾을 수 없습니다.", status_code=404
             )
-        conversation = await self._repository.conversation_owned(request.conversation_id, user_id)
-        if conversation is None or conversation.plant_id != plant_id:
-            raise AppError(
-                code="CONVERSATION_NOT_FOUND",
-                message="해당 식물의 대화를 찾을 수 없습니다.",
-                status_code=404,
-            )
         media = await self._repository.media_owned(request.media_file_id, user_id)
         if media is None:
             raise AppError(
@@ -276,6 +250,7 @@ class DiagnosisService:
 
         existing = await self._repository.diagnosis_by_media_owned(request.media_file_id, user_id)
         if existing is not None:
+            _require_same_plant(existing, plant_id)
             if existing.status == DiagnosisStatus.CANCELLED:
                 existing.status = DiagnosisStatus.PENDING.value
                 existing.failure_code = None
@@ -296,7 +271,6 @@ class DiagnosisService:
         diagnosis = Diagnosis(
             id=uuid4(),
             plant_id=plant_id,
-            related_conversation_id=conversation.id,
             media_file_id=media.id,
             status=DiagnosisStatus.PENDING.value,
             input_context_snapshot={
@@ -313,6 +287,7 @@ class DiagnosisService:
             created_at=datetime.now(UTC),
         )
         persisted = await self._repository.add(diagnosis)
+        _require_same_plant(persisted, plant_id)
         return _created_response(persisted), persisted.id == diagnosis.id
 
     async def list(
@@ -349,7 +324,6 @@ class DiagnosisService:
             recommended_care=item.recommended_care or [],
             retake_reason_code=item.retake_reason_code,
             failure_code=item.failure_code,
-            related_conversation_id=item.related_conversation_id,
         )
 
     async def retry(self, user_id: UUID, diagnosis_id: UUID) -> DiagnosisStatusResponse:
@@ -410,6 +384,15 @@ class DiagnosisService:
         return await self._storage.create_signed_download_url(
             object_path,
             expires_in=self._download_url_expires_seconds,
+        )
+
+
+def _require_same_plant(diagnosis: Diagnosis, plant_id: UUID) -> None:
+    if diagnosis.plant_id != plant_id:
+        raise AppError(
+            code="DIAGNOSIS_MEDIA_ALREADY_USED",
+            message="다른 식물의 진단에 사용한 사진입니다.",
+            status_code=409,
         )
 
 
