@@ -16,8 +16,8 @@ CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
 @router.get("", response_model=LetterListResponse)
 async def list_letters(
-    session: Session,
     current_user: CurrentUser,
+    session: Session,
     plant_id: UUID | None = None,
     unread_only: bool = False,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
@@ -30,8 +30,8 @@ async def list_letters(
 
 @router.get("/unread-count", response_model=LetterUnreadCount)
 async def unread_count(
-    session: Session,
     current_user: CurrentUser,
+    session: Session,
     plant_id: UUID | None = None,
 ) -> LetterUnreadCount:
     return LetterUnreadCount(
@@ -40,16 +40,16 @@ async def unread_count(
 
 
 @router.get("/{letter_id}", response_model=LetterDetail)
-async def detail(letter_id: UUID, session: Session, current_user: CurrentUser) -> LetterDetail:
+async def detail(letter_id: UUID, current_user: CurrentUser, session: Session) -> LetterDetail:
     return await LetterService(session).detail(current_user.id, letter_id)
 
 
 @router.post("/{letter_id}/read", response_model=LetterDetail)
-async def read(letter_id: UUID, session: Session, current_user: CurrentUser) -> LetterDetail:
+async def read(letter_id: UUID, current_user: CurrentUser, session: Session) -> LetterDetail:
     return await LetterService(session).detail(current_user.id, letter_id, mark_read=True)
 
 
 @router.delete("/{letter_id}", status_code=204)
-async def delete(letter_id: UUID, session: Session, current_user: CurrentUser) -> Response:
+async def delete(letter_id: UUID, current_user: CurrentUser, session: Session) -> Response:
     await LetterService(session).delete(current_user.id, letter_id)
     return Response(status_code=204)
