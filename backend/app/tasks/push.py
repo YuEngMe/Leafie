@@ -8,9 +8,11 @@ from sqlalchemy import select, update
 
 from app.db.session import Database
 from app.integrations.push import PushGateway, PushPermanentError
+from app.models.letter import Letter
 from app.models.notification import Notification
 from app.models.user import DeviceToken, UserProfile
 from app.schemas.queue import QueueJob
+from app.services.letter import visible_letters
 from app.tasks.base import PermanentTaskError
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,8 @@ class PushWork:
     title: str
     body: str
     installation_ids: list[str]
+    source_type: str | None = None
+    source_id: UUID | None = None
 
 
 class PushRepository(Protocol):
@@ -47,6 +51,12 @@ class SQLAlchemyPushRepository:
             if row is None:
                 return None
             notification, push_enabled = row
+            if notification.source_type == "LETTER":
+                visible = await session.scalar(
+                    visible_letters(notification.user_id).where(Letter.id == notification.source_id)
+                )
+                if visible is None:
+                    return None
             installation_ids: list[str] = []
             if push_enabled:
                 installation_ids = list(
@@ -65,6 +75,8 @@ class SQLAlchemyPushRepository:
                 title=notification.title,
                 body=notification.body,
                 installation_ids=installation_ids,
+                source_type=notification.source_type,
+                source_id=notification.source_id,
             )
 
     async def revoke_tokens(self, tokens: list[str]) -> None:
@@ -95,6 +107,8 @@ class PushNotificationHandler:
                 data={
                     "notification_id": str(work.notification_id),
                     "plant_id": str(work.plant_id) if work.plant_id else "",
+                    "source_type": work.source_type or "",
+                    "source_id": str(work.source_id) if work.source_id else "",
                 },
                 installation_ids=work.installation_ids,
             )
@@ -109,6 +123,4 @@ class PushNotificationHandler:
                 result.permanent_failures,
             )
         if result.retryable_failures:
-            raise RuntimeError(
-                f"FCM retryable failures: {result.retryable_failures}"
-            )
+            raise RuntimeError(f"FCM retryable failures: {result.retryable_failures}")

@@ -4,6 +4,7 @@ import app.models  # noqa: F401
 from app.db.base import Base
 
 EXPECTED_APP_TABLES = {
+    "letters",
     "ai_actions",
     "ai_conversations",
     "ai_messages",

@@ -3,6 +3,7 @@
 from app.models.care import CareEvent, CareSchedule
 from app.models.chat import AIAction, AIConversation, AIMessage, AIToolCall
 from app.models.diagnosis import Diagnosis
+from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
 from app.models.plant import (
@@ -22,6 +23,7 @@ __all__ = [
     "CareSchedule",
     "DeviceToken",
     "Diagnosis",
+    "Letter",
     "MediaFile",
     "Notification",
     "Plant",

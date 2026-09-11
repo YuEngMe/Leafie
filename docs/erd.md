@@ -106,15 +106,19 @@ erDiagram
 | `id` | uuid | PK |
 | `plant_id` | uuid | 소유 식물 FK |
 | `diary_id` | uuid | unique, 다이어리 FK |
+| `diary_date` | date | 예약 대상 날짜 |
 | `status` | enum | `PENDING` 기본 |
 | `content` | text | 완료 전 nullable |
 | `scheduled_at` | timestamptz | 최초 저장 후 5~15분, 고정 공개 목표 시각 |
 | `started_at`, `generated_at` | timestamptz | nullable |
+| `lease_token`, `lease_until` | uuid, timestamptz | 작업 선점·회수용, 늦은 응답 차단 |
+| `input_snapshot` | jsonb | 최초 외부 요청 전 저장, 이후 재시도에서 유지 |
 | `published_at` | timestamptz | nullable, 실제 공개 시각; 공개 전 우편함·알림 제외 |
 | `read_at` | timestamptz | nullable |
 | `provider`, `model` | varchar | nullable |
 | `input_tokens`, `output_tokens` | integer | nullable |
-| `retry_count` | integer | 기본 0 |
+| `attempt_count` | integer | 기본 0, 실제 작업 선점 횟수 |
+| `provider_response_id` | varchar | nullable, 외부 요청 추적 |
 | `failure_code` | varchar | nullable |
 | `created_at`, `updated_at` | timestamptz | 필수 |
 | `deleted_at` | timestamptz | nullable |
@@ -206,7 +210,7 @@ MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 - `letters(diary_id)` unique
 - 활성 `care_schedules(plant_id, care_type)` partial unique
 - `care_events(plant_id, due_date, status)` index
-- `letters(status, scheduled_at)` index
+- `letters(status, lease_until)`, `letters(plant_id, published_at, id)` index
 - `notifications(user_id, read_at, created_at desc)` index
 - `diagnoses(plant_id, created_at desc)` index
 - 사용자 입력 날짜는 사용자 시간대로 해석하고 저장 시 date 또는 UTC timestamptz를 구분합니다.

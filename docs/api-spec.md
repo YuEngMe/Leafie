@@ -395,6 +395,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
       "status": "COMPLETED",
       "preview": "오늘 네가 새잎을 발견해 줘서...",
       "generated_at": "2026-07-20T07:12:00Z",
+      "published_at": "2026-07-20T07:12:00Z",
       "is_read": false
     }
   ],
@@ -405,6 +406,12 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ### `GET /letters/{letter_id}`
 
 식물 정보, 다이어리 날짜, 편지 본문과 생성 시각을 반환합니다.
+조회만으로 읽음 처리하지 않습니다. `published_at`, `read_at`도 반환합니다.
+
+### `GET /letters/unread-count?plant_id={optional}`
+
+공개된 본인 편지의 미확인 개수를 `{"unread_count": 0}` 형식으로 반환합니다.
+홈 응답은 같은 기준을 사용하며 생성 완료되었어도 아직 공개 전이면 제외합니다.
 
 ### `POST /letters/{letter_id}/read`
 
@@ -413,6 +420,8 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ### `DELETE /letters/{letter_id}`
 
 우편함에서 편지만 soft delete합니다. 연결된 다이어리는 유지하고 재생성하지 않습니다.
+본인의 이미 soft delete된 편지는 반복 요청에도 204입니다. 다른 사용자/비공개/존재하지 않는
+편지는 404입니다. 해당 편지 알림도 제거하며 이미 전달된 푸시의 대상 상세는 404가 됩니다.
 
 ## 12. 사진 진단
 
@@ -495,6 +504,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 SPECIES_IDENTIFICATION_RUN
 DIAGNOSIS_RUN
 LETTER_GENERATION_RUN
+LETTER_PUBLISH
 PUSH_NOTIFICATION_SEND
 STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
@@ -514,8 +524,9 @@ CARE_NOTIFICATION_COLLECT
 6. 중복 전달이나 Worker 재시작에도 `diary_id` unique와 상태 조건으로 두 번째 편지를
    만들지 않습니다.
 
-공개 전용 Queue 작업의 구체 계약은 #45·#46에서 추가합니다. 위 규칙은 목표 계약이며
-현재 독립 OpenAI 편지 Provider만 구현되어 다이어리 저장·Worker·우편함과는 미연결입니다.
+생성/공개 Worker와 우편함은 구현되어 있으며 `LETTER_PUBLISH`가 공개를 담당합니다.
+다이어리 최초 저장 호출과 실제 센서 조회는 아직 미연결입니다.
+[편지 연동 가이드](letter-integration.md)의 연결·배포 순서를 따릅니다.
 
 센서 요약이 언제나 제공된다는 제품 전제를 따르되, 구체 데이터 형식과 산출 방식은 센서
 담당 계약에서 정의합니다.

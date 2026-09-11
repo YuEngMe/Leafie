@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.dependencies import get_database_session
 from app.main import create_app
 
 
@@ -15,6 +16,11 @@ def test_diagnosis_openapi_has_no_conversation_contract() -> None:
     assert "related_conversation_id" not in schemas["DiagnosisDetailResponse"]["properties"]
 
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
+    ("GET", "/api/v1/letters", None, None),
+    ("GET", "/api/v1/letters/unread-count", None, None),
+    ("GET", f"/api/v1/letters/{uuid4()}", None, None),
+    ("POST", f"/api/v1/letters/{uuid4()}/read", None, None),
+    ("DELETE", f"/api/v1/letters/{uuid4()}", None, None),
     (
         "POST",
         "/api/v1/media/presign",
@@ -142,6 +148,11 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
 ]
 
 EXPECTED_API_OPERATIONS = {
+    ("GET", "/api/v1/letters"),
+    ("GET", "/api/v1/letters/unread-count"),
+    ("GET", "/api/v1/letters/{letter_id}"),
+    ("POST", "/api/v1/letters/{letter_id}/read"),
+    ("DELETE", "/api/v1/letters/{letter_id}"),
     ("GET", "/api/v1/health"),
     ("GET", "/api/v1/ready"),
     ("POST", "/api/v1/media/presign"),
@@ -217,6 +228,11 @@ def test_every_protected_api_operation_rejects_missing_authentication(
     params: dict[str, object] | None,
 ) -> None:
     application = create_app()
+
+    async def unexpected_database_access():
+        raise AssertionError("Missing authentication must be rejected before database access")
+
+    application.dependency_overrides[get_database_session] = unexpected_database_access
 
     with TestClient(application) as client:
         response = client.request(method, path, json=body, params=params)

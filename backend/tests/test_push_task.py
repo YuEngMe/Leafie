@@ -54,9 +54,7 @@ def make_work(installation_ids=None) -> PushWork:
         plant_id=uuid4(),
         title="진단 완료",
         body="결과를 확인해 주세요.",
-        installation_ids=(
-            installation_ids if installation_ids is not None else ["installation-1"]
-        ),
+        installation_ids=(installation_ids if installation_ids is not None else ["installation-1"]),
     )
 
 
@@ -79,6 +77,25 @@ async def test_push_handler_skips_missing_notification_or_disabled_push() -> Non
     await PushNotificationHandler(FakeRepository(make_work([])), gateway)(make_job())
 
     assert gateway.calls == []
+
+
+async def test_letter_push_contains_target_but_not_letter_body() -> None:
+    letter_id = uuid4()
+    work = PushWork(
+        notification_id=uuid4(),
+        plant_id=uuid4(),
+        title="편지 도착",
+        body="조그만 편지 써 봤어. 읽어 줄래?",
+        installation_ids=["installation-1"],
+        source_type="LETTER",
+        source_id=letter_id,
+    )
+    gateway = FakeGateway()
+    await PushNotificationHandler(FakeRepository(work), gateway)(make_job(work.notification_id))
+    data = gateway.calls[0]["data"]
+    assert data["source_type"] == "LETTER"
+    assert data["source_id"] == str(letter_id)
+    assert "content" not in data
 
 
 async def test_push_handler_retries_transient_failure_after_revoking_invalid_tokens() -> None:
