@@ -135,12 +135,14 @@ FastAPI는 비밀번호를 받거나 저장하지 않습니다. 모든 보호 AP
 
 Worker 작업:
 
-- `SPECIES_IDENTIFICATION`
+- `SPECIES_IDENTIFICATION_RUN`
 - `DIAGNOSIS_RUN`
 - `LETTER_GENERATION_RUN`
-- `PUSH_DELIVERY`
-- `MEDIA_DELETE`
+- `PUSH_NOTIFICATION_SEND`
+- `STORAGE_OBJECT_DELETE`
 - `ACCOUNT_DELETE`
+- `PLANT_DELETE`
+- `CARE_NOTIFICATION_COLLECT`
 
 Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문, 사진과 API Key는
 넣지 않고 Worker가 처리 직전 DB의 최신 상태를 읽습니다. 리소스 ID를 멱등성 키로

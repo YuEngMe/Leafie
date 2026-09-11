@@ -487,12 +487,14 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 외부에 노출하지 않는 작업 종류:
 
 ```text
-SPECIES_IDENTIFICATION
+SPECIES_IDENTIFICATION_RUN
 DIAGNOSIS_RUN
 LETTER_GENERATION_RUN
-PUSH_DELIVERY
-MEDIA_DELETE
+PUSH_NOTIFICATION_SEND
+STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
+PLANT_DELETE
+CARE_NOTIFICATION_COLLECT
 ```
 
 `LETTER_GENERATION_RUN` 규칙:
@@ -500,7 +502,7 @@ ACCOUNT_DELETE
 1. `scheduled_at <= now()`인 `PENDING` 편지를 원자적으로 `PROCESSING`으로 선점합니다.
 2. 처리 직전 최신 다이어리, 식물, 성격과 센서 담당자의 날짜별 요약을 읽습니다.
 3. OpenAI 응답을 편지 한 통으로 저장하고 `COMPLETED`로 전환합니다.
-4. 편지 도착 알림을 만들고 푸시가 켜져 있으면 `PUSH_DELIVERY`를 enqueue합니다.
+4. 편지 도착 알림을 만들고 푸시가 켜져 있으면 `PUSH_NOTIFICATION_SEND`를 enqueue합니다.
 5. 인증·요청 오류는 `FAILED`, timeout·429·5xx는 재시도합니다.
 6. 중복 전달이나 Worker 재시작에도 `diary_id` unique와 상태 조건으로 두 번째 편지를
    만들지 않습니다.
