@@ -1,11 +1,15 @@
 # Backend
 
+편지 기능은 구현 예정입니다. 현재 실행 설정은 `.env.example`과 코드를 기준으로
+확인합니다. `OPENAI_LETTER_*`와 편지 Worker는 후속 구현에서 추가합니다.
+
 FastAPI API와 Supabase Queue를 소비하는 Python Worker가 같은 애플리케이션 코드를
 공유합니다.
 
-Worker는 식물명칭 사진 인식, 상태 진단, 채팅 이미지 처리와 앱 푸시 발송을
-처리합니다. 식물별 대화 세션과 관리 자동화 규칙은
-FastAPI 서비스 계층에서 소유권과 상태 전이를 검증합니다.
+Worker는 식물명칭 사진 인식, 상태 진단, 다이어리 기반 편지 생성, 앱 푸시와
+파일·계정 삭제를 처리합니다. 관리 자동화와 편지 상태 전이는 FastAPI 서비스 계층과
+Worker가 소유권, 멱등성과 원자적 전환을 함께 검증합니다. AI 채팅과 Tool Calling은
+제품 범위에 포함하지 않습니다.
 
 Queue Worker 실행:
 
@@ -27,11 +31,11 @@ JPEG와 PNG만 인식 입력으로 사용합니다.
 `health_assessment` API에 한 번 전송합니다. 진단은 비동기로 처리되며 실패한 외부
 요청은 Queue 정책에 따라 재시도합니다.
 
-AI 채팅에는 `OPENAI_API_KEY`가 필요합니다. 텍스트 답변은 FastAPI에서 SSE로
-전달하고 사진 첨부 답변은 `CHAT_IMAGE_ANALYSIS` Worker가 처리합니다. Tool Calling
-루프가 끝나면 완성된 텍스트를 한 `message.delta`로 전달합니다.
-모델과 응답 한도는 `OPENAI_CHAT_MODEL`, `OPENAI_CHAT_MAX_OUTPUT_TOKENS`로
-조정합니다. 실제 키는 `.env`에만 넣고 커밋하지 않습니다.
+다이어리 기반 편지 생성에는 `OPENAI_API_KEY`가 필요합니다. 다이어리 최초 생성 시
+편지를 5~15분 뒤로 예약하고 `LETTER_GENERATION_RUN` Worker가 최신 다이어리, 식물,
+성격과 센서 담당자가 제공한 날짜별 요약을 읽어 편지 한 통을 생성합니다. 모델과 응답
+한도는 `OPENAI_LETTER_MODEL`, `OPENAI_LETTER_MAX_OUTPUT_TOKENS`로 조정합니다. 실제
+키는 `.env`에만 넣고 커밋하지 않습니다.
 
 앱 푸시는 Firebase Cloud Messaging HTTP v1을 사용합니다. Worker는 Application Default
 Credentials를 우선 사용합니다. 비-GCP 환경에서는 Firebase 서비스 계정 JSON 전체를

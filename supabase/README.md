@@ -28,7 +28,7 @@ Alembic으로 관리하므로 여기에 중복 SQL을 두지 않습니다. Dashb
 ## Storage
 
 - 비공개 버킷 `leafie-media`
-- 용도: 식물 인식, 대표 사진, 다이어리, 진단, 채팅 이미지
+- 용도: 식물 인식, 대표 사진, 다이어리, 진단
 - 앱은 FastAPI Signed URL로 업로드·다운로드합니다
 
 ## Queue · Cron
