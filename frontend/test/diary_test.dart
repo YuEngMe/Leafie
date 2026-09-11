@@ -82,13 +82,13 @@ void main() {
       expect(tester.getCenter(find.text('일')).dx, closeTo(64.33, 1));
       expect(tester.getCenter(find.text('토')).dx, closeTo(327.90, 1));
       expect(tester.getRect(find.text('일')).top, closeTo(262.61, 1));
-      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 232);
       _expectAt(tester, '이전 달', find.bySemanticsLabel('이전 달'), 350, 493);
       _expectAt(tester, '다음 달', find.bySemanticsLabel('다음 달'), 351, 561);
       final body = tester.widget<DiaryScaffoldBody>(
         find.byType(DiaryScaffoldBody),
       );
-      expect(body.paperTabs, hasLength(3));
+      // 파란 책갈피는 2026-09-11 디자이너 요청으로 뺐다. 앞뒤 버튼 둘만 남는다.
+      expect(body.paperTabs, hasLength(2));
       // 시안 3496:12213에서 자리가 바뀌었다.
       _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
       expect(find.byKey(const ValueKey('diary-appbar-edit')), findsNothing);
@@ -175,7 +175,9 @@ void main() {
       _expectAt(tester, '사진칸', find.byType(DiaryPhotoBox), 46, 144.74);
       // 3496:10624 / 10625 / 10621 — 읽기 화면 제목·본문·밑줄.
       expect(tester.getRect(find.text('제목: ')).center.dy, closeTo(434.9, 1));
-      expect(tester.getRect(find.byType(TextField).last).top, closeTo(460, 1));
+      expect(tester.getRect(find.byType(TextField).last).top, closeTo(466, 1));
+      // 2026-09-11 디자이너 요청으로 넣은 저장 버튼.
+      expect(tester.getRect(find.text('저장하기')).center.dy, closeTo(657 + 24, 2));
       _expectAt(tester, '날짜', find.text('2026년 7월 15일 수요일'), 54, 149);
     });
 

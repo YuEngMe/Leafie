@@ -9,6 +9,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
@@ -229,7 +230,6 @@ List<Widget> _paperTabs({
   required VoidCallback onPrevious,
   required VoidCallback onNext,
 }) => [
-  Positioned.fromRect(rect: DiaryLayout.tab, child: const DiaryTab()),
   Positioned.fromRect(
     rect: DiaryLayout.prevButton,
     child: _MonthButton(
@@ -437,20 +437,22 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 onSelect: (w) => setState(() => _weather = w),
               ),
               // 본문칸 3496:10623.
+              // 본문칸은 시안 290에서 228로 줄여 아래에 저장 버튼 자리를 낸다.
               const Positioned(
                 left: 46,
                 top: 415,
                 width: 304,
-                height: 290,
+                height: 228,
                 child: _BodyBox(),
               ),
               // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
               // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
               // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
+              // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
               Positioned(
-                left: 55,
+                left: 63,
                 top: 423.4,
-                width: 286,
+                width: 270,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -478,27 +480,43 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 height: 1,
                 child: ColoredBox(color: kOrangeMain),
               ),
+              // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
+              // (2026-09-11 디자이너 요청).
               Positioned(
-                left: 54,
-                top: 460,
-                width: 288,
-                height: 232,
+                left: 62,
+                top: 466,
+                width: 272,
+                height: 168,
                 child: TextField(
                   controller: _bodyController,
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  style: kBodyStyle.copyWith(height: 23 / 16),
+                  style: kBodyStyle.copyWith(height: 27 / 16),
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     hintText: '다이어리를 기록하세요',
                     hintStyle: kBodyStyle.copyWith(
-                      height: 23 / 16,
+                      height: 27 / 16,
                       color: kGrayLightest,
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
+                ),
+              ),
+              // 시안에는 없지만 디자이너 요청(2026-09-11)으로 넣은 저장 버튼.
+              // 종이 안 본문칸 아래(46, 657, 304×48). 화면 바닥은 네비바가 가린다.
+              Positioned(
+                left: 46,
+                top: 657,
+                width: 304,
+                child: PrimaryButton(
+                  label: '저장하기',
+                  height: 48,
+                  variant: PrimaryButtonVariant.enabled,
+                  textStyle: kLoginButtonStyle,
+                  onPressed: _save,
                 ),
               ),
             ],

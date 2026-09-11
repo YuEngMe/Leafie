@@ -95,18 +95,17 @@ class DiaryScaffoldBody extends StatelessWidget {
         // 뒤에 겹친 종이 두 장이 두께를 만든다(3496:11988, 3496:11989).
         Positioned.fromRect(
           rect: DiaryLayout.paperBack2,
-          child: const _PaperSheet(color: kDiaryPaperBack2, blur: 3.70),
+          child: const _PaperSheet(color: kDiaryPaperBack2),
         ),
         Positioned.fromRect(
           rect: DiaryLayout.paperBack1,
-          child: const _PaperSheet(color: kDiaryPaperBack1, blur: 3.68),
+          child: const _PaperSheet(color: kDiaryPaperBack1),
         ),
         ...paperTabs,
         Positioned.fromRect(
           rect: DiaryLayout.paper,
           child: const _PaperSheet(
             color: kDiaryPaper,
-            blur: 3.45,
             // 종이 질감(3496:12000). 내보낸 PNG가 순백이라 쓸 수 없어
             // 시안에서 잰 노이즈(밝기 243~253)를 직접 뿌린다.
             child: CustomPaint(painter: _PaperGrainPainter()),
@@ -120,13 +119,6 @@ class DiaryScaffoldBody extends StatelessWidget {
               gradient: LinearGradient(
                 colors: [kBackgroundWhite, Color(0xFF999999)],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 3.45,
-                  offset: Offset(0, 3.45),
-                ),
-              ],
             ),
             child: const SizedBox.expand(),
           ),
@@ -171,27 +163,17 @@ class DiaryScaffoldBody extends StatelessWidget {
 }
 
 /// 겹쳐 놓는 종이 한 장. 세 장이 두께를 만든다(3496:11988~11999).
+/// 시안은 장마다 3.5px 그림자가 있지만 표지 위로 번져 지저분해 보인다고
+/// 해서(2026-09-11 디자이너 요청) 뺐다. 두께감은 뒤에 겹친 두 장이 낸다.
 class _PaperSheet extends StatelessWidget {
-  const _PaperSheet({required this.color, required this.blur, this.child});
+  const _PaperSheet({required this.color, this.child});
 
   final Color color;
-  final double blur;
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: color,
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0x40000000),
-          blurRadius: blur,
-          offset: Offset(0, blur),
-        ),
-      ],
-    ),
-    child: child ?? const SizedBox.expand(),
-  );
+  Widget build(BuildContext context) =>
+      ColoredBox(color: color, child: child ?? const SizedBox.expand());
 }
 
 /// 종이의 오돌토돌한 결. 시안은 밝기 243~253 사이의 잔 알갱이다.
@@ -200,6 +182,8 @@ class _PaperGrainPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 가장자리 알갱이가 종이 밖으로 삐져나오지 않게 자른다.
+    canvas.clipRect(Offset.zero & size);
     // 매 프레임 달라지면 지저분하니 자리를 고정한다.
     final random = Random(7);
     final paint = Paint();
@@ -220,34 +204,6 @@ class _PaperGrainPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PaperGrainPainter oldDelegate) => false;
-}
-
-/// 종이 오른쪽에 붙은 파란 책갈피(2766:203). 단색 사각형이라 직접 그린다.
-class DiaryTab extends StatelessWidget {
-  const DiaryTab({super.key, this.onTap, this.color = kDiaryTabBlue});
-
-  final VoidCallback? onTap;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x40000000),
-              blurRadius: 4,
-              offset: Offset(2, 2),
-            ),
-          ],
-        ),
-        child: const SizedBox.expand(),
-      ),
-    );
-  }
 }
 
 /// 달력 한 장(2739:34974). 연·월과 요일 머리글, 6주 격자.
