@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -82,43 +82,89 @@ class DiaryScaffoldBody extends StatelessWidget {
         ),
         // 노란 표지. 종이보다 조금 크고 왼쪽으로 빠져나간다.
         // 노란 표지(3496:11987). 단색 사각형이라 직접 그린다.
+        // 시안 커버(3496:11987)는 안쪽 그림자 -3,-3 blur 3.712 rgba(86,0,0,.25)
+        // 로 오른쪽·아래 가장자리가 살짝 어둡다. Flutter엔 inset shadow가
+        // 없어 두 방향 그라디언트로 그린다(폭 ≈ 3 + 3.712/2).
         Positioned.fromRect(
           rect: DiaryLayout.book,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(11.786),
+            child: const ColoredBox(
               color: kDiaryCover,
-              borderRadius: BorderRadius.circular(11.79),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0x00560000),
+                          Color(0x00560000),
+                          Color(0x40560000),
+                        ],
+                        stops: [0, 1 - 4.856 / 440, 1],
+                      ),
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x00560000),
+                          Color(0x00560000),
+                          Color(0x40560000),
+                        ],
+                        stops: [0, 1 - 4.856 / 620, 1],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: const SizedBox.expand(),
           ),
         ),
         // 뒤에 겹친 종이 두 장이 두께를 만든다(3496:11988, 3496:11989).
         Positioned.fromRect(
           rect: DiaryLayout.paperBack2,
-          child: const _PaperSheet(color: kDiaryPaperBack2),
+          child: _PaperSheet(color: kDiaryPaperBack2, blur: 3.703),
         ),
         Positioned.fromRect(
           rect: DiaryLayout.paperBack1,
-          child: const _PaperSheet(color: kDiaryPaperBack1),
+          child: _PaperSheet(color: kDiaryPaperBack1, blur: 3.675),
         ),
         ...paperTabs,
         Positioned.fromRect(
           rect: DiaryLayout.paper,
-          child: const _PaperSheet(
+          child: _PaperSheet(
             color: kDiaryPaper,
-            // 종이 질감(3496:12000). 내보낸 PNG가 순백이라 쓸 수 없어
-            // 시안에서 잰 노이즈(밝기 243~253)를 직접 뿌린다.
-            child: CustomPaint(painter: _PaperGrainPainter()),
+            blur: 3.452,
+            // 종이 질감(3496:12000 `image 308`): 구겨진 종이 래스터를
+            // multiply 30%로 덮는다. 흰 종이 위라 Opacity로 같은 결과.
+            child: ClipRect(
+              child: Opacity(
+                opacity: 0.3,
+                child: Image.asset(
+                  'assets/images/diary_paper_texture.png',
+                  fit: BoxFit.cover,
+                  excludeFromSemantics: true,
+                ),
+              ),
+            ),
           ),
         ),
         // 책등(3496:12001). 흰색에서 회색으로 빠지는 그라디언트다.
         Positioned.fromRect(
           rect: DiaryLayout.spine,
           child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
                 colors: [kBackgroundWhite, Color(0xFF999999)],
               ),
+              boxShadow: [_figmaShadow(3.452)],
             ),
             child: const SizedBox.expand(),
           ),
@@ -143,13 +189,18 @@ class DiaryScaffoldBody extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // 3496:12213 원 45 + 그림자 여백 3.917. PNG 내보내기는
+                    // 흰 배경이 구워져 있어 SVG와 공용 섀도 페인터를 쓴다.
                     Positioned(
-                      left: -4,
-                      top: -4,
-                      child: Image.asset(
-                        'assets/images/icon_diary_fab.png',
-                        width: 53,
-                        height: 53,
+                      left: -3.917,
+                      top: -3.917,
+                      width: 52.833,
+                      height: 52.833,
+                      child: CustomPaint(
+                        painter: const FabShadowPainter(),
+                        child: SvgPicture.asset(
+                          'assets/images/icon_diary_fab.svg',
+                        ),
                       ),
                     ),
                   ],
@@ -163,47 +214,29 @@ class DiaryScaffoldBody extends StatelessWidget {
 }
 
 /// 겹쳐 놓는 종이 한 장. 세 장이 두께를 만든다(3496:11988~11999).
-/// 시안은 장마다 3.5px 그림자가 있지만 표지 위로 번져 지저분해 보인다고
-/// 해서(2026-09-11 디자이너 요청) 뺐다. 두께감은 뒤에 겹친 두 장이 낸다.
+/// Figma drop shadow(blur b, y b, 검정 25%)를 Flutter BoxShadow로 옮긴다.
+/// Figma/CSS의 blur는 2σ, Flutter의 blurRadius는 σ = r·0.577 + 0.5라
+/// 같은 값을 그대로 넣으면 시안보다 두 배 가까이 번진다.
+BoxShadow _figmaShadow(double blur, {Color color = const Color(0x40000000)}) {
+  final sigma = blur / 2;
+  final radius = ((sigma - 0.5) / 0.57735).clamp(0.0, double.infinity);
+  return BoxShadow(color: color, blurRadius: radius, offset: Offset(0, blur));
+}
+
+/// 종이 한 장. 시안(3496:11999/11988/11989)은 장마다 아래로 3.5~3.7px
+/// 그림자가 있다(2026-09-13 시안 재확인).
 class _PaperSheet extends StatelessWidget {
-  const _PaperSheet({required this.color, this.child});
+  const _PaperSheet({required this.color, required this.blur, this.child});
 
   final Color color;
+  final double blur;
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) =>
-      ColoredBox(color: color, child: child ?? const SizedBox.expand());
-}
-
-/// 종이의 오돌토돌한 결. 시안은 밝기 243~253 사이의 잔 알갱이다.
-class _PaperGrainPainter extends CustomPainter {
-  const _PaperGrainPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 가장자리 알갱이가 종이 밖으로 삐져나오지 않게 자른다.
-    canvas.clipRect(Offset.zero & size);
-    // 매 프레임 달라지면 지저분하니 자리를 고정한다.
-    final random = Random(7);
-    final paint = Paint();
-    final count = (size.width * size.height / 26).round();
-    for (var i = 0; i < count; i++) {
-      final shade = 243 + random.nextInt(11);
-      paint.color = Color.fromARGB(255, shade, shade, shade);
-      canvas.drawCircle(
-        Offset(
-          random.nextDouble() * size.width,
-          random.nextDouble() * size.height,
-        ),
-        random.nextDouble() * 1.1 + 0.4,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PaperGrainPainter oldDelegate) => false;
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(color: color, boxShadow: [_figmaShadow(blur)]),
+    child: child ?? const SizedBox.expand(),
+  );
 }
 
 /// 달력 한 장(2739:34974). 연·월과 요일 머리글, 6주 격자.

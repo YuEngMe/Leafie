@@ -61,11 +61,11 @@ const Color kDiaryGridLine = Color(0xFFFF8834);
 const Color kDiaryPaper = Color(0xFFFFFFFF);
 
 // 종이 뒤에 겹쳐 보이는 두 장(3496:11988, 3496:11989).
-const Color kDiaryPaperBack2 = Color(0xFFCCCCCC);
+const Color kDiaryPaperBack2 = Color(0xFFCDCDCD); // 세번째 3496:11988
 const Color kDiaryPaperBack1 = Color(0xFFE6E5E5);
 
 // 노란 책 표지(3496:11987).
-const Color kDiaryCover = Color(0xFFFFE794);
+const Color kDiaryCover = Color(0xFFFFE895); // 커버 3496:11987
 
 // 달 넘김 버튼(3496:11993 초록, 3496:11996 분홍).
 const Color kDiaryPrevGreen = Color(0xFFC1E15F);

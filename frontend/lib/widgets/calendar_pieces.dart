@@ -144,9 +144,7 @@ class CalendarCompleteMark extends StatelessWidget {
           // 시안(3429:715)의 미완료 원은 테두리 없는 순백이라 흰 카드 위에서
           // 사라진다. 시안 자체도 종이색 배경 위에서만 보이는 것이라
           // 카드 위에서 구분되도록 옅은 테두리를 준다.
-          border: completed
-              ? null
-              : Border.all(color: kGaugeTrack, width: 1),
+          border: completed ? null : Border.all(color: kGaugeTrack, width: 1),
         ),
         child: completed
             ? const Center(
@@ -236,7 +234,9 @@ class CalendarModeSwitch extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: weekSelected ? width - _knobInset - _knobDiameter : _knobInset,
+            left: weekSelected
+                ? width - _knobInset - _knobDiameter
+                : _knobInset,
             top: (height - _knobDiameter) / 2,
             width: _knobDiameter,
             height: _knobDiameter,
@@ -244,9 +244,7 @@ class CalendarModeSwitch extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: Color(0x33000000), blurRadius: 5),
-                ],
+                boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 5)],
               ),
             ),
           ),
@@ -404,3 +402,36 @@ Widget calendarPins({required bool week}) => Positioned(
     fit: BoxFit.fill,
   ),
 );
+
+/// 45px 원형 버튼의 드롭 섀도(3341:493, 3496:12213 공통: blur σ1.958, 검정 20%,
+/// 오프셋 0). 에셋 캔버스 52.833은 그림자 여백 3.917을 사방에 둔다.
+/// flutter_svg가 filter를 못 그려 원 바깥에만 직접 칠한다.
+class FabShadowPainter extends CustomPainter {
+  const FabShadowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final circle = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: 22.5,
+    );
+    canvas.save();
+    canvas.clipPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(Offset.zero & size),
+        Path()..addOval(circle),
+      ),
+    );
+    canvas.drawOval(
+      circle,
+      Paint()
+        ..color = const Color(0x29000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.95833),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(FabShadowPainter oldDelegate) => false;
+}

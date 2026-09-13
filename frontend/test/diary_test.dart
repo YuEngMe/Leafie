@@ -96,7 +96,7 @@ void main() {
         final context = tester.element(find.byType(DiaryScreen));
         for (final asset in [
           'diary_background.png',
-          'icon_diary_fab.png',
+          'diary_paper_texture.png',
         ]) {
           await precacheImage(AssetImage('assets/images/$asset'), context);
         }

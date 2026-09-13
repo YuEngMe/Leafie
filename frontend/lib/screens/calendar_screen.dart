@@ -305,7 +305,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     behavior: HitTestBehavior.opaque,
                     onTap: _showCreateSheet,
                     child: CustomPaint(
-                      painter: const _CalendarAddShadow(),
+                      painter: const FabShadowPainter(),
                       child: SvgPicture.asset('assets/images/calendar_fab.svg'),
                     ),
                   ),
@@ -348,35 +348,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
 /// flutter_svg omits SVG filters. Reproduce only the exported circle's shadow;
 /// the circle and plus glyph themselves remain the unmodified Figma asset.
-class _CalendarAddShadow extends CustomPainter {
-  const _CalendarAddShadow();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final circle = Rect.fromCircle(
-      center: size.center(Offset.zero),
-      radius: 22.5,
-    );
-    canvas.save();
-    canvas.clipPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(Offset.zero & size),
-        Path()..addOval(circle),
-      ),
-    );
-    canvas.drawOval(
-      circle,
-      Paint()
-        ..color = const Color(0x29000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.95833),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_CalendarAddShadow oldDelegate) => false;
-}
 
 class _CalendarHeader extends StatelessWidget {
   const _CalendarHeader({
