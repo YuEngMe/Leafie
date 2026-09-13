@@ -258,9 +258,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     left: 0,
                     right: 0,
                     top: 0,
-                    // 목록 바닥 714 — + 버튼(730) 위 16px. 그 아래 55px이
-                    // 페이드 구간이라 둘째 카드 아래쪽부터 사라진다.
-                    bottom: 160,
+                    // 처음 들어왔을 때 둘째 카드(653~704)까지는 온전히 보여야
+                    // 한다(2026-09-13 디자이너). 목록 바닥을 759로 두면 페이드
+                    // 55px이 정확히 704부터 시작해 셋째 카드부터 사라진다.
+                    // + 버튼(730~775)은 목록 위에 그려지므로 겹쳐도 된다.
+                    bottom: 115,
                     child: _MonthAgenda(
                       selected: _selected,
                       today: _today,
