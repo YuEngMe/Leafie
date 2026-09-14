@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -139,22 +140,17 @@ class DiaryScaffoldBody extends StatelessWidget {
         ...paperTabs,
         Positioned.fromRect(
           rect: DiaryLayout.paper,
-          child: _PaperSheet(
-            color: kDiaryPaper,
-            blur: 3.452,
-            // 종이 질감(3496:12000 `image 308`): 구겨진 종이 래스터를
-            // multiply 30%로 덮는다. 흰 종이 위라 Opacity로 같은 결과.
-            child: ClipRect(
-              child: Opacity(
-                opacity: 0.3,
-                child: Image.asset(
-                  'assets/images/diary_paper_texture.png',
-                  fit: BoxFit.cover,
-                  excludeFromSemantics: true,
-                ),
-              ),
-            ),
-          ),
+          child: _PaperSheet(color: kDiaryPaper, blur: 3.452),
+        ),
+        // 종이 질감(3496:12000 `image 308`). 시안은 래스터를 90° 돌려
+        // x -59~374, y 133~721에 multiply 30%로 덮는다 — 종이만이 아니라
+        // 뒷장·표지 가장자리까지 걸친다. 책등은 이 위에 그려진다.
+        const Positioned(
+          left: -59,
+          top: 133,
+          width: 433.317,
+          height: 588,
+          child: _PaperTexture(),
         ),
         // 책등(3496:12001). 시안은 그라디언트가 아니라 래스터 이미지라
         // 그대로 깐다(2026-09-14 디자이너 지적). 그림자는 노드값 3.452.
@@ -226,16 +222,15 @@ BoxShadow _figmaShadow(double blur, {Color color = const Color(0x40000000)}) {
 /// 종이 한 장. 시안(3496:11999/11988/11989)은 장마다 아래로 3.5~3.7px
 /// 그림자가 있다(2026-09-13 시안 재확인).
 class _PaperSheet extends StatelessWidget {
-  const _PaperSheet({required this.color, required this.blur, this.child});
+  const _PaperSheet({required this.color, required this.blur});
 
   final Color color;
   final double blur;
-  final Widget? child;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(color: color, boxShadow: [_figmaShadow(blur)]),
-    child: child ?? const SizedBox.expand(),
+    child: const SizedBox.expand(),
   );
 }
 
@@ -519,4 +514,81 @@ class DiaryPhotoBox extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 3496:12000. `rotate-90`, `opacity-30`, `mix-blend-multiply`, 이미지는
+/// 상자보다 10.8% 넓게 왼쪽으로 밀려 있다. Flutter 위젯엔 배경과의
+/// multiply가 없어 캔버스에 직접 그린다.
+class _PaperTexture extends StatefulWidget {
+  const _PaperTexture();
+
+  @override
+  State<_PaperTexture> createState() => _PaperTextureState();
+}
+
+class _PaperTextureState extends State<_PaperTexture> {
+  ui.Image? _image;
+  ImageStreamListener? _listener;
+  ImageStream? _stream;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _stream?.removeListener(_listener!);
+    _stream = const AssetImage(
+      'assets/images/diary_paper_texture.png',
+    ).resolve(createLocalImageConfiguration(context));
+    _listener = ImageStreamListener((info, _) {
+      if (mounted) setState(() => _image = info.image);
+    });
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener!);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      IgnorePointer(child: CustomPaint(painter: _PaperTexturePainter(_image)));
+}
+
+class _PaperTexturePainter extends CustomPainter {
+  const _PaperTexturePainter(this.image);
+
+  final ui.Image? image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final image = this.image;
+    if (image == null) return;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    // 시계 방향 90°: 가로 588 × 세로 433.317 상자를 돌려 433.317 × 588로.
+    canvas.translate(size.width, 0);
+    canvas.rotate(3.141592653589793 / 2);
+    final box = Size(size.height, size.width);
+    // 이미지는 상자 폭의 110.8%, 왼쪽으로 10.8% 밀려 있다.
+    final dst = Rect.fromLTWH(
+      -box.width * 0.108,
+      -box.height * 0.0008,
+      box.width * 1.108,
+      box.height * 1.0017,
+    );
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      dst,
+      Paint()
+        ..blendMode = BlendMode.multiply
+        ..color = const Color.fromRGBO(0, 0, 0, 0.3)
+        ..filterQuality = FilterQuality.medium,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_PaperTexturePainter old) => old.image != image;
 }
