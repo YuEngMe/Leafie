@@ -159,21 +159,21 @@ class DiaryScaffoldBody extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(boxShadow: [_figmaShadow(3.452)]),
             // 내보낸 PNG는 101×1781(3x) = 33.67×593.67로 노드(32×586.75)보다
-            // 조금 크다. 32에 눌러 넣으면 그라디언트가 2px 당겨져 오른쪽
-            // 끝 하이라이트가 종이보다 앞에 놓인다. 원래 폭으로 그린다.
-            // 시안 렌더와 열별 밝기를 맞추면 이미지가 노드보다 2px 오른쪽에
-            // 앉고(그라디언트 시작 x14), 노드 폭 32에서 잘린다 — 이미지
-            // 오른쪽 끝 하이라이트는 시안에 안 보이고 종이 가장자리 선이 보인다.
+            // 크다 — 아래 7px엔 그림자가 구워져 있다. 노드에 눌러 넣으면
+            // 그라디언트가 2px 당겨지고 그림자 줄이 책등 안에 나타난다.
+            // 원래 크기로 그리고 노드 32×586.75에서 잘라낸다. 시안 렌더와
+            // 열별 밝기를 맞추면 이미지는 노드보다 2px 오른쪽에 앉는다.
             child: ClipRect(
               child: OverflowBox(
                 alignment: Alignment.topLeft,
                 maxWidth: 101 / 3 + 2,
+                maxHeight: 1781 / 3,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 2),
                   child: Image.asset(
                     'assets/images/diary_spine.png',
                     width: 101 / 3,
-                    height: 586.75,
+                    height: 1781 / 3,
                     fit: BoxFit.fill,
                     excludeFromSemantics: true,
                   ),
