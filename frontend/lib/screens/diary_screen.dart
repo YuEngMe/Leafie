@@ -491,12 +491,18 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  style: kBodyStyle.copyWith(height: 27 / 16),
+                  // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
+                  // Medium이라 굵기만 내린다.
+                  style: kBodyStyle.copyWith(
+                    fontWeight: FontWeight.w400,
+                    height: 27 / 16,
+                  ),
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     hintText: '다이어리를 기록하세요',
                     hintStyle: kBodyStyle.copyWith(
+                      fontWeight: FontWeight.w400,
                       height: 27 / 16,
                       color: kGrayLightest,
                     ),
