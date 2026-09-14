@@ -493,11 +493,12 @@ class DiaryPhotoBox extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
         child: path == null && url == null
-            // 2739:39799 아이콘 y=232, 2739:39798 문구 y=317 — 칸 top 144.74 기준.
+            // 2739:39799 아이콘 y=244, 2739:39798 문구 y=329 — 칸 top 144.74 기준
+            // (2026-09-15 시안 재확인: 본문칸과의 간격이 12px 좁아졌다).
             ? Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 232 - 144.74),
+                  padding: const EdgeInsets.only(top: 244 - 144.74),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -506,7 +507,7 @@ class DiaryPhotoBox extends StatelessWidget {
                         width: 96,
                         height: 79,
                       ),
-                      const SizedBox(height: 317 - 232 - 79),
+                      const SizedBox(height: 329 - 244 - 79),
                       Text('사진 추가하기', style: kCaptionStyle.copyWith(height: 1)),
                     ],
                   ),
