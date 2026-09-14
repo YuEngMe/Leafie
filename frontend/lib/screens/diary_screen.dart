@@ -156,15 +156,33 @@ class _EditAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: SvgPicture.asset(
-        'assets/images/icon_diary_edit.svg',
-        width: DiaryLayout.editIcon.width,
-        height: DiaryLayout.editIcon.height,
+    // 3345:792 / 3496:10734: x354 y52. 앱바(46~92) 오른쪽 끝 48×46
+    // 상자 안에서 위 6, 왼쪽 0(= 402 − 19.344 − 28.656)에 놓는다.
+    return Semantics(
+      button: true,
+      label: '오늘 다이어리 쓰기',
+      child: GestureDetector(
+        key: const ValueKey('diary-appbar-edit'),
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48,
+          height: YesoAppBar.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 6,
+                child: SvgPicture.asset(
+                  'assets/images/icon_diary_edit.svg',
+                  width: DiaryLayout.editIcon.width,
+                  height: DiaryLayout.editIcon.height,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      key: const ValueKey('diary-appbar-edit'),
-      tooltip: '오늘 다이어리 쓰기',
     );
   }
 }
@@ -270,6 +288,19 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   late String? _photoPath = widget.entry.photoPath;
   late final String? _photoUrl = widget.entry.photoUrl;
   late DiaryWeather? _weather = widget.entry.weather;
+
+  @override
+  void initState() {
+    super.initState();
+    // '저장하기'(3631:2600)는 글 읽기(3496:10291)에만 있고 빈 글쓰기
+    // (2739:39308)에는 없다. 내용이 생기는 순간 나타나게 입력을 듣는다.
+    _titleController.addListener(_refresh);
+    _bodyController.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -512,30 +543,32 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               ),
               // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
               // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
-              Positioned(
-                left: 303 + 17 - 24,
-                top: 683 + 5.5 - 24,
-                width: 48,
-                height: 48,
-                child: GestureDetector(
-                  onTap: _save,
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: Semantics(
-                      button: true,
-                      child: Text(
-                        '저장하기',
-                        style: kSmallStyle.copyWith(
-                          fontSize: 9.488,
-                          fontWeight: FontWeight.w500,
-                          height: 1,
-                          color: kTextDark,
+              // 빈 글쓰기 시안(2739:39308)에는 없다.
+              if (!_currentEntry().isEmpty)
+                Positioned(
+                  left: 303 + 17 - 24,
+                  top: 683 + 5.5 - 24,
+                  width: 48,
+                  height: 48,
+                  child: GestureDetector(
+                    onTap: _save,
+                    behavior: HitTestBehavior.opaque,
+                    child: Center(
+                      child: Semantics(
+                        button: true,
+                        child: Text(
+                          '저장하기',
+                          style: kSmallStyle.copyWith(
+                            fontSize: 9.488,
+                            fontWeight: FontWeight.w500,
+                            height: 1,
+                            color: kTextDark,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

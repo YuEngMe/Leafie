@@ -312,9 +312,10 @@ class DiaryCalendar extends StatelessWidget {
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     // DateTime.weekday는 월요일이 1이다. 시안은 일요일이 첫 칸이다.
     final leading = first.weekday % 7;
-    // 시안 격자(3496:12145)는 다섯 줄뿐이라 여섯 주가 필요한 달은
-    // 마지막 줄을 그리지 못한다.
-    final weeks = ((leading + daysInMonth) / 7).ceil().clamp(1, _rowY.length);
+    // 시안 격자(3496:12145)는 다섯 줄뿐이다. 여섯 주가 필요한 달(2026-05,
+    // 2026-08 등)은 같은 높이(292.89~625.53)를 여섯 줄로 나눠 그린다 —
+    // 마지막 주를 잃는 것보다 낫다.
+    final weeks = ((leading + daysInMonth) / 7).ceil().clamp(1, 6);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -373,19 +374,23 @@ class DiaryCalendar extends StatelessWidget {
           _cell(
             i,
             i >= leading && i - leading < daysInMonth ? i - leading + 1 : null,
+            weeks,
           ),
       ],
     );
   }
 
-  Widget _cell(int index, int? day) {
+  Widget _cell(int index, int? day, int weeks) {
     final row = index ~/ 7;
     final col = index % 7;
+    final sixWeeks = weeks > _rowY.length;
+    // 6주면 시안 격자 전체 높이(559.63+65.90−292.89=332.64)를 6등분한다.
+    const gridHeight = 559.63 + 65.90 - 292.89;
     final cell = Positioned(
       left: _colX[col],
-      top: _rowY[row],
+      top: sixWeeks ? _rowY.first + row * gridHeight / 6 : _rowY[row],
       width: _colWidth[col],
-      height: _rowHeight[row],
+      height: sixWeeks ? gridHeight / 6 : _rowHeight[row],
       child: DecoratedBox(
         decoration: BoxDecoration(
           // 3496:12146 border 0.769.
@@ -496,9 +501,13 @@ class DiaryPhotoBox extends StatelessWidget {
             // 2739:39799 아이콘 y=244, 2739:39798 문구 y=329 — 칸 top 144.74 기준
             // (2026-09-15 시안 재확인: 본문칸과의 간격이 12px 좁아졌다).
             ? Align(
-                alignment: Alignment.topCenter,
+                alignment: Alignment.topLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 244 - 144.74),
+                  // x=153 → 칸(46) 기준 107.
+                  padding: const EdgeInsets.only(
+                    left: 153 - 46,
+                    top: 244 - 144.74,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
