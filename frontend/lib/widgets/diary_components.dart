@@ -156,17 +156,17 @@ class DiaryScaffoldBody extends StatelessWidget {
             ),
           ),
         ),
-        // 책등(3496:12001). 흰색에서 회색으로 빠지는 그라디언트다.
+        // 책등(3496:12001). 시안은 그라디언트가 아니라 래스터 이미지라
+        // 그대로 깐다(2026-09-14 디자이너 지적). 그림자는 노드값 3.452.
         Positioned.fromRect(
           rect: DiaryLayout.spine,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [kBackgroundWhite, Color(0xFF999999)],
-              ),
-              boxShadow: [_figmaShadow(3.452)],
+            decoration: BoxDecoration(boxShadow: [_figmaShadow(3.452)]),
+            child: Image.asset(
+              'assets/images/diary_spine.png',
+              fit: BoxFit.fill,
+              excludeFromSemantics: true,
             ),
-            child: const SizedBox.expand(),
           ),
         ),
         child,
