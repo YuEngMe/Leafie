@@ -9,7 +9,6 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
@@ -437,12 +436,11 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 onSelect: (w) => setState(() => _weather = w),
               ),
               // 본문칸 3496:10623.
-              // 본문칸은 시안 290에서 228로 줄여 아래에 저장 버튼 자리를 낸다.
               const Positioned(
                 left: 46,
                 top: 415,
                 width: 304,
-                height: 228,
+                height: 290,
                 child: _BodyBox(),
               ),
               // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
@@ -486,7 +484,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 left: 62,
                 top: 466,
                 width: 272,
-                height: 168,
+                // 아래 '저장하기'(683)와 겹치지 않게 675까지.
+                height: 209,
                 child: TextField(
                   controller: _bodyController,
                   maxLines: null,
@@ -505,18 +504,30 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   ),
                 ),
               ),
-              // 시안에는 없지만 디자이너 요청(2026-09-11)으로 넣은 저장 버튼.
-              // 종이 안 본문칸 아래(46, 657, 304×48). 화면 바닥은 네비바가 가린다.
+              // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
+              // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
               Positioned(
-                left: 46,
-                top: 657,
-                width: 304,
-                child: PrimaryButton(
-                  label: '저장하기',
-                  height: 48,
-                  variant: PrimaryButtonVariant.enabled,
-                  textStyle: kLoginButtonStyle,
-                  onPressed: _save,
+                left: 303 + 17 - 24,
+                top: 683 + 5.5 - 24,
+                width: 48,
+                height: 48,
+                child: GestureDetector(
+                  onTap: _save,
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Semantics(
+                      button: true,
+                      child: Text(
+                        '저장하기',
+                        style: kSmallStyle.copyWith(
+                          fontSize: 9.488,
+                          fontWeight: FontWeight.w500,
+                          height: 1,
+                          color: kTextDark,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

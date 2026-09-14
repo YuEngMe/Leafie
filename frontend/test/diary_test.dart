@@ -177,7 +177,8 @@ void main() {
       expect(tester.getRect(find.text('제목: ')).center.dy, closeTo(434.9, 1));
       expect(tester.getRect(find.byType(TextField).last).top, closeTo(466, 1));
       // 2026-09-11 디자이너 요청으로 넣은 저장 버튼.
-      expect(tester.getRect(find.text('저장하기')).center.dy, closeTo(657 + 24, 2));
+      expect(tester.getRect(find.text('저장하기')).center.dy, closeTo(683 + 5.5, 2));
+      expect(tester.getRect(find.text('저장하기')).center.dx, closeTo(320, 2));
       _expectAt(tester, '날짜', find.text('2026년 7월 15일 수요일'), 54, 149);
     });
 
