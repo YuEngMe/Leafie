@@ -450,17 +450,17 @@ class DiaryWeatherPicker extends StatelessWidget {
             top: entry.value.dy,
             child: GestureDetector(
               onTap: onSelect == null ? null : () => onSelect!(entry.key),
-              child: Opacity(
-                // 고른 날씨만 진하게 둔다. 시안에는 선택 상태가 없다.
-                opacity: selected == null || selected == entry.key ? 1 : 0.35,
-                child: Semantics(
-                  label: entry.key.label,
-                  button: onSelect != null,
-                  child: SvgPicture.asset(
-                    entry.key.asset,
-                    width: entry.key.width,
-                    height: entry.key.height,
-                  ),
+              // 고른 것만 오렌지(4524:21), 나머지는 회색(4524:20).
+              child: Semantics(
+                label: entry.key.label,
+                button: onSelect != null,
+                selected: selected == entry.key,
+                child: SvgPicture.asset(
+                  selected == entry.key
+                      ? entry.key.selectedAsset
+                      : entry.key.asset,
+                  width: entry.key.width,
+                  height: entry.key.height,
                 ),
               ),
             ),
