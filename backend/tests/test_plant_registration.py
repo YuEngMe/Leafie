@@ -13,7 +13,6 @@ from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
 from app.main import create_app
 from app.models.care import CareEvent, CareSchedule
-from app.models.chat import AIConversation
 from app.models.enums import (
     CareEventStatus,
     CareEventType,
@@ -200,7 +199,6 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert repository.profile is not None
     assert repository.profile.selected_plant_id == plant.id
     assert repository.flush_count == 1
-    assert not any(isinstance(entity, AIConversation) for entity in repository.added)
 
     watering_schedule = next(
         schedule for schedule in schedules if schedule.type == CareScheduleType.WATERING

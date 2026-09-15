@@ -35,16 +35,10 @@ class Settings(BaseSettings):
     kindwise_timeout_seconds: float = Field(default=45.0, gt=0)
 
     openai_api_key: str | None = None
-    openai_chat_model: str = "gpt-5-mini"
     openai_letter_model: str = "gpt-5-mini"
     openai_letter_max_output_tokens: int = Field(default=1200, ge=100, le=4000)
+    letter_generation_enabled: bool = False
     openai_timeout_seconds: float = Field(default=45.0, gt=0)
-    openai_chat_max_output_tokens: int = Field(default=800, ge=100, le=4000)
-    ai_chat_context_message_limit: int = Field(default=20, ge=4, le=100)
-    ai_chat_summary_trigger_count: int = Field(default=30, ge=10, le=200)
-    ai_chat_summary_batch_size: int = Field(default=20, ge=5, le=100)
-    ai_chat_requests_per_minute: int = Field(default=10, ge=1, le=100)
-    ai_chat_requests_per_24_hours: int = Field(default=100, ge=1, le=10000)
     diagnosis_requests_per_24_hours: int = Field(default=10, ge=1, le=1000)
     species_identification_requests_per_24_hours: int = Field(default=20, ge=1, le=1000)
 

@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from app.api.v1.care import router as care_router
-from app.api.v1.chat import router as chat_router
 from app.api.v1.diagnoses import router as diagnoses_router
 from app.api.v1.diaries import router as diaries_router
 from app.api.v1.letters import router as letters_router
@@ -24,5 +23,4 @@ router.include_router(home_router)
 router.include_router(diaries_router)
 router.include_router(letters_router)
 router.include_router(care_router)
-router.include_router(chat_router)
 router.include_router(diagnoses_router)

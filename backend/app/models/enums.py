@@ -87,7 +87,6 @@ class MediaPurpose(StrEnum):
     SPECIES_IDENTIFICATION = "SPECIES_IDENTIFICATION"
     DIARY = "DIARY"
     DIAGNOSIS = "DIAGNOSIS"
-    CHAT = "CHAT"
 
 
 class MediaStatus(StrEnum):
@@ -110,34 +109,6 @@ class DiagnosisCondition(StrEnum):
     HEALTHY = "HEALTHY"
     UNHEALTHY = "UNHEALTHY"
     UNCERTAIN = "UNCERTAIN"
-
-
-class ChatRole(StrEnum):
-    USER = "USER"
-    ASSISTANT = "ASSISTANT"
-    SYSTEM = "SYSTEM"
-
-
-class AIMessageStatus(StrEnum):
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-
-
-class ToolCallStatus(StrEnum):
-    PENDING = "PENDING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-
-
-class AIActionStatus(StrEnum):
-    PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
-    EXECUTING = "EXECUTING"
-    COMPLETED = "COMPLETED"
-    CANCELLED = "CANCELLED"
-    EXPIRED = "EXPIRED"
-    FAILED = "FAILED"
 
 
 class DevicePlatform(StrEnum):

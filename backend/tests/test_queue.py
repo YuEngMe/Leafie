@@ -229,6 +229,12 @@ async def test_permanent_failure_is_archived_without_retry() -> None:
     "message",
     [
         {"job_type": "DIAGNOSIS_RUN"},
+        {
+            "job_type": "CHAT_IMAGE_ANALYSIS",
+            "resource_id": str(uuid4()),
+            "attempt": 0,
+            "trace_id": "legacy-chat",
+        },
         ["not", "an", "object"],
         "invalid",
     ],

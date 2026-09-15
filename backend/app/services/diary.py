@@ -96,6 +96,31 @@ class SQLAlchemyDiaryRepository:
         *,
         lock: bool = False,
     ) -> OwnedPlantContext | None:
+        if lock:
+            profile = await self._session.scalar(
+                select(UserProfile)
+                .where(
+                    UserProfile.user_id == user_id,
+                    UserProfile.deleted_at.is_(None),
+                    UserProfile.deletion_status.is_(None),
+                )
+                .with_for_update()
+            )
+            if profile is None:
+                return None
+            plant = await self._session.scalar(
+                select(Plant)
+                .where(
+                    Plant.id == plant_id,
+                    Plant.user_id == user_id,
+                    Plant.deleted_at.is_(None),
+                )
+                .with_for_update()
+            )
+            if plant is None:
+                return None
+            return OwnedPlantContext(plant_id=plant.id, timezone=profile.timezone)
+
         statement = (
             select(Plant.id, UserProfile.timezone)
             .join(UserProfile, UserProfile.user_id == Plant.user_id)
@@ -105,8 +130,6 @@ class SQLAlchemyDiaryRepository:
                 Plant.deleted_at.is_(None),
             )
         )
-        if lock:
-            statement = statement.with_for_update(of=Plant)
         row = (await self._session.execute(statement)).one_or_none()
         if row is None:
             return None

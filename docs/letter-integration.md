@@ -2,15 +2,15 @@
 
 ## 구현 상태
 
-- 구현: `letters` 모델·migration, 트랜잭션 예약 함수, 생성·공개 Worker,
+- 구현: `letters` 모델·migration, 다이어리 최초 저장의 트랜잭션 예약, 생성·공개 Worker,
   OpenAI Provider, 우편함 5개 API, 편지 도착 알림·기존 FCM 연결.
-- 미연결: #42 다이어리 최초 저장의 예약 함수 호출과 제목·날씨 최종 매핑,
-  #52 실제 날짜별 센서 요약 조회. 현재 앱에서 다이어리를 저장해도 편지가 자동 생성되지는 않습니다.
+- 미연결: #52 실제 날짜별 센서 요약 조회. `LETTER_GENERATION_ENABLED=false`가 기본값이며
+  센서 어댑터와 새 Worker 배포 후에만 활성화합니다.
 - `UnconfiguredLetterSensorSummary`는 가짜 값을 반환하지 않습니다. 실수로 생성 작업이
   들어오면 유료 LLM 호출 전에 `LETTER_SENSOR_NOT_CONFIGURED`로 실패합니다.
-- #49 채팅·Tool Calling 제거는 등록/진단 의존 경로 정리가 끝난 뒤 별도 PR에서 수행합니다.
+- AI 채팅·Tool Calling API, Worker, 테이블과 전용 미디어 목적은 제거했습니다.
 
-## YuEngMe: 다이어리 저장 연결 (#42 → #45)
+## 다이어리 저장 연결 (#42 → #45)
 
 같은 `AsyncSession` 트랜잭션에서 다음 순서를 지켜 주세요.
 
@@ -23,17 +23,16 @@
 `reserve_letter`는 스스로 commit하지 않습니다. Queue 등록 실패도 요청을 롤백해야 하며,
 기존 다이어리 수정에 `created=True`를 넘기거나 별도 커밋 후 예약하면 안 됩니다.
 사진 정리 등 기존 부수 작업 계약은 유지합니다. 날짜·식물별 unique는 #42에서 유지합니다.
-기존 서비스가 식물을 먼저 잠그므로 연결 시 프로필 선행 잠금을 추가해 삭제 작업과
-잠금 순서를 일치시켜 주세요. 센서 어댑터 준비 전에는 호출을 활성화하지 않습니다.
+서비스는 프로필 → 식물 순서로 잠가 삭제 작업과 잠금 순서를 일치시킵니다. 센서 어댑터
+준비 전에는 `LETTER_GENERATION_ENABLED`를 활성화하지 않습니다.
 
 예약 결과는 `Letter | None`입니다. 신규 예약이면 `id`, `status`, `scheduled_at`을
 다이어리 응답에 연결할 수 있습니다. 수정 호출은 `None`; 응답에 기존 편지 정보가 필요하면
 별도로 조회합니다. `diary_id` unique는 편지 soft delete 후에도 유지됩니다.
 전환 전 다이어리의 수정은 신규 편지를 만들지 않으며 backfill migration도 없습니다.
 
-`LetterGenerationHandler`는 현 모델에 `title`, `weather`가 있을 때만 전달합니다.
-#42의 확정 필드·날씨 코드에 맞게 이 매핑을 확인해야 합니다. 편지에서는 날씨 코드를
-사용자가 이해할 한국어 요약으로 변환하여 전달하는 것을 연동 기준으로 합니다.
+`LetterGenerationHandler`는 제목·날씨를 입력 스냅샷에 포함합니다. 편지 Provider는
+날씨 코드를 사용자가 이해할 한국어 요약으로 변환합니다.
 
 ## jdk829355: 센서 요약 연결 (#52 → #46)
 
@@ -93,15 +92,16 @@ hard delete된 편지는 재삭제 시 404입니다. 읽음 해제 API는 현재
 
 ## 배포·검증
 
-- revision `b2f416a83d09`는 #53의 `a7d921e4b603` 다음에 새 테이블만 추가합니다.
-  기존 데이터 삭제 없음. `alembic heads`는 반드시 한 개여야 합니다.
-  downgrade는 편지 데이터 전체를 제거합니다.
+- revision `f3a7c9d42e10`이 현재 단일 head이며 채팅 테이블과 CHAT 미디어 메타데이터를
+  제거합니다. 기존 Storage의 `chat/` 객체는 migration 전에 백업 또는 삭제해야 합니다.
 - RLS 활성화, `anon`/`authenticated` 직접 테이블 권한 제거. 조회·변경은 JWT 검증 백엔드 API로만
   제공하며 DB 역할은 기존 백엔드 역할을 사용합니다. 스냅샷/실패코드/선점 정보는 API에 미노출입니다.
-- migration → 새 Worker/API 배포 → #42/#52 연결 → 신규 저장 활성화 순서입니다.
-  구버전 Worker는 신규 JobType을 모르면 archive하므로 생성 활성화 전에 교체해야 합니다.
+- 구버전 API·Worker 중지 → Storage `chat/` 객체 백업·삭제 → 새 API·Worker 배포 →
+  새 Worker가 남은 CHAT Queue 작업을 무효 메시지로 archive한 것을 확인 → migration →
+  #52 센서 연결 → `LETTER_GENERATION_ENABLED=true` 순서입니다.
 - CI PostgreSQL 17에서 실제 트랜잭션·동시성·migration을 검증합니다. 테스트 전용 큐 테이블은
   `pgmq.send`의 동일 세션 원자성을 검증하기 위한 것으로 운영 migration에는 존재하지 않습니다.
 - 로컬은 별도 localhost `leafie_letter_test` DB의 URL을 `LETTER_TEST_DATABASE_URL`로 전달해
   `pytest tests/test_letter_workflow.py`를 실행합니다. 다른 DB 이름/외부 호스트는 실행 거부합니다.
-- 실제 센서·OpenAI 유료 한 건 smoke test와 APNs 수신은 연결 후 별도 출시 검증입니다.
+- 실제 OpenAI 편지 Provider는 2026-09-16에 `gpt-5-mini` 한 건으로 응답과 토큰 기록을
+  검증했습니다. 실제 센서 연결을 포함한 전체 편지 흐름과 APNs 수신은 별도 출시 검증입니다.

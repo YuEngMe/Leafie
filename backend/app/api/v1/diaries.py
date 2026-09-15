@@ -19,6 +19,7 @@ from app.integrations.storage import StorageGateway
 from app.schemas.diary import DiaryMonthResponse, DiaryResponse, DiaryUpsertRequest
 from app.schemas.queue import JobType, QueueJob
 from app.services.diary import DiaryService, SQLAlchemyDiaryRepository
+from app.services.letter import reserve_letter
 
 router = APIRouter(prefix="/plants/{plant_id}/diaries", tags=["diaries"])
 
@@ -74,6 +75,14 @@ async def upsert_diary(
         date,
         request,
     )
+    if settings.letter_generation_enabled:
+        await reserve_letter(
+            session,
+            queue,
+            user_id=current_user.id,
+            diary_id=result.response.id,
+            created=result.created,
+        )
     await enqueue_media_cleanup(result.cleanup_media_ids, session, queue)
     response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
     return result.response

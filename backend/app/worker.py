@@ -8,7 +8,6 @@ from app.db.session import Database
 from app.integrations.auth import SupabaseAuthAdminGateway
 from app.integrations.diagnosis import LocalDiagnosisImageQualityChecker
 from app.integrations.kindwise import KindwiseDiagnosisProvider
-from app.integrations.openai_chat import OpenAIChatProvider
 from app.integrations.openai_letter import OpenAILetterProvider
 from app.integrations.plantnet import PlantNetProvider
 from app.integrations.push import FirebasePushGateway
@@ -21,7 +20,6 @@ from app.tasks.care_notification import (
     CareNotificationCollectHandler,
     SQLAlchemyCareNotificationRepository,
 )
-from app.tasks.chat import ChatImageAnalysisHandler, SQLAlchemyChatImageRepository
 from app.tasks.diagnosis import (
     DiagnosisHandler,
     SQLAlchemyDiagnosisRepository,
@@ -54,7 +52,6 @@ async def run_worker() -> None:
     storage = SupabaseStorageGateway(settings)
     auth_admin = SupabaseAuthAdminGateway(settings)
     plantnet = PlantNetProvider(settings)
-    openai_chat = OpenAIChatProvider(settings)
     openai_letter = OpenAILetterProvider(settings)
     kindwise = KindwiseDiagnosisProvider(settings)
     push = FirebasePushGateway(settings)
@@ -107,17 +104,6 @@ async def run_worker() -> None:
         ),
     )
     registry.register(
-        JobType.CHAT_IMAGE_ANALYSIS,
-        ChatImageAnalysisHandler(
-            SQLAlchemyChatImageRepository(
-                database,
-                context_limit=settings.ai_chat_context_message_limit,
-            ),
-            storage,
-            openai_chat,
-        ),
-    )
-    registry.register(
         JobType.DIAGNOSIS_RUN,
         DiagnosisHandler(
             SQLAlchemyDiagnosisRepository(database, queue),
@@ -158,7 +144,6 @@ async def run_worker() -> None:
     finally:
         await auth_admin.close()
         await plantnet.close()
-        await openai_chat.close()
         await openai_letter.close()
         await kindwise.close()
         await storage.close()

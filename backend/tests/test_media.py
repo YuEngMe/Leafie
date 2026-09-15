@@ -168,6 +168,8 @@ def test_presign_schema_rejects_unsupported_type_and_checksum() -> None:
         build_request(content_type="image/gif")
     with pytest.raises(ValidationError):
         build_request(checksum_sha256="not-a-sha256")
+    with pytest.raises(ValidationError):
+        build_request(purpose="CHAT")
 
 
 async def test_complete_validates_object_and_is_idempotent() -> None:

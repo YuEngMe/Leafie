@@ -11,7 +11,6 @@ from sqlalchemy.sql import Select
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
 from app.models.care import CareEvent
-from app.models.chat import AIConversation, AIMessage
 from app.models.diagnosis import Diagnosis
 from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus
 from app.models.media import MediaFile, SpeciesIdentification
@@ -57,9 +56,6 @@ def plant_media_ids_query(plant_id: UUID) -> Select:
         .where(Plant.id == plant_id),
         select(PlantDiary.media_file_id.label("media_id")).where(PlantDiary.plant_id == plant_id),
         select(Diagnosis.media_file_id.label("media_id")).where(Diagnosis.plant_id == plant_id),
-        select(AIMessage.media_file_id.label("media_id"))
-        .join(AIConversation, AIConversation.id == AIMessage.conversation_id)
-        .where(AIConversation.plant_id == plant_id),
     ).subquery()
     return select(media_ids.c.media_id).where(media_ids.c.media_id.is_not(None)).distinct()
 

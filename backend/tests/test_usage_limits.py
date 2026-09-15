@@ -4,11 +4,7 @@ import pytest
 
 from app.core.config import settings
 from app.core.errors import AppError
-from app.services.usage_limits import (
-    enforce_chat_usage,
-    enforce_diagnosis_usage,
-    enforce_identification_usage,
-)
+from app.services.usage_limits import enforce_diagnosis_usage, enforce_identification_usage
 
 
 class FakeSession:
@@ -17,17 +13,6 @@ class FakeSession:
 
     async def scalar(self, _statement):
         return next(self._counts)
-
-
-async def test_chat_usage_rejects_burst_requests() -> None:
-    session = FakeSession(settings.ai_chat_requests_per_minute + 1, 1)
-
-    with pytest.raises(AppError) as error:
-        await enforce_chat_usage(session, uuid4())  # type: ignore[arg-type]
-
-    assert error.value.code == "AI_CHAT_RATE_LIMITED"
-    assert error.value.status_code == 429
-    assert error.value.headers == {"Retry-After": "60"}
 
 
 async def test_diagnosis_usage_rejects_daily_overage() -> None:
