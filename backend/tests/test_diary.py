@@ -301,7 +301,7 @@ async def test_diary_photo_requires_owned_ready_diary_media(
     if configure == "other_user":
         media_file.user_id = uuid4()
     elif configure == "purpose":
-        media_file.purpose = MediaPurpose.CHAT.value
+        media_file.purpose = MediaPurpose.DIAGNOSIS.value
     elif configure == "pending":
         media_file.status = MediaStatus.PENDING.value
     elif configure == "deleted":
@@ -521,9 +521,32 @@ def test_invalid_timezone_format_falls_back_to_seoul(invalid_timezone: str) -> N
 def test_diary_http_put_returns_created_then_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     service, _, storage, user_id, plant_id = build_service()
     queue = FakeQueue()
+    session = object()
+    reservations: list[tuple[UUID, bool]] = []
 
     def fake_session() -> Iterator[object]:
-        yield object()
+        yield session
+
+    async def fake_reserve_letter(
+        actual_session,
+        actual_queue,
+        *,
+        user_id: UUID,
+        diary_id: UUID,
+        created: bool,
+    ) -> None:
+        assert actual_session is session
+        assert actual_queue is queue
+        reservations.append((diary_id, created))
+        if created:
+            await queue.enqueue(
+                QueueJob(
+                    job_type=JobType.LETTER_GENERATION_RUN,
+                    resource_id=diary_id,
+                    trace_id="test",
+                ),
+                session=actual_session,
+            )
 
     application = create_app()
     application.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
@@ -536,6 +559,8 @@ def test_diary_http_put_returns_created_then_ok(monkeypatch: pytest.MonkeyPatch)
     application.dependency_overrides[get_storage_gateway] = lambda: storage
     application.dependency_overrides[get_job_queue] = lambda: queue
     monkeypatch.setattr(diaries_api, "build_service", lambda _session, _storage: service)
+    monkeypatch.setattr(diaries_api, "reserve_letter", fake_reserve_letter)
+    monkeypatch.setattr(diaries_api.settings, "letter_generation_enabled", True)
     payload = make_request().model_dump(mode="json", exclude_unset=True)
 
     with TestClient(application) as client:
@@ -545,7 +570,9 @@ def test_diary_http_put_returns_created_then_ok(monkeypatch: pytest.MonkeyPatch)
     assert first.status_code == 201
     assert second.status_code == 200
     assert second.json() == first.json()
-    assert queue.jobs == []
+    assert reservations == [(result_id := UUID(first.json()["id"]), True), (result_id, False)]
+    assert queue.sessions == [session]
+    assert queue.jobs[0].job_type == JobType.LETTER_GENERATION_RUN
 
 
 def test_diary_http_list_detail_and_delete(monkeypatch: pytest.MonkeyPatch) -> None:

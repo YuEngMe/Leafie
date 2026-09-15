@@ -5,10 +5,6 @@ from app.db.base import Base
 
 EXPECTED_APP_TABLES = {
     "letters",
-    "ai_actions",
-    "ai_conversations",
-    "ai_messages",
-    "ai_tool_calls",
     "care_events",
     "care_schedules",
     "device_tokens",
@@ -114,17 +110,9 @@ def test_plant_registration_id_is_unique_per_user() -> None:
     assert {"pot_type", "placement", "accessory_id"}.isdisjoint(plants.columns)
 
 
-def test_conversations_belong_directly_to_a_plant() -> None:
-    conversations = Base.metadata.tables["ai_conversations"]
-
-    assert "plant_id" in conversations.columns
-    assert "chat_id" not in conversations.columns
-
-
 def test_diagnosis_accepts_only_one_image() -> None:
     diagnoses = Base.metadata.tables["diagnoses"]
     assert "related_conversation_id" not in diagnoses.columns
-    assert all(fk.column.table.name != "ai_conversations" for fk in diagnoses.foreign_keys)
     unique_columns = {
         tuple(column.name for column in constraint.columns)
         for constraint in diagnoses.constraints
@@ -137,7 +125,6 @@ def test_diagnosis_accepts_only_one_image() -> None:
 
 def test_user_owned_tables_reference_supabase_auth_users() -> None:
     user_owned_tables = {
-        "ai_actions",
         "device_tokens",
         "media_files",
         "notifications",

@@ -156,8 +156,9 @@ Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문
 편지 Worker는 `PENDING → PROCESSING → COMPLETED|FAILED` 상태 전이를 원자적으로
 처리합니다. 완료된 편지는 재처리하지 않으며 중복 Queue 전달에도 편지는 한 통만
 유지합니다. 생성 완료와 공개는 분리하며, 공개 기록·도착 알림·푸시 enqueue를 원자적으로
-처리합니다. `LETTER_PUBLISH`가 공개를 담당합니다. DB·Worker·우편함은 구현됐으나
-다이어리 생성 트리거와 실제 센서 어댑터는 미연결입니다. [연동 가이드](letter-integration.md) 참고.
+처리합니다. `LETTER_PUBLISH`가 공개를 담당합니다. 다이어리 생성 트리거까지 구현됐으며,
+실제 센서 어댑터가 연결되기 전에는 기능 플래그를 비활성화합니다.
+[연동 가이드](letter-integration.md) 참고.
 
 ## 11. 알림과 iOS 푸시
 

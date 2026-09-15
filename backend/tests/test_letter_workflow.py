@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, inspect, select, text, update
 from sqlalchemy.engine import make_url
 
 from app.core.config import Settings
@@ -450,6 +450,61 @@ async def test_migration_upgrade_downgrade_has_rls_and_unique_diary(db):
         assert not await connection.scalar(
             text("SELECT has_table_privilege('authenticated', 'public.letters', 'SELECT')")
         )
+
+
+async def test_chat_removal_migration_drops_tables_and_chat_media(db):
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    migration = runpy.run_path(
+        str(Path(__file__).parents[1] / "alembic/versions/f3a7c9d42e10_drop_legacy_chat.py")
+    )
+    user_id = uuid4()
+    media_id = uuid4()
+
+    async with db.engine.begin() as connection:
+        await connection.execute(
+            text("DO $$ BEGIN CREATE ROLE anon; EXCEPTION WHEN duplicate_object THEN NULL; END $$")
+        )
+        await connection.execute(
+            text(
+                "DO $$ BEGIN CREATE ROLE authenticated; "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+            )
+        )
+
+        def downgrade(sync_connection):
+            with Operations.context(MigrationContext.configure(sync_connection)):
+                migration["downgrade"]()
+
+        await connection.run_sync(downgrade)
+        await connection.execute(AUTH_USERS_TABLE.insert().values(id=user_id))
+        await connection.execute(
+            text(
+                "INSERT INTO media_files "
+                "(id, user_id, purpose, status, bucket_name, object_path, content_type) "
+                "VALUES (:id, :user_id, 'CHAT', 'READY', 'leafie-media', :path, 'image/jpeg')"
+            ),
+            {"id": media_id, "user_id": user_id, "path": f"{user_id}/chat/{media_id}.jpg"},
+        )
+
+        def upgrade(sync_connection):
+            with Operations.context(MigrationContext.configure(sync_connection)):
+                migration["upgrade"]()
+
+        await connection.run_sync(upgrade)
+        table_names = await connection.run_sync(lambda conn: inspect(conn).get_table_names())
+        remaining = await connection.scalar(
+            text("SELECT count(*) FROM media_files WHERE id = :id"), {"id": media_id}
+        )
+
+    assert {
+        "ai_conversations",
+        "ai_messages",
+        "ai_actions",
+        "ai_tool_calls",
+    }.isdisjoint(table_names)
+    assert remaining == 0
 
 
 @pytest.mark.parametrize("draw", [0, 600])

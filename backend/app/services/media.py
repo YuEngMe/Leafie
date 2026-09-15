@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
-from app.models.chat import AIMessage
 from app.models.diagnosis import Diagnosis
 from app.models.enums import MediaPurpose, MediaStatus
 from app.models.media import MediaFile, SpeciesIdentification
@@ -31,14 +30,12 @@ PURPOSE_PATHS = {
     MediaPurpose.SPECIES_IDENTIFICATION: "species-identification",
     MediaPurpose.DIARY: "diary",
     MediaPurpose.DIAGNOSIS: "diagnosis",
-    MediaPurpose.CHAT: "chat",
 }
 PURPOSE_MAX_BYTES = {
     MediaPurpose.PLANT_PROFILE: 5 * 1024 * 1024,
     MediaPurpose.SPECIES_IDENTIFICATION: 10 * 1024 * 1024,
     MediaPurpose.DIARY: 10 * 1024 * 1024,
     MediaPurpose.DIAGNOSIS: 10 * 1024 * 1024,
-    MediaPurpose.CHAT: 10 * 1024 * 1024,
 }
 
 
@@ -72,7 +69,6 @@ class SQLAlchemyMediaRepository:
             PlantDiary.media_file_id,
             SpeciesIdentification.media_file_id,
             Diagnosis.media_file_id,
-            AIMessage.media_file_id,
         )
         for column in reference_columns:
             statement = select(column).where(column == media_file_id).limit(1)

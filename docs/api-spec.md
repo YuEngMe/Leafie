@@ -537,8 +537,9 @@ CARE_NOTIFICATION_COLLECT
 6. 중복 전달이나 Worker 재시작에도 `diary_id` unique와 상태 조건으로 두 번째 편지를
    만들지 않습니다.
 
-생성/공개 Worker와 우편함은 구현되어 있으며 `LETTER_PUBLISH`가 공개를 담당합니다.
-다이어리 최초 저장 호출과 실제 센서 조회는 아직 미연결입니다.
+생성/공개 Worker, 우편함과 다이어리 최초 저장 호출은 구현되어 있으며
+`LETTER_PUBLISH`가 공개를 담당합니다. 실제 센서 조회가 연결될 때까지
+`LETTER_GENERATION_ENABLED`는 비활성화합니다.
 [편지 연동 가이드](letter-integration.md)의 연결·배포 순서를 따릅니다.
 
 센서 요약이 언제나 제공된다는 제품 전제를 따르되, 구체 데이터 형식과 산출 방식은 센서
