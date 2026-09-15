@@ -55,9 +55,6 @@ class FakeToolRepository:
     async def recent_care_events(self, _plant_id, _limit):
         return []
 
-    async def recent_diaries(self, _plant_id, _limit):
-        return []
-
     async def recent_diagnosis(self, _plant_id):
         return None
 

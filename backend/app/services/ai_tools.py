@@ -20,7 +20,7 @@ from app.models.enums import (
     DiagnosisStatus,
     ToolCallStatus,
 )
-from app.models.plant import Plant, PlantDiary, SpeciesCareGuide
+from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.chat import AIActionResponse
 from app.services.plant import today_in_timezone
@@ -84,13 +84,6 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "name": "get_recent_care_history",
         "description": "최근 완료한 물주기, 분갈이 등 관리 이력을 조회합니다.",
-        "parameters": _LimitArguments.model_json_schema(),
-        "strict": True,
-    },
-    {
-        "type": "function",
-        "name": "get_recent_diary_conditions",
-        "description": "최근 다이어리 날짜와 컨디션 점수를 조회합니다.",
         "parameters": _LimitArguments.model_json_schema(),
         "strict": True,
     },
@@ -168,18 +161,6 @@ class SQLAlchemyAIToolRepository:
                         CareEvent.status == CareEventStatus.COMPLETED.value,
                     )
                     .order_by(CareEvent.performed_on.desc(), CareEvent.recorded_at.desc())
-                    .limit(limit)
-                )
-            ).all()
-        )
-
-    async def recent_diaries(self, plant_id: UUID, limit: int) -> list[PlantDiary]:
-        return list(
-            (
-                await self._session.scalars(
-                    select(PlantDiary)
-                    .where(PlantDiary.plant_id == plant_id)
-                    .order_by(PlantDiary.diary_date.desc())
                     .limit(limit)
                 )
             ).all()
@@ -342,15 +323,6 @@ class AIToolService:
                         "performed_on": event.performed_on,
                     }
                     for event in events
-                ]
-            }
-        if name == "get_recent_diary_conditions":
-            parsed = _LimitArguments.model_validate(arguments)
-            diaries = await self._repository.recent_diaries(plant_id, parsed.limit)
-            return {
-                "items": [
-                    {"diary_date": diary.diary_date, "condition_score": diary.condition_score}
-                    for diary in diaries
                 ]
             }
         if name == "get_recent_diagnosis":

@@ -1,6 +1,5 @@
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -18,7 +17,7 @@ from app.api.v1 import diaries as diaries_api
 from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
 from app.main import create_app
-from app.models.enums import MediaPurpose, MediaStatus
+from app.models.enums import DiaryWeather, MediaPurpose, MediaStatus
 from app.models.media import MediaFile
 from app.models.plant import PlantDiary
 from app.schemas.diary import DiaryUpsertRequest
@@ -26,9 +25,6 @@ from app.schemas.queue import JobType, QueueJob
 from app.services.diary import (
     DiaryService,
     OwnedPlantContext,
-    average_condition_level,
-    condition_level,
-    monthly_statistics,
     today_in_timezone,
 )
 
@@ -76,17 +72,6 @@ class FakeDiaryRepository:
             (diary for diary in self.diaries.values() if start_date <= diary.diary_date < end_date),
             key=lambda diary: diary.diary_date,
         )
-
-    async def average_condition_score(
-        self,
-        plant_id: UUID,
-        start_date: date,
-        end_date: date,
-    ) -> Decimal | None:
-        diaries = await self.list_diaries(plant_id, start_date, end_date)
-        if not diaries:
-            return None
-        return Decimal(sum(diary.condition_score for diary in diaries)) / Decimal(len(diaries))
 
     async def get_media(
         self,
@@ -155,8 +140,9 @@ class FakeQueue:
 
 def make_request(**overrides: object) -> DiaryUpsertRequest:
     payload: dict[str, object] = {
+        "weather": "SUNNY",
+        "title": "새잎이 난 날",
         "content": "오늘 새잎이 자랐다.",
-        "condition_score": 75,
     }
     payload.update(overrides)
     return DiaryUpsertRequest.model_validate(payload)
@@ -195,16 +181,20 @@ def build_service() -> tuple[
     return DiaryService(repository, storage), repository, storage, user_id, plant_id
 
 
-def test_diary_schema_accepts_only_confirmed_scores_and_two_thousand_characters() -> None:
+def test_diary_schema_validates_weather_title_and_content() -> None:
+    assert make_request(title="  새잎  ").title == "새잎"
     assert make_request(content="  기록  ").content == "기록"
     assert len(make_request(content=f"  {'가' * 2000}  ").content) == 2000
 
-    for score in (0, 25, 50, 75, 100):
-        assert make_request(condition_score=score).condition_score == score
+    for weather in DiaryWeather:
+        assert make_request(weather=weather.value).weather == weather
 
-    for invalid_score in (20, 75.0, True, "75"):
-        with pytest.raises(ValidationError):
-            make_request(condition_score=invalid_score)
+    with pytest.raises(ValidationError):
+        make_request(weather="WINDY")
+    with pytest.raises(ValidationError):
+        make_request(title=" " * 10)
+    with pytest.raises(ValidationError):
+        make_request(title="가" * 101)
     with pytest.raises(ValidationError):
         make_request(content=" " * 10)
     for whitespace_only in ("\t", "\n", "\r\n", "\f", "\v", " \t\n\r\f\v "):
@@ -224,8 +214,8 @@ async def test_create_diary_without_photo() -> None:
     assert result.cleanup_media_ids == ()
     assert result.response.plant_id == plant_id
     assert result.response.diary_date == diary_date
-    assert result.response.condition_score == 75
-    assert result.response.condition_level == 4
+    assert result.response.weather == DiaryWeather.SUNNY
+    assert result.response.title == "새잎이 난 날"
     assert result.response.media is None
     assert len(repository.diaries) == 1
 
@@ -273,8 +263,9 @@ async def test_detail_omits_unavailable_photo_but_keeps_diary(media_state: str) 
         plant_id=plant_id,
         media_file_id=media_file.id,
         diary_date=date(2026, 7, 1),
+        weather=None,
+        title=None,
         content="사진 없이도 남아야 하는 기록",
-        condition_score=75,
         created_at=now,
         updated_at=now,
     )
@@ -283,7 +274,8 @@ async def test_detail_omits_unavailable_photo_but_keeps_diary(media_state: str) 
     response = await service.get_diary(user_id, plant_id, diary.diary_date)
 
     assert response.content == diary.content
-    assert response.condition_score == 75
+    assert response.weather is None
+    assert response.title is None
     assert response.media is None
     assert storage.download_requests == []
 
@@ -344,7 +336,7 @@ async def test_omitted_photo_keeps_existing_photo_on_update() -> None:
         user_id,
         plant_id,
         diary_date,
-        make_request(content="수정한 기록", condition_score=100),
+        make_request(title="수정한 제목", content="수정한 기록"),
     )
 
     assert result.created is False
@@ -448,25 +440,25 @@ async def test_same_media_cannot_be_shared_by_multiple_diaries() -> None:
     assert len(repository.diaries) == 1
 
 
-async def test_month_list_returns_integer_average_and_midpoint_level() -> None:
+async def test_month_list_returns_only_diary_summaries() -> None:
     service, repository, _, user_id, plant_id = build_service()
     await service.upsert_diary(
         user_id,
         plant_id,
         date(2026, 7, 1),
-        make_request(condition_score=25),
+        make_request(weather="RAINY", title="비 오는 날"),
     )
     await service.upsert_diary(
         user_id,
         plant_id,
         date(2026, 7, 2),
-        make_request(condition_score=50),
+        make_request(weather="CLOUDY", title="흐린 날"),
     )
     await service.upsert_diary(
         user_id,
         plant_id,
         date(2026, 8, 1),
-        make_request(condition_score=100),
+        make_request(weather="SUNNY", title="맑은 날"),
     )
 
     response = await service.list_month(user_id, plant_id, 2026, 7)
@@ -475,20 +467,19 @@ async def test_month_list_returns_integer_average_and_midpoint_level() -> None:
         date(2026, 7, 1),
         date(2026, 7, 2),
     ]
-    assert response.statistics.entry_count == 2
-    assert response.statistics.average_score == 38
-    assert response.statistics.average_level == 3
+    assert [entry.weather for entry in response.entries] == [
+        DiaryWeather.RAINY,
+        DiaryWeather.CLOUDY,
+    ]
+    assert [entry.title for entry in response.entries] == ["비 오는 날", "흐린 날"]
 
 
-async def test_empty_month_returns_null_average() -> None:
+async def test_empty_month_returns_empty_entries() -> None:
     service, _, _, user_id, plant_id = build_service()
 
     response = await service.list_month(user_id, plant_id, 2026, 7)
 
     assert response.entries == []
-    assert response.statistics.entry_count == 0
-    assert response.statistics.average_score is None
-    assert response.statistics.average_level is None
 
 
 async def test_delete_diary_is_idempotent_and_marks_photo_for_cleanup() -> None:
@@ -520,16 +511,6 @@ async def test_diary_access_is_scoped_to_owned_plant() -> None:
 
     assert error.value.code == "PLANT_NOT_FOUND"
     assert error.value.status_code == 404
-
-
-def test_condition_level_helpers_use_confirmed_boundaries() -> None:
-    assert [condition_level(score) for score in (0, 25, 50, 75, 100)] == [1, 2, 3, 4, 5]
-    assert average_condition_level(Decimal("12.49")) == 1
-    assert average_condition_level(Decimal("12.5")) == 2
-    assert average_condition_level(Decimal("37.5")) == 3
-    assert average_condition_level(Decimal("62.5")) == 4
-    assert average_condition_level(Decimal("87.5")) == 5
-    assert monthly_statistics(2, Decimal("37.5")).average_score == 38
 
 
 @pytest.mark.parametrize("invalid_timezone", ["", "/invalid/timezone"])
@@ -579,8 +560,9 @@ def test_diary_http_list_detail_and_delete(monkeypatch: pytest.MonkeyPatch) -> N
         plant_id=plant_id,
         media_file_id=media_file.id,
         diary_date=date(2026, 7, 1),
+        weather="SNOWY",
+        title="눈 오는 날",
         content="상세 기록",
-        condition_score=75,
         created_at=now,
         updated_at=now,
     )
@@ -611,10 +593,16 @@ def test_diary_http_list_detail_and_delete(monkeypatch: pytest.MonkeyPatch) -> N
         missing = client.get(f"/api/v1/plants/{plant_id}/diaries/2026-07-01")
 
     assert month.status_code == 200
-    assert month.json()["statistics"] == {
-        "entry_count": 1,
-        "average_score": 75,
-        "average_level": 4,
+    assert month.json() == {
+        "entries": [
+            {
+                "id": str(diary.id),
+                "diary_date": "2026-07-01",
+                "weather": "SNOWY",
+                "title": "눈 오는 날",
+                "has_photo": True,
+            }
+        ]
     }
     assert detail.status_code == 200
     assert detail.json()["media"]["id"] == str(media_file.id)

@@ -29,13 +29,11 @@ from app.schemas.plant import (
     HomePlantResponse,
     HomeResponse,
     PlantAppearanceUpdateRequest,
-    PlantConditionResponse,
     PlantDetailResponse,
     PlantListItemResponse,
     PlantListResponse,
     PlantUpdateRequest,
 )
-from app.services.diary import condition_level
 from app.services.plant import today_in_timezone
 
 
@@ -77,8 +75,6 @@ class PlantManagementRepository(Protocol):
 
     async def get_plant_for_delete(self, user_id: UUID, plant_id: UUID) -> Plant | None: ...
 
-    async def get_diary(self, plant_id: UUID, diary_date: date) -> PlantDiary | None: ...
-
     async def get_media(self, user_id: UUID, media_file_id: UUID) -> MediaFile | None: ...
 
     async def list_active_events(self, plant_id: UUID) -> list[CareEvent]: ...
@@ -88,10 +84,6 @@ class PlantManagementRepository(Protocol):
     async def list_calendar_events(
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]: ...
-
-    async def list_calendar_diaries(
-        self, plant_id: UUID, date_from: date, date_to: date
-    ) -> list[PlantDiary]: ...
 
     async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None: ...
 
@@ -157,14 +149,6 @@ class SQLAlchemyPlantManagementRepository:
             select(Plant).where(Plant.id == plant_id, Plant.user_id == user_id).with_for_update()
         )
 
-    async def get_diary(self, plant_id: UUID, diary_date: date) -> PlantDiary | None:
-        return await self._session.scalar(
-            select(PlantDiary).where(
-                PlantDiary.plant_id == plant_id,
-                PlantDiary.diary_date == diary_date,
-            )
-        )
-
     async def get_media(self, user_id: UUID, media_file_id: UUID) -> MediaFile | None:
         return await self._session.scalar(
             select(MediaFile).where(
@@ -223,17 +207,6 @@ class SQLAlchemyPlantManagementRepository:
                         CareEvent.performed_on.between(date_from, date_to),
                     ),
                 ),
-            )
-        )
-        return list(result)
-
-    async def list_calendar_diaries(
-        self, plant_id: UUID, date_from: date, date_to: date
-    ) -> list[PlantDiary]:
-        result = await self._session.scalars(
-            select(PlantDiary).where(
-                PlantDiary.plant_id == plant_id,
-                PlantDiary.diary_date.between(date_from, date_to),
             )
         )
         return list(result)
@@ -355,27 +328,15 @@ class PlantManagementService:
         context = await self._require_plant(user_id, plant_id)
         validate_calendar_range(date_from, date_to)
         selected_types = parse_calendar_types(types)
-        event_types = {item.value for item in selected_types if item != CalendarItemType.CONDITION}
-        events = (
-            await self._repository.list_calendar_events(
-                plant_id, date_from, date_to, event_types
-            )
-            if event_types
-            else []
-        )
-        diaries = (
-            await self._repository.list_calendar_diaries(plant_id, date_from, date_to)
-            if CalendarItemType.CONDITION in selected_types
-            else []
+        event_types = {item.value for item in selected_types}
+        events = await self._repository.list_calendar_events(
+            plant_id, date_from, date_to, event_types
         )
         today = today_in_timezone(context.timezone)
         items = []
         for event in events:
             response = calendar_event_response(event, today)
             items.append((response.date, event.created_at, event.id, response))
-        for diary in diaries:
-            response = calendar_condition_response(diary)
-            items.append((response.date, diary.created_at, diary.id, response))
         items.sort(key=lambda item: item[:3])
         return CalendarResponse(items=[item[3] for item in items])
 
@@ -394,15 +355,12 @@ class PlantManagementService:
             return HomeResponse(
                 plant=None,
                 character=None,
-                condition=None,
                 today_events=[],
                 daily_memo=None,
                 unread_notification_count=unread_count,
             )
 
         today = today_in_timezone(context.timezone)
-        diary = await self._repository.get_diary(context.plant.id, today)
-        condition = condition_response(diary)
         memo = await self._repository.get_memo(context.plant.id, today)
         today_events = await self._repository.list_today_events(context.plant.id, today)
         return HomeResponse(
@@ -416,10 +374,9 @@ class PlantManagementService:
                 personality_type=context.plant.personality_type,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
-                expression_level=condition.level if condition.recorded else None,
+                expression_level=None,
                 dialogue=None,
             ),
-            condition=condition,
             today_events=[agenda_event_response(event, today) for event in today_events],
             daily_memo=HomeMemoResponse(content=memo.content) if memo is not None else None,
             unread_notification_count=unread_count,
@@ -507,16 +464,6 @@ def days_together(started_on: date, timezone: str) -> int:
     return max((today_in_timezone(timezone) - started_on).days, 0)
 
 
-def condition_response(diary: PlantDiary | None) -> PlantConditionResponse:
-    if diary is None:
-        return PlantConditionResponse(recorded=False, score=None, level=None)
-    return PlantConditionResponse(
-        recorded=True,
-        score=diary.condition_score,
-        level=condition_level(diary.condition_score),
-    )
-
-
 def care_view_status(event: CareEvent, today: date) -> CareViewStatus:
     if event.status == CareEventStatus.COMPLETED.value:
         return CareViewStatus.COMPLETED
@@ -593,22 +540,5 @@ def calendar_event_response(event: CareEvent, today: date) -> CalendarItemRespon
         view_status=care_view_status(event, today),
         title=event.title,
         source=event.source,
-        condition_score=None,
-        condition_level=None,
         completable=not completed,
-    )
-
-
-def calendar_condition_response(diary: PlantDiary) -> CalendarItemResponse:
-    return CalendarItemResponse(
-        id=diary.id,
-        date=diary.diary_date,
-        type=CalendarItemType.CONDITION,
-        status=None,
-        view_status=None,
-        title=None,
-        source=None,
-        condition_score=diary.condition_score,
-        condition_level=condition_level(diary.condition_score),
-        completable=False,
     )
