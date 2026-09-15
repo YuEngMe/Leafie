@@ -90,8 +90,6 @@ class SQLAlchemyChatImageRepository:
                 plant_id=plant.id,
                 nickname=plant.nickname,
                 place_name=plant.place_name,
-                pot_type=plant.pot_type,
-                placement=plant.placement,
                 species_name=guide.display_name,
                 scientific_name=guide.scientific_name,
                 care_profile=guide.care_profile or {},

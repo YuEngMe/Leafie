@@ -311,8 +311,6 @@ class AIToolService:
             _NoArguments.model_validate(arguments)
             return {
                 "place_name": plant.place_name,
-                "pot_type": plant.pot_type,
-                "placement": plant.placement,
                 "started_on": plant.started_on,
             }
         if name == "get_upcoming_care_schedule":

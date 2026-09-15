@@ -278,8 +278,6 @@ class DiagnosisService:
                 "species_name": context.guide.display_name,
                 "scientific_name": context.guide.scientific_name,
                 "place_name": context.plant.place_name,
-                "pot_type": context.plant.pot_type,
-                "placement": context.plant.placement,
                 "last_watered_on": context.last_watered_on,
                 "last_repotted_on": context.last_repotted_on,
                 "diagnosis_profile": context.guide.diagnosis_profile or {},

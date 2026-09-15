@@ -295,7 +295,7 @@ class PlantManagementService:
         self._download_url_expires_seconds = download_url_expires_seconds
 
     async def list_plants(self, user_id: UUID) -> PlantListResponse:
-        profile = await self._require_profile(user_id)
+        await self._require_profile(user_id)
         plants = []
         for context in await self._repository.list_plants(user_id):
             plants.append(
@@ -304,16 +304,14 @@ class PlantManagementService:
                     nickname=context.plant.nickname,
                     species_reference_id=context.plant.species_reference_id,
                     species_display_name=context.guide.display_name,
-                    primary_photo_url=await self._photo_url(user_id, context.plant),
                     personality_type=context.plant.personality_type,
                     color_id=context.plant.color_id,
                     hair_id=context.plant.hair_id,
-                    accessory_id=context.plant.accessory_id,
-                    days_together=days_together(context.plant.started_on, context.timezone),
-                    is_selected=context.plant.id == profile.selected_plant_id,
+                    primary_photo_url=await self._photo_url(user_id, context.plant),
+                    started_on=context.plant.started_on,
                 )
             )
-        return PlantListResponse(plants=plants)
+        return PlantListResponse(items=plants)
 
     async def get_plant(self, user_id: UUID, plant_id: UUID) -> PlantDetailResponse:
         context = await self._require_plant(user_id, plant_id)
@@ -418,7 +416,6 @@ class PlantManagementService:
                 personality_type=context.plant.personality_type,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
-                accessory_id=context.plant.accessory_id,
                 expression_level=condition.level if condition.recorded else None,
                 dialogue=None,
             ),
@@ -453,8 +450,6 @@ class PlantManagementService:
     async def _detail_response(self, user_id: UUID, context: PlantContext) -> PlantDetailResponse:
         plant = context.plant
         guide = context.guide
-        today = today_in_timezone(context.timezone)
-        diary = await self._repository.get_diary(plant.id, today)
         return PlantDetailResponse(
             id=plant.id,
             nickname=plant.nickname,
@@ -466,15 +461,10 @@ class PlantManagementService:
             flowering_period=guide.flowering_period,
             primary_photo_url=await self._photo_url(user_id, plant),
             started_on=plant.started_on,
-            days_together=days_together(plant.started_on, context.timezone),
             place_name=plant.place_name,
-            pot_type=plant.pot_type,
-            placement=plant.placement,
             personality_type=plant.personality_type,
             color_id=plant.color_id,
             hair_id=plant.hair_id,
-            accessory_id=plant.accessory_id,
-            condition=condition_response(diary),
             created_at=plant.created_at,
             updated_at=plant.updated_at,
         )

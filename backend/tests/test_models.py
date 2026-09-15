@@ -96,6 +96,9 @@ def test_plant_registration_id_is_unique_per_user() -> None:
     assert ("user_id", "client_registration_id") in unique_columns
     assert plants.columns["client_registration_id"].nullable is False
     assert plants.columns["registration_request_hash"].nullable is False
+    assert plants.columns["nickname"].type.length == 30
+    assert plants.columns["place_name"].type.length == 50
+    assert {"pot_type", "placement", "accessory_id"}.isdisjoint(plants.columns)
 
 
 def test_conversations_belong_directly_to_a_plant() -> None:

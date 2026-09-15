@@ -22,9 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.enums import (
     PersonalityType,
-    Placement,
     PlantCategory,
-    PotType,
     SpeciesSelectionMethod,
     enum_values,
 )
@@ -98,14 +96,6 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
             name="species_selection_method",
         ),
         CheckConstraint(
-            f"pot_type IN ({enum_values(PotType)})",
-            name="pot_type",
-        ),
-        CheckConstraint(
-            f"placement IN ({enum_values(Placement)})",
-            name="placement",
-        ),
-        CheckConstraint(
             f"personality_type IN ({enum_values(PersonalityType)})",
             name="personality_type",
         ),
@@ -139,16 +129,13 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     primary_media_file_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("media_files.id", ondelete="SET NULL")
     )
-    nickname: Mapped[str] = mapped_column(String(100), nullable=False)
+    nickname: Mapped[str] = mapped_column(String(30), nullable=False)
     species_selection_method: Mapped[str] = mapped_column(String(16), nullable=False)
     started_on: Mapped[date] = mapped_column(Date, nullable=False)
-    place_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    pot_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    placement: Mapped[str] = mapped_column(String(32), nullable=False)
+    place_name: Mapped[str] = mapped_column(String(50), nullable=False)
     personality_type: Mapped[str] = mapped_column(String(32), nullable=False)
     color_id: Mapped[str] = mapped_column(String(100), nullable=False)
     hair_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    accessory_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
 class PlantDailyMemo(Base, UUIDPrimaryKeyMixin, TimestampMixin):

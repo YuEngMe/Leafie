@@ -30,8 +30,6 @@ class FakeToolRepository:
             SimpleNamespace(
                 nickname="새싹이",
                 place_name="집",
-                pot_type="PLASTIC",
-                placement="WINDOW",
                 started_on=date(2026, 7, 1),
             ),
             SimpleNamespace(
