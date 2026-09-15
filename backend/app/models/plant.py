@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.enums import (
+    DiaryWeather,
     PersonalityType,
     PlantCategory,
     SpeciesSelectionMethod,
@@ -163,8 +164,12 @@ class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             name="content_length",
         ),
         CheckConstraint(
-            "condition_score IN (0, 25, 50, 75, 100)",
-            name="condition_score",
+            f"weather IS NULL OR weather IN ({enum_values(DiaryWeather)})",
+            name="weather",
+        ),
+        CheckConstraint(
+            "title IS NULL OR char_length(btrim(title, E' \\t\\n\\r\\f\\v')) BETWEEN 1 AND 100",
+            name="title_length",
         ),
         UniqueConstraint("media_file_id", name="uq_plant_diaries_media_file_id"),
         UniqueConstraint("plant_id", "diary_date", name="uq_plant_diaries_plant_date"),
@@ -177,5 +182,6 @@ class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         PG_UUID(as_uuid=True), ForeignKey("media_files.id", ondelete="SET NULL")
     )
     diary_date: Mapped[date] = mapped_column(Date, nullable=False)
+    weather: Mapped[str | None] = mapped_column(String(20))
+    title: Mapped[str | None] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    condition_score: Mapped[int] = mapped_column(Integer, nullable=False)

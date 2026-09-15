@@ -15,6 +15,17 @@ def test_diagnosis_openapi_has_no_conversation_contract() -> None:
     assert request["additionalProperties"] is False
     assert "related_conversation_id" not in schemas["DiagnosisDetailResponse"]["properties"]
 
+
+def test_diary_openapi_uses_weather_and_title_without_condition_statistics() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    request = schemas["DiaryUpsertRequest"]
+    assert set(request["required"]) == {"weather", "title", "content"}
+    assert request["properties"]["title"]["maxLength"] == 100
+    assert "condition_score" not in request["properties"]
+    assert "condition_level" not in schemas["DiaryResponse"]["properties"]
+    assert set(schemas["DiaryMonthResponse"]["properties"]) == {"entries"}
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),
@@ -89,14 +100,14 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
         "GET",
         f"/api/v1/plants/{uuid4()}/calendar",
         None,
-        {"from": "2026-08-01", "to": "2026-08-31", "types": "WATERING,CONDITION"},
+        {"from": "2026-08-01", "to": "2026-08-31", "types": "WATERING,REPOTTING"},
     ),
     ("GET", "/api/v1/home", None, None),
     ("GET", f"/api/v1/plants/{uuid4()}/diaries", None, {"year": 2026, "month": 8}),
     (
         "PUT",
         f"/api/v1/plants/{uuid4()}/diaries/2026-08-01",
-        {"content": "오늘의 기록", "condition_score": 75},
+        {"weather": "SUNNY", "title": "새잎이 난 날", "content": "오늘의 기록"},
         None,
     ),
     ("GET", f"/api/v1/plants/{uuid4()}/diaries/2026-08-01", None, None),

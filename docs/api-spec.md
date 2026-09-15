@@ -330,6 +330,8 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ### `GET /plants/{plant_id}/diaries?year=2026&month=7`
 
 달력 표시용 작성 날짜와 상세 요약을 반환합니다. 컨디션 통계는 반환하지 않습니다.
+각 항목은 `id`, `diary_date`, `weather`, `title`, `has_photo`를 반환합니다. 전환 이전
+다이어리의 `weather`와 `title`은 `null`일 수 있습니다.
 
 ### `PUT /plants/{plant_id}/diaries/{date}`
 
@@ -341,6 +343,11 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "media_file_id": "uuid-or-null"
 }
 ```
+
+`weather`는 `SUNNY`, `PARTLY_CLOUDY`, `CLOUDY`, `RAINY`, `SNOWY` 중 하나이며
+`title`은 공백을 제외하고 1~100자, `content`는 1~2,000자입니다. 신규 생성과 수정
+요청에는 세 필드를 모두 보냅니다. 전환 이전 다이어리를 수정할 때도 제목과 날씨가
+필요합니다.
 
 - 식물별·날짜별 한 건을 생성하거나 수정합니다.
 - 미래 날짜는 허용하지 않습니다.
@@ -372,7 +379,13 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 
 ### `GET /plants/{plant_id}/diaries/{date}`
 
-해당 날짜의 다이어리를 반환합니다.
+해당 날짜의 다이어리를 반환합니다. 전환 이전 다이어리의 제목·날씨는 `null`일 수 있습니다.
+
+### `DELETE /plants/{plant_id}/diaries/{date}`
+
+해당 날짜의 다이어리를 삭제하며 성공과 반복 삭제 모두 204를 반환합니다. 연결 사진은
+비동기 Storage 정리 대상으로 전환하고, 이미 연결된 편지는 FK cascade로 함께 삭제합니다.
+삭제 뒤 도착한 편지 Worker 작업은 편지를 생성하거나 공개하지 않습니다.
 
 ## 11. 우편함과 편지
 

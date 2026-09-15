@@ -91,13 +91,16 @@ erDiagram
 | `id` | uuid | PK |
 | `plant_id` | uuid | 소유 식물 FK |
 | `diary_date` | date | 미래 불가 |
-| `weather` | enum | 필수 |
-| `title` | varchar(80) | 필수 |
+| `weather` | enum | 신규 작성 필수, 전환 이전 행은 nullable |
+| `title` | varchar(100) | 신규 작성 필수, 전환 이전 행은 nullable |
 | `content` | varchar(2000) | 필수 |
 | `media_file_id` | uuid | nullable, 최대 한 장 |
 | `created_at`, `updated_at` | timestamptz | 필수 |
 
 `(plant_id, diary_date)`는 unique입니다. 컨디션 점수는 저장하지 않습니다.
+날씨 코드는 `SUNNY`, `PARTLY_CLOUDY`, `CLOUDY`, `RAINY`, `SNOWY`입니다. 전환 이전
+다이어리는 임의의 제목·날씨를 채우지 않고 `null`로 보존하며, 사용자가 수정할 때 신규
+계약에 맞는 제목과 날씨를 받습니다.
 
 ### `letters`
 
