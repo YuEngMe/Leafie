@@ -204,12 +204,9 @@ def make_plant(user_id: UUID, *, created_at: datetime | None = None) -> Plant:
         species_selection_method="SEARCH",
         started_on=date.today() - timedelta(days=10),
         place_name="거실",
-        pot_type="CERAMIC",
-        placement="LIVING_ROOM",
         personality_type="OUTGOING",
         color_id="green",
         hair_id="leaf",
-        accessory_id="star",
         created_at=now,
         updated_at=now,
     )
@@ -255,6 +252,10 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
         PlantUpdateRequest.model_validate({"nickname": None})
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"color_id": "  "})
+    with pytest.raises(ValidationError):
+        PlantUpdateRequest.model_validate({"pot_type": "PLASTIC"})
+    with pytest.raises(ValidationError):
+        PlantAppearanceUpdateRequest.model_validate({"accessory_id": "star"})
 
 
 async def test_list_detail_and_partial_updates_return_owned_active_plants() -> None:
@@ -279,8 +280,8 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
         user_id, plant.id, PlantAppearanceUpdateRequest(color_id="yellow")
     )
 
-    assert listed.plants[0].is_selected is True
-    assert detail.condition.level == 4
+    assert listed.items[0].started_on == plant.started_on
+    assert detail.nickname == "초록이"
     assert updated.nickname == "새이름"
     assert appearance.color_id == "yellow"
 

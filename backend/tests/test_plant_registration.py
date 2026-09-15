@@ -126,14 +126,11 @@ def make_request(**overrides: object) -> PlantCreateRequest:
         "primary_media_file_id": None,
         "started_on": "2026-03-01",
         "place_name": "학교",
-        "pot_type": "PLASTIC",
-        "placement": "WINDOW",
         "last_watered_on": "2026-07-30",
-        "repotting_history": {"status": "KNOWN", "date": "2026-03-01"},
+        "last_repotted_on": "2026-03-01",
         "personality_type": "OUTGOING",
         "color_id": "color_green_01",
         "hair_id": "hair_leaf_01",
-        "accessory_id": "accessory_star_01",
     }
     payload.update(overrides)
     return PlantCreateRequest.model_validate(payload)
@@ -190,9 +187,6 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     plant = next(entity for entity in repository.added if isinstance(entity, Plant))
     schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
-    conversation = next(
-        entity for entity in repository.added if isinstance(entity, AIConversation)
-    )
 
     assert response.id == plant.id
     assert response.created_at == plant.created_at
@@ -206,6 +200,7 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert repository.profile is not None
     assert repository.profile.selected_plant_id == plant.id
     assert repository.flush_count == 1
+    assert not any(isinstance(entity, AIConversation) for entity in repository.added)
 
     watering_schedule = next(
         schedule for schedule in schedules if schedule.type == CareScheduleType.WATERING
@@ -250,11 +245,9 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     )
     assert repotting_event.schedule_id == repotting_schedule.id
     assert repotting_event.performed_on == date(2026, 3, 1)
-    assert conversation.plant_id == plant.id
-    assert conversation.title == "새 채팅"
     assert [[type(entity) for entity in batch] for batch in repository.added_batches] == [
         [Plant],
-        [CareSchedule, CareSchedule, AIConversation],
+        [CareSchedule, CareSchedule],
         [CareEvent, CareEvent, CareEvent, CareEvent],
     ]
 
@@ -272,7 +265,6 @@ async def test_registration_retry_returns_existing_result_without_duplicates() -
     assert len([entity for entity in repository.added if isinstance(entity, Plant)]) == 1
     assert len([entity for entity in repository.added if isinstance(entity, CareSchedule)]) == 2
     assert len([entity for entity in repository.added if isinstance(entity, CareEvent)]) == 4
-    assert len([entity for entity in repository.added if isinstance(entity, AIConversation)]) == 1
     assert repository.flush_count == 1
 
 
@@ -287,7 +279,7 @@ async def test_deleted_registration_id_cannot_be_replayed() -> None:
     with pytest.raises(AppError) as error:
         await service.create_plant(user_id, request)
 
-    assert error.value.code == "PLANT_REGISTRATION_ID_REUSED"
+    assert error.value.code == "IDEMPOTENCY_KEY_REUSED"
     assert error.value.status_code == 409
     assert repository.added == added_after_first_request
     assert repository.flush_count == 1
@@ -308,43 +300,23 @@ async def test_registration_id_cannot_be_reused_with_different_payload() -> None
             ),
         )
 
-    assert error.value.code == "PLANT_REGISTRATION_ID_REUSED"
+    assert error.value.code == "IDEMPOTENCY_KEY_REUSED"
     assert error.value.status_code == 409
     assert repository.added == added_after_first_request
 
 
-async def test_never_repotted_uses_started_on_for_initial_schedule() -> None:
+async def test_missing_repotting_date_does_not_create_initial_schedule_or_event() -> None:
     service, repository, user_id = build_service()
 
     await service.create_plant(
         user_id,
-        make_request(repotting_history={"status": "NEVER", "date": None}),
+        make_request(last_repotted_on=None),
     )
 
     events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
     assert [
         event.type for event in events if event.status == CareEventStatus.COMPLETED
     ] == [CareEventType.WATERING]
-    assert {
-        event.type for event in events if event.status == CareEventStatus.SCHEDULED
-    } == {CareEventType.WATERING, CareEventType.REPOTTING}
-    schedules = [entity for entity in repository.added if isinstance(entity, CareSchedule)]
-    repotting_schedule = next(
-        schedule for schedule in schedules if schedule.type == CareScheduleType.REPOTTING
-    )
-    assert repotting_schedule.interval_days == 365
-    assert repotting_schedule.next_due_date == date(2027, 3, 1)
-
-
-async def test_unknown_repotting_history_does_not_create_initial_schedule_or_event() -> None:
-    service, repository, user_id = build_service()
-
-    await service.create_plant(
-        user_id,
-        make_request(repotting_history={"status": "UNKNOWN", "date": None}),
-    )
-
-    events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
     assert [event.type for event in events] == [
         CareEventType.WATERING,
         CareEventType.WATERING,
@@ -420,8 +392,8 @@ async def test_photo_registration_reuses_completed_identification_image() -> Non
             "species_identification_id": uuid4(),
         },
         {"color_id": "   "},
-        {"repotting_history": {"status": "KNOWN", "date": None}},
-        {"repotting_history": {"status": "NEVER", "date": "2026-03-01"}},
+        {"nickname": "가" * 31},
+        {"place_name": "가" * 51},
         {"unexpected": "value"},
     ],
 )
@@ -493,7 +465,7 @@ async def test_registration_rejects_future_known_repotting_date() -> None:
     with pytest.raises(AppError) as error:
         await service.create_plant(
             user_id,
-            make_request(repotting_history={"status": "KNOWN", "date": tomorrow}),
+            make_request(last_repotted_on=tomorrow),
         )
 
     assert error.value.code == "FUTURE_DATE_NOT_ALLOWED"

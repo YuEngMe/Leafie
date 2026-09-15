@@ -21,12 +21,6 @@ class SpeciesSelectionMethod(StrEnum):
     PHOTO = "PHOTO"
 
 
-class RepottingHistoryStatus(StrEnum):
-    KNOWN = "KNOWN"
-    NEVER = "NEVER"
-    UNKNOWN = "UNKNOWN"
-
-
 class SpeciesIdentificationStatus(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
@@ -45,24 +39,6 @@ class PersonalityType(StrEnum):
     CRUSH = "CRUSH"
     INTROVERTED = "INTROVERTED"
     CHUNGCHEONG = "CHUNGCHEONG"
-
-
-class PotType(StrEnum):
-    TERRACOTTA = "TERRACOTTA"
-    PLASTIC = "PLASTIC"
-    GLASS = "GLASS"
-    CERAMIC = "CERAMIC"
-    HYDROPONIC = "HYDROPONIC"
-    OTHER = "OTHER"
-
-
-class Placement(StrEnum):
-    VERANDA = "VERANDA"
-    WINDOW = "WINDOW"
-    LIVING_ROOM = "LIVING_ROOM"
-    BEDROOM = "BEDROOM"
-    DESK = "DESK"
-    OTHER = "OTHER"
 
 
 class CareScheduleType(StrEnum):

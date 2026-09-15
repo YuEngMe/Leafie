@@ -115,12 +115,9 @@ async def seed(db, queue, *, reserve=True):
                 species_selection_method="SEARCH",
                 started_on=date(2026, 1, 1),
                 place_name="집",
-                pot_type="PLASTIC",
-                placement="WINDOW",
                 personality_type="INTROVERTED",
                 color_id="green",
                 hair_id="leaf",
-                accessory_id="none",
             )
         )
         await session.flush()

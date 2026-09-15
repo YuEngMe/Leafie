@@ -39,8 +39,6 @@ class PlantChatContext:
     plant_id: UUID
     nickname: str
     place_name: str
-    pot_type: str
-    placement: str
     species_name: str
     scientific_name: str | None
     care_profile: dict
@@ -135,8 +133,6 @@ class SQLAlchemyChatRepository:
             plant_id=plant.id,
             nickname=plant.nickname,
             place_name=plant.place_name,
-            pot_type=plant.pot_type,
-            placement=plant.placement,
             species_name=guide.display_name,
             scientific_name=guide.scientific_name,
             care_profile=guide.care_profile or {},
@@ -670,7 +666,7 @@ def build_instructions(context: PlantChatContext, summary: str | None) -> str:
         "물주기와 분갈이 반복 주기를 변경하려고 하지 마세요. "
         f"상담 대상 식물의 애칭: {context.nickname}, 식물명: {context.species_name}, "
         f"학명: {context.scientific_name or '미상'}, "
-        f"장소: {context.place_name}, 화분: {context.pot_type}, 위치: {context.placement}. "
+        f"장소: {context.place_name}. "
         f"관리 가이드: {json.dumps(context.care_profile, ensure_ascii=False)}. "
         f"이전 대화 요약: {summary or '없음'}."
     )

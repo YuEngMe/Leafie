@@ -298,8 +298,6 @@ def test_chat_prompt_uses_ai_doctor_identity() -> None:
         plant_id=uuid4(),
         nickname="새싹이",
         place_name="우리 집",
-        pot_type="PLASTIC",
-        placement="WINDOW",
         species_name="바질",
         scientific_name="Ocimum basilicum",
         care_profile={},

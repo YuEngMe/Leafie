@@ -28,12 +28,9 @@ class FakeRepository:
             species_selection_method="SEARCH",
             started_on=date(2026, 7, 1),
             place_name="학교",
-            pot_type="PLASTIC",
-            placement="WINDOW",
             personality_type="OUTGOING",
             color_id="green",
             hair_id="basil",
-            accessory_id="none",
         )
         self.guide = SpeciesCareGuide(
             species_reference_id="basil",

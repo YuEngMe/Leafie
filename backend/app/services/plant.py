@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.models.care import CareEvent, CareSchedule
-from app.models.chat import AIConversation
 from app.models.enums import (
     CareEventSource,
     CareEventStatus,
@@ -18,7 +17,6 @@ from app.models.enums import (
     CareScheduleType,
     MediaPurpose,
     MediaStatus,
-    RepottingHistoryStatus,
     SpeciesIdentificationStatus,
     SpeciesSelectionMethod,
     WaterRecommendationSource,
@@ -152,13 +150,13 @@ class PlantRegistrationService:
         if existing_plant is not None:
             if existing_plant.deleted_at is not None:
                 raise AppError(
-                    code="PLANT_REGISTRATION_ID_REUSED",
+                    code="IDEMPOTENCY_KEY_REUSED",
                     message="이미 삭제된 식물 등록에 사용한 client_registration_id입니다.",
                     status_code=409,
                 )
             if existing_plant.registration_request_hash != request_hash:
                 raise AppError(
-                    code="PLANT_REGISTRATION_ID_REUSED",
+                    code="IDEMPOTENCY_KEY_REUSED",
                     message="이미 다른 식물 등록에 사용한 client_registration_id입니다.",
                     status_code=409,
                 )
@@ -198,12 +196,9 @@ class PlantRegistrationService:
             species_selection_method=request.species_selection_method.value,
             started_on=request.started_on,
             place_name=request.place_name,
-            pot_type=request.pot_type.value,
-            placement=request.placement.value,
             personality_type=request.personality_type.value,
             color_id=request.color_id,
             hair_id=request.hair_id,
-            accessory_id=request.accessory_id,
             created_at=now,
             updated_at=now,
         )
@@ -236,32 +231,20 @@ class PlantRegistrationService:
             performed_on=request.last_watered_on,
             recorded_at=now,
         )
-        conversation = AIConversation(
-            id=uuid4(),
-            plant_id=plant.id,
-            title="새 채팅",
-            created_at=now,
-            updated_at=now,
-        )
-
         care_schedules: list[CareSchedule] = [watering_schedule]
         care_events: list[CareEvent] = [watering_event]
-        repotting_base_date: date | None = None
-        if request.repotting_history.status == RepottingHistoryStatus.KNOWN:
-            assert request.repotting_history.date is not None
-            repotting_base_date = request.repotting_history.date
-        elif request.repotting_history.status == RepottingHistoryStatus.NEVER:
-            repotting_base_date = request.started_on
-
         repotting_schedule: CareSchedule | None = None
-        if repotting_base_date is not None and guide.default_repotting_interval_days is not None:
+        if (
+            request.last_repotted_on is not None
+            and guide.default_repotting_interval_days is not None
+        ):
             repotting_schedule = CareSchedule(
                 id=uuid4(),
                 plant_id=plant.id,
                 type=CareScheduleType.REPOTTING.value,
                 interval_days=guide.default_repotting_interval_days,
                 next_due_date=next_recurring_due_date(
-                    repotting_base_date,
+                    request.last_repotted_on,
                     guide.default_repotting_interval_days,
                     today,
                 ),
@@ -274,8 +257,7 @@ class PlantRegistrationService:
             )
             care_schedules.append(repotting_schedule)
 
-        if request.repotting_history.status == RepottingHistoryStatus.KNOWN:
-            assert request.repotting_history.date is not None
+        if request.last_repotted_on is not None:
             care_events.append(
                 completed_care_event(
                     plant_id=plant.id,
@@ -283,7 +265,7 @@ class PlantRegistrationService:
                         repotting_schedule.id if repotting_schedule is not None else None
                     ),
                     care_type=CareEventType.REPOTTING,
-                    performed_on=request.repotting_history.date,
+                    performed_on=request.last_repotted_on,
                     recorded_at=now,
                 )
             )
@@ -296,7 +278,7 @@ class PlantRegistrationService:
         # Flush parents first so PostgreSQL never receives child INSERTs before
         # their referenced plant and schedule rows exist.
         await self._repository.add_registration(plant)
-        await self._repository.add_registration(*care_schedules, conversation)
+        await self._repository.add_registration(*care_schedules)
         await self._repository.add_registration(*care_events)
         profile.selected_plant_id = plant.id
         await self._repository.flush()
@@ -373,8 +355,8 @@ class PlantRegistrationService:
     @staticmethod
     def _validate_dates(request: PlantCreateRequest, today: date) -> None:
         dates = [request.started_on, request.last_watered_on]
-        if request.repotting_history.date is not None:
-            dates.append(request.repotting_history.date)
+        if request.last_repotted_on is not None:
+            dates.append(request.last_repotted_on)
         if any(value > today for value in dates):
             raise AppError(
                 code="FUTURE_DATE_NOT_ALLOWED",

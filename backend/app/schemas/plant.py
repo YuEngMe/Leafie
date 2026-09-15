@@ -11,48 +11,27 @@ from app.models.enums import (
     CareEventType,
     CareViewStatus,
     PersonalityType,
-    Placement,
     PlantCategory,
-    PotType,
-    RepottingHistoryStatus,
     SpeciesSelectionMethod,
 )
-
-
-class RepottingHistory(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    status: RepottingHistoryStatus
-    date: Date | None = None
-
-    @model_validator(mode="after")
-    def validate_date_for_status(self) -> "RepottingHistory":
-        if self.status == RepottingHistoryStatus.KNOWN and self.date is None:
-            raise ValueError("분갈이 날짜를 입력해 주세요.")
-        if self.status != RepottingHistoryStatus.KNOWN and self.date is not None:
-            raise ValueError("분갈이 날짜는 상태가 KNOWN일 때만 입력할 수 있습니다.")
-        return self
 
 
 class PlantCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     client_registration_id: UUID
-    nickname: str = Field(min_length=1, max_length=100)
+    nickname: str = Field(min_length=1, max_length=30)
     species_reference_id: str = Field(min_length=1, max_length=255)
     species_selection_method: SpeciesSelectionMethod
     species_identification_id: UUID | None = None
     primary_media_file_id: UUID | None = None
     started_on: Date
-    place_name: str = Field(min_length=1, max_length=100)
-    pot_type: PotType
-    placement: Placement
+    place_name: str = Field(min_length=1, max_length=50)
     last_watered_on: Date
-    repotting_history: RepottingHistory
+    last_repotted_on: Date | None = None
     personality_type: PersonalityType
     color_id: str = Field(min_length=1, max_length=100)
     hair_id: str = Field(min_length=1, max_length=100)
-    accessory_id: str = Field(min_length=1, max_length=100)
 
     @field_validator(
         "nickname",
@@ -60,7 +39,6 @@ class PlantCreateRequest(BaseModel):
         "place_name",
         "color_id",
         "hair_id",
-        "accessory_id",
     )
     @classmethod
     def strip_nonblank_text(cls, value: str) -> str:
@@ -95,17 +73,15 @@ class PlantListItemResponse(BaseModel):
     nickname: str
     species_reference_id: str
     species_display_name: str
-    primary_photo_url: str | None
     personality_type: PersonalityType
     color_id: str
     hair_id: str
-    accessory_id: str
-    days_together: int
-    is_selected: bool
+    primary_photo_url: str | None
+    started_on: Date
 
 
 class PlantListResponse(BaseModel):
-    plants: list[PlantListItemResponse]
+    items: list[PlantListItemResponse]
 
 
 class PlantDetailResponse(BaseModel):
@@ -119,15 +95,10 @@ class PlantDetailResponse(BaseModel):
     flowering_period: str | None
     primary_photo_url: str | None
     started_on: Date
-    days_together: int
     place_name: str
-    pot_type: PotType
-    placement: Placement
     personality_type: PersonalityType
     color_id: str
     hair_id: str
-    accessory_id: str
-    condition: PlantConditionResponse
     created_at: datetime
     updated_at: datetime
 
@@ -135,10 +106,8 @@ class PlantDetailResponse(BaseModel):
 class PlantUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    nickname: str | None = Field(default=None, min_length=1, max_length=100)
-    place_name: str | None = Field(default=None, min_length=1, max_length=100)
-    pot_type: PotType | None = None
-    placement: Placement | None = None
+    nickname: str | None = Field(default=None, min_length=1, max_length=30)
+    place_name: str | None = Field(default=None, min_length=1, max_length=50)
 
     @field_validator("nickname", "place_name")
     @classmethod
@@ -164,9 +133,8 @@ class PlantAppearanceUpdateRequest(BaseModel):
 
     color_id: str | None = Field(default=None, min_length=1, max_length=100)
     hair_id: str | None = Field(default=None, min_length=1, max_length=100)
-    accessory_id: str | None = Field(default=None, min_length=1, max_length=100)
 
-    @field_validator("color_id", "hair_id", "accessory_id")
+    @field_validator("color_id", "hair_id")
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -235,7 +203,6 @@ class HomeCharacterResponse(BaseModel):
     personality_type: PersonalityType
     color_id: str
     hair_id: str
-    accessory_id: str
     expression_level: int | None
     dialogue: str | None
 
