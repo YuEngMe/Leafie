@@ -2,6 +2,7 @@
 // 배경이 앱바 뒤까지 이어져 좌표를 화면 절대값으로 쓴다.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
@@ -82,13 +83,13 @@ void main() {
       expect(tester.getCenter(find.text('일')).dx, closeTo(64.33, 1));
       expect(tester.getCenter(find.text('토')).dx, closeTo(327.90, 1));
       expect(tester.getRect(find.text('일')).top, closeTo(262.61, 1));
-      _expectAt(tester, '책갈피', find.byType(DiaryTab), 350, 232);
       _expectAt(tester, '이전 달', find.bySemanticsLabel('이전 달'), 350, 493);
       _expectAt(tester, '다음 달', find.bySemanticsLabel('다음 달'), 351, 561);
       final body = tester.widget<DiaryScaffoldBody>(
         find.byType(DiaryScaffoldBody),
       );
-      expect(body.paperTabs, hasLength(3));
+      // 파란 책갈피는 2026-09-11 디자이너 요청으로 뺐다. 앞뒤 버튼 둘만 남는다.
+      expect(body.paperTabs, hasLength(2));
       // 시안 3496:12213에서 자리가 바뀌었다.
       _expectAt(tester, '하단 작성 버튼', find.bySemanticsLabel('다이어리 쓰기'), 302, 661);
       expect(find.byKey(const ValueKey('diary-appbar-edit')), findsNothing);
@@ -96,7 +97,7 @@ void main() {
         final context = tester.element(find.byType(DiaryScreen));
         for (final asset in [
           'diary_background.png',
-          'icon_diary_fab.png',
+          'diary_paper_texture.png',
         ]) {
           await precacheImage(AssetImage('assets/images/$asset'), context);
         }
@@ -140,6 +141,19 @@ void main() {
       expect(find.text('31'), findsNothing);
     });
 
+    testWidgets('여섯 주가 필요한 달도 마지막 주를 그린다', (tester) async {
+      _setUpView(tester);
+      // 2026-08은 토요일 시작 31일 → 6주.
+      await tester.pumpWidget(
+        MaterialApp(home: DiaryScreen(today: DateTime(2026, 8, 15))),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('30'), findsOneWidget);
+      expect(find.text('31'), findsOneWidget);
+      // 여섯 줄이 시안 격자 높이(292.89~625.53) 안에 들어온다.
+      expect(tester.getRect(find.text('31')).bottom, lessThan(626));
+    });
+
     testWidgets('날짜를 누르면 그 날 글로 넘어간다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
@@ -175,8 +189,57 @@ void main() {
       _expectAt(tester, '사진칸', find.byType(DiaryPhotoBox), 46, 144.74);
       // 3496:10624 / 10625 / 10621 — 읽기 화면 제목·본문·밑줄.
       expect(tester.getRect(find.text('제목: ')).center.dy, closeTo(434.9, 1));
-      expect(tester.getRect(find.byType(TextField).last).top, closeTo(460, 1));
+      expect(tester.getRect(find.byType(TextField).last).top, closeTo(466, 1));
+      // 빈 글쓰기 시안(2739:39308)에는 저장하기가 없다.
+      expect(find.text('저장하기'), findsNothing);
       _expectAt(tester, '날짜', find.text('2026년 7월 15일 수요일'), 54, 149);
+      // 앱바 연필(3345:792) x354 y52.
+      final edit = tester.getRect(
+        find.byKey(const ValueKey('diary-appbar-edit')),
+      );
+      expect(edit.left, closeTo(354, 1));
+      expect(edit.top, closeTo(46, 1));
+      final glyph = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey('diary-appbar-edit')),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(glyph.left, closeTo(354, 1));
+      expect(glyph.top, closeTo(52, 1));
+    });
+
+    testWidgets('글이 있으면 저장하기(3631:2600)가 본문칸 오른쪽 아래에 뜬다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15), title: '귀여운 새싹이'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.text('저장하기')).center.dy,
+        closeTo(683 + 5.5, 2),
+      );
+      expect(tester.getRect(find.text('저장하기')).center.dx, closeTo(320, 2));
+    });
+
+    testWidgets('빈 글에 글자를 치면 저장하기가 나타난다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('저장하기'), findsNothing);
+      await tester.enterText(find.byType(TextField).last, '오늘');
+      await tester.pump();
+      expect(find.text('저장하기'), findsOneWidget);
     });
 
     testWidgets('빈 글은 사진 추가와 힌트를 보여준다', (tester) async {

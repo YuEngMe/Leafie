@@ -8,6 +8,7 @@ import 'package:yeso_plant/widgets/calendar_pieces.dart';
 /// 캘린더 3프레임 회귀 측정.
 /// 시안: 월간 `3341:2`, 주간 `2687:15303`, 일정 추가 `3429:1163` (402x874).
 void main() {
+  fadeTests();
   group('캘린더 1 · 월간 3341:2', () {
     testWidgets('종이·압정·기간 라벨·꺾쇠 자리', (tester) async {
       await _pumpMonth(tester);
@@ -523,4 +524,64 @@ class _StubRepository implements CalendarRepository {
     required String title,
     required DateTime dueDate,
   }) async {}
+}
+
+// 2026-09-12 디자이너 요청: 목록 바닥 70px에서 카드가 뿌옇게 사라진다.
+class _ManyItemsRepository implements CalendarRepository {
+  @override
+  Future<List<CalendarItemData>> listCalendar(
+    String plantId,
+    DateTime from,
+    DateTime to, {
+    Iterable<String>? types,
+  }) async => [
+    for (var i = 0; i < 5; i++)
+      CalendarItemData(
+        id: 'i$i',
+        date: DateTime(2026, 7, 15),
+        type: 'REPOTTING',
+        status: 'SCHEDULED',
+        viewStatus: 'UPCOMING',
+        title: '분갈이 $i',
+        source: 'USER',
+        conditionScore: null,
+        conditionLevel: null,
+        completable: true,
+      ),
+  ];
+
+  @override
+  Future<void> completeEvent(String eventId, {DateTime? performedOn}) async {}
+
+  @override
+  Future<void> createEvent(
+    String plantId, {
+    required String type,
+    required String title,
+    required DateTime dueDate,
+  }) async {}
+}
+
+void fadeTests() {
+  testWidgets('오늘 할 일 목록은 바닥에서 페이드 마스크로 사라진다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 46, bottom: 34);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CalendarScreen(
+          plantId: 'p',
+          today: DateTime(2026, 7, 15),
+          repository: _ManyItemsRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ShaderMask), findsOneWidget);
+    // 마지막 카드가 마스크 구간 위까지 올라올 수 있게 목록 바닥 여백 55.
+    final list = tester.widget<ListView>(find.byType(ListView));
+    expect(list.padding, const EdgeInsets.only(bottom: 55));
+  });
 }

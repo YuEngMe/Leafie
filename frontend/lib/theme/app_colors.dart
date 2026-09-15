@@ -53,7 +53,6 @@ const Color kBackgroundWhite = Color(0xFFFFFFFF); // 배경_화이트
 const Color kModalBarrier = Color(0x73000000);
 
 // 다이어리 종이 오른쪽 책갈피(2766:203).
-const Color kDiaryTabBlue = Color(0xFFC6E6F9);
 
 // 달력 격자선(2739:35026 테두리). 시안은 회색이 아니라 옅은 주황이다.
 const Color kDiaryGridLine = Color(0xFFFF8834);
@@ -62,11 +61,11 @@ const Color kDiaryGridLine = Color(0xFFFF8834);
 const Color kDiaryPaper = Color(0xFFFFFFFF);
 
 // 종이 뒤에 겹쳐 보이는 두 장(3496:11988, 3496:11989).
-const Color kDiaryPaperBack2 = Color(0xFFCCCCCC);
+const Color kDiaryPaperBack2 = Color(0xFFCDCDCD); // 세번째 3496:11988
 const Color kDiaryPaperBack1 = Color(0xFFE6E5E5);
 
 // 노란 책 표지(3496:11987).
-const Color kDiaryCover = Color(0xFFFFE794);
+const Color kDiaryCover = Color(0xFFFFE895); // 커버 3496:11987
 
 // 달 넘김 버튼(3496:11993 초록, 3496:11996 분홍).
 const Color kDiaryPrevGreen = Color(0xFFC1E15F);

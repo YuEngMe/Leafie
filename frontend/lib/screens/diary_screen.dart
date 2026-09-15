@@ -156,15 +156,33 @@ class _EditAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: SvgPicture.asset(
-        'assets/images/icon_diary_edit.svg',
-        width: DiaryLayout.editIcon.width,
-        height: DiaryLayout.editIcon.height,
+    // 3345:792 / 3496:10734: x354 y52. 앱바(46~92) 오른쪽 끝 48×46
+    // 상자 안에서 위 6, 왼쪽 0(= 402 − 19.344 − 28.656)에 놓는다.
+    return Semantics(
+      button: true,
+      label: '오늘 다이어리 쓰기',
+      child: GestureDetector(
+        key: const ValueKey('diary-appbar-edit'),
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48,
+          height: YesoAppBar.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 6,
+                child: SvgPicture.asset(
+                  'assets/images/icon_diary_edit.svg',
+                  width: DiaryLayout.editIcon.width,
+                  height: DiaryLayout.editIcon.height,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      key: const ValueKey('diary-appbar-edit'),
-      tooltip: '오늘 다이어리 쓰기',
     );
   }
 }
@@ -229,7 +247,6 @@ List<Widget> _paperTabs({
   required VoidCallback onPrevious,
   required VoidCallback onNext,
 }) => [
-  Positioned.fromRect(rect: DiaryLayout.tab, child: const DiaryTab()),
   Positioned.fromRect(
     rect: DiaryLayout.prevButton,
     child: _MonthButton(
@@ -271,6 +288,19 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   late String? _photoPath = widget.entry.photoPath;
   late final String? _photoUrl = widget.entry.photoUrl;
   late DiaryWeather? _weather = widget.entry.weather;
+
+  @override
+  void initState() {
+    super.initState();
+    // '저장하기'(3631:2600)는 글 읽기(3496:10291)에만 있고 빈 글쓰기
+    // (2739:39308)에는 없다. 내용이 생기는 순간 나타나게 입력을 듣는다.
+    _titleController.addListener(_refresh);
+    _bodyController.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -447,10 +477,11 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
               // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
               // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
+              // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
               Positioned(
-                left: 55,
+                left: 63,
                 top: 423.4,
-                width: 286,
+                width: 270,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -478,29 +509,66 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 height: 1,
                 child: ColoredBox(color: kOrangeMain),
               ),
+              // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
+              // (2026-09-11 디자이너 요청).
               Positioned(
-                left: 54,
-                top: 460,
-                width: 288,
-                height: 232,
+                left: 62,
+                top: 466,
+                width: 272,
+                // 아래 '저장하기'(683)와 겹치지 않게 675까지.
+                height: 209,
                 child: TextField(
                   controller: _bodyController,
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  style: kBodyStyle.copyWith(height: 23 / 16),
+                  // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
+                  // Medium이라 굵기만 내린다.
+                  style: kBodyStyle.copyWith(
+                    fontWeight: FontWeight.w400,
+                    height: 27 / 16,
+                  ),
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     hintText: '다이어리를 기록하세요',
                     hintStyle: kBodyStyle.copyWith(
-                      height: 23 / 16,
+                      fontWeight: FontWeight.w400,
+                      height: 27 / 16,
                       color: kGrayLightest,
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
+              // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
+              // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
+              // 빈 글쓰기 시안(2739:39308)에는 없다.
+              if (!_currentEntry().isEmpty)
+                Positioned(
+                  left: 303 + 17 - 24,
+                  top: 683 + 5.5 - 24,
+                  width: 48,
+                  height: 48,
+                  child: GestureDetector(
+                    onTap: _save,
+                    behavior: HitTestBehavior.opaque,
+                    child: Center(
+                      child: Semantics(
+                        button: true,
+                        child: Text(
+                          '저장하기',
+                          style: kSmallStyle.copyWith(
+                            fontSize: 9.488,
+                            fontWeight: FontWeight.w500,
+                            height: 1,
+                            color: kTextDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

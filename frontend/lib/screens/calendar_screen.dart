@@ -258,7 +258,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     left: 0,
                     right: 0,
                     top: 0,
-                    bottom: 175,
+                    // 처음 들어왔을 때 둘째 카드(653~704)까지는 온전히 보여야
+                    // 한다(2026-09-13 디자이너). 목록 바닥을 759로 두면 페이드
+                    // 55px이 정확히 704부터 시작해 셋째 카드부터 사라진다.
+                    // + 버튼(730~775)은 목록 위에 그려지므로 겹쳐도 된다.
+                    bottom: 115,
                     child: _MonthAgenda(
                       selected: _selected,
                       today: _today,
@@ -301,7 +305,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     behavior: HitTestBehavior.opaque,
                     onTap: _showCreateSheet,
                     child: CustomPaint(
-                      painter: const _CalendarAddShadow(),
+                      painter: const FabShadowPainter(),
                       child: SvgPicture.asset('assets/images/calendar_fab.svg'),
                     ),
                   ),
@@ -344,35 +348,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
 /// flutter_svg omits SVG filters. Reproduce only the exported circle's shadow;
 /// the circle and plus glyph themselves remain the unmodified Figma asset.
-class _CalendarAddShadow extends CustomPainter {
-  const _CalendarAddShadow();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final circle = Rect.fromCircle(
-      center: size.center(Offset.zero),
-      radius: 22.5,
-    );
-    canvas.save();
-    canvas.clipPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(Offset.zero & size),
-        Path()..addOval(circle),
-      ),
-    );
-    canvas.drawOval(
-      circle,
-      Paint()
-        ..color = const Color(0x29000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.95833),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_CalendarAddShadow oldDelegate) => false;
-}
 
 class _CalendarHeader extends StatelessWidget {
   const _CalendarHeader({
@@ -776,41 +751,43 @@ class _WeekAgenda extends StatelessWidget {
       if (dateItems.isNotEmpty) groups[date] = dateItems;
     }
     if (groups.isEmpty) return const _EmptyAgenda();
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        final entry = groups.entries.elementAt(index);
-        return Padding(
-          // 앞 그룹 카드 바닥(402) → 다음 헤딩(442) = 40.
-          padding: EdgeInsets.only(top: index == 0 ? 0 : 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 헤딩 19 → 카드까지 5 (327+19=346 → 351).
-              SizedBox(
-                height: 19,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 21),
-                    child: Text(
-                      _dateLabel(entry.key),
-                      style: kItemStyle,
-                      textHeightBehavior: _tight,
+    return _FadeBottom(
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: _FadeBottom.height),
+        itemCount: groups.length,
+        itemBuilder: (context, index) {
+          final entry = groups.entries.elementAt(index);
+          return Padding(
+            // 앞 그룹 카드 바닥(402) → 다음 헤딩(442) = 40.
+            padding: EdgeInsets.only(top: index == 0 ? 0 : 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 헤딩 19 → 카드까지 5 (327+19=346 → 351).
+                SizedBox(
+                  height: 19,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 21),
+                      child: Text(
+                        _dateLabel(entry.key),
+                        style: kItemStyle,
+                        textHeightBehavior: _tight,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 5),
-              for (var i = 0; i < entry.value.length; i++) ...[
-                if (i != 0) const SizedBox(height: kCardGap),
-                _card(entry.value[i]),
+                const SizedBox(height: 5),
+                for (var i = 0; i < entry.value.length; i++) ...[
+                  if (i != 0) const SizedBox(height: kCardGap),
+                  _card(entry.value[i]),
+                ],
               ],
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -874,25 +851,50 @@ class _AgendaBody extends StatelessWidget {
       );
     }
     if (items.isEmpty) return const _EmptyAgenda();
-    return ListView.separated(
-      padding: EdgeInsets.zero,
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: kCardGap),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return CalendarEventCard(
-          completeKey: ValueKey('calendar-complete-${item.id}'),
-          type: item.type,
-          title: _eventTitle(item),
-          dateLabel: _dateLabel(item.date),
-          completed: item.status == 'COMPLETED',
-          completing: completingIds.contains(item.id),
-          completable: item.completable,
-          onComplete: () => onComplete(item),
-        );
-      },
+    return _FadeBottom(
+      child: ListView.separated(
+        padding: const EdgeInsets.only(bottom: _FadeBottom.height),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: kCardGap),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return CalendarEventCard(
+            completeKey: ValueKey('calendar-complete-${item.id}'),
+            type: item.type,
+            title: _eventTitle(item),
+            dateLabel: _dateLabel(item.date),
+            completed: item.status == 'COMPLETED',
+            completing: completingIds.contains(item.id),
+            completable: item.completable,
+            onComplete: () => onComplete(item),
+          );
+        },
+      ),
     );
   }
+}
+
+/// 목록 바닥 [height]px 구간을 불투명→투명으로 깎는다. 카드가 아래로
+/// 내려가며 + 버튼 앞에서 뿌옇게 사라진다(2026-09-12 디자이너 요청).
+/// 목록에 같은 만큼 bottom padding을 줘서 마지막 카드도 끝까지 올라온다.
+class _FadeBottom extends StatelessWidget {
+  const _FadeBottom({required this.child});
+
+  static const double height = 55;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ShaderMask(
+    shaderCallback: (rect) => LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: const [Colors.white, Colors.white, Colors.transparent],
+      stops: [0, 1 - height / rect.height, 1],
+    ).createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
+    blendMode: BlendMode.dstIn,
+    child: child,
+  );
 }
 
 class _EmptyAgenda extends StatelessWidget {
