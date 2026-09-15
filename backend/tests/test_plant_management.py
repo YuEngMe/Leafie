@@ -23,6 +23,7 @@ from app.models.plant import Plant, PlantDailyMemo, PlantDiary, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
+from app.services.plant import today_in_timezone
 from app.services.plant_management import (
     DeletePlantResult,
     PlantContext,
@@ -202,7 +203,7 @@ def make_plant(user_id: UUID, *, created_at: datetime | None = None) -> Plant:
         species_reference_id="catalog:monstera",
         nickname="초록이",
         species_selection_method="SEARCH",
-        started_on=date.today() - timedelta(days=10),
+        started_on=today_in_timezone("Asia/Seoul") - timedelta(days=10),
         place_name="거실",
         personality_type="OUTGOING",
         color_id="green",
@@ -262,7 +263,7 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
-    today = date.today()
+    today = today_in_timezone("Asia/Seoul")
     repository.diaries[(plant.id, today)] = PlantDiary(
         id=uuid4(),
         plant_id=plant.id,
@@ -294,7 +295,7 @@ async def test_agenda_derives_overdue_today_and_upcoming_without_moving_dates() 
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
-    today = date.today()
+    today = today_in_timezone("Asia/Seoul")
     repository.events = [
         make_event(plant.id, today - timedelta(days=1)),
         make_event(plant.id, today),
@@ -315,7 +316,7 @@ async def test_calendar_flattens_events_and_conditions_and_excludes_custom_cance
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
-    today = date.today()
+    today = today_in_timezone("Asia/Seoul")
     scheduled = make_event(plant.id, today - timedelta(days=1))
     completed = make_event(plant.id, today, completed=True)
     completed.type = "REPOTTING"
@@ -356,7 +357,7 @@ async def test_calendar_filters_types_and_validates_range() -> None:
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
-    today = date.today()
+    today = today_in_timezone("Asia/Seoul")
     watering = make_event(plant.id, today)
     repotting = make_event(plant.id, today)
     repotting.type = "REPOTTING"
@@ -389,7 +390,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     plant = make_plant(user_id)
     repository.plants[plant.id] = plant
     repository.profile.selected_plant_id = plant.id
-    today = date.today()
+    today = today_in_timezone("Asia/Seoul")
     repository.diaries[(plant.id, today)] = PlantDiary(
         id=uuid4(),
         plant_id=plant.id,
