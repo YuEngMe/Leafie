@@ -53,12 +53,25 @@ def test_one_diary_per_plant_and_day() -> None:
         for constraint in diary.constraints
         if constraint.__class__.__name__ == "CheckConstraint"
     }
-    assert "IN (0, 25, 50, 75, 100)" in check_constraints[
-        "ck_plant_diaries_condition_score"
-    ]
+    assert "SUNNY" in check_constraints["ck_plant_diaries_weather"]
+    assert "BETWEEN 1 AND 100" in check_constraints["ck_plant_diaries_title_length"]
     assert "BETWEEN 1 AND 2000" in check_constraints["ck_plant_diaries_content_length"]
     for escaped_whitespace in (r"\t", r"\n", r"\r", r"\f", r"\v"):
         assert escaped_whitespace in check_constraints["ck_plant_diaries_content_length"]
+    assert diary.columns["weather"].nullable is True
+    assert diary.columns["weather"].type.length == 20
+    assert diary.columns["title"].nullable is True
+    assert diary.columns["title"].type.length == 100
+    assert "condition_score" not in diary.columns
+
+
+def test_deleting_diary_cascades_its_letter() -> None:
+    letters = Base.metadata.tables["letters"]
+    diary_fk = next(
+        foreign_key for foreign_key in letters.foreign_keys if foreign_key.parent.name == "diary_id"
+    )
+
+    assert diary_fk.ondelete == "CASCADE"
 
 
 def test_care_event_and_daily_memo_constraints_match_api_contract() -> None:

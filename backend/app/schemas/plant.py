@@ -62,12 +62,6 @@ class PlantCreateResponse(BaseModel):
     created_at: datetime
 
 
-class PlantConditionResponse(BaseModel):
-    recorded: bool
-    score: int | None
-    level: int | None
-
-
 class PlantListItemResponse(BaseModel):
     id: UUID
     nickname: str
@@ -172,7 +166,6 @@ class CalendarItemType(StrEnum):
     REPOTTING = "REPOTTING"
     FERTILIZING = "FERTILIZING"
     PRUNING = "PRUNING"
-    CONDITION = "CONDITION"
 
 
 class CalendarItemResponse(BaseModel):
@@ -183,8 +176,6 @@ class CalendarItemResponse(BaseModel):
     view_status: CareViewStatus | None
     title: str | None
     source: CareEventSource | None
-    condition_score: int | None
-    condition_level: int | None
     completable: bool
 
 
@@ -214,7 +205,6 @@ class HomeMemoResponse(BaseModel):
 class HomeResponse(BaseModel):
     plant: HomePlantResponse | None
     character: HomeCharacterResponse | None
-    condition: PlantConditionResponse | None
     today_events: list[AgendaEventResponse]
     daily_memo: HomeMemoResponse | None
     unread_notification_count: int

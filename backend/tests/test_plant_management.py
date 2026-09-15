@@ -19,7 +19,7 @@ from app.main import create_app
 from app.models.care import CareEvent
 from app.models.enums import CareEventSource, CareEventStatus, MediaStatus
 from app.models.media import MediaFile
-from app.models.plant import Plant, PlantDailyMemo, PlantDiary, SpeciesCareGuide
+from app.models.plant import Plant, PlantDailyMemo, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
@@ -56,7 +56,6 @@ class FakePlantRepository:
         )
         self.guide = make_guide()
         self.plants = {plant.id: plant for plant in plants}
-        self.diaries: dict[tuple[UUID, date], PlantDiary] = {}
         self.media: dict[UUID, MediaFile] = {}
         self.events: list[CareEvent] = []
         self.memos: dict[tuple[UUID, date], PlantDailyMemo] = {}
@@ -88,9 +87,6 @@ class FakePlantRepository:
         if user_id != self.user_id:
             return None
         return self.plants.get(plant_id)
-
-    async def get_diary(self, plant_id: UUID, diary_date: date) -> PlantDiary | None:
-        return self.diaries.get((plant_id, diary_date))
 
     async def get_media(self, user_id: UUID, media_file_id: UUID) -> MediaFile | None:
         media = self.media.get(media_file_id)
@@ -135,15 +131,6 @@ class FakePlantRepository:
                     and date_from <= event.performed_on <= date_to
                 )
             )
-        ]
-
-    async def list_calendar_diaries(
-        self, plant_id: UUID, date_from: date, date_to: date
-    ) -> list[PlantDiary]:
-        return [
-            diary
-            for (actual_plant_id, diary_date), diary in self.diaries.items()
-            if actual_plant_id == plant_id and date_from <= diary_date <= date_to
         ]
 
     async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None:
@@ -263,17 +250,6 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
-    today = today_in_timezone("Asia/Seoul")
-    repository.diaries[(plant.id, today)] = PlantDiary(
-        id=uuid4(),
-        plant_id=plant.id,
-        diary_date=today,
-        content="건강하다",
-        condition_score=75,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-
     listed = await service.list_plants(user_id)
     detail = await service.get_plant(user_id, plant.id)
     updated = await service.update_plant(user_id, plant.id, PlantUpdateRequest(nickname=" 새이름 "))
@@ -312,7 +288,7 @@ async def test_agenda_derives_overdue_today_and_upcoming_without_moving_dates() 
     assert response.events[0].due_date == today - timedelta(days=1)
 
 
-async def test_calendar_flattens_events_and_conditions_and_excludes_custom_cancelled() -> None:
+async def test_calendar_flattens_supported_events_and_excludes_custom_cancelled() -> None:
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
@@ -325,17 +301,6 @@ async def test_calendar_flattens_events_and_conditions_and_excludes_custom_cance
     cancelled = make_event(plant.id, today)
     cancelled.status = CareEventStatus.CANCELLED.value
     repository.events = [scheduled, completed, custom, cancelled]
-    diary = PlantDiary(
-        id=uuid4(),
-        plant_id=plant.id,
-        diary_date=today,
-        content="오늘 기록",
-        condition_score=75,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    repository.diaries[(plant.id, today)] = diary
-
     response = await service.list_calendar(
         user_id,
         plant.id,
@@ -344,13 +309,10 @@ async def test_calendar_flattens_events_and_conditions_and_excludes_custom_cance
         None,
     )
 
-    assert [item.id for item in response.items] == [scheduled.id, completed.id, diary.id]
+    assert [item.id for item in response.items] == [scheduled.id, completed.id]
     assert response.items[0].view_status.value == "OVERDUE"
     assert response.items[1].date == completed.performed_on
     assert response.items[1].view_status.value == "COMPLETED"
-    assert response.items[2].type.value == "CONDITION"
-    assert response.items[2].condition_level == 4
-    assert response.items[2].completable is False
 
 
 async def test_calendar_filters_types_and_validates_range() -> None:
@@ -391,15 +353,6 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     repository.plants[plant.id] = plant
     repository.profile.selected_plant_id = plant.id
     today = today_in_timezone("Asia/Seoul")
-    repository.diaries[(plant.id, today)] = PlantDiary(
-        id=uuid4(),
-        plant_id=plant.id,
-        diary_date=today,
-        content="오늘 기록",
-        condition_score=100,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
     repository.events = [
         make_event(plant.id, today - timedelta(days=1)),
         make_event(plant.id, today),
@@ -416,7 +369,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     home = await service.get_home(user_id, None)
 
     assert home.character is not None
-    assert home.character.expression_level == 5
+    assert home.character.expression_level is None
     assert home.character.dialogue is None
     assert [event.view_status.value for event in home.today_events] == ["TODAY"]
     assert home.daily_memo is not None and home.daily_memo.content == "새잎 확인"

@@ -21,6 +21,14 @@ class SpeciesSelectionMethod(StrEnum):
     PHOTO = "PHOTO"
 
 
+class DiaryWeather(StrEnum):
+    SUNNY = "SUNNY"
+    PARTLY_CLOUDY = "PARTLY_CLOUDY"
+    CLOUDY = "CLOUDY"
+    RAINY = "RAINY"
+    SNOWY = "SNOWY"
+
+
 class SpeciesIdentificationStatus(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"

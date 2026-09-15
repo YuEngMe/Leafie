@@ -128,7 +128,8 @@ async def seed(db, queue, *, reserve=True):
                 plant_id=plant_id,
                 diary_date=date(2026, 9, 11),
                 content="오늘 같이 책을 읽었어.",
-                condition_score=50,
+                weather="SUNNY",
+                title="햇빛 좋은 날",
             )
         )
         await session.flush()
@@ -370,6 +371,8 @@ async def test_deleted_source_blocks_late_completion_and_publication(db, queue, 
     async with db.session_context() as session:
         assert await LetterService(session).unread_count(user) == 0
         assert await session.scalar(select(func.count()).select_from(Notification)) == 0
+        if target == "diary":
+            assert await session.get(Letter, letter_id) is None
 
 
 async def test_mailbox_ownership_and_cursor_stability(db, queue):
@@ -485,7 +488,8 @@ async def test_same_timestamp_cursor_survives_previous_page_deletion(db, queue):
                 plant_id=plant,
                 diary_date=date(2026, 8, index + 1),
                 content="일기",
-                condition_score=50,
+                weather="SUNNY",
+                title="햇빛 좋은 날",
             )
             session.add(diary)
             await session.flush()

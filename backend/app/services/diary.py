@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Protocol
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -18,17 +17,8 @@ from app.schemas.diary import (
     DiaryMediaResponse,
     DiaryMonthEntry,
     DiaryMonthResponse,
-    DiaryMonthStatistics,
     DiaryResponse,
     DiaryUpsertRequest,
-)
-
-CONDITION_LEVELS = {0: 1, 25: 2, 50: 3, 75: 4, 100: 5}
-AVERAGE_LEVEL_BOUNDARIES = (
-    (Decimal("12.5"), 1),
-    (Decimal("37.5"), 2),
-    (Decimal("62.5"), 3),
-    (Decimal("87.5"), 4),
 )
 
 
@@ -73,13 +63,6 @@ class DiaryRepository(Protocol):
         start_date: date,
         end_date: date,
     ) -> list[PlantDiary]: ...
-
-    async def average_condition_score(
-        self,
-        plant_id: UUID,
-        start_date: date,
-        end_date: date,
-    ) -> Decimal | None: ...
 
     async def get_media(
         self,
@@ -161,19 +144,6 @@ class SQLAlchemyDiaryRepository:
         )
         return list((await self._session.scalars(statement)).all())
 
-    async def average_condition_score(
-        self,
-        plant_id: UUID,
-        start_date: date,
-        end_date: date,
-    ) -> Decimal | None:
-        statement = select(func.avg(PlantDiary.condition_score)).where(
-            PlantDiary.plant_id == plant_id,
-            PlantDiary.diary_date >= start_date,
-            PlantDiary.diary_date < end_date,
-        )
-        return await self._session.scalar(statement)
-
     async def get_media(
         self,
         media_file_id: UUID,
@@ -233,23 +203,17 @@ class DiaryService:
         await self._require_owned_plant(user_id, plant_id)
         start_date, end_date = month_range(year, month)
         diaries = await self._repository.list_diaries(plant_id, start_date, end_date)
-        average = await self._repository.average_condition_score(
-            plant_id,
-            start_date,
-            end_date,
-        )
         return DiaryMonthResponse(
             entries=[
                 DiaryMonthEntry(
                     id=diary.id,
                     diary_date=diary.diary_date,
-                    condition_score=diary.condition_score,
-                    condition_level=condition_level(diary.condition_score),
+                    weather=diary.weather,
+                    title=diary.title,
                     has_photo=diary.media_file_id is not None,
                 )
                 for diary in diaries
             ],
-            statistics=monthly_statistics(len(diaries), average),
         )
 
     async def get_diary(
@@ -300,21 +264,24 @@ class DiaryService:
                 plant_id=plant_id,
                 media_file_id=next_media_file_id,
                 diary_date=diary_date,
+                weather=request.weather.value,
+                title=request.title,
                 content=request.content,
-                condition_score=request.condition_score,
                 created_at=now,
                 updated_at=now,
             )
             await self._repository.add_diary(diary)
         else:
             changed = (
-                diary.content != request.content
-                or diary.condition_score != request.condition_score
+                diary.weather != request.weather.value
+                or diary.title != request.title
+                or diary.content != request.content
                 or (media_was_provided and diary.media_file_id != next_media_file_id)
             )
             if changed:
+                diary.weather = request.weather.value
+                diary.title = request.title
                 diary.content = request.content
-                diary.condition_score = request.condition_score
                 diary.media_file_id = next_media_file_id
                 diary.updated_at = now
                 await self._repository.flush()
@@ -433,41 +400,13 @@ class DiaryService:
             id=diary.id,
             plant_id=diary.plant_id,
             diary_date=diary.diary_date,
+            weather=diary.weather,
+            title=diary.title,
             content=diary.content,
-            condition_score=diary.condition_score,
-            condition_level=condition_level(diary.condition_score),
             media=media_response,
             created_at=diary.created_at,
             updated_at=diary.updated_at,
         )
-
-
-def condition_level(score: int) -> int:
-    try:
-        return CONDITION_LEVELS[score]
-    except KeyError as exc:
-        raise ValueError(f"Unsupported condition score: {score}") from exc
-
-
-def monthly_statistics(entry_count: int, average: Decimal | None) -> DiaryMonthStatistics:
-    if average is None:
-        return DiaryMonthStatistics(
-            entry_count=entry_count,
-            average_score=None,
-            average_level=None,
-        )
-    return DiaryMonthStatistics(
-        entry_count=entry_count,
-        average_score=int(average.quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
-        average_level=average_condition_level(average),
-    )
-
-
-def average_condition_level(average: Decimal) -> int:
-    for upper_bound, level in AVERAGE_LEVEL_BOUNDARIES:
-        if average < upper_bound:
-            return level
-    return 5
 
 
 def month_range(year: int, month: int) -> tuple[date, date]:
