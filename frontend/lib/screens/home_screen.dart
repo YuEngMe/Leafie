@@ -11,6 +11,7 @@ import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/letter_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -146,6 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late final PlantManagementRepository _plantRepository =
       widget.plantRepository ?? PlantManagementApi();
+  late final PlantLetterRepository _letterRepository =
+      widget.letterRepository ?? LetterApi();
 
   @override
   void initState() {
@@ -408,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () => showPlantMailbox(
                           context,
                           plantId: plant.id,
-                          repository: widget.letterRepository,
+                          repository: _letterRepository,
                         ),
                         child: const FigmaHomeAssetIcon(FigmaHomeIcon.mailbox),
                       ),
