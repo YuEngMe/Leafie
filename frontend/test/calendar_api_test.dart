@@ -19,7 +19,7 @@ void main() {
         expect(request.uri.queryParameters, {
           'from': '2026-07-01',
           'to': '2026-07-31',
-          'types': 'WATERING,CONDITION',
+          'types': 'WATERING,REPOTTING',
         });
         expect(request.headers['authorization'], 'Bearer test-access-token');
         return LeafieHttpResponse(
@@ -34,20 +34,16 @@ void main() {
                 'view_status': 'TODAY',
                 'title': null,
                 'source': 'SYSTEM',
-                'condition_score': null,
-                'condition_level': null,
                 'completable': true,
               },
               {
-                'id': 'diary-id',
+                'id': 'repotting-id',
                 'date': '2026-07-14',
-                'type': 'CONDITION',
-                'status': null,
-                'view_status': null,
-                'title': null,
-                'source': null,
-                'condition_score': 83,
-                'condition_level': 5,
+                'type': 'REPOTTING',
+                'status': 'COMPLETED',
+                'view_status': 'COMPLETED',
+                'title': '분갈이',
+                'source': 'USER',
                 'completable': false,
               },
             ],
@@ -60,7 +56,7 @@ void main() {
       'plant-id',
       DateTime(2026, 7),
       DateTime(2026, 7, 31),
-      types: const ['WATERING', 'CONDITION'],
+      types: const ['WATERING', 'REPOTTING'],
     );
 
     expect(items, hasLength(2));
@@ -71,9 +67,36 @@ void main() {
     expect(items.first.viewStatus, 'TODAY');
     expect(items.first.source, 'SYSTEM');
     expect(items.first.completable, isTrue);
-    expect(items.last.conditionScore, 83);
-    expect(items.last.conditionLevel, 5);
+    expect(items.last.type, 'REPOTTING');
+    expect(items.last.title, '분갈이');
     expect(items.last.completable, isFalse);
+  });
+
+  test('지원하지 않는 CONDITION 필터를 요청 전에 거부한다', () async {
+    var requestCount = 0;
+    final api = CalendarApi(
+      client: client((_) async {
+        requestCount += 1;
+        return const LeafieHttpResponse(statusCode: 200, body: '{"items":[]}');
+      }),
+    );
+
+    await expectLater(
+      api.listCalendar(
+        'plant-id',
+        DateTime(2026, 7),
+        DateTime(2026, 7, 31),
+        types: const ['CONDITION'],
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'INVALID_CALENDAR_TYPES',
+        ),
+      ),
+    );
+    expect(requestCount, 0);
   });
 
   test('타입 필터가 비어 있으면 types 쿼리를 생략한다', () async {
@@ -160,9 +183,21 @@ void main() {
             'view_status': 'UPCOMING',
             'title': null,
             'source': 'SYSTEM',
-            'condition_score': null,
-            'condition_level': null,
             'completable': true,
+          },
+        ],
+      },
+      {
+        'items': [
+          {
+            'id': 'condition-id',
+            'date': '2026-02-28',
+            'type': 'CONDITION',
+            'status': null,
+            'view_status': null,
+            'title': null,
+            'source': null,
+            'completable': false,
           },
         ],
       },

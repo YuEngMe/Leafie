@@ -164,8 +164,6 @@ CalendarItemData _item({
   viewStatus: 'UPCOMING',
   title: title,
   source: 'USER',
-  conditionScore: null,
-  conditionLevel: null,
   completable: true,
 );
 
