@@ -75,14 +75,14 @@ class DiaryEntry {
   }
 }
 
-/// 날짜 줄 오른쪽의 상태 아이콘 다섯 가지. 미선택은 회색(4524:20),
-/// 선택은 오렌지(4524:21) — 2026-09-14 디자이너 교체분.
+/// 날짜 줄 오른쪽의 상태 아이콘 다섯 가지. 미선택은 회색(4534:6429),
+/// 선택은 오렌지(4534:6480) — 시안 순서대로 맑음, 구름 조금, 흐림, 눈, 비.
 enum DiaryWeather {
   sunny('sun', '맑음', 21.024, 21.023),
   partlyCloudy('partly', '구름 조금', 24.93, 19.99),
   cloudy('cloud', '흐림', 25.365, 14.634),
-  rainy('rain', '비', 19.70, 21.23),
-  shower('drop', '소나기', 17.671, 19.092);
+  snowy('rain', '눈', 19.702, 21.225),
+  rainy('drop', '비', 17.671, 19.092);
 
   const DiaryWeather(this.assetName, this.label, this.width, this.height);
 

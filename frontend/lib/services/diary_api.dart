@@ -19,6 +19,7 @@ abstract interface class DiaryStore {
 class ApiDiaryStore implements DiaryStore {
   ApiDiaryStore({
     String? plantId,
+    this.resolvePlantIdIfMissing = true,
     LeafieApiClient? client,
     HomeApi? homeApi,
     MediaApi? mediaApi,
@@ -30,11 +31,19 @@ class ApiDiaryStore implements DiaryStore {
   final LeafieApiClient _client;
   final HomeApi _homeApi;
   final MediaApi _mediaApi;
+  final bool resolvePlantIdIfMissing;
   String? _plantId;
 
   Future<String> _resolvePlantId() async {
     final cached = _plantId;
     if (cached != null) return cached;
+    if (!resolvePlantIdIfMissing) {
+      throw const LeafieApiException(
+        code: 'PLANT_NOT_FOUND',
+        message: '먼저 식물을 등록해주세요.',
+        statusCode: 404,
+      );
+    }
     final home = await _homeApi.fetchHome();
     final id = home.plant?.id;
     if (id == null || id.isEmpty) {
@@ -64,7 +73,15 @@ class ApiDiaryStore implements DiaryStore {
           }
           final date = _parseDate(raw['diary_date']);
           if (date == null) throw const FormatException('date');
-          return DiaryEntry(date: date);
+          final title = raw['title'];
+          if (title != null && title is! String) {
+            throw const FormatException('title');
+          }
+          return DiaryEntry(
+            date: date,
+            title: title as String? ?? '',
+            weather: _decodeWeather(raw['weather']),
+          );
         }),
       );
     } on FormatException {
@@ -94,6 +111,11 @@ class ApiDiaryStore implements DiaryStore {
 
   @override
   Future<void> save(DiaryEntry entry) async {
+    final title = entry.title.trim();
+    final content = entry.body.trim();
+    final weather = entry.weather;
+    _validateUpsert(title: title, content: content, weather: weather);
+
     final plantId = await _resolvePlantId();
     var mediaFileId = entry.mediaFileId;
     final photoPath = entry.photoPath;
@@ -104,19 +126,12 @@ class ApiDiaryStore implements DiaryStore {
       );
       mediaFileId = media.id;
     }
-    final content = _encodeContent(entry);
-    if (content.length > 2000) {
-      throw const LeafieApiException(
-        code: 'DIARY_CONTENT_TOO_LONG',
-        message: '다이어리 내용이 너무 길어요.',
-        statusCode: 422,
-      );
-    }
     await _client.put(
       '/plants/$plantId/diaries/${_dateOnly(entry.date)}',
       body: {
+        'weather': _encodeWeather(weather!),
+        'title': title,
         'content': content,
-        'condition_score': _conditionScore(entry.weather),
         'media_file_id': mediaFileId,
       },
     );
@@ -132,9 +147,11 @@ class ApiDiaryStore implements DiaryStore {
 DiaryEntry _decodeEntry(Map<String, dynamic> json) {
   final date = _parseDate(json['diary_date']);
   final content = json['content'];
-  final conditionScore = json['condition_score'];
+  final rawTitle = json['title'];
   final media = json['media'];
-  if (date == null || content is! String || conditionScore is! int) {
+  if (date == null ||
+      content is! String ||
+      (rawTitle != null && rawTitle is! String)) {
     throw const LeafieApiException(
       code: 'INVALID_RESPONSE',
       message: '다이어리를 확인할 수 없습니다.',
@@ -142,16 +159,14 @@ DiaryEntry _decodeEntry(Map<String, dynamic> json) {
     );
   }
 
-  var title = '';
+  var title = rawTitle as String? ?? '';
   var body = content;
-  try {
-    final decoded = jsonDecode(content);
-    if (decoded is Map && decoded['v'] == 1) {
-      title = decoded['title'] is String ? decoded['title'] as String : '';
-      body = decoded['body'] is String ? decoded['body'] as String : '';
+  if (rawTitle == null) {
+    final legacyContent = _decodeLegacyContent(content);
+    if (legacyContent != null) {
+      title = legacyContent.title;
+      body = legacyContent.body;
     }
-  } on FormatException {
-    // 이전 버전의 일반 문자열 content는 본문으로 그대로 보여준다.
   }
 
   String? mediaFileId;
@@ -166,34 +181,99 @@ DiaryEntry _decodeEntry(Map<String, dynamic> json) {
     date: date,
     title: title,
     body: body,
-    weather: _weatherFromScore(conditionScore),
+    weather: _decodeResponseWeather(json['weather']),
     mediaFileId: mediaFileId,
     photoUrl: photoUrl,
   );
 }
 
-String _encodeContent(DiaryEntry entry) => jsonEncode({
-  'v': 1,
-  'title': entry.title.trim(),
-  'body': entry.body.trim(),
-});
+({String title, String body})? _decodeLegacyContent(String content) {
+  try {
+    final decoded = jsonDecode(content);
+    if (decoded is! Map || decoded['v'] != 1) return null;
+    final title = decoded['title'];
+    final body = decoded['body'];
+    if (title is! String || body is! String) return null;
+    return (title: title, body: body);
+  } on FormatException {
+    return null;
+  }
+}
 
-int _conditionScore(DiaryWeather? weather) => switch (weather) {
-  DiaryWeather.sunny => 100,
-  DiaryWeather.partlyCloudy => 75,
-  DiaryWeather.cloudy => 50,
-  DiaryWeather.rainy => 25,
-  DiaryWeather.shower => 0,
-  null => 50,
+void _validateUpsert({
+  required String title,
+  required String content,
+  required DiaryWeather? weather,
+}) {
+  if (title.isEmpty) {
+    throw const LeafieApiException(
+      code: 'DIARY_TITLE_REQUIRED',
+      message: '제목을 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (title.runes.length > 100) {
+    throw const LeafieApiException(
+      code: 'DIARY_TITLE_TOO_LONG',
+      message: '제목은 100자 이하로 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (content.isEmpty) {
+    throw const LeafieApiException(
+      code: 'DIARY_CONTENT_REQUIRED',
+      message: '내용을 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (content.runes.length > 2000) {
+    throw const LeafieApiException(
+      code: 'DIARY_CONTENT_TOO_LONG',
+      message: '내용은 2000자 이하로 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (weather == null) {
+    throw const LeafieApiException(
+      code: 'DIARY_WEATHER_REQUIRED',
+      message: '날씨를 선택해 주세요.',
+      statusCode: 422,
+    );
+  }
+}
+
+String _encodeWeather(DiaryWeather weather) => switch (weather) {
+  DiaryWeather.sunny => 'SUNNY',
+  DiaryWeather.partlyCloudy => 'PARTLY_CLOUDY',
+  DiaryWeather.cloudy => 'CLOUDY',
+  DiaryWeather.rainy => 'RAINY',
+  DiaryWeather.snowy => 'SNOWY',
 };
 
-DiaryWeather _weatherFromScore(int score) => switch (score) {
-  100 => DiaryWeather.sunny,
-  75 => DiaryWeather.partlyCloudy,
-  50 => DiaryWeather.cloudy,
-  25 => DiaryWeather.rainy,
-  _ => DiaryWeather.shower,
-};
+DiaryWeather? _decodeResponseWeather(Object? value) {
+  try {
+    return _decodeWeather(value);
+  } on FormatException {
+    throw const LeafieApiException(
+      code: 'INVALID_RESPONSE',
+      message: '다이어리를 확인할 수 없습니다.',
+      statusCode: 502,
+    );
+  }
+}
+
+DiaryWeather? _decodeWeather(Object? value) {
+  if (value == null) return null;
+  if (value is! String) throw const FormatException('weather');
+  return switch (value) {
+    'SUNNY' => DiaryWeather.sunny,
+    'PARTLY_CLOUDY' => DiaryWeather.partlyCloudy,
+    'CLOUDY' => DiaryWeather.cloudy,
+    'RAINY' => DiaryWeather.rainy,
+    'SNOWY' => DiaryWeather.snowy,
+    _ => throw const FormatException('weather'),
+  };
+}
 
 String _dateOnly(DateTime value) {
   final year = value.year.toString().padLeft(4, '0');

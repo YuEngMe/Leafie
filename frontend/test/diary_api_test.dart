@@ -24,7 +24,7 @@ void main() {
         return const LeafieHttpResponse(
           statusCode: 200,
           body:
-              '{"entries":[{"id":"entry","diary_date":"2026-07-15","condition_score":100,"condition_level":5,"has_photo":false}],"statistics":{"entry_count":1,"average_score":100,"average_level":5}}',
+              '{"entries":[{"id":"entry","diary_date":"2026-07-15","weather":"SUNNY","title":"새 잎","has_photo":false}]}',
         );
       }),
     );
@@ -32,15 +32,12 @@ void main() {
     final entries = await store.loadMonth(DateTime(2026, 7));
 
     expect(entries.single.date, DateTime(2026, 7, 15));
+    expect(entries.single.title, '새 잎');
+    expect(entries.single.weather, DiaryWeather.sunny);
     expect(request.uri.queryParameters, {'year': '2026', 'month': '7'});
   });
 
   test('날짜별 다이어리의 제목·본문·날씨·사진을 복원한다', () async {
-    final encodedContent = jsonEncode({
-      'v': 1,
-      'title': '새 잎',
-      'body': '잎이 자랐다.',
-    });
     final store = ApiDiaryStore(
       plantId: plantId,
       client: client(
@@ -50,9 +47,9 @@ void main() {
             'id': 'entry',
             'plant_id': plantId,
             'diary_date': '2026-07-15',
-            'content': encodedContent,
-            'condition_score': 75,
-            'condition_level': 4,
+            'weather': 'PARTLY_CLOUDY',
+            'title': '새 잎',
+            'content': '잎이 자랐다.',
             'media': {
               'id': 'media-id',
               'download_url': 'https://example.com/diary.jpg',
@@ -74,12 +71,19 @@ void main() {
     expect(entry?.photoUrl, 'https://example.com/diary.jpg');
   });
 
-  test('다이어리를 PUT하고 빈 날짜는 DELETE한다', () async {
+  test('다이어리를 v2 필드로 PUT하고 빈 날짜는 DELETE한다', () async {
     final requests = <LeafieHttpRequest>[];
     final store = ApiDiaryStore(
       plantId: plantId,
       client: client((input) async {
         requests.add(input);
+        if (input.method == 'PUT') {
+          return const LeafieHttpResponse(
+            statusCode: 201,
+            body:
+                '{"id":"entry","plant_id":"$plantId","diary_date":"2026-07-15","weather":"RAINY","title":"제목","content":"본문","media":null,"created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z"}',
+          );
+        }
         return const LeafieHttpResponse(statusCode: 204, body: '');
       }),
     );
@@ -96,15 +100,185 @@ void main() {
     await store.delete(DateTime(2026, 7, 16));
 
     expect(requests[0].method, 'PUT');
-    expect(requests[0].body?['condition_score'], 25);
+    expect(requests[0].body?['weather'], 'RAINY');
+    expect(requests[0].body?['title'], '제목');
+    expect(requests[0].body?['content'], '본문');
     expect(requests[0].body?['media_file_id'], 'media-id');
-    expect(jsonDecode(requests[0].body?['content']! as String), {
-      'v': 1,
-      'title': '제목',
-      'body': '본문',
-    });
     expect(requests[1].method, 'DELETE');
     expect(requests[1].uri.path, '/api/v1/plants/$plantId/diaries/2026-07-16');
+  });
+
+  test('기존 다이어리 수정의 200 응답 본문은 저장 결과에 영향을 주지 않는다', () async {
+    late LeafieHttpRequest request;
+    final store = ApiDiaryStore(
+      plantId: plantId,
+      client: client((input) async {
+        request = input;
+        return const LeafieHttpResponse(
+          statusCode: 200,
+          body:
+              '{"id":"entry","plant_id":"$plantId","diary_date":"2026-07-15","weather":"SNOWY","title":"눈","content":"왔다","media":null,"created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z"}',
+        );
+      }),
+    );
+
+    await store.save(
+      DiaryEntry(
+        date: DateTime(2026, 7, 15),
+        title: '  눈  ',
+        body: '  왔다  ',
+        weather: DiaryWeather.snowy,
+      ),
+    );
+
+    expect(request.body, {
+      'weather': 'SNOWY',
+      'title': '눈',
+      'content': '왔다',
+      'media_file_id': null,
+    });
+  });
+
+  test('legacy null 제목과 날씨는 조회할 수 있다', () async {
+    final store = ApiDiaryStore(
+      plantId: plantId,
+      client: client(
+        (_) async => const LeafieHttpResponse(
+          statusCode: 200,
+          body:
+              '{"id":"entry","plant_id":"$plantId","diary_date":"2026-07-15","weather":null,"title":null,"content":"이전 기록","media":null,"created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z"}',
+        ),
+      ),
+    );
+
+    final entry = await store.loadDay(DateTime(2026, 7, 15));
+
+    expect(entry?.title, '');
+    expect(entry?.body, '이전 기록');
+    expect(entry?.weather, isNull);
+  });
+
+  test('legacy JSON content도 제목과 본문으로 계속 조회할 수 있다', () async {
+    final store = ApiDiaryStore(
+      plantId: plantId,
+      client: client(
+        (_) async => LeafieHttpResponse(
+          statusCode: 200,
+          body: jsonEncode({
+            'id': 'entry',
+            'plant_id': plantId,
+            'diary_date': '2026-07-15',
+            'weather': null,
+            'title': null,
+            'content': jsonEncode({'v': 1, 'title': '예전 제목', 'body': '예전 본문'}),
+            'media': null,
+            'created_at': '2026-07-15T00:00:00Z',
+            'updated_at': '2026-07-15T00:00:00Z',
+          }),
+        ),
+      ),
+    );
+
+    final entry = await store.loadDay(DateTime(2026, 7, 15));
+
+    expect(entry?.title, '예전 제목');
+    expect(entry?.body, '예전 본문');
+    expect(entry?.weather, isNull);
+  });
+
+  test('필수 필드는 사진 업로드나 API 요청 전에 검증한다', () async {
+    final requests = <LeafieHttpRequest>[];
+    final store = ApiDiaryStore(
+      plantId: plantId,
+      client: client((input) async {
+        requests.add(input);
+        return const LeafieHttpResponse(statusCode: 500, body: '{}');
+      }),
+    );
+
+    await expectLater(
+      store.save(
+        DiaryEntry(
+          date: DateTime(2026, 7, 15),
+          title: '   ',
+          body: '본문',
+          weather: DiaryWeather.sunny,
+          photoPath: '/존재하지-않는-사진.jpg',
+        ),
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'DIARY_TITLE_REQUIRED',
+        ),
+      ),
+    );
+    await expectLater(
+      store.save(
+        DiaryEntry(date: DateTime(2026, 7, 15), title: '제목', body: '본문'),
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'DIARY_WEATHER_REQUIRED',
+        ),
+      ),
+    );
+    await expectLater(
+      store.save(
+        DiaryEntry(
+          date: DateTime(2026, 7, 15),
+          title: '제목',
+          body: '   ',
+          weather: DiaryWeather.sunny,
+        ),
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'DIARY_CONTENT_REQUIRED',
+        ),
+      ),
+    );
+    await expectLater(
+      store.save(
+        DiaryEntry(
+          date: DateTime(2026, 7, 15),
+          title: '가' * 101,
+          body: '본문',
+          weather: DiaryWeather.sunny,
+        ),
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'DIARY_TITLE_TOO_LONG',
+        ),
+      ),
+    );
+    await expectLater(
+      store.save(
+        DiaryEntry(
+          date: DateTime(2026, 7, 15),
+          title: '제목',
+          body: '가' * 2001,
+          weather: DiaryWeather.sunny,
+        ),
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'DIARY_CONTENT_TOO_LONG',
+        ),
+      ),
+    );
+
+    expect(requests, isEmpty);
   });
 
   test('사진 업로드는 presign, PUT, complete 순서다', () async {

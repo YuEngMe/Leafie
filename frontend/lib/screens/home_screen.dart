@@ -303,7 +303,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final plant = _serverPlant ?? widget.plant;
     return MainTabShell(
       home: _buildHome(context),
-      diaryBuilder: (_) => const DiaryScreen(showBottomNav: false),
+      diaryBuilder: (_) => DiaryScreen(
+        key: ValueKey(plant?.id),
+        plantId: plant?.id,
+        resolvePlantIdIfMissing: false,
+        showBottomNav: false,
+      ),
       calendarBuilder: (_) => CalendarScreen(
         key: ValueKey(plant?.id),
         plantId: plant?.id,
