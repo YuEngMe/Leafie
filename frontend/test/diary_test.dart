@@ -69,6 +69,47 @@ class _MemoryStore implements DiaryStore {
 }
 
 void main() {
+  test('날씨 아이콘은 Figma 순서와 백엔드 의미를 그대로 따른다', () {
+    expect(DiaryWeather.values, [
+      DiaryWeather.sunny,
+      DiaryWeather.partlyCloudy,
+      DiaryWeather.cloudy,
+      DiaryWeather.snowy,
+      DiaryWeather.rainy,
+    ]);
+    expect(DiaryWeather.values.map((weather) => weather.label), [
+      '맑음',
+      '구름 조금',
+      '흐림',
+      '눈',
+      '비',
+    ]);
+    expect(DiaryWeather.values.map((weather) => weather.asset), [
+      'assets/images/icon_weather_sun_off.svg',
+      'assets/images/icon_weather_partly_off.svg',
+      'assets/images/icon_weather_cloud_off.svg',
+      'assets/images/icon_weather_rain_off.svg',
+      'assets/images/icon_weather_drop_off.svg',
+    ]);
+    expect(DiaryWeather.values.map((weather) => weather.selectedAsset), [
+      'assets/images/icon_weather_sun_on.svg',
+      'assets/images/icon_weather_partly_on.svg',
+      'assets/images/icon_weather_cloud_on.svg',
+      'assets/images/icon_weather_rain_on.svg',
+      'assets/images/icon_weather_drop_on.svg',
+    ]);
+    expect(
+      DiaryWeather.values.map((weather) => (weather.width, weather.height)),
+      [
+        (21.024, 21.023),
+        (24.93, 19.99),
+        (25.365, 14.634),
+        (19.702, 21.225),
+        (17.671, 19.092),
+      ],
+    );
+  });
+
   group('달력 (2739:34592)', () {
     testWidgets('시안 좌표를 지킨다', (tester) async {
       _setUpView(tester);
@@ -268,6 +309,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.bySemanticsLabel('눈'), findsOneWidget);
+      expect(find.bySemanticsLabel('소나기'), findsNothing);
       await tester.tap(find.bySemanticsLabel('맑음'));
       await tester.pumpAndSettle();
 

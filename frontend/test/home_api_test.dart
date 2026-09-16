@@ -30,7 +30,6 @@ void main() {
               'personality_type': 'OUTGOING',
               'color_id': 'color_orange_01',
               'hair_id': 'NONE',
-              'accessory_id': 'NONE',
               'expression_level': 5,
               'dialogue': null,
             },

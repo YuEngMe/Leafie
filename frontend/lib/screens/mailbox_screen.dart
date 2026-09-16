@@ -1,9 +1,14 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/plant_letter.dart';
+import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
 Future<void> showPlantMailbox(
   BuildContext context, {
@@ -40,30 +45,20 @@ class _MailboxScreenState extends State<MailboxScreen> {
   final Set<String> _read = {};
   PlantLetter? _selected;
   String? _error;
+  String? _detailError;
   final Set<String> _savingRead = {};
+  final Set<String> _deleting = {};
   final _canvasKey = GlobalKey();
   final _newEnvelopeKey = GlobalKey();
   Rect? _openingSource;
+  PlantLetter? _pendingLetter;
+  Rect? _pendingBounds;
+  int _detailEpoch = 0;
+  bool _loadingDetail = false;
+  String? _scheduledAutoOpenLetterId;
   _MailView _openingOrigin = _MailView.newLetter;
   bool _motionImagesLoaded = false;
-  bool _previewOpen = false;
   bool get _isPreview => kDebugMode && widget.debugPreview;
-
-  Future<void> _showMotionPreview() async {
-    if (!kDebugMode || _previewOpen) return;
-    setState(() => _previewOpen = true);
-    try {
-      await showGeneralDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.transparent,
-        pageBuilder: (_, animation, secondaryAnimation) =>
-            const MailboxScreen(plantId: null, debugPreview: true),
-      );
-    } finally {
-      if (mounted) setState(() => _previewOpen = false);
-    }
-  }
 
   @override
   void didChangeDependencies() {
@@ -107,13 +102,22 @@ class _MailboxScreenState extends State<MailboxScreen> {
       return;
     }
     final repository = widget.repository;
-    if (repository == null || widget.plantId == null) {
+    if (widget.plantId == null) {
       setState(() {
         _view = _MailView.list;
-        _error = '편지 서비스 연결을 준비 중이에요.';
+        _error = '먼저 식물을 등록해 주세요.';
       });
       return;
     }
+    if (repository == null) {
+      setState(() {
+        _view = _MailView.list;
+        _error = '편지 서비스에 연결할 수 없어요.';
+      });
+      return;
+    }
+    _detailEpoch++;
+    _scheduledAutoOpenLetterId = null;
     setState(() {
       _view = _MailView.loading;
       _error = null;
@@ -124,13 +128,15 @@ class _MailboxScreenState extends State<MailboxScreen> {
       );
       if (!mounted) return;
       letters.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final unread = letters
+          .where((letter) => !letter.isRead && !_read.contains(letter.id))
+          .firstOrNull;
       setState(() {
         _letters = List.of(letters);
-        _selected = _letters
-            .where((l) => !l.isRead && !_read.contains(l.id))
-            .firstOrNull;
-        _view = _selected == null ? _MailView.list : _MailView.newLetter;
+        _selected = unread;
+        _view = unread == null ? _MailView.list : _MailView.newLetter;
       });
+      if (unread != null) _scheduleUnreadOpening(unread);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -140,8 +146,69 @@ class _MailboxScreenState extends State<MailboxScreen> {
     }
   }
 
-  void _open(PlantLetter letter, Rect globalBounds) {
-    if (_view == _MailView.opening) return;
+  Rect _newLetterGlobalBounds() {
+    final box = _newEnvelopeKey.currentContext!.findRenderObject() as RenderBox;
+    return Rect.fromPoints(
+      box.localToGlobal(const Offset(14.43, 20)),
+      box.localToGlobal(const Offset(138.43, 116)),
+    );
+  }
+
+  void _scheduleUnreadOpening(PlantLetter letter) {
+    if (_isPreview || _scheduledAutoOpenLetterId == letter.id) return;
+    _scheduledAutoOpenLetterId = letter.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _view != _MailView.newLetter ||
+          _selected?.id != letter.id ||
+          _loadingDetail ||
+          _detailError != null) {
+        return;
+      }
+      final envelopeContext = _newEnvelopeKey.currentContext;
+      if (envelopeContext == null) {
+        _scheduledAutoOpenLetterId = null;
+        _scheduleUnreadOpening(letter);
+        return;
+      }
+      _open(letter, _newLetterGlobalBounds());
+    });
+  }
+
+  Future<void> _open(PlantLetter letter, Rect globalBounds) async {
+    if (_view == _MailView.opening || _loadingDetail) return;
+    _pendingLetter = letter;
+    _pendingBounds = globalBounds;
+    _detailError = null;
+    if (letter.contentLoaded || _isPreview) {
+      _beginOpening(letter, globalBounds);
+      return;
+    }
+    final request = ++_detailEpoch;
+    setState(() => _loadingDetail = true);
+    try {
+      final detail = await widget.repository!.getLetter(
+        widget.plantId!,
+        letter.id,
+      );
+      if (!mounted || request != _detailEpoch) return;
+      if (detail.id != letter.id || !detail.contentLoaded) {
+        throw StateError('invalid letter detail');
+      }
+      final index = _letters.indexWhere((item) => item.id == detail.id);
+      if (index >= 0) _letters[index] = detail;
+      _loadingDetail = false;
+      _beginOpening(detail, globalBounds);
+    } catch (_) {
+      if (!mounted || request != _detailEpoch) return;
+      setState(() {
+        _loadingDetail = false;
+        _detailError = '편지 내용을 불러오지 못했어요.';
+      });
+    }
+  }
+
+  void _beginOpening(PlantLetter letter, Rect globalBounds) {
     final canvas = _canvasKey.currentContext!.findRenderObject() as RenderBox;
     final localBounds = Rect.fromPoints(
       canvas.globalToLocal(globalBounds.topLeft),
@@ -153,7 +220,46 @@ class _MailboxScreenState extends State<MailboxScreen> {
       _selected = letter;
       _view = _MailView.opening;
       _error = null;
+      _detailError = null;
+      _pendingLetter = null;
+      _pendingBounds = null;
     });
+  }
+
+  void _cancelDetailRequest() {
+    _detailEpoch++;
+    _loadingDetail = false;
+    _detailError = null;
+    _pendingLetter = null;
+    _pendingBounds = null;
+  }
+
+  void _retryDetail() {
+    final letter = _pendingLetter;
+    final bounds = _pendingBounds;
+    if (letter != null && bounds != null) _open(letter, bounds);
+  }
+
+  Future<bool> _deleteLetter(String letterId) async {
+    if (_isPreview || _deleting.contains(letterId)) return false;
+    final repository = widget.repository;
+    final plantId = widget.plantId;
+    if (repository == null || plantId == null) return false;
+    _deleting.add(letterId);
+    try {
+      await repository.deleteLetter(plantId, letterId);
+      if (!mounted) return false;
+      setState(() {
+        _letters.removeWhere((letter) => letter.id == letterId);
+        _read.remove(letterId);
+        if (_selected?.id == letterId) _selected = null;
+      });
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _deleting.remove(letterId);
+    }
   }
 
   Widget _departureScene() => IgnorePointer(
@@ -161,12 +267,10 @@ class _MailboxScreenState extends State<MailboxScreen> {
       children: [
         Positioned(
           left: 6,
-          top: _openingOrigin == _MailView.newLetter ? 128 : 165,
+          top: 165,
           width: 390.69,
-          height: 711,
-          child: _MailboxIllustration(
-            isNew: _openingOrigin == _MailView.newLetter,
-          ),
+          height: 709,
+          child: const _MailboxIllustration(),
         ),
         const Positioned.fill(child: _MailboxForeground()),
         if (_openingOrigin == _MailView.list) ...[
@@ -175,12 +279,12 @@ class _MailboxScreenState extends State<MailboxScreen> {
             left: 26,
             top: 228,
             width: 349,
-            height: 418,
+            height: 417.5718,
             child: _LetterList(
               letters: _letters,
-              readIds: _read,
               onOpen: (_, bounds) {},
               onClose: () {},
+              onDelete: (_) async => false,
             ),
           ),
         ],
@@ -218,214 +322,203 @@ class _MailboxScreenState extends State<MailboxScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _previewOpen
-      ? const SizedBox.expand()
-      : Material(
-          type: MaterialType.transparency,
-          child: SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.fill,
-              child: SizedBox(
-                width: 402,
-                height: 874,
-                child: Stack(
-                  key: _canvasKey,
-                  children: [
-                    if (_view == _MailView.house ||
-                        _view == _MailView.newLetter ||
-                        _view == _MailView.list) ...[
-                      Positioned(
-                        left: 6,
-                        top: _view == _MailView.newLetter ? 128 : 165,
-                        width: 390.69,
-                        height: 711,
-                        child: _MailboxIllustration(
-                          isNew: _view == _MailView.newLetter,
-                        ),
-                      ),
-                      const Positioned.fill(child: _MailboxForeground()),
-                    ],
-                    if (_view == _MailView.loading)
-                      const Center(
-                        child: CircularProgressIndicator(color: kOrangeMain),
-                      ),
-                    if (_view == _MailView.newLetter)
-                      Positioned(
-                        left: 122,
-                        top: 255,
-                        width: 157,
-                        height: 130,
-                        child: Semantics(
-                          key: _newEnvelopeKey,
-                          button: true,
-                          label: '새 편지 열기',
-                          child: GestureDetector(
-                            key: const ValueKey('mail-new-letter'),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              final box =
-                                  _newEnvelopeKey.currentContext!
-                                          .findRenderObject()
-                                      as RenderBox;
-                              // The tappable region also includes the slot above the envelope.
-                              _open(
-                                _selected!,
-                                Rect.fromPoints(
-                                  box.localToGlobal(const Offset(15.5, 39)),
-                                  box.localToGlobal(const Offset(139, 134)),
-                                ),
-                              );
-                            },
-                            child: const Center(
-                              child: Text(
-                                'NEW!',
-                                style: TextStyle(
-                                  fontFamily: kFontFamily,
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (_view == _MailView.house)
-                      Positioned(
-                        left: 125,
-                        top: 292,
-                        width: 152,
-                        height: 116,
-                        child: Semantics(
-                          button: true,
-                          label: '우편함 목록 열기',
-                          child: GestureDetector(
-                            key: const ValueKey('mail-house-envelope'),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => setState(() => _view = _MailView.list),
-                          ),
-                        ),
-                      ),
-                    if (_view == _MailView.list) ...[
-                      const Positioned.fill(
-                        child: ColoredBox(color: Color(0x33000000)),
-                      ),
-                      Positioned(
-                        left: 26,
-                        top: 228,
-                        width: 349,
-                        height: 418,
-                        child: _LetterList(
-                          letters: _letters,
-                          readIds: _read,
-                          error: _error,
-                          onOpen: _open,
-                          onClose: () =>
-                              setState(() => _view = _MailView.house),
-                          onRetry:
-                              widget.repository == null ||
-                                  widget.plantId == null
-                              ? null
-                              : _load,
-                        ),
-                      ),
-                    ],
-                    if (_view == _MailView.opening)
-                      LetterOpening(
-                        key: ValueKey(_selected!.id),
-                        letter: _selected!,
-                        onOpened: _markRead,
-                        sourceRect: _openingSource,
-                        departureScene: _departureScene(),
-                      ),
-                    if (_view == _MailView.opening && _error != null)
-                      Positioned(
-                        left: 35,
-                        right: 35,
-                        top: 610,
-                        child: TextButton(
-                          onPressed: _markRead,
-                          child: Text(
-                            '$_error 다시 시도',
-                            style: kSmallStyle.copyWith(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      left: 331,
-                      top: 47,
-                      width: 49,
-                      height: 49,
-                      child: _MailClose(
-                        onPressed: () {
-                          if (_view == _MailView.opening) {
-                            setState(() {
-                              _view = _MailView.list;
-                              _error = null;
-                            });
-                          } else {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.fill,
+        child: SizedBox(
+          width: 402,
+          height: 874,
+          child: Stack(
+            key: _canvasKey,
+            children: [
+              if (_view == _MailView.house ||
+                  _view == _MailView.newLetter ||
+                  _view == _MailView.list) ...[
+                Positioned(
+                  left: 6,
+                  top: 165,
+                  width: 390.69,
+                  height: 709,
+                  child: const _MailboxIllustration(),
+                ),
+                const Positioned.fill(child: _MailboxForeground()),
+              ],
+              if (_view == _MailView.loading)
+                const Center(
+                  child: CircularProgressIndicator(color: kOrangeMain),
+                ),
+              if (_view == _MailView.newLetter)
+                Positioned(
+                  left: 125.57,
+                  top: 292,
+                  width: 151.85,
+                  height: 116,
+                  child: Semantics(
+                    key: _newEnvelopeKey,
+                    button: true,
+                    label: '새 편지 열기',
+                    child: GestureDetector(
+                      key: const ValueKey('mail-new-letter'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _open(_selected!, _newLetterGlobalBounds()),
+                      child: const SizedBox.expand(),
                     ),
-                    if (kDebugMode)
-                      Positioned(
-                        left: 24,
-                        right: 24,
-                        bottom: 24,
-                        child: _isPreview
-                            ? Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    '개발용 미리보기 · 서버 저장 없음',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      FilledButton(
-                                        key: const ValueKey(
-                                          'mail-preview-replay',
-                                        ),
-                                        onPressed: () => setState(() {
-                                          _view = _MailView.newLetter;
-                                          _selected = _letters.first;
-                                          _error = null;
-                                        }),
-                                        child: const Text('처음부터'),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      FilledButton(
-                                        key: const ValueKey(
-                                          'mail-preview-exit',
-                                        ),
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(),
-                                        child: const Text('미리보기 종료'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            : Center(
-                                child: FilledButton(
-                                  key: const ValueKey('mail-motion-preview'),
-                                  onPressed: _showMotionPreview,
-                                  child: const Text('편지 모션 미리보기'),
-                                ),
+                  ),
+                ),
+              if (_view == _MailView.newLetter)
+                Positioned(
+                  left: 195.2847,
+                  top: 349.8887,
+                  width: 9.4666,
+                  height: 31.5112,
+                  child: IgnorePointer(
+                    child: SvgPicture.asset(
+                      'assets/images/mail_unread.svg',
+                      fit: BoxFit.fill,
+                    ),
+                  ),
+                ),
+              if (_view == _MailView.house)
+                Positioned(
+                  left: 125,
+                  top: 292,
+                  width: 152,
+                  height: 116,
+                  child: Semantics(
+                    button: true,
+                    label: '우편함 목록 열기',
+                    child: GestureDetector(
+                      key: const ValueKey('mail-house-envelope'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _view = _MailView.list),
+                    ),
+                  ),
+                ),
+              if (_view == _MailView.list) ...[
+                const Positioned.fill(
+                  child: ColoredBox(color: Color(0x33000000)),
+                ),
+                Positioned(
+                  left: 26,
+                  top: 228,
+                  width: 349,
+                  height: 417.5718,
+                  child: _LetterList(
+                    letters: _letters,
+                    error: _error,
+                    onOpen: _open,
+                    onClose: () => setState(() => _view = _MailView.house),
+                    onRetry: widget.repository == null || widget.plantId == null
+                        ? null
+                        : _load,
+                    onDelete: _deleteLetter,
+                    registerPlant: widget.plantId == null
+                        ? () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const PlantRegisterNameScreen(),
                               ),
-                      ),
-                  ],
+                            );
+                          }
+                        : null,
+                  ),
+                ),
+              ],
+              if (_loadingDetail || _detailError != null)
+                Positioned.fill(
+                  child: _DetailLoadOverlay(
+                    loading: _loadingDetail,
+                    message: _detailError,
+                    onRetry: _retryDetail,
+                    onCancel: () => setState(_cancelDetailRequest),
+                  ),
+                ),
+              if (_view == _MailView.opening)
+                LetterOpening(
+                  key: ValueKey(_selected!.id),
+                  letter: _selected!,
+                  onOpened: _markRead,
+                  sourceRect: _openingSource,
+                  departureScene: _departureScene(),
+                ),
+              if (_view == _MailView.opening && _error != null)
+                Positioned(
+                  left: 35,
+                  right: 35,
+                  top: 610,
+                  child: TextButton(
+                    onPressed: _markRead,
+                    child: Text(
+                      '$_error 다시 시도',
+                      style: kSmallStyle.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 331,
+                top: 47,
+                width: 49,
+                height: 49,
+                child: _MailClose(
+                  onPressed: () {
+                    if (_loadingDetail || _detailError != null) {
+                      setState(_cancelDetailRequest);
+                      return;
+                    }
+                    if (_view == _MailView.opening) {
+                      setState(() {
+                        _view = _MailView.list;
+                        _error = null;
+                      });
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
                 ),
               ),
-            ),
+              if (_isPreview)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 24,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '개발용 미리보기 · 서버 저장 없음',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FilledButton(
+                            key: const ValueKey('mail-preview-replay'),
+                            onPressed: () => setState(() {
+                              _view = _MailView.newLetter;
+                              _selected = _letters.first;
+                              _error = null;
+                            }),
+                            child: const Text('처음부터'),
+                          ),
+                          const SizedBox(width: 12),
+                          FilledButton(
+                            key: const ValueKey('mail-preview-exit'),
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('미리보기 종료'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-        );
+        ),
+      ),
+    ),
+  );
 }
 
 class _MailClose extends StatelessWidget {
@@ -444,154 +537,481 @@ class _MailClose extends StatelessWidget {
   );
 }
 
-class _LetterList extends StatelessWidget {
+class _LetterList extends StatefulWidget {
   const _LetterList({
     required this.letters,
-    required this.readIds,
     required this.onOpen,
     required this.onClose,
+    required this.onDelete,
     this.error,
     this.onRetry,
+    this.registerPlant,
   });
   final List<PlantLetter> letters;
-  final Set<String> readIds;
   final void Function(PlantLetter, Rect) onOpen;
   final VoidCallback onClose;
+  final Future<bool> Function(String) onDelete;
   final VoidCallback? onRetry;
+  final VoidCallback? registerPlant;
   final String? error;
+
+  @override
+  State<_LetterList> createState() => _LetterListState();
+}
+
+class _LetterListState extends State<_LetterList> {
+  String? _revealedId;
+  String? _deletingId;
+  String? _deleteErrorId;
+  bool _confirming = false;
+  double _horizontalDrag = 0;
+
+  @override
+  void didUpdateWidget(covariant _LetterList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_revealedId != null &&
+        !widget.letters.any((letter) => letter.id == _revealedId)) {
+      _revealedId = null;
+    }
+    if (_deleteErrorId != null &&
+        !widget.letters.any((letter) => letter.id == _deleteErrorId)) {
+      _deleteErrorId = null;
+    }
+  }
+
+  void _reveal(String id) {
+    if (_deletingId != null || _confirming) return;
+    setState(() {
+      _revealedId = id;
+      _deleteErrorId = null;
+    });
+  }
+
+  Future<void> _confirmDelete(String id) async {
+    if (_confirming || _deletingId != null) return;
+    _confirming = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: .45),
+      builder: (_) =>
+          const ConfirmDialog(message: '삭제하시겠습니까?', subtitle: '우편함에서 사라져요'),
+    );
+    _confirming = false;
+    if (!mounted || confirmed != true) {
+      if (mounted && confirmed == false) setState(() => _revealedId = null);
+      return;
+    }
+    await _delete(id);
+  }
+
+  Future<void> _delete(String id) async {
+    if (_deletingId != null) return;
+    setState(() {
+      _deletingId = id;
+      _deleteErrorId = null;
+    });
+    final deleted = await widget.onDelete(id);
+    if (!mounted) return;
+    setState(() {
+      _deletingId = null;
+      if (deleted) {
+        _revealedId = null;
+      } else {
+        _revealedId = id;
+        _deleteErrorId = id;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Container(
     key: const ValueKey('mail-list'),
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: kPaleYellow, width: 6),
+      color: kPaleYellow,
       borderRadius: BorderRadius.circular(10),
     ),
     child: Stack(
       children: [
         Positioned(
-          left: 0,
-          right: 0,
-          top: 25,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                'assets/images/mail_list_icon.svg',
-                width: 33,
-                height: 26,
+          left: 6,
+          top: 5.786,
+          width: 335.695,
+          height: 402.427,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 1.35, sigmaY: 1.35),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(width: 10),
-              Text('우편함', style: kTitleStyle.copyWith(fontSize: 25)),
-            ],
+            ),
           ),
         ),
         Positioned(
-          right: -3,
-          top: -4,
-          width: 44,
-          height: 44,
-          child: _MailClose(onPressed: onClose),
+          left: 114,
+          top: 34.786,
+          width: 33.354,
+          height: 25.563,
+          child: SvgPicture.asset(
+            'assets/images/mail_list_icon.svg',
+            fit: BoxFit.fill,
+          ),
         ),
         Positioned(
-          left: 11,
-          right: 11,
-          top: 97,
-          bottom: 24,
-          child: error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        error!,
-                        style: kSmallStyle,
-                        textAlign: TextAlign.center,
-                      ),
-                      if (onRetry != null)
-                        TextButton(
-                          onPressed: onRetry,
-                          child: const Text('다시 시도'),
-                        ),
-                    ],
-                  ),
+          left: 157,
+          top: 31.171,
+          width: 66,
+          height: 29.979,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '우편함',
+              key: const ValueKey('mail-list-title-text'),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: kTitleStyle.copyWith(
+                fontSize: 25,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF444444),
+                height: 29.979 / 25,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 302,
+          top: 10.785,
+          width: 36.77,
+          height: 36.77,
+          child: IconButton(
+            tooltip: '닫기',
+            padding: EdgeInsets.zero,
+            onPressed: widget.onClose,
+            icon: SvgPicture.asset(
+              'assets/images/mail_list_close.svg',
+              width: 36.77,
+              height: 36.77,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 7,
+          top: 91.786,
+          width: 332.135,
+          bottom: 5.8,
+          child: widget.error != null
+              ? _ListMessage(
+                  message: widget.error!,
+                  actionLabel: widget.registerPlant != null
+                      ? '식물 등록하기'
+                      : widget.onRetry != null
+                      ? '다시 시도'
+                      : null,
+                  onAction: widget.registerPlant ?? widget.onRetry,
                 )
-              : letters.isEmpty
-              ? const Center(child: Text('아직 도착한 편지가 없어요.', style: kSmallStyle))
+              : widget.letters.isEmpty
+              ? const _ListMessage(message: '아직 도착한 편지가 없어요.')
               : ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: letters.length,
-                  separatorBuilder: (_, index) => const SizedBox(height: 19),
+                  padding: const EdgeInsets.fromLTRB(10, 11, 10, 10),
+                  itemCount: widget.letters.length,
+                  separatorBuilder: (_, index) =>
+                      const SizedBox(height: 18.8994),
                   itemBuilder: (context, index) {
-                    final letter = letters[index];
-                    final date = letter.createdAt.toLocal();
-                    return Container(
-                      height: 51,
-                      margin: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(60),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x2E000000), blurRadius: 4.82),
-                        ],
-                      ),
-                      child: Builder(
-                        builder: (rowContext) => InkWell(
-                          key: ValueKey('mail-${letter.id}'),
-                          borderRadius: BorderRadius.circular(60),
-                          onTap: () {
-                            final box =
-                                rowContext.findRenderObject() as RenderBox;
-                            // Start at this visible row, including its current scroll offset.
-                            final center = box.localToGlobal(
-                              box.size.center(Offset.zero),
-                            );
-                            final size =
-                                box.localToGlobal(Offset(64, 48)) -
-                                box.localToGlobal(Offset.zero);
-                            onOpen(
-                              letter,
-                              Rect.fromCenter(
-                                center: center,
-                                width: size.dx,
-                                height: size.dy,
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    letter.body.replaceAll('\n', ' '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: kSmallStyle.copyWith(
-                                      color: Colors.black,
-                                      fontWeight:
-                                          letter.isRead ||
-                                              readIds.contains(letter.id)
-                                          ? FontWeight.w400
-                                          : FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  '${date.year}. ${date.month}. ${date.day} ${'월화수목금토일'[date.weekday - 1]}',
-                                  style: kSmallStyle.copyWith(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
+                    final letter = widget.letters[index];
+                    return _buildRow(letter);
                   },
                 ),
         ),
+        if (widget.error == null && widget.letters.isNotEmpty)
+          const Positioned(
+            left: 5,
+            top: 338.786,
+            width: 339,
+            height: 73,
+            child: IgnorePointer(child: _ListBottomFade()),
+          ),
+        if (_deleteErrorId case final id?)
+          Positioned(
+            left: 36,
+            right: 36,
+            bottom: 4,
+            height: 44,
+            child: Material(
+              color: Colors.white.withValues(alpha: .94),
+              borderRadius: BorderRadius.circular(22),
+              child: TextButton(
+                key: ValueKey('mail-delete-retry-$id'),
+                onPressed: _deletingId == null ? () => _delete(id) : null,
+                child: const Text('삭제하지 못했어요. 다시 시도'),
+              ),
+            ),
+          ),
       ],
+    ),
+  );
+
+  Widget _buildRow(PlantLetter letter) {
+    final date = letter.createdAt.toLocal();
+    final revealed = _revealedId == letter.id;
+    final deleting = _deletingId == letter.id;
+    final deleteAction = CustomSemanticsAction(label: '삭제 옵션 보기');
+    return SizedBox(
+      height: 51,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (revealed)
+            Positioned(
+              left: 266,
+              top: 2.5,
+              width: 46,
+              height: 46,
+              child: IconButton(
+                key: ValueKey('mail-delete-${letter.id}'),
+                tooltip: '편지 삭제',
+                padding: EdgeInsets.zero,
+                onPressed: deleting ? null : () => _confirmDelete(letter.id),
+                icon: deleting
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : SvgPicture.asset(
+                        'assets/images/mail_delete.svg',
+                        width: 46,
+                        height: 46,
+                      ),
+              ),
+            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            left: revealed ? 6 : 0,
+            top: 0,
+            width: revealed ? 248 : 312.135,
+            height: 51,
+            child: Semantics(
+              button: true,
+              label: '편지: ${letter.preview}',
+              customSemanticsActions: {deleteAction: () => _reveal(letter.id)},
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (_) => _horizontalDrag = 0,
+                onHorizontalDragUpdate: (details) {
+                  _horizontalDrag += details.delta.dx;
+                  if (_horizontalDrag < -36 && !revealed) {
+                    _reveal(letter.id);
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (velocity < -200 || _horizontalDrag < -36) {
+                    _reveal(letter.id);
+                  } else if ((velocity > 200 || _horizontalDrag > 36) &&
+                      revealed) {
+                    setState(() => _revealedId = null);
+                  }
+                },
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(60.258),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x2E000000), blurRadius: 4.821),
+                    ],
+                  ),
+                  child: Builder(
+                    builder: (rowContext) => InkWell(
+                      key: ValueKey('mail-${letter.id}'),
+                      borderRadius: BorderRadius.circular(60.258),
+                      onLongPress: () => _reveal(letter.id),
+                      onTap: deleting
+                          ? null
+                          : () {
+                              if (revealed) {
+                                setState(() => _revealedId = null);
+                                return;
+                              }
+                              final box =
+                                  rowContext.findRenderObject() as RenderBox;
+                              final center = box.localToGlobal(
+                                box.size.center(Offset.zero),
+                              );
+                              final size =
+                                  box.localToGlobal(const Offset(64, 48)) -
+                                  box.localToGlobal(Offset.zero);
+                              widget.onOpen(
+                                letter,
+                                Rect.fromCenter(
+                                  center: center,
+                                  width: size.dx,
+                                  height: size.dy,
+                                ),
+                              );
+                            },
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 18,
+                          right: revealed ? 15.696 : 14.831,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                letter.preview.replaceAll('\n', ' '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: kFontFamily,
+                                  fontSize: 14.462,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              width: 90.146,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${date.year}. ${date.month}. ${date.day} ${'월화수목금토일'[date.weekday - 1]}',
+                                  key: ValueKey('mail-date-${letter.id}'),
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.visible,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontFamily: kFontFamily,
+                                    fontSize: 14.462,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: 0,
+                                    color: Color(0xFFA1A1A1),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (revealed)
+            const Positioned(
+              left: -2,
+              top: -10.786,
+              width: 200,
+              height: 68,
+              child: IgnorePointer(child: _ListLeftFade()),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ListMessage extends StatelessWidget {
+  const _ListMessage({required this.message, this.actionLabel, this.onAction});
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(message, style: kSmallStyle, textAlign: TextAlign.center),
+        if (actionLabel != null && onAction != null)
+          TextButton(onPressed: onAction, child: Text(actionLabel!)),
+      ],
+    ),
+  );
+}
+
+class _ListBottomFade extends StatelessWidget {
+  const _ListBottomFade();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(17),
+      gradient: const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x00FFFCE5), Color(0xFFFFF9E3)],
+        stops: [.50359, .99577],
+      ),
+    ),
+  );
+}
+
+class _ListLeftFade extends StatelessWidget {
+  const _ListLeftFade();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Colors.white, Color(0x00FFFFFF)],
+        stops: [.17212, .84],
+      ),
+    ),
+  );
+}
+
+class _DetailLoadOverlay extends StatelessWidget {
+  const _DetailLoadOverlay({
+    required this.loading,
+    required this.message,
+    required this.onRetry,
+    required this.onCancel,
+  });
+  final bool loading;
+  final String? message;
+  final VoidCallback onRetry;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: const Color(0x59000000),
+    child: Center(
+      child: Container(
+        width: 270,
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading) ...[
+              const CircularProgressIndicator(color: kOrangeMain),
+              const SizedBox(height: 14),
+              const Text('편지를 펼치고 있어요.', style: kSmallStyle),
+            ] else ...[
+              Text(message!, style: kSmallStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 6),
+              TextButton(
+                key: const ValueKey('mail-detail-retry'),
+                onPressed: onRetry,
+                child: const Text('다시 시도'),
+              ),
+            ],
+            TextButton(onPressed: onCancel, child: const Text('취소')),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -846,24 +1266,12 @@ class _LetterOpeningState extends State<LetterOpening>
 
 // Rasterized directly from Figma: preserve filters, texture masks and render bounds.
 class _MailboxIllustration extends StatelessWidget {
-  const _MailboxIllustration({required this.isNew});
-  final bool isNew;
+  const _MailboxIllustration();
   @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Positioned(
-        left: isNew ? -5 : 0,
-        top: isNew ? -5 : 0,
-        width: isNew ? 400.6904 : 390.6904,
-        height: isNew ? 716.0005 : 709,
-        child: Image.asset(
-          'assets/images/${isNew ? 'mailbox_new' : 'mailbox_house'}.png',
-          fit: BoxFit.fill,
-          excludeFromSemantics: true,
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => Image.asset(
+    'assets/images/mailbox_house_v2.png',
+    fit: BoxFit.fill,
+    excludeFromSemantics: true,
   );
 }
 
@@ -968,15 +1376,14 @@ class _LetterPaper extends StatelessWidget {
     child: Stack(
       children: [
         Positioned(
-          left: 13,
-          top: 10,
-          right: 13,
-          bottom: 10,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(5),
-            ),
+          left: 10.0171,
+          top: 7.0171,
+          width: 327.9658,
+          height: 238.9658,
+          child: Image.asset(
+            'assets/images/mail_paper_texture.png',
+            fit: BoxFit.fill,
+            excludeFromSemantics: true,
           ),
         ),
         Positioned(

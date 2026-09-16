@@ -462,9 +462,12 @@ rule at x 212.63 and a horizontal one at y 179.
 Weather is five SVGs at hand-placed x positions (217 / 243.09 / 271.99 / 302.23
 / 326.81) — their widths differ, so a row would not line up.
 
-Entries live in `user_metadata` under `leafie_diary` as JSON until the API
-exists; `DiaryStore` is the seam. Leaving the screen saves through `PopScope`,
-and an entry with no title, body or photo is discarded rather than stored.
+Entries use the diary API through the `DiaryStore` seam. A home diary tab is
+keyed and scoped to the active plant, so retained tabs keep state for the same
+plant but cannot reuse another plant's month or editor store. Leaving the editor
+awaits save/delete before popping; a failed request keeps the complete draft on
+screen for retry. A new untouched entry with no title, body or photo is not
+deleted, while clearing an existing entry deletes that API record.
 
 Four things only a device screenshot caught (2026-09-05):
 

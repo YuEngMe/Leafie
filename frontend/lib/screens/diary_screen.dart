@@ -6,6 +6,7 @@ import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
@@ -15,12 +16,16 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({
     super.key,
+    this.plantId,
+    this.resolvePlantIdIfMissing = true,
     this.store,
     this.today,
     this.showBottomNav = true,
   });
 
   final bool showBottomNav;
+  final String? plantId;
+  final bool resolvePlantIdIfMissing;
 
   final DiaryStore? store;
 
@@ -32,11 +37,18 @@ class DiaryScreen extends StatefulWidget {
 }
 
 class _DiaryScreenState extends State<DiaryScreen> {
-  late final DiaryStore _store = widget.store ?? ApiDiaryStore();
+  late final DiaryStore _store =
+      widget.store ??
+      ApiDiaryStore(
+        plantId: widget.plantId,
+        resolvePlantIdIfMissing: widget.resolvePlantIdIfMissing,
+      );
   late final DateTime _today = widget.today ?? DateTime.now();
   late DateTime _month = DateTime(_today.year, _today.month);
   late DateTime _selected = _today;
   List<DiaryEntry> _entries = const [];
+  int _reloadVersion = 0;
+  bool _openingDay = false;
 
   @override
   void initState() {
@@ -45,47 +57,55 @@ class _DiaryScreenState extends State<DiaryScreen> {
   }
 
   Future<void> _reload() async {
+    final version = ++_reloadVersion;
+    final requestedMonth = _month;
     try {
-      final entries = await _store.loadMonth(_month);
-      if (mounted) setState(() => _entries = entries);
+      final entries = await _store.loadMonth(requestedMonth);
+      if (!mounted || version != _reloadVersion || requestedMonth != _month) {
+        return;
+      }
+      setState(() => _entries = entries);
     } on LeafieApiException {
       // 인증이 없는 위젯 테스트와 네트워크 오류에서도 달력은 계속 보인다.
     }
   }
 
   Future<void> _openDay(DateTime date) async {
+    if (_openingDay) return;
+    _openingDay = true;
     setState(() => _selected = date);
-    final DiaryEntry entry;
     try {
-      entry = await _store.loadDay(date) ?? DiaryEntry(date: date);
-    } on LeafieApiException catch (error) {
+      final loaded = await _store.loadDay(date);
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      await Navigator.push<void>(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
-      return;
-    }
-    if (!mounted) return;
-    final saved = await Navigator.push<DiaryEntry>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DiaryEntryScreen(entry: entry, store: _store),
-      ),
-    );
-    if (saved == null || !mounted) return;
-
-    try {
-      if (saved.isEmpty) {
-        await _store.delete(saved.date);
-      } else {
-        await _store.save(saved);
-      }
+        MaterialPageRoute(
+          builder: (_) => DiaryEntryScreen(
+            entry: loaded ?? DiaryEntry(date: date),
+            entryExists: loaded != null,
+            plantId: widget.plantId,
+            store: _store,
+          ),
+        ),
+      );
+      if (!mounted) return;
       await _reload();
-    } on LeafieApiException catch (error) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      _showDiaryError(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+        error,
+        action: '다이어리를 열지 못했어요.',
+        bottomMargin:
+            AppLayout.homeBottomNavHeight *
+                MediaQuery.sizeOf(context).height /
+                AppLayout.referenceViewport.height +
+            12,
+      );
+    } finally {
+      if (mounted) {
+        _openingDay = false;
+      }
     }
   }
 
@@ -268,11 +288,15 @@ class DiaryEntryScreen extends StatefulWidget {
   const DiaryEntryScreen({
     super.key,
     required this.entry,
+    this.entryExists = false,
+    this.plantId,
     this.imagePicker,
     this.store,
   });
 
   final DiaryEntry entry;
+  final bool entryExists;
+  final String? plantId;
 
   /// 위젯 테스트에서 갈아끼운다.
   final ImagePicker? imagePicker;
@@ -283,11 +307,19 @@ class DiaryEntryScreen extends StatefulWidget {
 }
 
 class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
+  late DiaryEntry _entry = widget.entry;
   late final _titleController = TextEditingController(text: widget.entry.title);
   late final _bodyController = TextEditingController(text: widget.entry.body);
   late String? _photoPath = widget.entry.photoPath;
-  late final String? _photoUrl = widget.entry.photoUrl;
+  late String? _photoUrl = widget.entry.photoUrl;
+  late String? _mediaFileId = widget.entry.mediaFileId;
   late DiaryWeather? _weather = widget.entry.weather;
+  late DiaryEntry? _persistedEntry = widget.entryExists || !widget.entry.isEmpty
+      ? widget.entry
+      : null;
+  late bool _recordExists = widget.entryExists || !widget.entry.isEmpty;
+  bool _submitting = false;
+  int _photoRequestVersion = 0;
 
   @override
   void initState() {
@@ -310,6 +342,9 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    if (_submitting) return;
+    final requestVersion = ++_photoRequestVersion;
+    final requestedDate = _entry.date;
     final XFile? picked;
     try {
       picked = await (widget.imagePicker ?? ImagePicker()).pickImage(
@@ -324,64 +359,109 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       ).showSnackBar(const SnackBar(content: Text('사진을 불러오지 못했어요.')));
       return;
     }
-    if (picked == null || !mounted) return;
+    if (picked == null ||
+        !mounted ||
+        requestVersion != _photoRequestVersion ||
+        !DiaryEntry.sameDay(requestedDate, _entry.date)) {
+      return;
+    }
     setState(() => _photoPath = picked!.path);
   }
 
   /// 앞뒤 버튼. 쓴 글을 저장하고 옆 날짜로 넘어간다.
   Future<void> _shiftDay(int delta) async {
-    final next = widget.entry.date.add(Duration(days: delta));
+    if (_submitting) return;
+    final next = _entry.date.add(Duration(days: delta));
     final store = widget.store;
     if (store != null) {
-      try {
-        final current = _currentEntry();
-        if (current.isEmpty) {
-          await store.delete(current.date);
-        } else {
-          await store.save(current);
-        }
-        final nextEntry = await store.loadDay(next) ?? DiaryEntry(date: next);
+      await _runSubmission(() async {
+        await _persistCurrent();
+        final loaded = await store.loadDay(next);
+        final nextEntry = loaded ?? DiaryEntry(date: next);
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DiaryEntryScreen(
-              entry: nextEntry,
-              store: store,
-              imagePicker: widget.imagePicker,
-            ),
-          ),
-        );
-      } on LeafieApiException catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
-      }
+        _setCurrentEntry(nextEntry, exists: loaded != null);
+      });
       return;
     }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DiaryEntryScreen(entry: DiaryEntry(date: next)),
-      ),
-    );
+    _setCurrentEntry(DiaryEntry(date: next), exists: false);
   }
 
-  DiaryEntry _currentEntry() => widget.entry.copyWith(
+  DiaryEntry _currentEntry() => DiaryEntry(
+    date: _entry.date,
     title: _titleController.text,
     body: _bodyController.text,
     photoPath: _photoPath,
     photoUrl: _photoUrl,
+    mediaFileId: _mediaFileId,
     weather: _weather,
   );
 
-  void _save() => Navigator.pop(context, _currentEntry());
+  Future<void> _persistCurrent() async {
+    final store = widget.store;
+    final current = _currentEntry();
+    if (store == null || _sameEntry(current, _persistedEntry)) return;
+    if (current.isEmpty) {
+      if (_recordExists) await store.delete(current.date);
+      _recordExists = false;
+    } else {
+      await store.save(current);
+      _recordExists = true;
+    }
+    _persistedEntry = current;
+  }
+
+  Future<void> _runSubmission(Future<void> Function() operation) async {
+    if (_submitting) return;
+    _photoRequestVersion++;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _submitting = true);
+    try {
+      await operation();
+    } catch (error) {
+      if (mounted) {
+        _showDiaryError(context, error, action: '저장하지 못했어요.');
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _exit() => _runSubmission(() async {
+    await _persistCurrent();
+    if (!mounted) return;
+    Navigator.pop(context);
+  });
+
+  Future<void> _openCalendar() => _runSubmission(() async {
+    await _persistCurrent();
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CalendarScreen(plantId: widget.plantId),
+      ),
+    );
+  });
+
+  void _setCurrentEntry(DiaryEntry entry, {required bool exists}) {
+    _photoRequestVersion++;
+    setState(() {
+      _entry = entry;
+      _persistedEntry = exists ? entry : null;
+      _recordExists = exists;
+      _titleController.text = entry.title;
+      _bodyController.text = entry.body;
+      _photoPath = entry.photoPath;
+      _photoUrl = entry.photoUrl;
+      _mediaFileId = entry.mediaFileId;
+      _weather = entry.weather;
+    });
+  }
 
   /// 시안 2739:39851 '2026년 7월 15일 토요일'.
   String get _dateLabel {
     const names = ['월', '화', '수', '목', '금', '토', '일'];
-    final d = widget.entry.date;
+    final d = _entry.date;
     return '${d.year}년 ${d.month}월 ${d.day}일 ${names[d.weekday - 1]}요일';
   }
 
@@ -391,7 +471,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       // 뒤로가기로 나가도 쓴 글을 잃지 않는다.
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _save();
+        if (!didPop) _exit();
       },
       child: Scaffold(
         backgroundColor: kBackgroundWhite,
@@ -400,181 +480,214 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           title: '다이어리',
           backgroundColor: Colors.transparent,
           backIconColor: kOrangeMain,
-          actions: [_EditAction(onPressed: _save)],
+          actions: [_EditAction(onPressed: () => _exit())],
         ),
-        body: DiaryScaffoldBody(
-          paperTabs: _paperTabs(
-            previousLabel: '이전 날',
-            nextLabel: '다음 날',
-            onPrevious: () => _shiftDay(-1),
-            onNext: () => _shiftDay(1),
-          ),
-          // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
-          onNavTap: (tab) => switch (tab) {
-            FigmaNavIcon.home || FigmaNavIcon.my => Navigator.pop(context),
-            FigmaNavIcon.calendar => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+        body: AbsorbPointer(
+          absorbing: _submitting,
+          child: DiaryScaffoldBody(
+            paperTabs: _paperTabs(
+              previousLabel: '이전 날',
+              nextLabel: '다음 날',
+              onPrevious: () => _shiftDay(-1),
+              onNext: () => _shiftDay(1),
             ),
-            _ => null,
-          },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // 사진칸 3496:10622.
-              Positioned(
-                left: 46,
-                top: 144.74,
-                width: 304,
-                height: 259.58,
-                child: DiaryPhotoBox(
-                  photoPath: _photoPath,
-                  photoUrl: _photoUrl,
-                  onTap: _pickPhoto,
-                ),
-              ),
-              // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851).
-              Positioned(
-                left: 54,
-                top: 149,
-                child: Text(
-                  _dateLabel,
-                  style: kSmallStyle.copyWith(
-                    height: 23 / 14,
-                    color: kTextDark,
+            // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
+            onNavTap: (tab) => switch (tab) {
+              FigmaNavIcon.home || FigmaNavIcon.my => _exit(),
+              FigmaNavIcon.calendar => _openCalendar(),
+              _ => null,
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 사진칸 3496:10622.
+                Positioned(
+                  left: 46,
+                  top: 144.74,
+                  width: 304,
+                  height: 259.58,
+                  child: DiaryPhotoBox(
+                    photoPath: _photoPath,
+                    photoUrl: _photoUrl,
+                    onTap: _pickPhoto,
                   ),
                 ),
-              ),
-              // 3496:10620 세로 구분선, 3496:10619 가로선.
-              const Positioned(
-                left: 212.63,
-                top: 144.74,
-                child: SizedBox(
-                  width: 1,
-                  height: 38.72,
+                // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851).
+                Positioned(
+                  left: 54,
+                  top: 149,
+                  child: Text(
+                    _dateLabel,
+                    style: kSmallStyle.copyWith(
+                      height: 23 / 14,
+                      color: kTextDark,
+                    ),
+                  ),
+                ),
+                // 3496:10620 세로 구분선, 3496:10619 가로선.
+                const Positioned(
+                  left: 212.63,
+                  top: 144.74,
+                  child: SizedBox(
+                    width: 1,
+                    height: 38.72,
+                    child: ColoredBox(color: kOrangeMain),
+                  ),
+                ),
+                const Positioned(
+                  left: 46,
+                  top: 183.36,
+                  width: 304,
+                  height: 1,
                   child: ColoredBox(color: kOrangeMain),
                 ),
-              ),
-              const Positioned(
-                left: 46,
-                top: 183.36,
-                width: 304,
-                height: 1,
-                child: ColoredBox(color: kOrangeMain),
-              ),
-              DiaryWeatherPicker(
-                selected: _weather,
-                onSelect: (w) => setState(() => _weather = w),
-              ),
-              // 본문칸 3496:10623.
-              const Positioned(
-                left: 46,
-                top: 415,
-                width: 304,
-                height: 290,
-                child: _BodyBox(),
-              ),
-              // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
-              // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
-              // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
-              // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
-              Positioned(
-                left: 63,
-                top: 423.4,
-                width: 270,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text('제목: ', style: kItemStyle.copyWith(color: kTextDark)),
-                    Expanded(
-                      child: TextField(
-                        controller: _titleController,
+                DiaryWeatherPicker(
+                  selected: _weather,
+                  onSelect: (w) => setState(() => _weather = w),
+                ),
+                // 본문칸 3496:10623.
+                const Positioned(
+                  left: 46,
+                  top: 415,
+                  width: 304,
+                  height: 290,
+                  child: _BodyBox(),
+                ),
+                // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
+                // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
+                // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
+                // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
+                Positioned(
+                  left: 63,
+                  top: 423.4,
+                  width: 270,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '제목: ',
                         style: kItemStyle.copyWith(color: kTextDark),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _titleController,
+                          readOnly: _submitting,
+                          style: kItemStyle.copyWith(color: kTextDark),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              // 3496:10621 제목 밑줄, 3496:10625 본문.
-              const Positioned(
-                left: 46,
-                top: 454.74,
-                width: 304,
-                height: 1,
-                child: ColoredBox(color: kOrangeMain),
-              ),
-              // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
-              // (2026-09-11 디자이너 요청).
-              Positioned(
-                left: 62,
-                top: 466,
-                width: 272,
-                // 아래 '저장하기'(683)와 겹치지 않게 675까지.
-                height: 209,
-                child: TextField(
-                  controller: _bodyController,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
-                  // Medium이라 굵기만 내린다.
-                  style: kBodyStyle.copyWith(
-                    fontWeight: FontWeight.w400,
-                    height: 27 / 16,
+                    ],
                   ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: '다이어리를 기록하세요',
-                    hintStyle: kBodyStyle.copyWith(
+                ),
+                // 3496:10621 제목 밑줄, 3496:10625 본문.
+                const Positioned(
+                  left: 46,
+                  top: 454.74,
+                  width: 304,
+                  height: 1,
+                  child: ColoredBox(color: kOrangeMain),
+                ),
+                // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
+                // (2026-09-11 디자이너 요청).
+                Positioned(
+                  left: 62,
+                  top: 466,
+                  width: 272,
+                  // 아래 '저장하기'(683)와 겹치지 않게 675까지.
+                  height: 209,
+                  child: TextField(
+                    controller: _bodyController,
+                    readOnly: _submitting,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
+                    // Medium이라 굵기만 내린다.
+                    style: kBodyStyle.copyWith(
                       fontWeight: FontWeight.w400,
                       height: 27 / 16,
-                      color: kGrayLightest,
                     ),
-                    contentPadding: EdgeInsets.zero,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: '다이어리를 기록하세요',
+                      hintStyle: kBodyStyle.copyWith(
+                        fontWeight: FontWeight.w400,
+                        height: 27 / 16,
+                        color: kGrayLightest,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
                 ),
-              ),
-              // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
-              // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
-              // 빈 글쓰기 시안(2739:39308)에는 없다.
-              if (!_currentEntry().isEmpty)
-                Positioned(
-                  left: 303 + 17 - 24,
-                  top: 683 + 5.5 - 24,
-                  width: 48,
-                  height: 48,
-                  child: GestureDetector(
-                    onTap: _save,
-                    behavior: HitTestBehavior.opaque,
-                    child: Center(
-                      child: Semantics(
-                        button: true,
-                        child: Text(
-                          '저장하기',
-                          style: kSmallStyle.copyWith(
-                            fontSize: 9.488,
-                            fontWeight: FontWeight.w500,
-                            height: 1,
-                            color: kTextDark,
+                // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
+                // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
+                // 빈 글쓰기 시안(2739:39308)에는 없다.
+                if (!_currentEntry().isEmpty)
+                  Positioned(
+                    left: 303 + 17 - 24,
+                    top: 683 + 5.5 - 24,
+                    width: 48,
+                    height: 48,
+                    child: GestureDetector(
+                      onTap: () => _exit(),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Semantics(
+                          button: true,
+                          child: Text(
+                            '저장하기',
+                            style: kSmallStyle.copyWith(
+                              fontSize: 9.488,
+                              fontWeight: FontWeight.w500,
+                              height: 1,
+                              color: kTextDark,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+bool _sameEntry(DiaryEntry entry, DiaryEntry? other) =>
+    other != null &&
+    DiaryEntry.sameDay(entry.date, other.date) &&
+    entry.title == other.title &&
+    entry.body == other.body &&
+    entry.photoPath == other.photoPath &&
+    entry.photoUrl == other.photoUrl &&
+    entry.mediaFileId == other.mediaFileId &&
+    entry.weather == other.weather;
+
+void _showDiaryError(
+  BuildContext context,
+  Object error, {
+  required String action,
+  double? bottomMargin,
+}) {
+  final detail = error is LeafieApiException ? error.message : action;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: bottomMargin == null ? null : SnackBarBehavior.floating,
+      margin: bottomMargin == null
+          ? null
+          : EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+      content: Text('$detail 다시 시도해주세요.'),
+    ),
+  );
 }
 
 class _BodyBox extends StatelessWidget {

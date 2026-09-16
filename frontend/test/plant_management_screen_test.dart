@@ -4,6 +4,7 @@ import 'package:yeso_plant/screens/plant_detail_screen.dart';
 import 'package:yeso_plant/screens/plant_edit_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_edit_info_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 
 ManagedPlant _plant({
@@ -20,8 +21,10 @@ ManagedPlant _plant({
   personalityType: 'CUTE',
   colorId: colorId,
   hairId: 'NONE',
-  accessoryId: 'NONE',
-  daysTogether: 12,
+  startedOn: DateTime.now()
+      .toUtc()
+      .add(const Duration(hours: 9))
+      .subtract(const Duration(days: 12)),
   isSelected: selected,
 );
 
@@ -29,13 +32,26 @@ class _FakeRepository implements PlantManagementRepository {
   _FakeRepository(this.plants);
 
   List<ManagedPlant> plants;
+  String detailPlaceName = '거실';
+  String? detailedPlantId;
+  LeafieApiException? getPlantError;
   String? selectedPlantId;
   String? renamedTo;
+  String? placeNameTo;
   String? appearanceColor;
   String? deletedPlantId;
 
   @override
   Future<List<ManagedPlant>> listPlants() async => List.of(plants);
+
+  @override
+  Future<ManagedPlant> getPlant(String plantId) async {
+    detailedPlantId = plantId;
+    if (getPlantError case final error?) throw error;
+    return plants
+        .firstWhere((plant) => plant.id == plantId)
+        .copyWith(placeName: detailPlaceName);
+  }
 
   @override
   Future<String?> selectPlant(String? plantId) async {
@@ -48,10 +64,15 @@ class _FakeRepository implements PlantManagementRepository {
   }
 
   @override
-  Future<ManagedPlant> updateNickname(String plantId, String nickname) async {
+  Future<ManagedPlant> updatePlant(
+    String plantId, {
+    String? nickname,
+    String? placeName,
+  }) async {
     renamedTo = nickname;
+    placeNameTo = placeName;
     final plant = plants.firstWhere((item) => item.id == plantId);
-    final updated = plant.copyWith(nickname: nickname);
+    final updated = plant.copyWith(nickname: nickname, placeName: placeName);
     plants = [
       for (final item in plants)
         if (item.id == plantId) updated else item,
@@ -64,7 +85,6 @@ class _FakeRepository implements PlantManagementRepository {
     String plantId, {
     String? colorId,
     String? hairId,
-    String? accessoryId,
   }) async {
     appearanceColor = colorId;
     final plant = plants.firstWhere((item) => item.id == plantId);
@@ -153,6 +173,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('plant_detail_menu_캐릭터 정보 수정')));
     await tester.pumpAndSettle();
     expect(find.byType(PlantEditInfoScreen), findsOneWidget);
+    final placeField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('plant_place_field')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(placeField.controller!.text, '거실');
+    expect(repository.detailedPlantId, '1');
 
     await tester.enterText(
       find.byKey(const ValueKey('plant_nickname_field')),
@@ -162,7 +190,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.renamedTo, '반짝이');
+    expect(repository.placeNameTo, isNull);
     expect(find.text('반짝이'), findsOneWidget);
+  });
+
+  testWidgets('상세 조회 실패 시 편집 화면을 열지 않고 오류를 표시한다', (tester) async {
+    final repository =
+        _FakeRepository([_plant(id: '1', nickname: '새싹이', selected: true)])
+          ..getPlantError = const LeafieApiException(
+            code: 'PLANT_NOT_FOUND',
+            message: '식물을 찾을 수 없습니다.',
+            statusCode: 404,
+          );
+    await _pumpScreen(tester, repository);
+
+    await tester.tap(find.byKey(const ValueKey('plant_slot_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plant_detail_menu_캐릭터 정보 수정')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PlantEditInfoScreen), findsNothing);
+    expect(find.text('식물을 찾을 수 없습니다.'), findsOneWidget);
+  });
+
+  testWidgets('상세 > 정보 수정에서 장소를 바꾼다', (tester) async {
+    final repository = _FakeRepository([
+      _plant(id: '1', nickname: '새싹이', selected: true),
+    ]);
+    await _pumpScreen(tester, repository);
+
+    await tester.tap(find.byKey(const ValueKey('plant_slot_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plant_detail_menu_캐릭터 정보 수정')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('plant_place_field')),
+      '베란다',
+    );
+    await tester.tap(find.text('수정하기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.renamedTo, isNull);
+    expect(repository.placeNameTo, '베란다');
   });
 
   testWidgets('상세 > 꾸미기에서 색상을 바꾼다', (tester) async {

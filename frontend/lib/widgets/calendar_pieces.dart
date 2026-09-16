@@ -137,50 +137,16 @@ class CalendarCompleteMark extends StatelessWidget {
     return SizedBox(
       width: 26,
       height: 26,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: completed ? kOrangeMain : Colors.white,
-          shape: BoxShape.circle,
-          // 시안(3429:715)의 미완료 원은 테두리 없는 순백이라 흰 카드 위에서
-          // 사라진다. 시안 자체도 종이색 배경 위에서만 보이는 것이라
-          // 카드 위에서 구분되도록 옅은 테두리를 준다.
-          border: completed ? null : Border.all(color: kGaugeTrack, width: 1),
-        ),
-        child: completed
-            ? const Center(
-                child: SizedBox(
-                  width: 12,
-                  height: 8,
-                  child: CustomPaint(painter: _DownChevronPainter()),
-                ),
-              )
-            : null,
+      child: Image.asset(
+        completed
+            ? 'assets/images/calendar_complete_checked.png'
+            : 'assets/images/calendar_complete_unchecked.png',
+        width: 26,
+        height: 26,
+        fit: BoxFit.fill,
       ),
     );
   }
-}
-
-// 3429:1487 Vector 1215: stroke 2 흰 선, round cap, 12x8 안의 V.
-class _DownChevronPainter extends CustomPainter {
-  const _DownChevronPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    final path = Path()
-      ..moveTo(1, 1)
-      ..lineTo(size.width / 2, size.height - 1)
-      ..lineTo(size.width - 1, 1);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_DownChevronPainter oldDelegate) => false;
 }
 
 /// 일정 종류 아이콘. 시안 노드 크기를 그대로 채우도록 늘린다.

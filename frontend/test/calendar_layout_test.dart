@@ -312,15 +312,19 @@ void main() {
       final done = tester.widget<CalendarCompleteMark>(marks.at(1));
       expect(done.completed, isTrue);
 
-      // 두 상태 모두 흰 카드 위에서 보여야 한다: 미완료는 테두리로, 완료는 채움으로.
-      BoxDecoration decorationOf(int index) =>
-          tester.widget<DecoratedBox>(find.descendant(
-            of: marks.at(index),
-            matching: find.byType(DecoratedBox),
-          )).decoration as BoxDecoration;
-      expect(decorationOf(0).color, Colors.white);
-      expect(decorationOf(0).border, isNotNull);
-      expect(decorationOf(1).color, kOrangeMain);
+      // 최신 Figma 에셋(4534:6595 / 4534:6650)을 26x26 그대로 쓴다.
+      final unchecked = find.descendant(
+        of: marks.at(0),
+        matching: _assetImage('calendar_complete_unchecked.png'),
+      );
+      final checked = find.descendant(
+        of: marks.at(1),
+        matching: _assetImage('calendar_complete_checked.png'),
+      );
+      expect(unchecked, findsOneWidget);
+      expect(checked, findsOneWidget);
+      expect(tester.getSize(unchecked), const Size.square(26));
+      expect(tester.getSize(checked), const Size.square(26));
     });
   });
 
@@ -468,6 +472,13 @@ Finder _svg(String assetName) => find.byWidgetPredicate(
       widget.toString().contains(assetName),
 );
 
+Finder _assetImage(String assetName) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Image &&
+      widget.image is AssetImage &&
+      (widget.image as AssetImage).assetName.endsWith(assetName),
+);
+
 /// 요일 머리글만 고른다. '월'·'주'는 토글에도 있어 글자만으로는 안 갈린다.
 Finder _headerText(String label) => find.byWidgetPredicate(
   (widget) =>
@@ -508,8 +519,6 @@ class _StubRepository implements CalendarRepository {
         viewStatus: 'UPCOMING',
         title: title,
         source: 'USER',
-        conditionScore: null,
-        conditionLevel: null,
         completable: status != 'COMPLETED',
       ),
   ];
@@ -544,8 +553,6 @@ class _ManyItemsRepository implements CalendarRepository {
         viewStatus: 'UPCOMING',
         title: '분갈이 $i',
         source: 'USER',
-        conditionScore: null,
-        conditionLevel: null,
         completable: true,
       ),
   ];

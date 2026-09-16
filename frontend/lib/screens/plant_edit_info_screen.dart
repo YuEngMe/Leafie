@@ -29,62 +29,43 @@ class PlantEditInfoScreen extends StatefulWidget {
 
 class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
   late final _nickname = TextEditingController(text: widget.plant.nickname);
-  // TODO(design): 장소(별명)는 ManagedPlant에도 PATCH /plants/{id}에도 없다.
-  // API가 생기면 초기값을 채우고 저장에 함께 실어 보낸다.
-  final _place = TextEditingController();
-  // TODO(design): 마지막 물 준 날·분갈이 한 날도 API에 없다. 지금은 화면 안
-  // 상태로만 남고 서버로 가지 않는다.
-  DateTime? _lastWatered;
-  DateTime? _lastRepotted;
-  final _wateredText = TextEditingController();
-  final _repottedText = TextEditingController();
+  late final _place = TextEditingController(text: widget.plant.placeName);
   bool _busy = false;
 
   @override
   void dispose() {
     _nickname.dispose();
     _place.dispose();
-    _wateredText.dispose();
-    _repottedText.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickDate({
-    required DateTime? current,
-    required ValueChanged<DateTime> onPicked,
-  }) async {
-    final picked = await showModalBottomSheet<DateTime>(
-      context: context,
-      barrierColor: kModalBarrier,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      // 시트가 시안(402x325)대로 화면 바닥에 붙어야 한다. useSafeArea를 켜면
-      // 하단 인셋(34)만큼 위로 떠서 버튼이 휠 위로 올라온다.
-      useSafeArea: false,
-      isScrollControlled: true,
-      builder: (_) => PlantDatePickerSheet(initialDate: current),
-    );
-    if (picked != null) onPicked(picked);
   }
 
   Future<void> _submit() async {
     final nickname = _nickname.text.trim();
+    final placeName = _place.text.trim();
     if (nickname.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('식물 이름을 입력해주세요.')));
       return;
     }
-    if (nickname == widget.plant.nickname) {
-      // 서버로 보낼 다른 필드가 아직 없어 그냥 닫는다.
+    if (placeName.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('장소를 입력해주세요.')));
+      return;
+    }
+    final nicknameChanged = nickname != widget.plant.nickname;
+    final placeNameChanged = placeName != widget.plant.placeName;
+    if (!nicknameChanged && !placeNameChanged) {
       Navigator.of(context).pop(widget.plant);
       return;
     }
     setState(() => _busy = true);
     try {
-      final updated = await widget.repository.updateNickname(
+      final updated = await widget.repository.updatePlant(
         widget.plant.id,
-        nickname,
+        nickname: nicknameChanged ? nickname : null,
+        placeName: placeNameChanged ? placeName : null,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on LeafieApiException catch (error) {
@@ -95,11 +76,6 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
       ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
-
-  /// 2568:1667/1672 등 입력칸 안 값은 x=20, 14 또는 12px이다.
-  static String _formatDate(DateTime date) =>
-      '${date.year}.${date.month.toString().padLeft(2, '0')}'
-      '.${date.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -136,16 +112,9 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
             child: RoundedInputField(
               key: const ValueKey('plant_watered_field'),
               readOnly: true,
-              hintText: '선택하기',
+              enabled: false,
+              hintText: '수정 API 준비 중',
               height: 51,
-              controller: _wateredText,
-              onTap: () => _pickDate(
-                current: _lastWatered,
-                onPicked: (value) => setState(() {
-                  _lastWatered = value;
-                  _wateredText.text = _formatDate(value);
-                }),
-              ),
             ),
           ),
           // 2555:707/709. 라벨 top 475.
@@ -155,16 +124,9 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
             child: RoundedInputField(
               key: const ValueKey('plant_repotted_field'),
               readOnly: true,
-              hintText: '선택하기',
+              enabled: false,
+              hintText: '수정 API 준비 중',
               height: 51,
-              controller: _repottedText,
-              onTap: () => _pickDate(
-                current: _lastRepotted,
-                onPicked: (value) => setState(() {
-                  _lastRepotted = value;
-                  _repottedText.text = _formatDate(value);
-                }),
-              ),
             ),
           ),
         ],

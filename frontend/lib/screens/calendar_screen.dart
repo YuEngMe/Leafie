@@ -935,7 +935,6 @@ String _eventTitle(CalendarItemData item) {
     'REPOTTING' => '분갈이',
     'FERTILIZING' => '비료 주기',
     'PRUNING' => '가지치기',
-    'CONDITION' => '상태 기록',
     _ => '식물 관리',
   };
 }

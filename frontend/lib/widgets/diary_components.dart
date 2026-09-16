@@ -427,7 +427,7 @@ class DiaryCalendar extends StatelessWidget {
   }
 }
 
-/// 날짜 줄 오른쪽의 날씨 여섯 칸(2739:39806 외).
+/// 날짜 줄 오른쪽의 날씨 다섯 칸(2739:39806 외).
 class DiaryWeatherPicker extends StatelessWidget {
   const DiaryWeatherPicker({super.key, required this.selected, this.onSelect});
 
@@ -436,12 +436,12 @@ class DiaryWeatherPicker extends StatelessWidget {
 
   /// 시안이 잡아 둔 아이콘별 좌표. 크기가 제각각이라 표로 둔다.
   static const Map<DiaryWeather, Offset> _positions = {
-    // 3496:10680 / 10703 / 10704 / 10715 / 10729.
+    // 4534:6429(미선택) / 4534:6480(선택).
     DiaryWeather.sunny: Offset(216.09, 151.09),
     DiaryWeather.partlyCloudy: Offset(242, 152),
     DiaryWeather.cloudy: Offset(271.99, 155.9),
-    DiaryWeather.rainy: Offset(302.23, 152.95),
-    DiaryWeather.shower: Offset(327.03, 154.06),
+    DiaryWeather.snowy: Offset(302.23, 152.95),
+    DiaryWeather.rainy: Offset(327.03, 154.06),
   };
 
   @override

@@ -290,8 +290,11 @@ ManagedPlant _managedPlant(
   personalityType: 'OUTGOING',
   colorId: 'color_orange_01',
   hairId: 'NONE',
-  accessoryId: 'NONE',
-  daysTogether: 3,
+  startedOn: DateTime.now()
+      .toUtc()
+      .add(const Duration(hours: 9))
+      .subtract(const Duration(days: 3)),
+  placeName: '거실',
   isSelected: selected,
 );
 
@@ -303,6 +306,10 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
 
   @override
   Future<List<ManagedPlant>> listPlants() async => plants;
+
+  @override
+  Future<ManagedPlant> getPlant(String plantId) async =>
+      plants.firstWhere((plant) => plant.id == plantId);
 
   @override
   Future<String?> selectPlant(String? plantId) async {
@@ -322,10 +329,12 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
     String plantId, {
     String? colorId,
     String? hairId,
-    String? accessoryId,
   }) => throw UnimplementedError();
 
   @override
-  Future<ManagedPlant> updateNickname(String plantId, String nickname) =>
-      throw UnimplementedError();
+  Future<ManagedPlant> updatePlant(
+    String plantId, {
+    String? nickname,
+    String? placeName,
+  }) => throw UnimplementedError();
 }

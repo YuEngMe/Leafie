@@ -2,6 +2,13 @@ import 'dart:math';
 
 import 'package:yeso_plant/services/leafie_api_client.dart';
 
+const Set<String> _calendarItemTypes = {
+  'WATERING',
+  'REPOTTING',
+  'FERTILIZING',
+  'PRUNING',
+};
+
 abstract interface class CalendarRepository {
   Future<List<CalendarItemData>> listCalendar(
     String plantId,
@@ -33,10 +40,19 @@ class CalendarApi implements CalendarRepository {
     DateTime to, {
     Iterable<String>? types,
   }) async {
-    final typeFilter = types
+    final requestedTypes = types
         ?.map((type) => type.trim())
         .where((type) => type.isNotEmpty)
-        .join(',');
+        .toList(growable: false);
+    if (requestedTypes != null &&
+        requestedTypes.any((type) => !_calendarItemTypes.contains(type))) {
+      throw const LeafieApiException(
+        code: 'INVALID_CALENDAR_TYPES',
+        message: '캘린더 필터 값을 확인해 주세요.',
+        statusCode: 422,
+      );
+    }
+    final typeFilter = requestedTypes?.join(',');
     final response = await _client.get(
       '/plants/$plantId/calendar',
       queryParameters: {
@@ -104,8 +120,6 @@ class CalendarItemData {
     required this.viewStatus,
     required this.title,
     required this.source,
-    required this.conditionScore,
-    required this.conditionLevel,
     required this.completable,
   });
 
@@ -117,21 +131,17 @@ class CalendarItemData {
     final viewStatus = json['view_status'];
     final title = json['title'];
     final source = json['source'];
-    final conditionScore = json['condition_score'];
-    final conditionLevel = json['condition_level'];
     final completable = json['completable'];
 
     if (id is! String ||
         id.isEmpty ||
         date == null ||
         type is! String ||
-        type.isEmpty ||
+        !_calendarItemTypes.contains(type) ||
         (status != null && status is! String) ||
         (viewStatus != null && viewStatus is! String) ||
         (title != null && title is! String) ||
         (source != null && source is! String) ||
-        (conditionScore != null && conditionScore is! int) ||
-        (conditionLevel != null && conditionLevel is! int) ||
         completable is! bool) {
       throw const FormatException('Invalid calendar item');
     }
@@ -144,8 +154,6 @@ class CalendarItemData {
       viewStatus: viewStatus as String?,
       title: title as String?,
       source: source as String?,
-      conditionScore: conditionScore as int?,
-      conditionLevel: conditionLevel as int?,
       completable: completable,
     );
   }
@@ -157,8 +165,6 @@ class CalendarItemData {
   final String? viewStatus;
   final String? title;
   final String? source;
-  final int? conditionScore;
-  final int? conditionLevel;
   final bool completable;
 }
 
