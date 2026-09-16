@@ -58,10 +58,30 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   Future<void> _openEditInfo() async {
+    setState(() => _busy = true);
+    late final ManagedPlant detail;
+    try {
+      detail = await widget.repository.getPlant(_plant.id);
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    if (!mounted) return;
+    final editablePlant = detail.copyWith(isSelected: _plant.isSelected);
+    setState(() {
+      _plant = editablePlant;
+      _busy = false;
+    });
     final updated = await Navigator.of(context).push<ManagedPlant>(
       MaterialPageRoute(
-        builder: (_) =>
-            PlantEditInfoScreen(plant: _plant, repository: widget.repository),
+        builder: (_) => PlantEditInfoScreen(
+          plant: editablePlant,
+          repository: widget.repository,
+        ),
       ),
     );
     if (updated != null && mounted) setState(() => _plant = updated);
@@ -89,7 +109,23 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 편집'),
+      appBar: YesoAppBar(
+        title: '캐릭터 편집',
+        actions: _busy
+            ? const [
+                Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(
+                      color: kOrangeMain,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ]
+            : null,
+      ),
       body: PlantDetailBody(
         showGrass: true,
         children: [

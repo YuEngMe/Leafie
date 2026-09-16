@@ -170,6 +170,9 @@ class _EmptyPlantRepository implements PlantManagementRepository {
   Future<List<ManagedPlant>> listPlants() async => const [];
 
   @override
+  Future<ManagedPlant> getPlant(String plantId) => throw UnimplementedError();
+
+  @override
   Future<String?> selectPlant(String? plantId) async => plantId;
 
   @override
@@ -177,10 +180,12 @@ class _EmptyPlantRepository implements PlantManagementRepository {
     String plantId, {
     String? colorId,
     String? hairId,
-    String? accessoryId,
   }) => throw UnimplementedError();
 
   @override
-  Future<ManagedPlant> updateNickname(String plantId, String nickname) =>
-      throw UnimplementedError();
+  Future<ManagedPlant> updatePlant(
+    String plantId, {
+    String? nickname,
+    String? placeName,
+  }) => throw UnimplementedError();
 }

@@ -22,6 +22,8 @@ final _goldenPlant = HomePlant(
   name: '씩씩이',
   startedOn: DateTime(2026, 1, 1),
   personalityType: 'OUTGOING',
+  // Golden output must not drift as the current date advances.
+  daysTogether: 258,
 );
 
 void main() {
@@ -123,10 +125,7 @@ void main() {
     (
       '홈',
       'home_402',
-      () => HomeScreen(
-        plant: _goldenPlant,
-        period: HomeTimePeriod.day,
-      ),
+      () => HomeScreen(plant: _goldenPlant, period: HomeTimePeriod.day),
     ),
   ];
 

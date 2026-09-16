@@ -194,14 +194,32 @@ Map<String, Object?> buildPlantCreateRequest(PlantRegistrationDraft draft) {
   final existingSnapshot = draft.submissionSnapshot;
   if (existingSnapshot != null) return _buildPayload(existingSnapshot);
 
+  final nickname = draft.name.trim();
   final placeName = draft.placeName?.trim();
   final lastWateredOn = draft.lastWateredOn;
   final personalityType = draft.personalityType?.trim();
   final colorId = draft.bodyColorId?.trim();
-  if (placeName == null || placeName.isEmpty || lastWateredOn == null) {
+  if (nickname.isEmpty ||
+      placeName == null ||
+      placeName.isEmpty ||
+      lastWateredOn == null) {
     throw const LeafieApiException(
       code: 'REGISTRATION_INCOMPLETE',
-      message: '식물의 장소와 마지막 물 준 날을 입력해 주세요.',
+      message: '식물의 애칭, 장소와 마지막 물 준 날을 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (nickname.runes.length > 30) {
+    throw const LeafieApiException(
+      code: 'PLANT_NICKNAME_TOO_LONG',
+      message: '식물 애칭은 30자 이하로 입력해 주세요.',
+      statusCode: 422,
+    );
+  }
+  if (placeName.runes.length > 50) {
+    throw const LeafieApiException(
+      code: 'PLANT_PLACE_NAME_TOO_LONG',
+      message: '식물이 있는 장소는 50자 이하로 입력해 주세요.',
       statusCode: 422,
     );
   }
@@ -212,6 +230,19 @@ Map<String, Object?> buildPlantCreateRequest(PlantRegistrationDraft draft) {
     throw const LeafieApiException(
       code: 'REGISTRATION_INCOMPLETE',
       message: '캐릭터의 성격과 색상을 선택해 주세요.',
+      statusCode: 422,
+    );
+  }
+
+  final identificationId = draft.speciesIdentificationId?.trim();
+  final mediaFileId = draft.primaryMediaFileId?.trim();
+  final hasIdentification =
+      identificationId != null && identificationId.isNotEmpty;
+  final hasMedia = mediaFileId != null && mediaFileId.isNotEmpty;
+  if (hasIdentification != hasMedia) {
+    throw const LeafieApiException(
+      code: 'REGISTRATION_INCOMPLETE',
+      message: '사진으로 등록하려면 식물 인식 결과와 사진이 모두 필요해요.',
       statusCode: 422,
     );
   }
@@ -232,31 +263,30 @@ Map<String, Object?> buildPlantCreateRequest(PlantRegistrationDraft draft) {
 }
 
 Map<String, Object?> _buildPayload(PlantRegistrationSnapshot draft) {
-  final repottedOn = draft.lastRepottedOn;
+  final identificationId = draft.speciesIdentificationId?.trim();
+  final mediaFileId = draft.primaryMediaFileId?.trim();
   final photoRegistration =
-      draft.speciesIdentificationId != null && draft.primaryMediaFileId != null;
+      identificationId != null &&
+      identificationId.isNotEmpty &&
+      mediaFileId != null &&
+      mediaFileId.isNotEmpty;
   return {
     'client_registration_id': draft.clientRegistrationId,
-    'nickname': draft.name,
+    'nickname': draft.name.trim(),
     'species_reference_id': draft.speciesReferenceId,
     'species_selection_method': photoRegistration ? 'PHOTO' : 'SEARCH',
-    'species_identification_id': draft.speciesIdentificationId,
-    'primary_media_file_id': draft.primaryMediaFileId,
+    'species_identification_id': photoRegistration ? identificationId : null,
+    'primary_media_file_id': photoRegistration ? mediaFileId : null,
     'started_on': _isoDate(draft.startedOn),
-    'place_name': draft.placeName,
-    'pot_type': _potType(draft.potType),
-    'placement': _placement(draft.placement),
+    'place_name': draft.placeName.trim(),
     'last_watered_on': _isoDate(draft.lastWateredOn),
-    'repotting_history': {
-      'status': repottedOn == null ? 'UNKNOWN' : 'KNOWN',
-      'date': repottedOn == null ? null : _isoDate(repottedOn),
-    },
+    'last_repotted_on': draft.lastRepottedOn == null
+        ? null
+        : _isoDate(draft.lastRepottedOn!),
     'personality_type': draft.personalityType,
-    'color_id': draft.bodyColorId,
-    // 서버는 이 네 필드를 필수로 받지만 현재 Figma에는 선택 UI가 없다.
-    // OTHER는 공식 미분류 enum이고 NONE은 기존 DB migration이 쓰는 공식 미선택값이다.
+    'color_id': draft.bodyColorId.trim(),
+    // 헤어 선택 UI를 거치지 않아도 서버의 필수 계약을 지킨다.
     'hair_id': _nonBlankOr(draft.headItem, 'NONE'),
-    'accessory_id': _nonBlankOr(draft.accessory, 'NONE'),
   };
 }
 
@@ -268,21 +298,3 @@ String _nonBlankOr(String? value, String fallback) {
   final normalized = value?.trim();
   return normalized == null || normalized.isEmpty ? fallback : normalized;
 }
-
-String _potType(String? value) => switch (value?.trim()) {
-  'TERRACOTTA' || '토분' => 'TERRACOTTA',
-  'PLASTIC' || '플라스틱' || '플라스틱 화분' => 'PLASTIC',
-  'GLASS' || '유리' || '유리 화분' => 'GLASS',
-  'CERAMIC' || '도자기' || '도자기 화분' => 'CERAMIC',
-  'HYDROPONIC' || '수경재배' => 'HYDROPONIC',
-  _ => 'OTHER',
-};
-
-String _placement(String? value) => switch (value?.trim()) {
-  'VERANDA' || '베란다' => 'VERANDA',
-  'WINDOW' || '창가' => 'WINDOW',
-  'LIVING_ROOM' || '거실' => 'LIVING_ROOM',
-  'BEDROOM' || '침실' => 'BEDROOM',
-  'DESK' || '책상' => 'DESK',
-  _ => 'OTHER',
-};

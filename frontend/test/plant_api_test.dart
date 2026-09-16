@@ -3,7 +3,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
-import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_api.dart';
 
@@ -77,7 +77,7 @@ void main() {
     expect(results.single.categorySuggestion, 'HERB');
   });
 
-  test('등록 전에 프로필을 초기화하고 서버의 flat payload로 POST한다', () async {
+  test('등록 전에 프로필을 초기화하고 서버의 정확한 flat payload로 POST한다', () async {
     final requests = <LeafieHttpRequest>[];
     final apiClient = client((request) async {
       requests.add(request);
@@ -106,28 +106,21 @@ void main() {
       '/api/v1/users/me',
       '/api/v1/plants',
     ]);
-    final body = requests.last.body!;
-    expect(
-      body['client_registration_id'],
-      '87a4fcef-26ce-4f84-9d26-a6626c5c9216',
-    );
-    expect(body['nickname'], '씩씩이');
-    expect(body['species_selection_method'], 'SEARCH');
-    expect(body['started_on'], '2026-09-05');
-    expect(body['place_name'], '학교');
-    expect(body['pot_type'], 'OTHER');
-    expect(body['placement'], 'OTHER');
-    expect(body['last_watered_on'], '2026-09-04');
-    expect(body['repotting_history'], {
-      'status': 'KNOWN',
-      'date': '2026-08-01',
+    expect(requests.last.body, {
+      'client_registration_id': '87a4fcef-26ce-4f84-9d26-a6626c5c9216',
+      'nickname': '씩씩이',
+      'species_reference_id': 'catalog:ocimum-basilicum',
+      'species_selection_method': 'SEARCH',
+      'species_identification_id': null,
+      'primary_media_file_id': null,
+      'started_on': '2026-09-05',
+      'place_name': '학교',
+      'last_watered_on': '2026-09-04',
+      'last_repotted_on': '2026-08-01',
+      'personality_type': 'OUTGOING',
+      'color_id': 'color_orange_01',
+      'hair_id': 'NONE',
     });
-    expect(body['personality_type'], 'OUTGOING');
-    expect(body['color_id'], 'color_orange_01');
-    expect(body['hair_id'], 'NONE');
-    expect(body['accessory_id'], 'NONE');
-    expect(body, isNot(contains('character')));
-    expect(body, isNot(contains('environment')));
   });
 
   test('서버 오류 코드와 메시지를 화면 계층으로 전달한다', () async {
@@ -153,18 +146,94 @@ void main() {
     );
   });
 
-  test('같은 draft는 재시도해도 동일한 멱등 UUID와 날짜를 만든다', () {
+  test('같은 draft는 재시도해도 고정된 전체 요청 스냅샷을 유지한다', () {
     final draft = _completeDraft();
 
     final first = buildPlantCreateRequest(draft);
     draft
       ..placeName = '수정된 장소'
-      ..personalityType = 'CHIC';
+      ..lastRepottedOn = null
+      ..personalityType = 'CHIC'
+      ..bodyColorId = 'color_green_01'
+      ..headItem = 'hair_cactus_heart_01';
     final second = buildPlantCreateRequest(draft);
 
     expect(second, first);
-    expect(second['place_name'], '학교');
-    expect(second['personality_type'], 'OUTGOING');
+    expect(second, {
+      'client_registration_id': '87a4fcef-26ce-4f84-9d26-a6626c5c9216',
+      'nickname': '씩씩이',
+      'species_reference_id': 'catalog:ocimum-basilicum',
+      'species_selection_method': 'SEARCH',
+      'species_identification_id': null,
+      'primary_media_file_id': null,
+      'started_on': '2026-09-05',
+      'place_name': '학교',
+      'last_watered_on': '2026-09-04',
+      'last_repotted_on': '2026-08-01',
+      'personality_type': 'OUTGOING',
+      'color_id': 'color_orange_01',
+      'hair_id': 'NONE',
+    });
+  });
+
+  test('애칭과 장소의 서버 최대 길이를 POST 전에 검증한다', () {
+    final longNickname = _completeDraft();
+    final longPlace = _completeDraft()..placeName = List.filled(51, '가').join();
+
+    expect(
+      () => buildPlantCreateRequest(
+        PlantRegistrationDraft(
+            name: List.filled(31, '가').join(),
+            species: longNickname.species,
+            startedOn: longNickname.startedOn,
+          )
+          ..placeName = '학교'
+          ..lastWateredOn = longNickname.lastWateredOn
+          ..personalityType = 'OUTGOING'
+          ..bodyColorId = 'color_orange_01',
+      ),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'PLANT_NICKNAME_TOO_LONG',
+        ),
+      ),
+    );
+    expect(
+      () => buildPlantCreateRequest(longPlace),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'PLANT_PLACE_NAME_TOO_LONG',
+        ),
+      ),
+    );
+  });
+
+  test('사진 인식 ID와 미디어 ID 중 하나만 있으면 등록을 거부한다', () {
+    final draft =
+        PlantRegistrationDraft(
+            name: '사진식물',
+            species: _completeDraft().species,
+            speciesIdentificationId: 'identification-id',
+          )
+          ..placeName = '학교'
+          ..lastWateredOn = DateTime.now()
+          ..personalityType = 'OUTGOING'
+          ..bodyColorId = 'color_orange_01';
+
+    expect(
+      () => buildPlantCreateRequest(draft),
+      throwsA(
+        isA<LeafieApiException>().having(
+          (error) => error.code,
+          'code',
+          'REGISTRATION_INCOMPLETE',
+        ),
+      ),
+    );
   });
 
   test('검색 응답 항목 하나라도 계약이 깨지면 전체 응답을 거부한다', () async {
@@ -284,7 +353,7 @@ void main() {
     ]);
   });
 
-  test('사진 인식 draft는 PHOTO 등록 계약을 만든다', () {
+  test('사진 인식 draft는 정확한 PHOTO 등록 계약을 만든다', () {
     final draft =
         PlantRegistrationDraft(
             name: '사진식물',
@@ -294,8 +363,8 @@ void main() {
               scientificName: 'Sedum polytrichoides',
               categorySuggestion: 'SUCCULENT_CACTUS',
             ),
-            speciesIdentificationId: 'identification-id',
-            primaryMediaFileId: 'media-id',
+            speciesIdentificationId: '98bb686a-a5db-4864-b730-4487380a283e',
+            primaryMediaFileId: 'c56ce2f8-6be7-4b5b-84df-2a49a69160d4',
           )
           ..placeName = '학교'
           ..lastWateredOn = DateTime.now()
@@ -304,8 +373,22 @@ void main() {
 
     final body = buildPlantCreateRequest(draft);
 
-    expect(body['species_selection_method'], 'PHOTO');
-    expect(body['species_identification_id'], 'identification-id');
-    expect(body['primary_media_file_id'], 'media-id');
+    expect(body, {
+      'client_registration_id': draft.clientRegistrationId,
+      'nickname': '사진식물',
+      'species_reference_id': 'catalog:sedum',
+      'species_selection_method': 'PHOTO',
+      'species_identification_id': '98bb686a-a5db-4864-b730-4487380a283e',
+      'primary_media_file_id': 'c56ce2f8-6be7-4b5b-84df-2a49a69160d4',
+      'started_on': _dateString(draft.startedOn),
+      'place_name': '학교',
+      'last_watered_on': _dateString(draft.lastWateredOn!),
+      'last_repotted_on': null,
+      'personality_type': 'OUTGOING',
+      'color_id': 'color_orange_01',
+      'hair_id': 'NONE',
+    });
   });
 }
+
+String _dateString(DateTime date) => date.toIso8601String().split('T').first;

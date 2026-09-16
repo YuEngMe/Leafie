@@ -35,8 +35,11 @@ ManagedPlant _plant({
   personalityType: personalityType,
   colorId: colorId,
   hairId: 'NONE',
-  accessoryId: 'NONE',
-  daysTogether: daysTogether,
+  startedOn: DateTime.now()
+      .toUtc()
+      .add(const Duration(hours: 9))
+      .subtract(Duration(days: daysTogether)),
+  placeName: '거실',
   isSelected: selected,
 );
 
@@ -49,6 +52,10 @@ class _FakeRepository implements PlantManagementRepository {
   Future<List<ManagedPlant>> listPlants() async => List.of(plants);
 
   @override
+  Future<ManagedPlant> getPlant(String plantId) async =>
+      plants.firstWhere((plant) => plant.id == plantId);
+
+  @override
   Future<String?> selectPlant(String? plantId) async {
     plants = [
       for (final plant in plants)
@@ -58,17 +65,19 @@ class _FakeRepository implements PlantManagementRepository {
   }
 
   @override
-  Future<ManagedPlant> updateNickname(String plantId, String nickname) async =>
-      plants.firstWhere((item) => item.id == plantId).copyWith(
-        nickname: nickname,
-      );
+  Future<ManagedPlant> updatePlant(
+    String plantId, {
+    String? nickname,
+    String? placeName,
+  }) async => plants
+      .firstWhere((item) => item.id == plantId)
+      .copyWith(nickname: nickname, placeName: placeName);
 
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
     String? colorId,
     String? hairId,
-    String? accessoryId,
   }) async => plants
       .firstWhere((item) => item.id == plantId)
       .copyWith(colorId: colorId);
@@ -126,10 +135,7 @@ void main() {
         for (var i = 1; i <= 4; i++)
           _plant(id: '$i', nickname: '식물$i', selected: i == 1),
       ]);
-      await _pumpScreen(
-        tester,
-        PlantManagementScreen(repository: repository),
-      );
+      await _pumpScreen(tester, PlantManagementScreen(repository: repository));
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
       // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
@@ -164,10 +170,7 @@ void main() {
         for (var i = 1; i <= 9; i++)
           _plant(id: '$i', nickname: '식물$i', selected: i == 1),
       ]);
-      await _pumpScreen(
-        tester,
-        PlantManagementScreen(repository: repository),
-      );
+      await _pumpScreen(tester, PlantManagementScreen(repository: repository));
 
       expect(find.byKey(const ValueKey('add_plant')), findsNothing);
       expect(find.byKey(const ValueKey('plant_slot_9')), findsOneWidget);
@@ -203,9 +206,7 @@ void main() {
       // 2564:1044 "함께한 지 128일째" top 146, 12/w400.
       final tenure = tester.getRect(find.text('함께한 지 128일째'));
       expect(tenure.top, _closeTo1px(146));
-      final tenureStyle = tester
-          .widget<Text>(find.text('함께한 지 128일째'))
-          .style!;
+      final tenureStyle = tester.widget<Text>(find.text('함께한 지 128일째')).style!;
       expect(tenureStyle.fontSize, 12);
       expect(tenureStyle.color, kTextLight);
     });
@@ -276,10 +277,12 @@ void main() {
       // 모달 박스 308x158.83. ConfirmDialog는 화면을 채우는 Dialog라
       // 안쪽 SizedBox를 잰다.
       final box = tester.getRect(
-        find.descendant(
-          of: find.byType(ConfirmDialog),
-          matching: find.byType(SizedBox),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(ConfirmDialog),
+              matching: find.byType(SizedBox),
+            )
+            .first,
       );
       expect(box.width, _closeTo1px(308));
       expect(box.height, _closeTo1px(158.829));
@@ -359,86 +362,24 @@ void main() {
         expect(rect.height, _closeTo1px(51), reason: key);
       }
 
-      // 힌트 문구(2555:700/705/710).
+      // 서버가 수정 계약을 제공하는 장소만 입력할 수 있다.
       expect(find.text('예: 베란다'), findsOneWidget);
-      expect(find.text('선택하기'), findsNWidgets(2));
+      expect(find.text('수정 API 준비 중'), findsNWidgets(2));
 
       // 2555:691 하단 버튼 x=34 w=334 h=51.
       final button = tester.getRect(find.text('수정하기'));
       expect(button.center.dx, _closeTo1px(201));
     });
 
-    testWidgets('2568:1683 날짜 피커 시트가 402x325로 뜬다', (tester) async {
+    testWidgets('서버가 수정 계약을 제공하지 않는 날짜 필드는 비활성화한다', (tester) async {
       await pump(tester);
 
       await tester.tap(find.byKey(const ValueKey('plant_watered_field')));
       await tester.pumpAndSettle();
-
-      expect(find.byType(PlantDatePickerSheet), findsOneWidget);
-      final sheet = tester.getRect(find.byType(PlantDatePickerSheet));
-      expect(sheet.width, _closeTo1px(402));
-      expect(sheet.height, _closeTo1px(PlantDatePickerSheet.sheetHeight));
-      expect(PlantDatePickerSheet.sheetHeight, 325);
-      // 2568:1686 시트는 오렌지다. 흰 시트는 시안에 없다.
-      final sheetBox = tester.widget<Container>(
-        find
-            .descendant(
-              of: find.byType(PlantDatePickerSheet),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      expect(
-        (sheetBox.decoration! as BoxDecoration).color,
-        kOrangeMain,
-      );
-    });
-
-    testWidgets('실기기 인셋(top 62 / bottom 34)에서도 시트가 바닥에 붙고 버튼이 휠 위로 안 올라온다', (
-      tester,
-    ) async {
-      // iPhone 16 Pro처럼 상단 62 / 하단 34인 기기.
-      tester.view.physicalSize = const Size(402, 874);
-      tester.view.devicePixelRatio = 1;
-      tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetPadding);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PlantEditInfoScreen(
-            plant: _plant(),
-            repository: _FakeRepository([_plant()]),
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(const ValueKey('plant_repotted_field')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('plant_watered_field')));
-      await tester.pumpAndSettle();
-
-      final sheet = tester.getRect(find.byType(PlantDatePickerSheet));
-      // 하단 SafeArea를 시트 안에서 또 더하면 여기서 325를 넘긴다.
-      expect(sheet.height, _closeTo1px(325));
-      expect(sheet.bottom, _closeTo1px(874));
-
-      // 버튼(시트 안 y=241..292)이 휠(강조 줄 아래 끝 138.35)과 겹치지 않는다.
-      // 화면에도 같은 라벨의 버튼이 있어 시트 안쪽으로 좁힌다.
-      final button = tester.getRect(
-        find.descendant(
-          of: find.byType(PlantDatePickerSheet),
-          matching: find.text('수정하기'),
-        ),
-      );
-      final highlightBottom =
-          sheet.top +
-          PlantDatePickerSheet.highlightTop +
-          PlantDatePickerSheet.rowHeight;
-      expect(button.top, greaterThan(highlightBottom));
-      expect(
-        button.center.dy,
-        _closeTo1px(sheet.top + PlantDatePickerSheet.buttonTop + 51 / 2),
-      );
+      expect(find.byType(PlantDatePickerSheet), findsNothing);
     });
   });
 
