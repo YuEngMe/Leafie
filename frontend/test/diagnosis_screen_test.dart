@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/services/diagnosis_api.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 void main() {
+  _prescriptionActionTests();
   setUp(() {});
 
   testWidgets('빈 진단 화면과 사진 확인에서 공통 뒤로가기로 빠져나온다', (tester) async {
@@ -245,18 +247,54 @@ DiagnosisSummary _summary(String id, DateTime diagnosedAt) => DiagnosisSummary(
 );
 
 class _FakeDiagnosisRepository implements DiagnosisRepository {
-  _FakeDiagnosisRepository({required this.records});
+  _FakeDiagnosisRepository({
+    required this.records,
+    this.status = 'COMPLETED',
+    this.failureCode,
+    this.retryError,
+    this.cancelError,
+  });
 
   final List<DiagnosisSummary> records;
+
+  /// getDiagnosis가 돌려줄 상태. 재시도·취소 버튼 분기를 확인할 때 바꾼다.
+  String status;
+  String? failureCode;
+
+  /// 서버가 409를 주는 상황을 흉내 낼 때 넣는다.
+  final LeafieApiException? retryError;
+  final LeafieApiException? cancelError;
+
   String? submittedPlantId;
   List<int>? submittedBytes;
+  final List<String> retried = [];
+  final List<String> cancelled = [];
+
+  @override
+  Future<DiagnosisDetailData> retryDiagnosis(String diagnosisId) async {
+    retried.add(diagnosisId);
+    final error = retryError;
+    if (error != null) throw error;
+    status = 'COMPLETED';
+    failureCode = null;
+    return getDiagnosis(diagnosisId);
+  }
+
+  @override
+  Future<void> cancelDiagnosis(String diagnosisId) async {
+    cancelled.add(diagnosisId);
+    final error = cancelError;
+    if (error != null) throw error;
+    status = 'CANCELLED';
+  }
 
   @override
   Future<DiagnosisDetailData> getDiagnosis(String diagnosisId) async {
     return DiagnosisDetailData(
       id: diagnosisId,
       plantId: 'plant-id',
-      status: 'COMPLETED',
+      status: status,
+      failureCode: failureCode,
       diagnosedAt: DateTime(2026, 9, 6),
       photoUrl: 'https://example.com/$diagnosisId.jpg',
       conditionLabel: '조금 관리가 필요해요',
@@ -288,6 +326,112 @@ class _FakeDiagnosisRepository implements DiagnosisRepository {
     submittedBytes = photoBytes;
     return getDiagnosis('submitted-diagnosis');
   }
+}
+
+/// 처방전 하단 버튼은 서버가 허용하는 동작만 띄운다
+/// (backend/app/services/diagnosis.py:327-355).
+void _prescriptionActionTests() {
+  Future<_FakeDiagnosisRepository> pump(
+    WidgetTester tester, {
+    required String status,
+    String? failureCode,
+    LeafieApiException? retryError,
+    LeafieApiException? cancelError,
+  }) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeDiagnosisRepository(
+      records: const [],
+      status: status,
+      failureCode: failureCode,
+      retryError: retryError,
+      cancelError: cancelError,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisDetailScreen(
+          diagnosisId: 'diagnosis-id',
+          repository: repository,
+          imageProviderBuilder: (_) => MemoryImage(_greenPixelPng),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return repository;
+  }
+
+  testWidgets('재시도 가능한 실패는 같은 사진으로 다시 맡긴다', (tester) async {
+    final repository = await pump(
+      tester,
+      status: 'FAILED',
+      failureCode: 'DIAGNOSIS_PROVIDER_UNAVAILABLE',
+    );
+
+    expect(find.text('다시 시도하기'), findsOneWidget);
+    await tester.tap(find.text('다시 시도하기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.retried, ['diagnosis-id']);
+    // 성공하면 화면을 다시 읽어 완료 상태가 된다.
+    expect(find.text('다시 진단하기'), findsOneWidget);
+  });
+
+  testWidgets('재시도 불가한 실패는 새 사진을 받는다', (tester) async {
+    final repository = await pump(
+      tester,
+      status: 'FAILED',
+      // 사진 문제는 서버가 재시도를 거부한다.
+      failureCode: 'DIAGNOSIS_NEW_PHOTO_REQUIRED',
+    );
+
+    expect(find.text('다시 진단하기'), findsOneWidget);
+    expect(find.text('다시 시도하기'), findsNothing);
+    expect(repository.retried, isEmpty);
+  });
+
+  testWidgets('대기 중인 진단은 취소할 수 있다', (tester) async {
+    final repository = await pump(tester, status: 'PENDING');
+
+    expect(find.text('진단 취소하기'), findsOneWidget);
+    await tester.tap(find.text('진단 취소하기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelled, ['diagnosis-id']);
+  });
+
+  testWidgets('이미 시작된 진단은 취소가 거절된다', (tester) async {
+    await pump(
+      tester,
+      status: 'PENDING',
+      cancelError: const LeafieApiException(
+        code: 'DIAGNOSIS_NOT_CANCELLABLE',
+        message: '대기 중인 진단만 취소할 수 있습니다.',
+        statusCode: 409,
+      ),
+    );
+
+    await tester.tap(find.text('진단 취소하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('대기 중인 진단만 취소할 수 있습니다.'), findsOneWidget);
+  });
+
+  testWidgets('서버가 거절하면 그 문구를 보여 준다', (tester) async {
+    await pump(
+      tester,
+      status: 'FAILED',
+      failureCode: 'STORAGE_UNAVAILABLE',
+      retryError: const LeafieApiException(
+        code: 'DIAGNOSIS_NOT_RETRYABLE',
+        message: '다시 시도할 수 없는 진단입니다.',
+        statusCode: 409,
+      ),
+    );
+
+    await tester.tap(find.text('다시 시도하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('다시 시도할 수 없는 진단입니다.'), findsOneWidget);
+  });
 }
 
 void _setIPhone16ProViewport(WidgetTester tester) {

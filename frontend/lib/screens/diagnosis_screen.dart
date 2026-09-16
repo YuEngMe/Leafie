@@ -214,6 +214,9 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
   late final DiagnosisRepository _repository;
   late Future<_PrescriptionData> _prescription;
 
+  /// 재시도·취소가 도는 동안 버튼을 잠근다.
+  bool _busy = false;
+
   @override
   void initState() {
     super.initState();
@@ -231,6 +234,48 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
     setState(() {
       _prescription = _load();
     });
+  }
+
+  /// 서버가 받아 주는 실패만 같은 사진으로 다시 맡긴다. 재시도 불가한
+  /// 실패(사진 문제 등)는 버튼이 뜨지 않지만, 서버가 409를 주면 그 문구를
+  /// 그대로 보여 준다.
+  Future<void> _retryOnServer() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _repository.retryDiagnosis(widget.diagnosisId);
+      if (!mounted) return;
+      setState(() {
+        _prescription = _load();
+      });
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 아직 시작하지 않은 진단을 접는다.
+  Future<void> _cancelOnServer() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _repository.cancelDiagnosis(widget.diagnosisId);
+      if (!mounted) return;
+      setState(() {
+        _prescription = _load();
+      });
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _startAgain(String plantId) async {
@@ -304,14 +349,17 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
                       onClose: () => Navigator.maybePop(context),
                     ),
                   ),
+                  // 서버가 받아 주는 동작만 띄운다. 재시도 가능한 실패는
+                  // 같은 사진으로 다시, 대기 중이면 취소, 그 밖에는 새 사진.
                   Positioned(
                     left: 34,
                     top: 698,
-                    child: PrimaryButton(
-                      width: 334,
-                      label: '다시 진단하기',
-                      variant: PrimaryButtonVariant.enabled,
-                      onPressed: () => _startAgain(diagnosis.plantId),
+                    child: _PrescriptionAction(
+                      diagnosis: diagnosis,
+                      busy: _busy,
+                      onRetry: _retryOnServer,
+                      onCancel: _cancelOnServer,
+                      onStartAgain: () => _startAgain(diagnosis.plantId),
                     ),
                   ),
                 ],
@@ -760,6 +808,63 @@ class _PrescriptionData {
 
   final DiagnosisDetailData diagnosis;
   final DiagnosisPlantData plant;
+}
+
+/// 백엔드 `RETRYABLE_FAILURE_CODES`(app/services/diagnosis.py:34)와 같은
+/// 목록. 이 코드로 실패했을 때만 서버가 같은 사진 재시도를 받아 준다.
+const _kRetryableFailureCodes = {
+  'DATABASE_UNAVAILABLE',
+  'DIAGNOSIS_EXTERNAL_TIMEOUT',
+  'DIAGNOSIS_PROVIDER_UNAVAILABLE',
+  'DIAGNOSIS_RETRY_EXHAUSTED',
+  'DIAGNOSIS_UNEXPECTED_ERROR',
+  'KINDWISE_INVALID_RESPONSE',
+  'STORAGE_UNAVAILABLE',
+};
+
+/// 처방전 하단 버튼. 진단 상태에 따라 서버가 허용하는 동작만 띄운다.
+///
+/// - 재시도 가능한 실패: '다시 시도하기'(같은 사진, `POST /retry`)
+/// - 대기 중: '진단 취소하기'(`POST /cancel`)
+/// - 그 밖: '다시 진단하기'(새 사진)
+class _PrescriptionAction extends StatelessWidget {
+  const _PrescriptionAction({
+    required this.diagnosis,
+    required this.busy,
+    required this.onRetry,
+    required this.onCancel,
+    required this.onStartAgain,
+  });
+
+  final DiagnosisDetailData diagnosis;
+  final bool busy;
+  final VoidCallback onRetry;
+  final VoidCallback onCancel;
+  final VoidCallback onStartAgain;
+
+  bool get _canRetryOnServer =>
+      diagnosis.status == 'FAILED' &&
+      _kRetryableFailureCodes.contains(diagnosis.failureCode);
+
+  bool get _canCancel => diagnosis.status == 'PENDING';
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, onPressed) = switch (this) {
+      _ when _canRetryOnServer => ('다시 시도하기', onRetry),
+      _ when _canCancel => ('진단 취소하기', onCancel),
+      _ => ('다시 진단하기', onStartAgain),
+    };
+    return PrimaryButton(
+      key: ValueKey('diagnosis-action-$label'),
+      width: 334,
+      label: busy ? '처리 중...' : label,
+      variant: busy
+          ? PrimaryButtonVariant.disabled
+          : PrimaryButtonVariant.enabled,
+      onPressed: busy ? null : onPressed,
+    );
+  }
 }
 
 String _errorMessage(Object? error) => switch (error) {
