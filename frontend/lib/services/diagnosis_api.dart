@@ -144,13 +144,9 @@ class DiagnosisApi implements DiagnosisRepository {
       );
     }
 
-    final conversationId = await _findOrCreateConversation(plantId);
     final created = await _client.post(
       '/plants/$plantId/diagnoses',
-      body: {
-        'conversation_id': conversationId,
-        'media_file_id': upload.mediaFileId,
-      },
+      body: {'media_file_id': upload.mediaFileId},
     );
     final diagnosisId = created['diagnosis_id'];
     if (diagnosisId is! String || diagnosisId.isEmpty) {
@@ -171,39 +167,6 @@ class DiagnosisApi implements DiagnosisRepository {
       message: '진단이 계속 진행 중이에요. 잠시 후 진단 기록에서 확인해 주세요.',
       statusCode: 408,
     );
-  }
-
-  Future<String> _findOrCreateConversation(String plantId) async {
-    final response = await _client.get(
-      '/plants/$plantId/conversations',
-      queryParameters: const {'query': '진단 상담', 'limit': '20'},
-    );
-    final items = response['items'];
-    if (items is! List) {
-      throw const LeafieApiException(
-        code: 'INVALID_RESPONSE',
-        message: '진단 대화를 확인할 수 없습니다.',
-        statusCode: 502,
-      );
-    }
-    for (final item in items) {
-      final id = item is Map ? item['id'] : null;
-      final title = item is Map ? item['title'] : null;
-      if (id is String && id.isNotEmpty && title == '진단 상담') return id;
-    }
-    final created = await _client.post(
-      '/plants/$plantId/conversations',
-      body: const {'title': '진단 상담'},
-    );
-    final id = created['id'];
-    if (id is! String || id.isEmpty) {
-      throw const LeafieApiException(
-        code: 'INVALID_RESPONSE',
-        message: '진단 대화를 만들지 못했습니다.',
-        statusCode: 502,
-      );
-    }
-    return id;
   }
 }
 

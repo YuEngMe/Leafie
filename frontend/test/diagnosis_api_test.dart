@@ -67,7 +67,6 @@ void main() {
               'recommended_care': ['물을 줄여주세요.'],
               'retake_reason_code': null,
               'failure_code': null,
-              'related_conversation_id': null,
             }),
           );
         }
@@ -157,31 +156,9 @@ void main() {
                 '{"id":"media-id","status":"READY","content_type":"image/jpeg","size_bytes":4}',
           );
         }
-        if (request.uri.path == '/api/v1/plants/plant-id/conversations') {
-          if (request.method == 'POST') {
-            expect(request.body, const {'title': '진단 상담'});
-            return const LeafieHttpResponse(
-              statusCode: 201,
-              body:
-                  '{"id":"conversation-id","plant_id":"plant-id","title":"진단 상담","last_message_at":null,"created_at":"2026-09-06T01:00:00Z"}',
-            );
-          }
-          expect(request.method, 'GET');
-          expect(request.uri.queryParameters, {
-            'query': '진단 상담',
-            'limit': '20',
-          });
-          return const LeafieHttpResponse(
-            statusCode: 200,
-            body: '{"items":[],"has_next":false,"next_cursor":null}',
-          );
-        }
         if (request.uri.path == '/api/v1/plants/plant-id/diagnoses') {
           expect(request.method, 'POST');
-          expect(request.body, {
-            'conversation_id': 'conversation-id',
-            'media_file_id': 'media-id',
-          });
+          expect(request.body, {'media_file_id': 'media-id'});
           return const LeafieHttpResponse(
             statusCode: 202,
             body:
@@ -206,7 +183,6 @@ void main() {
             'recommended_care': ['물을 줄여주세요.'],
             'retake_reason_code': null,
             'failure_code': null,
-            'related_conversation_id': 'conversation-id',
           }),
         );
       }),
@@ -219,6 +195,10 @@ void main() {
 
     expect(result.id, 'diagnosis-id');
     expect(result.status, 'COMPLETED');
-    expect(requests, hasLength(7));
+    expect(
+      requests.where((request) => request.uri.path.contains('conversations')),
+      isEmpty,
+    );
+    expect(requests, hasLength(5));
   });
 }
