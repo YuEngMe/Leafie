@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
+import 'package:yeso_plant/screens/splash_screen.dart';
 import 'package:yeso_plant/screens/oauth_nickname_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
 import 'package:yeso_plant/services/user_api.dart';
@@ -39,6 +40,34 @@ class YesoApp extends StatefulWidget {
 class _YesoAppState extends State<YesoApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<AuthState>? _authSubscription;
+
+  // 스플래시 애니가 끝날 때까지 auth 화면 전환을 보류한다. 완료 전에 세션
+  // 이벤트가 오면 목적지만 저장해 뒀다가, 스플래시가 끝나면 실행한다.
+  bool _splashDone = false;
+  VoidCallback? _pendingNavigation;
+
+  void _runOrDefer(VoidCallback navigate) {
+    if (_splashDone) {
+      navigate();
+    } else {
+      _pendingNavigation = navigate;
+    }
+  }
+
+  void _onSplashDone() {
+    _splashDone = true;
+    final pending = _pendingNavigation;
+    _pendingNavigation = null;
+    final navigator = _navigatorKey.currentState;
+    if (pending != null) {
+      pending();
+    } else if (navigator != null) {
+      // 대기 중인 세션 전환이 없으면(로그아웃 상태) 로그인 화면으로.
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -94,15 +123,17 @@ class _YesoAppState extends State<YesoApp> {
         break;
       case AuthChangeEvent.signedIn:
         // 서버 프로필의 profile_completed로 신규 소셜 가입자를 가른다.
-        _openAuthenticatedScreen(navigator, data.session?.user);
+        _runOrDefer(() => _openAuthenticatedScreen(navigator, data.session?.user));
         break;
       case AuthChangeEvent.initialSession:
         if (data.session != null) {
-          _openAuthenticatedScreen(navigator, data.session?.user);
+          _runOrDefer(
+            () => _openAuthenticatedScreen(navigator, data.session?.user),
+          );
         }
         break;
       case AuthChangeEvent.signedOut:
-        _openLoginScreen(navigator);
+        _runOrDefer(() => _openLoginScreen(navigator));
         break;
       default:
         break;
@@ -171,7 +202,7 @@ class _YesoAppState extends State<YesoApp> {
         scaffoldBackgroundColor: kBackgroundWhite,
         fontFamily: kFontFamily,
       ),
-      home: const LoginScreen(),
+      home: SplashScreen(onDone: _onSplashDone),
     );
   }
 }

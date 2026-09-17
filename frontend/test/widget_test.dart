@@ -14,6 +14,7 @@ import 'package:yeso_plant/widgets/social_login_section.dart';
 void main() {
   testWidgets('로그인 화면에 Figma 입력 안내와 로그인 버튼이 보인다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
+    await _passSplash(tester);
 
     expect(find.byType(LoginCredentialsForm), findsOneWidget);
     expect(find.byType(LoginEmailField), findsOneWidget);
@@ -38,6 +39,7 @@ void main() {
 
   testWidgets('회원가입을 누르면 회원가입 화면으로 이동한다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
+    await _passSplash(tester);
 
     await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
@@ -48,6 +50,7 @@ void main() {
 
   testWidgets('로그인 화면에 네이버·카카오 간편로그인 버튼이 보인다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
+    await _passSplash(tester);
 
     // 시안에서 라벨 글씨가 빠지고 색 원만 남아 시맨틱 라벨로 확인한다.
     expect(find.bySemanticsLabel('네이버로 로그인'), findsOneWidget);
@@ -160,6 +163,15 @@ void main() {
     expect(requestedRedirect, 'yesoplant://login-callback');
     expect(requestedScopes, 'openid profile');
   });
+}
+
+/// 스플래시 애니(약 0.9초) + 완료 후 지연(0.45초)을 넘겨 로그인 화면까지
+/// 정착시킨다. Supabase 미초기화 테스트 환경에서는 세션 이벤트가 없어
+/// 스플래시 완료 시 로그인 화면으로 넘어간다.
+Future<void> _passSplash(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 1200)); // 애니(1.1초) 완료
+  await tester.pump(const Duration(milliseconds: 400)); // 완료 후 지연(0.26초) 통과
+  await tester.pumpAndSettle();
 }
 
 class _EmptyPlantRepository implements PlantManagementRepository {
