@@ -15,7 +15,7 @@ from app.models.diagnosis import Diagnosis
 from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
-from app.models.plant import Plant, PlantDailyMemo, PlantDiary, SpeciesCareGuide
+from app.models.plant import Plant, PlantDiary, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import (
     AgendaEventResponse,
@@ -24,7 +24,6 @@ from app.schemas.plant import (
     CalendarItemType,
     CalendarResponse,
     HomeCharacterResponse,
-    HomeMemoResponse,
     HomePlantResponse,
     HomeResponse,
     PlantAppearanceUpdateRequest,
@@ -80,8 +79,6 @@ class PlantManagementRepository(Protocol):
     async def list_calendar_events(
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]: ...
-
-    async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None: ...
 
     async def count_unread_notifications(self, user_id: UUID) -> int: ...
 
@@ -206,14 +203,6 @@ class SQLAlchemyPlantManagementRepository:
             )
         )
         return list(result)
-
-    async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None:
-        return await self._session.scalar(
-            select(PlantDailyMemo).where(
-                PlantDailyMemo.plant_id == plant_id,
-                PlantDailyMemo.memo_date == memo_date,
-            )
-        )
 
     async def count_unread_notifications(self, user_id: UUID) -> int:
         value = await self._session.scalar(
@@ -352,12 +341,10 @@ class PlantManagementService:
                 plant=None,
                 character=None,
                 today_events=[],
-                daily_memo=None,
                 unread_notification_count=unread_count,
             )
 
         today = today_in_timezone(context.timezone)
-        memo = await self._repository.get_memo(context.plant.id, today)
         today_events = await self._repository.list_today_events(context.plant.id, today)
         return HomeResponse(
             plant=HomePlantResponse(
@@ -374,7 +361,6 @@ class PlantManagementService:
                 dialogue=None,
             ),
             today_events=[agenda_event_response(event, today) for event in today_events],
-            daily_memo=HomeMemoResponse(content=memo.content) if memo is not None else None,
             unread_notification_count=unread_count,
         )
 
@@ -463,8 +449,6 @@ def days_together(started_on: date, timezone: str) -> int:
 def care_view_status(event: CareEvent, today: date) -> CareViewStatus:
     if event.status == CareEventStatus.COMPLETED.value:
         return CareViewStatus.COMPLETED
-    if event.status == CareEventStatus.CANCELLED.value:
-        return CareViewStatus.CANCELLED
     if event.due_date < today:
         return CareViewStatus.OVERDUE
     if event.due_date == today:
@@ -475,8 +459,7 @@ def care_view_status(event: CareEvent, today: date) -> CareViewStatus:
 def agenda_event_response(event: CareEvent, today: date) -> AgendaEventResponse:
     return AgendaEventResponse(
         id=event.id,
-        type=event.type,
-        title=event.title,
+        care_type=event.type,
         due_date=event.due_date,
         view_status=care_view_status(event, today),
         source=event.source,
@@ -531,10 +514,9 @@ def calendar_event_response(event: CareEvent, today: date) -> CalendarItemRespon
     return CalendarItemResponse(
         id=event.id,
         date=display_date,
-        type=event.type,
+        care_type=event.type,
         status=event.status,
         view_status=care_view_status(event, today),
-        title=event.title,
         source=event.source,
         completable=not completed,
     )

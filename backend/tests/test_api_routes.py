@@ -26,6 +26,28 @@ def test_diary_openapi_uses_weather_and_title_without_condition_statistics() -> 
     assert set(schemas["DiaryMonthResponse"]["properties"]) == {"entries"}
 
 
+def test_care_openapi_uses_three_type_calendar_contract() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    create_request = schemas["CareEventCreateRequest"]
+    assert set(create_request["required"]) == {
+        "client_event_id",
+        "care_type",
+        "due_date",
+    }
+    assert "title" not in create_request["properties"]
+    assert "type" not in create_request["properties"]
+    assert set(create_request["properties"]["care_type"]["enum"]) == {
+        "REPOTTING",
+        "FERTILIZING",
+    }
+    assert schemas["CalendarItemType"]["enum"] == [
+        "WATERING",
+        "REPOTTING",
+        "FERTILIZING",
+    ]
+    assert "DailyMemoUpsertRequest" not in schemas
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),
@@ -117,20 +139,12 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
         f"/api/v1/plants/{uuid4()}/care-events",
         {
             "client_event_id": str(uuid4()),
-            "type": "CUSTOM",
-            "title": "화분 방향 돌리기",
+            "care_type": "FERTILIZING",
             "due_date": "2026-08-02",
         },
         None,
     ),
     ("POST", f"/api/v1/care-events/{uuid4()}/complete", {}, None),
-    (
-        "PUT",
-        f"/api/v1/plants/{uuid4()}/daily-memos/2026-08-02",
-        {"content": "오늘 메모"},
-        None,
-    ),
-    ("DELETE", f"/api/v1/plants/{uuid4()}/daily-memos/2026-08-02", None, None),
     (
         "POST",
         f"/api/v1/plants/{uuid4()}/diagnoses",
@@ -184,8 +198,6 @@ EXPECTED_API_OPERATIONS = {
     ("DELETE", "/api/v1/plants/{plant_id}/diaries/{date}"),
     ("POST", "/api/v1/plants/{plant_id}/care-events"),
     ("POST", "/api/v1/care-events/{event_id}/complete"),
-    ("PUT", "/api/v1/plants/{plant_id}/daily-memos/{date}"),
-    ("DELETE", "/api/v1/plants/{plant_id}/daily-memos/{date}"),
     ("POST", "/api/v1/plants/{plant_id}/diagnoses"),
     ("GET", "/api/v1/plants/{plant_id}/diagnoses"),
     ("GET", "/api/v1/diagnoses/{diagnosis_id}"),

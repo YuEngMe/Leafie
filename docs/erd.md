@@ -156,11 +156,12 @@ erDiagram
 | `status` | enum | `SCHEDULED` 또는 `COMPLETED` |
 | `performed_on` | date | 완료 전 nullable |
 | `recorded_at` | timestamptz | 완료 전 nullable |
-| `client_event_id` | uuid | 일회성 생성 멱등 키, nullable |
+| `client_event_id` | uuid | 사용자 일정 생성·변경 멱등 키, nullable |
 | `created_at`, `updated_at` | timestamptz | 필수 |
 
 `TODAY`와 `OVERDUE`는 저장 상태가 아닙니다. `PRUNING`, `CONDITION`, `CUSTOM` 이벤트는
-사용하지 않습니다.
+사용하지 않습니다. 미완료 분갈이는 하나만 유지하며 사용자가 날짜를 다시 지정하면 기존
+이벤트와 연결된 반복 규칙의 `next_due_date`를 같은 트랜잭션에서 변경합니다.
 
 ### `diagnoses`
 

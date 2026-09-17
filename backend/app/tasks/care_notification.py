@@ -48,6 +48,7 @@ class SQLAlchemyCareNotificationRepository:
                             (
                                 CareEventType.WATERING.value,
                                 CareEventType.REPOTTING.value,
+                                CareEventType.FERTILIZING.value,
                             )
                         ),
                         CareEvent.due_date <= local_date,
@@ -124,7 +125,12 @@ def care_notification_copy(
     *,
     overdue: bool,
 ) -> tuple[str, str]:
-    action = "물 줄" if event_type == CareEventType.WATERING.value else "분갈이할"
+    actions = {
+        CareEventType.WATERING.value: "물 줄",
+        CareEventType.REPOTTING.value: "분갈이할",
+        CareEventType.FERTILIZING.value: "비료 줄",
+    }
+    action = actions[event_type]
     title = "미룬 관리가 있어요" if overdue else "오늘의 식물 관리"
     messages = {
         "OUTGOING": f"{nickname}에게 {action} 시간이야! 같이 해보자!",
