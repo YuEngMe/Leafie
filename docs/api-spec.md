@@ -255,7 +255,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
     "id": "uuid",
     "nickname": "새싹이",
     "started_on": "2026-07-01",
-    "days_together": 32,
+    "days_together": 33,
     "personality_type": "INTROVERTED",
     "color_id": "MINT_02",
     "hair_id": "LEAF_05",
@@ -264,18 +264,33 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "room": {
     "background_phase": "DAY",
     "dialogue_key": "NORMAL",
-    "dialogue": "오늘도 옆에 있어 줘서 고마워요."
+    "dialogue": null
   },
+  "today_events": [
+    {
+      "id": "uuid",
+      "care_type": "WATERING",
+      "due_date": "2026-08-02",
+      "view_status": "TODAY",
+      "source": "AUTO_SCHEDULE",
+      "completable": true
+    }
+  ],
   "unread_letter_count": 1,
-  "unread_notification_count": 2,
-  "device_connection_required": false
+  "unread_notification_count": 2
 }
 ```
 
-`background_phase`는 사용자 시간대로 계산합니다. 대사는 성격별 고정 목록에서 선택합니다.
-해 아이콘 교감은 앱 애니메이션이며 API 호출이 없습니다. 센서 값과 표정 상태는 센서 담당
-계약에서 별도로 합성하고 이 응답에 원시 측정값을 추가하지 않습니다. 식물이 없으면
-`plant`, `room`은 null입니다. 읽지 않은 편지와 알림 개수는 선택 식물이 아니라 사용자의
+함께한 날짜는 시작 당일을 1일로 계산합니다. `background_phase`는 사용자 시간대 기준
+06:00~17:59에 `DAY`, 그 밖에는 `NIGHT`입니다. 실제 성격별 대사가 확정되기 전에는
+`dialogue_key=NORMAL`, `dialogue=null`을 반환합니다. 같은 상황의 대사 선택은 하루 동안
+고정하되, 센서·관리·편지 등 현재 상황이 바뀌면 상황 키는 바뀔 수 있습니다.
+
+`today_events`는 선택 식물의 오늘 물주기·분갈이·비료 일정입니다. 해 아이콘 교감은 앱
+애니메이션이며 API 호출이 없습니다. 센서 장치·토양 수분·일별 누적 조도 게이지는 센서
+담당 API에서 별도로 조회하고 홈은 센서 원시값이나 임계값을 계산하지 않습니다. 센서 계약
+연결 전 가짜 상태를 반환하지 않습니다. 식물이 없으면 `plant`, `room`은 null이며
+`today_events`는 빈 배열입니다. 읽지 않은 편지와 알림 개수는 선택 식물이 아니라 사용자의
 전체 식물을 기준으로 계산합니다.
 
 ## 9. 관리 일정과 캘린더

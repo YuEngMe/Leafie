@@ -48,6 +48,21 @@ def test_care_openapi_uses_three_type_calendar_contract() -> None:
     assert "DailyMemoUpsertRequest" not in schemas
 
 
+def test_home_openapi_uses_room_and_unread_letter_contract() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    properties = schemas["HomeResponse"]["properties"]
+    assert set(properties) == {
+        "plant",
+        "room",
+        "today_events",
+        "unread_letter_count",
+        "unread_notification_count",
+    }
+    assert "character" not in properties
+    assert "device_connection_required" not in properties
+    assert schemas["HomeBackgroundPhase"]["enum"] == ["DAY", "NIGHT"]
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),

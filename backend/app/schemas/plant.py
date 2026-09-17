@@ -183,20 +183,42 @@ class CalendarResponse(BaseModel):
 class HomePlantResponse(BaseModel):
     id: UUID
     nickname: str
+    started_on: Date
     days_together: int
-    primary_photo_url: str | None
-
-
-class HomeCharacterResponse(BaseModel):
     personality_type: PersonalityType
     color_id: str
     hair_id: str
-    expression_level: int | None
+    primary_photo_url: str | None
+
+
+class HomeBackgroundPhase(StrEnum):
+    DAY = "DAY"
+    NIGHT = "NIGHT"
+
+
+class HomeDialogueKey(StrEnum):
+    NORMAL = "NORMAL"
+    WATERING_COMPLETED = "WATERING_COMPLETED"
+    LIGHT_LOW = "LIGHT_LOW"
+    LIGHT_HIGH = "LIGHT_HIGH"
+    LIGHT_OPTIMAL = "LIGHT_OPTIMAL"
+    SOIL_MOISTURE_LOW = "SOIL_MOISTURE_LOW"
+    SOIL_MOISTURE_HIGH = "SOIL_MOISTURE_HIGH"
+    DIARY_PROMPT = "DIARY_PROMPT"
+    DIAGNOSIS_PROMPT = "DIAGNOSIS_PROMPT"
+    LETTER_SENT = "LETTER_SENT"
+    DIARY_RECEIVED = "DIARY_RECEIVED"
+
+
+class HomeRoomResponse(BaseModel):
+    background_phase: HomeBackgroundPhase
+    dialogue_key: HomeDialogueKey
     dialogue: str | None
 
 
 class HomeResponse(BaseModel):
     plant: HomePlantResponse | None
-    character: HomeCharacterResponse | None
+    room: HomeRoomResponse | None
     today_events: list[AgendaEventResponse]
+    unread_letter_count: int
     unread_notification_count: int
