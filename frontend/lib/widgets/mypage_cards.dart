@@ -82,12 +82,14 @@ class ProfileMenuCard extends StatelessWidget {
     super.key,
     required this.onEditProfile,
     required this.onChangePassword,
+    required this.onRegisterSensor,
     required this.onWithdraw,
     required this.notificationsEnabled,
     required this.onNotificationsChanged,
   });
 
-  static const double height = 241;
+  // 시안(4534:3044)은 5행: 내 정보 수정·비밀번호 변경·센서 기기 등록·앱 알림·회원 탈퇴.
+  static const double height = 241 + _rowGap;
 
   /// 첫 행 텍스트 baseline(2353:697 y=53.762)과 행 간격(49px).
   static const double _firstRowTop = 53.762;
@@ -96,6 +98,7 @@ class ProfileMenuCard extends StatelessWidget {
 
   final VoidCallback onEditProfile;
   final VoidCallback onChangePassword;
+  final VoidCallback onRegisterSensor;
   final VoidCallback onWithdraw;
   final bool notificationsEnabled;
   final ValueChanged<bool> onNotificationsChanged;
@@ -129,17 +132,18 @@ class ProfileMenuCard extends StatelessWidget {
           ),
           _MenuRow(
             top: _firstRowTop + _rowGap * 2,
-            label: '회원 탈퇴',
-            onTap: onWithdraw,
+            label: '센서 기기 등록',
+            onTap: onRegisterSensor,
           ),
-          // 마지막 행은 꺾쇠 대신 토글이라 별도로 그린다.
+          // 앱 알림 행은 꺾쇠 대신 토글이라 별도로 그린다.
           Positioned(
             left: 23,
             top: _firstRowTop + _rowGap * 3,
             height: _rowTextHeight,
             child: const Text('앱 알림', style: kBodyStyle),
           ),
-          // 2353:706 x=281 y=198.762, 토글 높이 24.923.
+          // 2353:706 x=281 y=198.762, 토글 높이 24.923. 앱 알림은 여전히 4번째
+          // 행(_rowGap*3)이라 위치가 그대로다. 센서 등록은 그 위(row 2)에 들어간다.
           Positioned(
             left: 281,
             top: 198.762 - (48 - FigmaToggleSwitch.trackSize.height) / 2,
@@ -147,6 +151,11 @@ class ProfileMenuCard extends StatelessWidget {
               value: notificationsEnabled,
               onChanged: onNotificationsChanged,
             ),
+          ),
+          _MenuRow(
+            top: _firstRowTop + _rowGap * 4,
+            label: '회원 탈퇴',
+            onTap: onWithdraw,
           ),
         ],
       ),
