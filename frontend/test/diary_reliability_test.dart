@@ -154,14 +154,20 @@ void main() {
             plant: HomePlantData(
               id: plantId!,
               nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'green',
+              hairId: 'NONE',
+              startedOn: '2026-09-15',
               daysTogether: 3,
               primaryPhotoUrl: null,
             ),
-            character: const HomeCharacterData(
-              personalityType: 'OUTGOING',
+            room: const HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
               dialogue: null,
             ),
             todayEvents: const [],
+            unreadLetterCount: 0,
             unreadNotificationCount: 0,
           ),
         ),

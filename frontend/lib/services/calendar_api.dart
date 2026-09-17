@@ -6,7 +6,6 @@ const Set<String> _calendarItemTypes = {
   'WATERING',
   'REPOTTING',
   'FERTILIZING',
-  'PRUNING',
 };
 
 abstract interface class CalendarRepository {
@@ -21,8 +20,7 @@ abstract interface class CalendarRepository {
 
   Future<void> createEvent(
     String plantId, {
-    required String type,
-    required String title,
+    required String careType,
     required DateTime dueDate,
   });
 }
@@ -95,16 +93,14 @@ class CalendarApi implements CalendarRepository {
   @override
   Future<void> createEvent(
     String plantId, {
-    required String type,
-    required String title,
+    required String careType,
     required DateTime dueDate,
   }) async {
     await _client.post(
       '/plants/$plantId/care-events',
       body: {
         'client_event_id': _uuidV4(),
-        'type': type,
-        'title': title,
+        'care_type': careType,
         'due_date': _dateOnly(dueDate),
       },
     );
@@ -115,10 +111,9 @@ class CalendarItemData {
   const CalendarItemData({
     required this.id,
     required this.date,
-    required this.type,
+    required this.careType,
     required this.status,
     required this.viewStatus,
-    required this.title,
     required this.source,
     required this.completable,
   });
@@ -126,21 +121,19 @@ class CalendarItemData {
   factory CalendarItemData.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
     final date = _parseDateOnly(json['date']);
-    final type = json['type'];
+    final careType = json['care_type'];
     final status = json['status'];
     final viewStatus = json['view_status'];
-    final title = json['title'];
     final source = json['source'];
     final completable = json['completable'];
 
     if (id is! String ||
         id.isEmpty ||
         date == null ||
-        type is! String ||
-        !_calendarItemTypes.contains(type) ||
+        careType is! String ||
+        !_calendarItemTypes.contains(careType) ||
         (status != null && status is! String) ||
         (viewStatus != null && viewStatus is! String) ||
-        (title != null && title is! String) ||
         (source != null && source is! String) ||
         completable is! bool) {
       throw const FormatException('Invalid calendar item');
@@ -149,10 +142,9 @@ class CalendarItemData {
     return CalendarItemData(
       id: id,
       date: date,
-      type: type,
+      careType: careType,
       status: status as String?,
       viewStatus: viewStatus as String?,
-      title: title as String?,
       source: source as String?,
       completable: completable,
     );
@@ -160,10 +152,9 @@ class CalendarItemData {
 
   final String id;
   final DateTime date;
-  final String type;
+  final String careType;
   final String? status;
   final String? viewStatus;
-  final String? title;
   final String? source;
   final bool completable;
 }
