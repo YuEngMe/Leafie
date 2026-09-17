@@ -50,6 +50,17 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.1
+
+# 앱 아이콘 생성(ADR 0001). 원본 1024 → iOS/Android 전 크기 자동 생성.
+# 아이콘 교체 시: 아래 원본 PNG를 바꾸고 `dart run flutter_launcher_icons` 실행.
+flutter_launcher_icons:
+  image_path: "assets/launcher/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#FFB52A"
+  adaptive_icon_foreground: "assets/launcher/app_icon_foreground.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
