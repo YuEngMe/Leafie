@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Protocol
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import and_, func, or_, select, union_all, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from app.integrations.storage import StorageGateway
 from app.models.care import CareEvent
 from app.models.diagnosis import Diagnosis
 from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus
+from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
 from app.models.plant import Plant, PlantDiary, SpeciesCareGuide
@@ -23,15 +25,18 @@ from app.schemas.plant import (
     CalendarItemResponse,
     CalendarItemType,
     CalendarResponse,
-    HomeCharacterResponse,
+    HomeBackgroundPhase,
+    HomeDialogueKey,
     HomePlantResponse,
     HomeResponse,
+    HomeRoomResponse,
     PlantAppearanceUpdateRequest,
     PlantDetailResponse,
     PlantListItemResponse,
     PlantListResponse,
     PlantUpdateRequest,
 )
+from app.services.letter import visible_letters
 from app.services.plant import today_in_timezone
 
 
@@ -81,6 +86,8 @@ class PlantManagementRepository(Protocol):
     ) -> list[CareEvent]: ...
 
     async def count_unread_notifications(self, user_id: UUID) -> int: ...
+
+    async def count_unread_letters(self, user_id: UUID) -> int: ...
 
     async def oldest_remaining_plant_id(
         self, user_id: UUID, excluded_plant_id: UUID
@@ -213,6 +220,13 @@ class SQLAlchemyPlantManagementRepository:
         )
         return int(value or 0)
 
+    async def count_unread_letters(self, user_id: UUID) -> int:
+        statement = visible_letters(user_id).where(Letter.read_at.is_(None))
+        value = await self._session.scalar(
+            select(func.count()).select_from(statement.subquery())
+        )
+        return int(value or 0)
+
     async def oldest_remaining_plant_id(
         self, user_id: UUID, excluded_plant_id: UUID
     ) -> UUID | None:
@@ -327,7 +341,8 @@ class PlantManagementService:
 
     async def get_home(self, user_id: UUID, plant_id: UUID | None) -> HomeResponse:
         profile = await self._require_profile(user_id)
-        unread_count = await self._repository.count_unread_notifications(user_id)
+        unread_notification_count = await self._repository.count_unread_notifications(user_id)
+        unread_letter_count = await self._repository.count_unread_letters(user_id)
         context: PlantContext | None = None
         if plant_id is not None:
             context = await self._require_plant(user_id, plant_id)
@@ -339,9 +354,10 @@ class PlantManagementService:
         if context is None:
             return HomeResponse(
                 plant=None,
-                character=None,
+                room=None,
                 today_events=[],
-                unread_notification_count=unread_count,
+                unread_letter_count=unread_letter_count,
+                unread_notification_count=unread_notification_count,
             )
 
         today = today_in_timezone(context.timezone)
@@ -350,18 +366,21 @@ class PlantManagementService:
             plant=HomePlantResponse(
                 id=context.plant.id,
                 nickname=context.plant.nickname,
+                started_on=context.plant.started_on,
                 days_together=days_together(context.plant.started_on, context.timezone),
-                primary_photo_url=await self._photo_url(user_id, context.plant),
-            ),
-            character=HomeCharacterResponse(
                 personality_type=context.plant.personality_type,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
-                expression_level=None,
+                primary_photo_url=await self._photo_url(user_id, context.plant),
+            ),
+            room=HomeRoomResponse(
+                background_phase=home_background_phase(context.timezone),
+                dialogue_key=HomeDialogueKey.NORMAL,
                 dialogue=None,
             ),
             today_events=[agenda_event_response(event, today) for event in today_events],
-            unread_notification_count=unread_count,
+            unread_letter_count=unread_letter_count,
+            unread_notification_count=unread_notification_count,
         )
 
     async def delete_plant(self, user_id: UUID, plant_id: UUID) -> DeletePlantResult:
@@ -443,7 +462,22 @@ class PlantManagementService:
 
 
 def days_together(started_on: date, timezone: str) -> int:
-    return max((today_in_timezone(timezone) - started_on).days, 0)
+    return max((today_in_timezone(timezone) - started_on).days + 1, 1)
+
+
+def home_background_phase(
+    timezone_name: str, *, now: datetime | None = None
+) -> HomeBackgroundPhase:
+    try:
+        timezone = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        timezone = ZoneInfo("Asia/Seoul")
+    local_time = (now or datetime.now(UTC)).astimezone(timezone).time()
+    return (
+        HomeBackgroundPhase.DAY
+        if 6 <= local_time.hour < 18
+        else HomeBackgroundPhase.NIGHT
+    )
 
 
 def care_view_status(event: CareEvent, today: date) -> CareViewStatus:

@@ -28,6 +28,8 @@ from app.services.plant_management import (
     DeletePlantResult,
     PlantContext,
     PlantManagementService,
+    days_together,
+    home_background_phase,
 )
 from app.tasks.plant import PlantDeleteHandler
 
@@ -59,6 +61,7 @@ class FakePlantRepository:
         self.media: dict[UUID, MediaFile] = {}
         self.events: list[CareEvent] = []
         self.unread_count = 0
+        self.unread_letter_count = 0
         self.marked_media_for: list[UUID] = []
         self.flush_count = 0
 
@@ -134,6 +137,9 @@ class FakePlantRepository:
 
     async def count_unread_notifications(self, user_id: UUID) -> int:
         return self.unread_count if user_id == self.user_id else 0
+
+    async def count_unread_letters(self, user_id: UUID) -> int:
+        return self.unread_letter_count if user_id == self.user_id else 0
 
     async def oldest_remaining_plant_id(
         self, user_id: UUID, excluded_plant_id: UUID
@@ -340,9 +346,12 @@ async def test_calendar_filters_types_and_validates_range() -> None:
 async def test_home_returns_empty_context_or_today_data() -> None:
     service, repository, _storage, user_id = build_service()
     repository.unread_count = 2
+    repository.unread_letter_count = 3
     empty = await service.get_home(user_id, None)
     assert empty.plant is None
+    assert empty.room is None
     assert empty.today_events == []
+    assert empty.unread_letter_count == 3
     assert empty.unread_notification_count == 2
 
     plant = make_plant(user_id)
@@ -355,11 +364,99 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     ]
     home = await service.get_home(user_id, None)
 
-    assert home.character is not None
-    assert home.character.expression_level is None
-    assert home.character.dialogue is None
+    assert home.plant is not None
+    assert home.plant.started_on == plant.started_on
+    assert home.plant.days_together == 11
+    assert home.plant.personality_type.value == "OUTGOING"
+    assert home.room is not None
+    assert home.room.dialogue_key.value == "NORMAL"
+    assert home.room.dialogue is None
     assert [event.view_status.value for event in home.today_events] == ["TODAY"]
     assert "daily_memo" not in home.model_dump()
+
+
+async def test_home_uses_selected_or_explicit_plant_and_rejects_unknown_plant() -> None:
+    user_id = uuid4()
+    first = make_plant(user_id, created_at=datetime.now(UTC) - timedelta(days=1))
+    second = make_plant(user_id)
+    service, repository, _storage, _ = build_service([first, second])
+    repository.profile.selected_plant_id = second.id
+
+    selected = await service.get_home(user_id, None)
+    explicit = await service.get_home(user_id, first.id)
+
+    assert selected.plant is not None and selected.plant.id == second.id
+    assert explicit.plant is not None and explicit.plant.id == first.id
+
+    with pytest.raises(AppError) as error:
+        await service.get_home(user_id, uuid4())
+    assert error.value.code == "PLANT_NOT_FOUND"
+
+    repository.profile.selected_plant_id = uuid4()
+    fallback = await service.get_home(user_id, None)
+    assert fallback.plant is not None and fallback.plant.id == first.id
+
+
+def test_home_days_start_at_one_and_background_changes_at_six_and_eighteen() -> None:
+    today = today_in_timezone("Asia/Seoul")
+    assert days_together(today, "Asia/Seoul") == 1
+    assert home_background_phase(
+        "UTC", now=datetime(2026, 1, 1, 5, 59, tzinfo=UTC)
+    ).value == "NIGHT"
+    assert home_background_phase(
+        "UTC", now=datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
+    ).value == "DAY"
+    assert home_background_phase(
+        "UTC", now=datetime(2026, 1, 1, 17, 59, tzinfo=UTC)
+    ).value == "DAY"
+    assert home_background_phase(
+        "UTC", now=datetime(2026, 1, 1, 18, 0, tzinfo=UTC)
+    ).value == "NIGHT"
+
+
+def test_home_route_returns_v2_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, storage, _ = build_service([plant])
+    repository.unread_count = 2
+    repository.unread_letter_count = 3
+    repository.events = [make_event(plant.id, today_in_timezone("Asia/Seoul"))]
+
+    def fake_session() -> Iterator[object]:
+        yield object()
+
+    application = create_app()
+    application.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id=user_id,
+        email="leafie@example.com",
+        role="authenticated",
+        claims={},
+    )
+    application.dependency_overrides[get_database_session] = fake_session
+    application.dependency_overrides[get_storage_gateway] = lambda: storage
+    monkeypatch.setattr(
+        plants_api,
+        "build_management_service",
+        lambda _session, _storage: service,
+    )
+
+    with TestClient(application) as client:
+        response = client.get("/api/v1/home")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {
+        "plant",
+        "room",
+        "today_events",
+        "unread_letter_count",
+        "unread_notification_count",
+    }
+    assert payload["plant"]["days_together"] == 11
+    assert payload["room"]["dialogue_key"] == "NORMAL"
+    assert payload["room"]["dialogue"] is None
+    assert payload["today_events"][0]["care_type"] == "WATERING"
+    assert payload["unread_letter_count"] == 3
 
 
 async def test_delete_is_idempotent_and_selects_oldest_remaining_plant() -> None:
