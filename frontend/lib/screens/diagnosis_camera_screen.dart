@@ -70,9 +70,11 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
     // 앱이 내려가면 카메라를 놓아 주고, 돌아오면 다시 잡는다.
+    // dispose 후에는 setState로 즉시 리빌드해야 이미 해제된 컨트롤러를
+    // 참조하는 CameraPreview가 화면에 남지 않는다(로딩 상태로 전환).
     if (state == AppLifecycleState.inactive) {
       controller.dispose();
-      _controller = null;
+      if (mounted) setState(() => _controller = null);
     } else if (state == AppLifecycleState.resumed) {
       setState(() => _ready = _start());
     }

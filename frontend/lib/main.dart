@@ -113,12 +113,29 @@ class _YesoAppState extends State<YesoApp> {
         // 화면이 스스로 이 이벤트를 받아 '완료'로 넘어간다. 여기서 또
         // 띄우면 같은 일을 하는 화면이 두 장 겹친다.
         if (!ChangePasswordAuth.isOpen) {
-          navigator.push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  const PasswordResetScreen(startAtSetNewPassword: true),
-            ),
-          );
+          // 스플래시 도중 콜드 스타트로 진입하면 보류한다. 보류하지 않으면
+          // 재설정 화면을 얹은 직후 _onSplashDone이 LoginScreen으로 덮어써
+          // 재설정 화면이 사라진다. 보류 여부는 지금 시점의 _splashDone으로
+          // 판단한다(_onSplashDone이 pending 실행 전에 true로 바꾸므로 콜백
+          // 안에서 읽으면 늦다).
+          final deferred = !_splashDone;
+          _runOrDefer(() {
+            // 콜드 스타트 보류분이면 스플래시가 최상단이라 로그인 화면을
+            // 베이스로 깔고 그 위에 재설정을 올린다. 앱 실행 중 진입이면
+            // 기존 스택 위에 그대로 얹는다.
+            if (deferred) {
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    const PasswordResetScreen(startAtSetNewPassword: true),
+              ),
+            );
+          });
         }
         break;
       case AuthChangeEvent.signedIn:
