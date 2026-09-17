@@ -169,8 +169,8 @@ void main() {
 /// 정착시킨다. Supabase 미초기화 테스트 환경에서는 세션 이벤트가 없어
 /// 스플래시 완료 시 로그인 화면으로 넘어간다.
 Future<void> _passSplash(WidgetTester tester) async {
-  await tester.pump(const Duration(seconds: 1)); // 애니 진행
-  await tester.pump(const Duration(milliseconds: 600)); // 완료 후 지연 통과
+  await tester.pump(const Duration(milliseconds: 1200)); // 애니(1.1초) 완료
+  await tester.pump(const Duration(milliseconds: 400)); // 완료 후 지연(0.26초) 통과
   await tester.pumpAndSettle();
 }
 
