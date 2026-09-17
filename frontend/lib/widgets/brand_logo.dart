@@ -15,13 +15,13 @@ class BrandLogo extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
-            'assets/images/leafie_mark.png',
+            'assets/images/leafie_logo_symbol.png',
             width: width * markWidthFactor,
             fit: BoxFit.contain,
           ),
           const SizedBox(height: 5),
           Image.asset(
-            'assets/images/leafie_wordmark.png',
+            'assets/images/leafie_logo_word.png',
             width: width,
             fit: BoxFit.contain,
           ),

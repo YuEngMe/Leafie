@@ -55,11 +55,11 @@ void main() {
       final context = tester.element(find.byType(MaterialApp));
       await Future.wait([
         precacheImage(
-          const AssetImage('assets/images/leafie_mark.png'),
+          const AssetImage('assets/images/leafie_logo_symbol.png'),
           context,
         ),
         precacheImage(
-          const AssetImage('assets/images/leafie_wordmark.png'),
+          const AssetImage('assets/images/leafie_logo_word.png'),
           context,
         ),
         precacheImage(
