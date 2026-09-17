@@ -155,8 +155,6 @@ Future<void> launch(
     for (final asset in [
       'home_bg_default',
       'leafie_character',
-      'mailbox_house',
-      'mailbox_new',
       'mailbox_house_v2',
       'mailbox_foreground',
       'mail_paper_texture',
