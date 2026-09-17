@@ -11,7 +11,6 @@ EXPECTED_APP_TABLES = {
     "diagnoses",
     "media_files",
     "notifications",
-    "plant_daily_memos",
     "plant_diaries",
     "plants",
     "species_care_guides",
@@ -70,7 +69,7 @@ def test_deleting_diary_cascades_its_letter() -> None:
     assert diary_fk.ondelete == "CASCADE"
 
 
-def test_care_event_and_daily_memo_constraints_match_api_contract() -> None:
+def test_care_event_constraints_match_api_contract() -> None:
     events = Base.metadata.tables["care_events"]
     event_unique_columns = {
         tuple(column.name for column in constraint.columns)
@@ -84,14 +83,16 @@ def test_care_event_and_daily_memo_constraints_match_api_contract() -> None:
         index for index in events.indexes if index.name == "uq_care_events_schedule_scheduled"
     )
     assert scheduled_index.unique is True
-
-    memos = Base.metadata.tables["plant_daily_memos"]
-    content_constraint = next(
-        constraint
-        for constraint in memos.constraints
-        if constraint.name == "ck_plant_daily_memos_content_length"
-    )
-    assert "BETWEEN 1 AND 500" in str(content_constraint.sqltext)
+    check_constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in events.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+    type_check = check_constraints["ck_care_events_type"]
+    assert all(value in type_check for value in ("WATERING", "REPOTTING", "FERTILIZING"))
+    assert "PRUNING" not in type_check
+    assert "CUSTOM" not in type_check
+    assert "title" not in events.columns
 
 
 def test_plant_registration_id_is_unique_per_user() -> None:

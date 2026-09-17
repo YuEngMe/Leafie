@@ -7,7 +7,6 @@ from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
 from app.models.plant import (
     Plant,
-    PlantDailyMemo,
     PlantDiary,
     SpeciesCareGuide,
 )
@@ -22,7 +21,6 @@ __all__ = [
     "MediaFile",
     "Notification",
     "Plant",
-    "PlantDailyMemo",
     "PlantDiary",
     "SpeciesCareGuide",
     "SpeciesIdentification",

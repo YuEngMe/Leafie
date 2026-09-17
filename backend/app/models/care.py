@@ -69,10 +69,6 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             "(status <> 'COMPLETED' AND performed_on IS NULL AND recorded_at IS NULL)",
             name="completion_fields",
         ),
-        CheckConstraint(
-            "type <> 'CUSTOM' OR (title IS NOT NULL AND schedule_id IS NULL)",
-            name="custom_event",
-        ),
         UniqueConstraint(
             "plant_id",
             "client_event_id",
@@ -102,7 +98,6 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     client_event_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
     creation_request_hash: Mapped[str | None] = mapped_column(String(64))
     type: Mapped[str] = mapped_column(String(16), nullable=False)
-    title: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'SCHEDULED'")
     )

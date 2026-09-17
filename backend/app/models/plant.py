@@ -139,23 +139,6 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     hair_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
-class PlantDailyMemo(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    __tablename__ = "plant_daily_memos"
-    __table_args__ = (
-        CheckConstraint(
-            "char_length(btrim(content, E' \\t\\n\\r\\f\\v')) BETWEEN 1 AND 500",
-            name="content_length",
-        ),
-        UniqueConstraint("plant_id", "memo_date", name="uq_plant_daily_memos_plant_date"),
-    )
-
-    plant_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
-    )
-    memo_date: Mapped[date] = mapped_column(Date, nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-
-
 class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "plant_diaries"
     __table_args__ = (

@@ -26,6 +26,10 @@ def test_care_notification_copy_uses_event_state_and_personality() -> None:
         "미룬 관리가 있어요",
         "예정일이 지났어요. 새싹이에게 분갈이할 때가 됐슈. 천천히 해유.",
     )
+    assert care_notification_copy("새싹이", "CUTE", "FERTILIZING", overdue=False) == (
+        "오늘의 식물 관리",
+        "새싹이에게 비료 줄 시간이에요!",
+    )
 
 
 async def test_care_notification_handler_runs_collector_with_utc_time() -> None:

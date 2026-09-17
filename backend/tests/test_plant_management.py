@@ -19,7 +19,7 @@ from app.main import create_app
 from app.models.care import CareEvent
 from app.models.enums import CareEventSource, CareEventStatus, MediaStatus
 from app.models.media import MediaFile
-from app.models.plant import Plant, PlantDailyMemo, SpeciesCareGuide
+from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
@@ -58,7 +58,6 @@ class FakePlantRepository:
         self.plants = {plant.id: plant for plant in plants}
         self.media: dict[UUID, MediaFile] = {}
         self.events: list[CareEvent] = []
-        self.memos: dict[tuple[UUID, date], PlantDailyMemo] = {}
         self.unread_count = 0
         self.marked_media_for: list[UUID] = []
         self.flush_count = 0
@@ -132,9 +131,6 @@ class FakePlantRepository:
                 )
             )
         ]
-
-    async def get_memo(self, plant_id: UUID, memo_date: date) -> PlantDailyMemo | None:
-        return self.memos.get((plant_id, memo_date))
 
     async def count_unread_notifications(self, user_id: UUID) -> int:
         return self.unread_count if user_id == self.user_id else 0
@@ -288,7 +284,7 @@ async def test_agenda_derives_overdue_today_and_upcoming_without_moving_dates() 
     assert response.events[0].due_date == today - timedelta(days=1)
 
 
-async def test_calendar_flattens_supported_events_and_excludes_custom_cancelled() -> None:
+async def test_calendar_flattens_supported_events_and_excludes_cancelled() -> None:
     user_id = uuid4()
     plant = make_plant(user_id)
     service, repository, _storage, _ = build_service([plant])
@@ -296,11 +292,11 @@ async def test_calendar_flattens_supported_events_and_excludes_custom_cancelled(
     scheduled = make_event(plant.id, today - timedelta(days=1))
     completed = make_event(plant.id, today, completed=True)
     completed.type = "REPOTTING"
-    custom = make_event(plant.id, today)
-    custom.type = "CUSTOM"
+    fertilizing = make_event(plant.id, today + timedelta(days=1))
+    fertilizing.type = "FERTILIZING"
     cancelled = make_event(plant.id, today)
     cancelled.status = CareEventStatus.CANCELLED.value
-    repository.events = [scheduled, completed, custom, cancelled]
+    repository.events = [scheduled, completed, fertilizing, cancelled]
     response = await service.list_calendar(
         user_id,
         plant.id,
@@ -309,7 +305,7 @@ async def test_calendar_flattens_supported_events_and_excludes_custom_cancelled(
         None,
     )
 
-    assert [item.id for item in response.items] == [scheduled.id, completed.id]
+    assert [item.id for item in response.items] == [scheduled.id, completed.id, fertilizing.id]
     assert response.items[0].view_status.value == "OVERDUE"
     assert response.items[1].date == completed.performed_on
     assert response.items[1].view_status.value == "COMPLETED"
@@ -357,22 +353,13 @@ async def test_home_returns_empty_context_or_today_data() -> None:
         make_event(plant.id, today - timedelta(days=1)),
         make_event(plant.id, today),
     ]
-    repository.memos[(plant.id, today)] = PlantDailyMemo(
-        id=uuid4(),
-        plant_id=plant.id,
-        memo_date=today,
-        content="새잎 확인",
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-
     home = await service.get_home(user_id, None)
 
     assert home.character is not None
     assert home.character.expression_level is None
     assert home.character.dialogue is None
     assert [event.view_status.value for event in home.today_events] == ["TODAY"]
-    assert home.daily_memo is not None and home.daily_memo.content == "새잎 확인"
+    assert "daily_memo" not in home.model_dump()
 
 
 async def test_delete_is_idempotent_and_selects_oldest_remaining_plant() -> None:

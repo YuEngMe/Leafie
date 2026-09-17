@@ -149,8 +149,7 @@ class PlantAppearanceUpdateRequest(BaseModel):
 
 class AgendaEventResponse(BaseModel):
     id: UUID
-    type: CareEventType
-    title: str | None
+    care_type: CareEventType
     due_date: Date
     view_status: CareViewStatus
     source: CareEventSource
@@ -165,16 +164,14 @@ class CalendarItemType(StrEnum):
     WATERING = "WATERING"
     REPOTTING = "REPOTTING"
     FERTILIZING = "FERTILIZING"
-    PRUNING = "PRUNING"
 
 
 class CalendarItemResponse(BaseModel):
     id: UUID
     date: Date
-    type: CalendarItemType
+    care_type: CalendarItemType
     status: CareEventStatus | None
     view_status: CareViewStatus | None
-    title: str | None
     source: CareEventSource | None
     completable: bool
 
@@ -198,13 +195,8 @@ class HomeCharacterResponse(BaseModel):
     dialogue: str | None
 
 
-class HomeMemoResponse(BaseModel):
-    content: str
-
-
 class HomeResponse(BaseModel):
     plant: HomePlantResponse | None
     character: HomeCharacterResponse | None
     today_events: list[AgendaEventResponse]
-    daily_memo: HomeMemoResponse | None
     unread_notification_count: int

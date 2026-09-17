@@ -58,8 +58,6 @@ class CareEventType(StrEnum):
     WATERING = "WATERING"
     REPOTTING = "REPOTTING"
     FERTILIZING = "FERTILIZING"
-    PRUNING = "PRUNING"
-    CUSTOM = "CUSTOM"
 
 
 class CareEventStatus(StrEnum):
