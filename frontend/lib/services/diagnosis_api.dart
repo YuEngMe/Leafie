@@ -15,6 +15,14 @@ abstract interface class DiagnosisRepository {
     required String plantId,
     required List<int> photoBytes,
   });
+
+  /// 같은 사진으로 서버에 다시 맡긴다. 서버는 FAILED이면서 재시도 가능한
+  /// 실패 코드일 때만 받아 준다(`DIAGNOSIS_NOT_RETRYABLE` 409).
+  Future<DiagnosisDetailData> retryDiagnosis(String diagnosisId);
+
+  /// 아직 시작하지 않은 진단을 접는다. 서버는 PENDING일 때만 받아 준다
+  /// (`DIAGNOSIS_NOT_CANCELLABLE` 409).
+  Future<void> cancelDiagnosis(String diagnosisId);
 }
 
 class DiagnosisApi implements DiagnosisRepository {
@@ -157,6 +165,22 @@ class DiagnosisApi implements DiagnosisRepository {
       );
     }
 
+    return _pollUntilSettled(diagnosisId);
+  }
+
+  @override
+  Future<DiagnosisDetailData> retryDiagnosis(String diagnosisId) async {
+    await _client.post('/diagnoses/$diagnosisId/retry', body: const {});
+    return _pollUntilSettled(diagnosisId);
+  }
+
+  @override
+  Future<void> cancelDiagnosis(String diagnosisId) =>
+      _client.post('/diagnoses/$diagnosisId/cancel', body: const {});
+
+  /// 서버가 다시 큐에 넣은 진단이 끝날 때까지 기다린다. 제출 직후와 같은
+  /// 간격·횟수를 쓴다.
+  Future<DiagnosisDetailData> _pollUntilSettled(String diagnosisId) async {
     for (var attempt = 0; attempt < maxPollAttempts; attempt++) {
       final diagnosis = await getDiagnosis(diagnosisId);
       if (!_isPending(diagnosis.status)) return diagnosis;
