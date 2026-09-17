@@ -12,7 +12,7 @@ void main() {
   _prescriptionActionTests();
   setUp(() {});
 
-  testWidgets('빈 진단 화면과 사진 확인에서 공통 뒤로가기로 빠져나온다', (tester) async {
+  testWidgets('빈 진단 화면은 뒤로가기로 빠져나오고, 사진 확인은 다시 촬영으로 사진을 다시 받는다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeDiagnosisRepository(records: const []);
     await tester.pumpWidget(
@@ -39,19 +39,17 @@ void main() {
     );
     await tester.tap(find.text('진단 열기'));
     await tester.pumpAndSettle();
+    // 빈 진단 화면은 공통 뒤로가기로 빠져나온다.
     expect(find.byType(FigmaBackChevron), findsOneWidget);
     await tester.tap(find.text('진단하기'));
     await tester.pumpAndSettle();
     expect(find.byType(DiagnosisPhotoConfirmScreen), findsOneWidget);
-    await tester.tap(find.byType(FigmaBackChevron));
+    // 사진 확인 화면엔 시안대로 상단 뒤로가 없다. '다시 촬영'은 사진을 다시 받는다.
+    expect(find.byType(FigmaBackChevron), findsNothing);
+    await tester.tap(find.text('다시 촬영'));
     await tester.pumpAndSettle();
-    expect(find.byType(DiagnosisPhotoConfirmScreen), findsNothing);
-    expect(find.text('진단 기록이 없습니다'), findsOneWidget);
+    expect(find.byType(DiagnosisPhotoConfirmScreen), findsOneWidget);
     expect(repository.submittedPlantId, isNull);
-    await tester.tap(find.byType(FigmaBackChevron));
-    await tester.pumpAndSettle();
-    expect(find.text('진단 열기'), findsOneWidget);
-    expect(find.byType(DiagnosisScreen), findsNothing);
   });
 
   testWidgets('기록이 없으면 Figma 빈 상태와 진단 버튼을 보여준다', (tester) async {
