@@ -12,6 +12,7 @@ EXPECTED_APP_TABLES = {
     "media_files",
     "notifications",
     "plant_diaries",
+    "plant_personality_changes",
     "plants",
     "species_care_guides",
     "species_identifications",
@@ -109,6 +110,21 @@ def test_plant_registration_id_is_unique_per_user() -> None:
     assert plants.columns["nickname"].type.length == 30
     assert plants.columns["place_name"].type.length == 50
     assert {"pot_type", "placement", "accessory_id"}.isdisjoint(plants.columns)
+
+
+def test_personality_changes_reference_plant_and_require_a_real_change() -> None:
+    changes = Base.metadata.tables["plant_personality_changes"]
+    plant_fk = next(iter(changes.foreign_keys))
+    checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in changes.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+
+    assert plant_fk.target_fullname == "plants.id"
+    assert plant_fk.ondelete == "CASCADE"
+    assert "<>" in checks["ck_plant_personality_changes_personality_changed"]
+    assert "CHUNGCHEONG" in checks["ck_plant_personality_changes_new_personality_type"]
 
 
 def test_diagnosis_accepts_only_one_image() -> None:

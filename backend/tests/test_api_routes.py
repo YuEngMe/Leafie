@@ -63,6 +63,12 @@ def test_home_openapi_uses_room_and_unread_letter_contract() -> None:
     assert schemas["HomeBackgroundPhase"]["enum"] == ["DAY", "NIGHT"]
 
 
+def test_plant_update_openapi_accepts_personality() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    properties = schemas["PlantUpdateRequest"]["properties"]
+    assert set(properties) == {"nickname", "place_name", "personality_type"}
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),

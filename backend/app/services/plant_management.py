@@ -17,7 +17,7 @@ from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus
 from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
-from app.models.plant import Plant, PlantDiary, SpeciesCareGuide
+from app.models.plant import Plant, PlantDiary, PlantPersonalityChange, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import (
     AgendaEventResponse,
@@ -94,6 +94,8 @@ class PlantManagementRepository(Protocol):
     ) -> UUID | None: ...
 
     async def mark_plant_media_deleted(self, plant_id: UUID, user_id: UUID) -> None: ...
+
+    def add_personality_change(self, change: PlantPersonalityChange) -> None: ...
 
     async def flush(self) -> None: ...
 
@@ -250,6 +252,9 @@ class SQLAlchemyPlantManagementRepository:
             .values(status=MediaStatus.DELETED.value, deleted_at=now)
         )
 
+    def add_personality_change(self, change: PlantPersonalityChange) -> None:
+        self._session.add(change)
+
     async def flush(self) -> None:
         await self._session.flush()
 
@@ -294,6 +299,17 @@ class PlantManagementService:
     ) -> PlantDetailResponse:
         context = await self._require_plant(user_id, plant_id, lock=True)
         values = request.model_dump(exclude_unset=True, exclude_none=True)
+        requested_personality = values.get("personality_type")
+        if requested_personality is not None:
+            next_personality = requested_personality.value
+            if next_personality != context.plant.personality_type:
+                self._repository.add_personality_change(
+                    PlantPersonalityChange(
+                        plant_id=context.plant.id,
+                        previous_personality_type=context.plant.personality_type,
+                        new_personality_type=next_personality,
+                    )
+                )
         for field, value in values.items():
             setattr(context.plant, field, value.value if hasattr(value, "value") else value)
         context.plant.updated_at = datetime.now(UTC)

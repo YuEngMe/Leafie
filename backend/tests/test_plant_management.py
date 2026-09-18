@@ -19,7 +19,7 @@ from app.main import create_app
 from app.models.care import CareEvent
 from app.models.enums import CareEventSource, CareEventStatus, MediaStatus
 from app.models.media import MediaFile
-from app.models.plant import Plant, SpeciesCareGuide
+from app.models.plant import Plant, PlantPersonalityChange, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
@@ -63,6 +63,7 @@ class FakePlantRepository:
         self.unread_count = 0
         self.unread_letter_count = 0
         self.marked_media_for: list[UUID] = []
+        self.personality_changes: list[PlantPersonalityChange] = []
         self.flush_count = 0
 
     async def get_profile(self, user_id: UUID, *, lock: bool = False) -> UserProfile | None:
@@ -162,6 +163,9 @@ class FakePlantRepository:
             media.status = MediaStatus.DELETED.value
             media.deleted_at = datetime.now(UTC)
 
+    def add_personality_change(self, change: PlantPersonalityChange) -> None:
+        self.personality_changes.append(change)
+
     async def flush(self) -> None:
         self.flush_count += 1
 
@@ -241,6 +245,10 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
     with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"nickname": None})
     with pytest.raises(ValidationError):
+        PlantUpdateRequest.model_validate({"personality_type": None})
+    with pytest.raises(ValidationError):
+        PlantUpdateRequest.model_validate({"personality_type": "UNKNOWN"})
+    with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"color_id": "  "})
     with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"pot_type": "PLASTIC"})
@@ -267,6 +275,81 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     with pytest.raises(AppError) as error:
         await service.get_plant(uuid4(), plant.id)
     assert error.value.code == "PLANT_NOT_FOUND"
+
+
+async def test_personality_update_records_only_real_changes() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+
+    updated = await service.update_plant(
+        user_id,
+        plant.id,
+        PlantUpdateRequest(personality_type="CHIC"),
+    )
+    unchanged = await service.update_plant(
+        user_id,
+        plant.id,
+        PlantUpdateRequest(personality_type="CHIC"),
+    )
+
+    assert updated.personality_type.value == "CHIC"
+    assert unchanged.personality_type.value == "CHIC"
+    assert len(repository.personality_changes) == 1
+    assert repository.personality_changes[0].plant_id == plant.id
+    assert repository.personality_changes[0].previous_personality_type == "OUTGOING"
+    assert repository.personality_changes[0].new_personality_type == "CHIC"
+
+
+def test_personality_update_route_validates_and_returns_changed_plant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, storage, _ = build_service([plant])
+
+    def fake_session() -> Iterator[object]:
+        yield object()
+
+    application = create_app()
+    application.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id=user_id,
+        email="leafie@example.com",
+        role="authenticated",
+        claims={},
+    )
+    application.dependency_overrides[get_database_session] = fake_session
+    application.dependency_overrides[get_storage_gateway] = lambda: storage
+    monkeypatch.setattr(
+        plants_api,
+        "build_management_service",
+        lambda _session, _storage: service,
+    )
+
+    with TestClient(application) as client:
+        changed = client.patch(
+            f"/api/v1/plants/{plant.id}",
+            json={"personality_type": "CHIC"},
+        )
+        repeated = client.patch(
+            f"/api/v1/plants/{plant.id}",
+            json={"personality_type": "CHIC"},
+        )
+        invalid = client.patch(
+            f"/api/v1/plants/{plant.id}",
+            json={"personality_type": "UNKNOWN"},
+        )
+        null_value = client.patch(
+            f"/api/v1/plants/{plant.id}",
+            json={"personality_type": None},
+        )
+
+    assert changed.status_code == 200
+    assert changed.json()["personality_type"] == "CHIC"
+    assert repeated.status_code == 200
+    assert len(repository.personality_changes) == 1
+    assert invalid.status_code == 422
+    assert null_value.status_code == 422
 
 
 async def test_agenda_derives_overdue_today_and_upcoming_without_moving_dates() -> None:
