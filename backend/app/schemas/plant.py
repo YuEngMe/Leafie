@@ -102,6 +102,7 @@ class PlantUpdateRequest(BaseModel):
 
     nickname: str | None = Field(default=None, min_length=1, max_length=30)
     place_name: str | None = Field(default=None, min_length=1, max_length=50)
+    personality_type: PersonalityType | None = None
 
     @field_validator("nickname", "place_name")
     @classmethod

@@ -20,6 +20,7 @@ erDiagram
     PLANTS ||--o{ CARE_EVENTS : records
     CARE_SCHEDULES ||--o{ CARE_EVENTS : creates
     PLANTS ||--o{ PLANT_DIARIES : journals
+    PLANTS ||--o{ PLANT_PERSONALITY_CHANGES : records
     PLANT_DIARIES ||--|| LETTERS : produces
     PLANTS ||--o{ DIAGNOSES : diagnoses
     USER_PROFILES ||--o{ SPECIES_IDENTIFICATIONS : requests
@@ -83,6 +84,18 @@ erDiagram
 
 `(user_id, client_registration_id)`는 unique입니다. 컨디션, 화분, 위치 분류와 장식 필드는
 두지 않습니다.
+
+### `plant_personality_changes`
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `plant_id` | uuid | 식물 FK, 식물 삭제 시 함께 삭제 |
+| `previous_personality_type` | enum | 변경 전 성격 |
+| `new_personality_type` | enum | 변경 후 성격, 이전 값과 달라야 함 |
+| `changed_at` | timestamptz | 변경 시각 |
+
+현재 성격은 `plants.personality_type`에 저장하고, 실제 성격 변경만 이 테이블에 기록합니다.
 
 ### `plant_diaries`
 

@@ -8,6 +8,7 @@ from app.models.notification import Notification
 from app.models.plant import (
     Plant,
     PlantDiary,
+    PlantPersonalityChange,
     SpeciesCareGuide,
 )
 from app.models.user import DeviceToken, UserProfile
@@ -22,6 +23,7 @@ __all__ = [
     "Notification",
     "Plant",
     "PlantDiary",
+    "PlantPersonalityChange",
     "SpeciesCareGuide",
     "SpeciesIdentification",
     "UserProfile",

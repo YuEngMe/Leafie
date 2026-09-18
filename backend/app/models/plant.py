@@ -139,6 +139,34 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     hair_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
+class PlantPersonalityChange(Base, UUIDPrimaryKeyMixin):
+    __tablename__ = "plant_personality_changes"
+    __table_args__ = (
+        CheckConstraint(
+            f"previous_personality_type IN ({enum_values(PersonalityType)})",
+            name="previous_personality_type",
+        ),
+        CheckConstraint(
+            f"new_personality_type IN ({enum_values(PersonalityType)})",
+            name="new_personality_type",
+        ),
+        CheckConstraint(
+            "previous_personality_type <> new_personality_type",
+            name="personality_changed",
+        ),
+        Index("ix_plant_personality_changes_plant_changed", "plant_id", "changed_at"),
+    )
+
+    plant_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
+    )
+    previous_personality_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    new_personality_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
 class PlantDiary(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "plant_diaries"
     __table_args__ = (
