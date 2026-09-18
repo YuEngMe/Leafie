@@ -69,6 +69,21 @@ def test_plant_update_openapi_accepts_personality() -> None:
     assert set(properties) == {"nickname", "place_name", "personality_type"}
 
 
+def test_plant_hair_openapi_exposes_the_nine_supported_designs() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    assert schemas["HairType"]["enum"] == [
+        "hair_sunflower",
+        "hair_cherry_tomato",
+        "hair_hydrangea",
+        "hair_pointed_succulent",
+        "hair_monstera",
+        "hair_flower_cactus",
+        "hair_rosette_succulent",
+        "hair_sprout",
+        "hair_daisy",
+    ]
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),
@@ -124,7 +139,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
             "last_repotted_on": None,
             "personality_type": "OUTGOING",
             "color_id": "color_green_01",
-            "hair_id": "hair_leaf_01",
+            "hair_id": "hair_sprout",
         },
         None,
     ),

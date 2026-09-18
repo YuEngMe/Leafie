@@ -10,6 +10,7 @@ from app.models.enums import (
     CareEventStatus,
     CareEventType,
     CareViewStatus,
+    HairType,
     PersonalityType,
     PlantCategory,
     SpeciesSelectionMethod,
@@ -31,14 +32,13 @@ class PlantCreateRequest(BaseModel):
     last_repotted_on: Date | None = None
     personality_type: PersonalityType
     color_id: str = Field(min_length=1, max_length=100)
-    hair_id: str = Field(min_length=1, max_length=100)
+    hair_id: HairType
 
     @field_validator(
         "nickname",
         "species_reference_id",
         "place_name",
         "color_id",
-        "hair_id",
     )
     @classmethod
     def strip_nonblank_text(cls, value: str) -> str:
@@ -127,9 +127,9 @@ class PlantAppearanceUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     color_id: str | None = Field(default=None, min_length=1, max_length=100)
-    hair_id: str | None = Field(default=None, min_length=1, max_length=100)
+    hair_id: HairType | None = None
 
-    @field_validator("color_id", "hair_id")
+    @field_validator("color_id")
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
         if value is None:

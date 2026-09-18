@@ -320,7 +320,9 @@ class PlantManagementService:
         self, user_id: UUID, plant_id: UUID, request: PlantAppearanceUpdateRequest
     ) -> PlantDetailResponse:
         context = await self._require_plant(user_id, plant_id, lock=True)
-        for field, value in request.model_dump(exclude_unset=True, exclude_none=True).items():
+        for field, value in request.model_dump(
+            mode="json", exclude_unset=True, exclude_none=True
+        ).items():
             setattr(context.plant, field, value)
         context.plant.updated_at = datetime.now(UTC)
         await self._repository.flush()

@@ -75,7 +75,8 @@ erDiagram
 | `place_name` | varchar(50) | 필수 |
 | `started_on` | date | 필수, 미래 불가 |
 | `personality_type` | enum | 6종 중 하나 |
-| `color_id`, `hair_id` | varchar | 필수 |
+| `color_id` | varchar | 필수 |
+| `hair_id` | varchar | 신규 저장은 확정된 식물 머리 9종 중 하나 |
 | `primary_media_file_id` | uuid | nullable, 소유 미디어 FK |
 | `client_registration_id` | uuid | 사용자별 멱등 키 |
 | `registration_request_hash` | varchar | 멱등 요청 검증 |
