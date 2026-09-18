@@ -193,9 +193,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ? await widget.loadHome!()
           : await HomeApi().fetchHome(plantId: plantId);
       if (!mounted) return;
-      final character = data.character;
+      final room = data.room;
       final hasWateringRequest = data.todayEvents.any(
-        (event) => event.type == 'WATERING' && event.completable,
+        (event) => event.careType == 'WATERING' && event.completable,
       );
       setState(() {
         final plant = data.plant;
@@ -204,11 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
             : HomePlant(
                 id: plant.id,
                 name: plant.nickname,
-                startedOn: null,
-                personalityType: character?.personalityType,
+                startedOn: DateTime.tryParse(plant.startedOn),
+                personalityType: plant.personalityType,
                 daysTogether: plant.daysTogether,
               );
-        _serverDialogue = character?.dialogue?.trim();
+        _serverDialogue = room?.dialogue?.trim();
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;

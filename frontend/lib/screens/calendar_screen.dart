@@ -199,8 +199,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     try {
       await _repository.createEvent(
         plantId,
-        type: result.type,
-        title: result.title,
+        careType: result.careType,
         dueDate: result.date,
       );
       _selected = result.date;
@@ -793,7 +792,7 @@ class _WeekAgenda extends StatelessWidget {
 
   Widget _card(CalendarItemData item) => CalendarEventCard(
     completeKey: ValueKey('calendar-complete-${item.id}'),
-    type: item.type,
+    type: item.careType,
     title: _eventTitle(item),
     dateLabel: _dateLabel(item.date),
     completed: item.status == 'COMPLETED',
@@ -860,7 +859,7 @@ class _AgendaBody extends StatelessWidget {
           final item = items[index];
           return CalendarEventCard(
             completeKey: ValueKey('calendar-complete-${item.id}'),
-            type: item.type,
+            type: item.careType,
             title: _eventTitle(item),
             dateLabel: _dateLabel(item.date),
             completed: item.status == 'COMPLETED',
@@ -928,13 +927,10 @@ String _dateLabel(DateTime date) =>
     '${date.year}. ${date.month}.${date.day} ${_weekdays[date.weekday % 7]}';
 
 String _eventTitle(CalendarItemData item) {
-  final custom = item.title?.trim();
-  if (custom != null && custom.isNotEmpty) return custom;
-  return switch (item.type) {
+  return switch (item.careType) {
     'WATERING' => '물 주기',
     'REPOTTING' => '분갈이',
     'FERTILIZING' => '비료 주기',
-    'PRUNING' => '가지치기',
     _ => '식물 관리',
   };
 }

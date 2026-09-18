@@ -11,8 +11,7 @@ void main() {
         _item(
           id: 'watering-1',
           date: DateTime(2026, 7, 15),
-          type: 'WATERING',
-          title: '아침 물 주기',
+          careType: 'WATERING',
         ),
       ],
     );
@@ -32,7 +31,7 @@ void main() {
     expect(find.text('캘린더'), findsOneWidget);
     expect(find.text('2026. 7'), findsOneWidget);
     expect(find.text('오늘 할 일'), findsOneWidget);
-    expect(find.text('아침 물 주기'), findsOneWidget);
+    expect(find.text('물 주기'), findsOneWidget);
     expect(repository.requests, [
       _CalendarRequest(
         plantId: 'plant-1',
@@ -77,12 +76,7 @@ void main() {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(
       items: [
-        _item(
-          id: 'repot-1',
-          date: DateTime(2026, 7, 15),
-          type: 'REPOTTING',
-          title: '분갈이',
-        ),
+        _item(id: 'repot-1', date: DateTime(2026, 7, 15), careType: 'REPOTTING'),
       ],
     );
 
@@ -135,8 +129,7 @@ void main() {
     expect(repository.createdEvents, [
       _CreatedEvent(
         plantId: 'plant-1',
-        type: 'FERTILIZING',
-        title: '비료 주기',
+        careType: 'FERTILIZING',
         dueDate: DateTime(2026, 7, 15),
       ),
     ]);
@@ -154,15 +147,13 @@ void _setIPhone16ProViewport(WidgetTester tester) {
 CalendarItemData _item({
   required String id,
   required DateTime date,
-  required String type,
-  required String title,
+  required String careType,
 }) => CalendarItemData(
   id: id,
   date: date,
-  type: type,
+  careType: careType,
   status: 'SCHEDULED',
   viewStatus: 'UPCOMING',
-  title: title,
   source: 'USER',
   completable: true,
 );
@@ -198,17 +189,11 @@ class _FakeCalendarRepository implements CalendarRepository {
   @override
   Future<void> createEvent(
     String plantId, {
-    required String type,
-    required String title,
+    required String careType,
     required DateTime dueDate,
   }) async {
     createdEvents.add(
-      _CreatedEvent(
-        plantId: plantId,
-        type: type,
-        title: title,
-        dueDate: dueDate,
-      ),
+      _CreatedEvent(plantId: plantId, careType: careType, dueDate: dueDate),
     );
   }
 }
@@ -238,24 +223,21 @@ class _CalendarRequest {
 class _CreatedEvent {
   const _CreatedEvent({
     required this.plantId,
-    required this.type,
-    required this.title,
+    required this.careType,
     required this.dueDate,
   });
 
   final String plantId;
-  final String type;
-  final String title;
+  final String careType;
   final DateTime dueDate;
 
   @override
   bool operator ==(Object other) =>
       other is _CreatedEvent &&
       plantId == other.plantId &&
-      type == other.type &&
-      title == other.title &&
+      careType == other.careType &&
       dueDate == other.dueDate;
 
   @override
-  int get hashCode => Object.hash(plantId, type, title, dueDate);
+  int get hashCode => Object.hash(plantId, careType, dueDate);
 }

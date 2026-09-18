@@ -23,21 +23,22 @@ void main() {
             'plant': {
               'id': 'plant-id',
               'nickname': '새싹이',
-              'days_together': 128,
-              'primary_photo_url': null,
-            },
-            'character': {
               'personality_type': 'OUTGOING',
               'color_id': 'color_orange_01',
               'hair_id': 'NONE',
-              'expression_level': 5,
+              'started_on': '2026-05-01',
+              'days_together': 128,
+              'primary_photo_url': null,
+            },
+            'room': {
+              'background_phase': 'DAY',
+              'dialogue_key': 'NORMAL',
               'dialogue': null,
             },
-            'condition': {'recorded': true, 'score': 80, 'level': 5},
             'today_events': [
               {
                 'id': 'event-id',
-                'type': 'WATERING',
+                'care_type': 'WATERING',
                 'title': null,
                 'due_date': '2026-09-05',
                 'view_status': 'TODAY',
@@ -45,7 +46,7 @@ void main() {
                 'completable': true,
               },
             ],
-            'daily_memo': null,
+            'unread_letter_count': 0,
             'unread_notification_count': 2,
           }),
         );
@@ -56,8 +57,9 @@ void main() {
 
     expect(home.plant?.nickname, '새싹이');
     expect(home.plant?.daysTogether, 128);
-    expect(home.character?.personalityType, 'OUTGOING');
-    expect(home.todayEvents.single.type, 'WATERING');
+    expect(home.plant?.personalityType, 'OUTGOING');
+    expect(home.room?.backgroundPhase, 'DAY');
+    expect(home.todayEvents.single.careType, 'WATERING');
     expect(home.todayEvents.single.completable, isTrue);
     expect(home.unreadNotificationCount, 2);
   });
@@ -71,10 +73,9 @@ void main() {
           statusCode: 200,
           body: jsonEncode({
             'plant': null,
-            'character': null,
-            'condition': null,
+            'room': null,
             'today_events': [],
-            'daily_memo': null,
+            'unread_letter_count': 0,
             'unread_notification_count': 0,
           }),
         );
@@ -91,7 +92,7 @@ void main() {
           statusCode: 200,
           body: jsonEncode({
             'plant': null,
-            'character': null,
+            'room': null,
             'today_events': [],
           }),
         ),
@@ -114,6 +115,10 @@ void main() {
     final data = HomePlantData.fromJson({
       'id': 'plant-id',
       'nickname': '새싹이',
+      'personality_type': 'OUTGOING',
+      'color_id': 'color_orange_01',
+      'hair_id': 'NONE',
+      'started_on': '2026-05-01',
       'days_together': 0,
       'primary_photo_url': null,
     });

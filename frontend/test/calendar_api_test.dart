@@ -29,20 +29,18 @@ void main() {
               {
                 'id': 'event-id',
                 'date': '2026-07-15',
-                'type': 'WATERING',
+                'care_type': 'WATERING',
                 'status': 'SCHEDULED',
                 'view_status': 'TODAY',
-                'title': null,
                 'source': 'SYSTEM',
                 'completable': true,
               },
               {
                 'id': 'repotting-id',
                 'date': '2026-07-14',
-                'type': 'REPOTTING',
+                'care_type': 'REPOTTING',
                 'status': 'COMPLETED',
                 'view_status': 'COMPLETED',
-                'title': '분갈이',
                 'source': 'USER',
                 'completable': false,
               },
@@ -62,13 +60,12 @@ void main() {
     expect(items, hasLength(2));
     expect(items.first.id, 'event-id');
     expect(items.first.date, DateTime(2026, 7, 15));
-    expect(items.first.type, 'WATERING');
+    expect(items.first.careType, 'WATERING');
     expect(items.first.status, 'SCHEDULED');
     expect(items.first.viewStatus, 'TODAY');
     expect(items.first.source, 'SYSTEM');
     expect(items.first.completable, isTrue);
-    expect(items.last.type, 'REPOTTING');
-    expect(items.last.title, '분갈이');
+    expect(items.last.careType, 'REPOTTING');
     expect(items.last.completable, isFalse);
   });
 
@@ -150,8 +147,7 @@ void main() {
 
     await api.createEvent(
       'plant-id',
-      type: 'FERTILIZING',
-      title: '영양제 주기',
+      careType: 'FERTILIZING',
       dueDate: DateTime(2026, 7, 20),
     );
 
@@ -165,8 +161,7 @@ void main() {
         ),
       ),
     );
-    expect(captured.body?['type'], 'FERTILIZING');
-    expect(captured.body?['title'], '영양제 주기');
+    expect(captured.body?['care_type'], 'FERTILIZING');
     expect(captured.body?['due_date'], '2026-07-20');
   });
 
@@ -178,10 +173,9 @@ void main() {
           {
             'id': 'event-id',
             'date': '2026-02-30',
-            'type': 'WATERING',
+            'care_type': 'WATERING',
             'status': 'SCHEDULED',
             'view_status': 'UPCOMING',
-            'title': null,
             'source': 'SYSTEM',
             'completable': true,
           },
@@ -192,10 +186,9 @@ void main() {
           {
             'id': 'condition-id',
             'date': '2026-02-28',
-            'type': 'CONDITION',
+            'care_type': 'CONDITION',
             'status': null,
             'view_status': null,
-            'title': null,
             'source': null,
             'completable': false,
           },

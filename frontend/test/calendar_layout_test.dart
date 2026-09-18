@@ -412,26 +412,26 @@ void main() {
 // ---- 도우미 ----------------------------------------------------------------
 
 const _twoCards = [
-  ('repot-1', 'REPOTTING', '분갈이', 15, 'SCHEDULED'),
-  ('fertilize-1', 'FERTILIZING', '비료 주기', 15, 'SCHEDULED'),
+  ('repot-1', 'REPOTTING', 15, 'SCHEDULED'),
+  ('fertilize-1', 'FERTILIZING', 15, 'SCHEDULED'),
 ];
 
 const _weekCards = [
-  ('repot-14', 'REPOTTING', '분갈이', 14, 'SCHEDULED'),
-  ('repot-15', 'REPOTTING', '분갈이', 15, 'COMPLETED'),
-  ('fertilize-15', 'FERTILIZING', '비료 주기', 15, 'COMPLETED'),
+  ('repot-14', 'REPOTTING', 14, 'SCHEDULED'),
+  ('repot-15', 'REPOTTING', 15, 'COMPLETED'),
+  ('fertilize-15', 'FERTILIZING', 15, 'COMPLETED'),
 ];
 
 Future<void> _pumpMonth(
   WidgetTester tester, {
-  List<(String, String, String, int, String)> items = const [],
+  List<(String, String, int, String)> items = const [],
 }) async {
   await _pump(tester, items);
 }
 
 Future<void> _pumpWeek(
   WidgetTester tester, {
-  List<(String, String, String, int, String)> items = const [],
+  List<(String, String, int, String)> items = const [],
 }) async {
   await _pump(tester, items);
   await tester.tap(find.byKey(const ValueKey('calendar-mode-week')));
@@ -446,7 +446,7 @@ Future<void> _openSheet(WidgetTester tester) async {
 
 Future<void> _pump(
   WidgetTester tester,
-  List<(String, String, String, int, String)> items,
+  List<(String, String, int, String)> items,
 ) async {
   tester.view.physicalSize = const Size(402, 874);
   tester.view.devicePixelRatio = 1;
@@ -501,7 +501,7 @@ void _expectRect(WidgetTester tester, Finder finder, Rect expected) {
 class _StubRepository implements CalendarRepository {
   _StubRepository(this.rows);
 
-  final List<(String, String, String, int, String)> rows;
+  final List<(String, String, int, String)> rows;
 
   @override
   Future<List<CalendarItemData>> listCalendar(
@@ -510,14 +510,13 @@ class _StubRepository implements CalendarRepository {
     DateTime to, {
     Iterable<String>? types,
   }) async => [
-    for (final (id, type, title, day, status) in rows)
+    for (final (id, careType, day, status) in rows)
       CalendarItemData(
         id: id,
         date: DateTime(2026, 7, day),
-        type: type,
+        careType: careType,
         status: status,
         viewStatus: 'UPCOMING',
-        title: title,
         source: 'USER',
         completable: status != 'COMPLETED',
       ),
@@ -529,8 +528,7 @@ class _StubRepository implements CalendarRepository {
   @override
   Future<void> createEvent(
     String plantId, {
-    required String type,
-    required String title,
+    required String careType,
     required DateTime dueDate,
   }) async {}
 }
@@ -548,10 +546,9 @@ class _ManyItemsRepository implements CalendarRepository {
       CalendarItemData(
         id: 'i$i',
         date: DateTime(2026, 7, 15),
-        type: 'REPOTTING',
+        careType: 'REPOTTING',
         status: 'SCHEDULED',
         viewStatus: 'UPCOMING',
-        title: '분갈이 $i',
         source: 'USER',
         completable: true,
       ),
@@ -563,8 +560,7 @@ class _ManyItemsRepository implements CalendarRepository {
   @override
   Future<void> createEvent(
     String plantId, {
-    required String type,
-    required String title,
+    required String careType,
     required DateTime dueDate,
   }) async {}
 }

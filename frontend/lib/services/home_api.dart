@@ -25,31 +25,33 @@ class HomeApi {
 class HomeDashboardData {
   const HomeDashboardData({
     required this.plant,
-    required this.character,
+    required this.room,
     required this.todayEvents,
+    required this.unreadLetterCount,
     required this.unreadNotificationCount,
   });
 
   factory HomeDashboardData.fromJson(Map<String, dynamic> json) {
     final plantJson = json['plant'];
-    final characterJson = json['character'];
+    final roomJson = json['room'];
     final eventsJson = json['today_events'];
+    final unreadLetters = json['unread_letter_count'];
     final unreadCount = json['unread_notification_count'];
     if (plantJson != null && plantJson is! Map<String, dynamic>) {
       throw const FormatException('Invalid home plant');
     }
-    if (characterJson != null && characterJson is! Map<String, dynamic>) {
-      throw const FormatException('Invalid home character');
+    if (roomJson != null && roomJson is! Map<String, dynamic>) {
+      throw const FormatException('Invalid home room');
     }
-    if (eventsJson is! List || unreadCount is! int) {
+    if (eventsJson is! List ||
+        unreadLetters is! int ||
+        unreadCount is! int) {
       throw const FormatException('Invalid home payload');
     }
 
     return HomeDashboardData(
       plant: plantJson == null ? null : HomePlantData.fromJson(plantJson),
-      character: characterJson == null
-          ? null
-          : HomeCharacterData.fromJson(characterJson),
+      room: roomJson == null ? null : HomeRoomData.fromJson(roomJson),
       todayEvents: List.unmodifiable(
         eventsJson.map((event) {
           if (event is! Map<String, dynamic>) {
@@ -58,13 +60,15 @@ class HomeDashboardData {
           return HomeTodayEvent.fromJson(event);
         }),
       ),
+      unreadLetterCount: unreadLetters,
       unreadNotificationCount: unreadCount,
     );
   }
 
   final HomePlantData? plant;
-  final HomeCharacterData? character;
+  final HomeRoomData? room;
   final List<HomeTodayEvent> todayEvents;
+  final int unreadLetterCount;
   final int unreadNotificationCount;
 }
 
@@ -72,6 +76,10 @@ class HomePlantData {
   const HomePlantData({
     required this.id,
     required this.nickname,
+    required this.personalityType,
+    required this.colorId,
+    required this.hairId,
+    required this.startedOn,
     required this.daysTogether,
     required this.primaryPhotoUrl,
   });
@@ -79,11 +87,20 @@ class HomePlantData {
   factory HomePlantData.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
     final nickname = json['nickname'];
+    final personalityType = json['personality_type'];
+    final colorId = json['color_id'];
+    final hairId = json['hair_id'];
+    final startedOn = json['started_on'];
     final daysTogether = json['days_together'];
     final primaryPhotoUrl = json['primary_photo_url'];
     if (id is! String ||
         nickname is! String ||
         nickname.isEmpty ||
+        personalityType is! String ||
+        personalityType.isEmpty ||
+        colorId is! String ||
+        hairId is! String ||
+        startedOn is! String ||
         daysTogether is! int ||
         daysTogether < 0 ||
         (primaryPhotoUrl != null && primaryPhotoUrl is! String)) {
@@ -92,6 +109,10 @@ class HomePlantData {
     return HomePlantData(
       id: id,
       nickname: nickname,
+      personalityType: personalityType,
+      colorId: colorId,
+      hairId: hairId,
+      startedOn: startedOn,
       daysTogether: daysTogether,
       primaryPhotoUrl: primaryPhotoUrl as String?,
     );
@@ -99,46 +120,56 @@ class HomePlantData {
 
   final String id;
   final String nickname;
+  final String personalityType;
+  final String colorId;
+  final String hairId;
+  final String startedOn;
   final int daysTogether;
   final String? primaryPhotoUrl;
 }
 
-class HomeCharacterData {
-  const HomeCharacterData({
-    required this.personalityType,
+class HomeRoomData {
+  const HomeRoomData({
+    required this.backgroundPhase,
+    required this.dialogueKey,
     required this.dialogue,
   });
 
-  factory HomeCharacterData.fromJson(Map<String, dynamic> json) {
-    final personalityType = json['personality_type'];
+  factory HomeRoomData.fromJson(Map<String, dynamic> json) {
+    final backgroundPhase = json['background_phase'];
+    final dialogueKey = json['dialogue_key'];
     final dialogue = json['dialogue'];
-    if (personalityType is! String ||
-        personalityType.isEmpty ||
+    if (backgroundPhase is! String ||
+        backgroundPhase.isEmpty ||
+        dialogueKey is! String ||
+        dialogueKey.isEmpty ||
         (dialogue != null && dialogue is! String)) {
-      throw const FormatException('Invalid home character');
+      throw const FormatException('Invalid home room');
     }
-    return HomeCharacterData(
-      personalityType: personalityType,
+    return HomeRoomData(
+      backgroundPhase: backgroundPhase,
+      dialogueKey: dialogueKey,
       dialogue: dialogue as String?,
     );
   }
 
-  final String personalityType;
+  final String backgroundPhase;
+  final String dialogueKey;
   final String? dialogue;
 }
 
 class HomeTodayEvent {
-  const HomeTodayEvent({required this.type, required this.completable});
+  const HomeTodayEvent({required this.careType, required this.completable});
 
   factory HomeTodayEvent.fromJson(Map<String, dynamic> json) {
-    final type = json['type'];
+    final careType = json['care_type'];
     final completable = json['completable'];
-    if (type is! String || type.isEmpty || completable is! bool) {
+    if (careType is! String || careType.isEmpty || completable is! bool) {
       throw const FormatException('Invalid home event');
     }
-    return HomeTodayEvent(type: type, completable: completable);
+    return HomeTodayEvent(careType: careType, completable: completable);
   }
 
-  final String type;
+  final String careType;
   final bool completable;
 }

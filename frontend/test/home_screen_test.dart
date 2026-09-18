@@ -48,8 +48,9 @@ void main() {
         home: HomeScreen(
           loadHome: () async => const HomeDashboardData(
             plant: null,
-            character: null,
+            room: null,
             todayEvents: [],
+            unreadLetterCount: 0,
             unreadNotificationCount: 0,
           ),
         ),
@@ -211,14 +212,20 @@ void main() {
             plant: HomePlantData(
               id: 'plant-id',
               nickname: '서버새싹',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange_01',
+              hairId: 'NONE',
+              startedOn: '2026-05-01',
               daysTogether: 128,
               primaryPhotoUrl: null,
             ),
-            character: HomeCharacterData(
-              personalityType: 'OUTGOING',
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
               dialogue: null,
             ),
             todayEvents: [],
+            unreadLetterCount: 0,
             unreadNotificationCount: 0,
           ),
         ),
@@ -253,14 +260,20 @@ void main() {
             plant: HomePlantData(
               id: plantId!,
               nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange_01',
+              hairId: 'NONE',
+              startedOn: '2026-05-01',
               daysTogether: 3,
               primaryPhotoUrl: null,
             ),
-            character: const HomeCharacterData(
-              personalityType: 'OUTGOING',
+            room: const HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
               dialogue: null,
             ),
             todayEvents: const [],
+            unreadLetterCount: 0,
             unreadNotificationCount: 0,
           ),
         ),

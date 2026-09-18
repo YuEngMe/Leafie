@@ -5,15 +5,12 @@ import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 
-/// 일정 추가 시트가 돌려주는 값.
+/// 일정 추가 시트가 돌려주는 값. 시안(3429:1728)에 있는 REPOTTING/FERTILIZING 두 종류만 쓴다.
 class NewCalendarEvent {
-  const NewCalendarEvent({required this.type, required this.date});
+  const NewCalendarEvent({required this.careType, required this.date});
 
-  final String type;
+  final String careType;
   final DateTime date;
-
-  /// 시안(3429:1728)에 있는 두 종류만 쓴다.
-  String get title => type == 'REPOTTING' ? '분갈이' : '비료 주기';
 }
 
 /// 일정 추가(3429:1163). 딤 위에 떠 있는 334x180 카드 + 아래 `확인` 버튼.
@@ -276,7 +273,7 @@ class _CalendarNewEventSheetState extends State<CalendarNewEventSheet> {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.pop(
         context,
-        NewCalendarEvent(type: _type, date: DateTime(_year, _month, _day)),
+        NewCalendarEvent(careType: _type, date: DateTime(_year, _month, _day)),
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
