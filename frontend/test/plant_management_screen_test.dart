@@ -38,6 +38,7 @@ class _FakeRepository implements PlantManagementRepository {
   String? selectedPlantId;
   String? renamedTo;
   String? placeNameTo;
+  String? personalityTypeTo;
   String? appearanceColor;
   String? deletedPlantId;
 
@@ -68,11 +69,34 @@ class _FakeRepository implements PlantManagementRepository {
     String plantId, {
     String? nickname,
     String? placeName,
+    String? personalityType,
   }) async {
     renamedTo = nickname;
     placeNameTo = placeName;
+    personalityTypeTo = personalityType;
     final plant = plants.firstWhere((item) => item.id == plantId);
-    final updated = plant.copyWith(nickname: nickname, placeName: placeName);
+    var updated = plant.copyWith(nickname: nickname, placeName: placeName);
+    if (personalityType != null) {
+      updated = ManagedPlant(
+        id: updated.id,
+        nickname: updated.nickname,
+        speciesReferenceId: updated.speciesReferenceId,
+        speciesDisplayName: updated.speciesDisplayName,
+        primaryPhotoUrl: updated.primaryPhotoUrl,
+        personalityType: personalityType,
+        colorId: updated.colorId,
+        hairId: updated.hairId,
+        startedOn: updated.startedOn,
+        category: updated.category,
+        scientificName: updated.scientificName,
+        familyName: updated.familyName,
+        floweringPeriod: updated.floweringPeriod,
+        placeName: updated.placeName,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+        isSelected: updated.isSelected,
+      );
+    }
     plants = [
       for (final item in plants)
         if (item.id == plantId) updated else item,
@@ -270,6 +294,37 @@ void main() {
     expect(find.text('귀여운 성격'), findsOneWidget);
     expect(find.text('#애교'), findsOneWidget);
     expect(find.text('새싹이 물 먹고시포!'), findsOneWidget);
+  });
+
+  testWidgets('상세 > 성격에서 다른 성격을 골라 수정하면 updatePlant가 호출된다', (tester) async {
+    final repository = _FakeRepository([
+      _plant(id: '1', nickname: '새싹이', selected: true),
+    ]);
+    await _pumpScreen(tester, repository);
+
+    await tester.tap(find.byKey(const ValueKey('plant_slot_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plant_detail_menu_성격')));
+    await tester.pumpAndSettle();
+
+    // personalityType 'CUTE'(2번째 도트)에서 시작해 다음 도트로 넘긴다.
+    final dotsFinder = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_PersonalityDots',
+    );
+    final gestureDetectors = find.descendant(
+      of: dotsFinder,
+      matching: find.byType(GestureDetector),
+    );
+    await tester.tap(gestureDetectors.at(3));
+    await tester.pumpAndSettle();
+    expect(find.text('소심한 성격'), findsOneWidget);
+
+    await tester.tap(find.text('수정하기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.personalityTypeTo, 'INTROVERTED');
+    expect(find.byType(PlantDetailScreen), findsOneWidget);
+    expect(find.byType(PlantPersonalityScreen), findsNothing);
   });
 
   testWidgets('상세의 휴지통으로 삭제하면 목록에서 사라지고 다음 선택값을 전달한다', (tester) async {

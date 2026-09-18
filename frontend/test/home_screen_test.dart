@@ -349,5 +349,6 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
     String plantId, {
     String? nickname,
     String? placeName,
+    String? personalityType,
   }) => throw UnimplementedError();
 }

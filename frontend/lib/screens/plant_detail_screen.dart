@@ -99,10 +99,26 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     if (updated != null && mounted) setState(() => _plant = updated);
   }
 
-  void _openPersonality() {
-    Navigator.of(context).push<void>(
+  Future<void> _openPersonality() async {
+    final selected = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => PlantPersonalityScreen(plant: _plant)),
     );
+    if (selected == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await widget.repository.updatePlant(
+        _plant.id,
+        personalityType: selected,
+      );
+      if (mounted) setState(() => _plant = updated);
+    } on LeafieApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -231,108 +247,175 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 }
 
-/// 시안 2568:1714 "캐릭터 상세_성격". 등록 흐름과 달리 고른 성격 하나만
-/// 보여 주는 읽기 화면이다. 이름·태그·대사는 등록 흐름(2318:3129~3430)의
-/// 글자를 그대로 쓴다.
-class PlantPersonalityScreen extends StatelessWidget {
+/// 시안 2568:1714 "캐릭터 상세_성격". 진입 시 현재 성격을 선택 상태로
+/// 시작하고, 좌우로 넘겨 6종 중 하나를 고른 뒤 "수정하기"로 반환한다.
+/// 이름·태그·대사는 등록 흐름(2318:3129~3430)의 글자를 그대로 쓴다.
+class PlantPersonalityScreen extends StatefulWidget {
   const PlantPersonalityScreen({super.key, required this.plant});
 
   final ManagedPlant plant;
 
   @override
+  State<PlantPersonalityScreen> createState() =>
+      _PlantPersonalityScreenState();
+}
+
+class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
+  late int _selectedIndex = kPlantPersonalityOrder.indexOf(
+    widget.plant.personalityType,
+  ).clamp(0, kPlantPersonalityOrder.length - 1);
+  late final PageController _pageController = PageController(
+    initialPage: _selectedIndex,
+  );
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int index) {
+    if (index < 0 || index >= kPlantPersonalityOrder.length) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final personality = kPlantPersonalities[plant.personalityType];
+    final selectedType = kPlantPersonalityOrder[_selectedIndex];
     return Scaffold(
       backgroundColor: kBackgroundWhite,
       appBar: const YesoAppBar(title: '캐릭터 성격'),
       body: PlantDetailBody(
         children: [
-          // 성격 이름 2568:1757. top 132, 21/w600 #2E2E2E.
+          // 이름(top132)+태그(top170)+캐릭터(top287)+대사(top475,
+          // height47.053, 즉 끝 522.053)를 한 PageView 페이지로 묶어
+          // 손가락 따라 통째로 슬라이드되게 한다. 각 요소는 페이지 내부
+          // Stack에서 이 슬롯의 top(132)을 뺀 상대좌표로 앉혀 시안의
+          // 절대 top 값을 그대로 지킨다.
           PlantDetailPositioned(
             top: 132,
-            height: 25,
-            child: Center(
-              child: Text(
-                personality?.label ?? '성격 없음',
-                style: kTitleStyle.copyWith(color: kPersonalityTitle),
-              ),
-            ),
-          ),
-          // 태그 칩 2568:1753/1755. y=170, 58.69x20.67, 간격 6.6.
-          PlantDetailPositioned(
-            top: 170,
-            height: 20.667,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final tag in personality?.tags ?? const <String>[])
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3.31),
-                    child: _PersonalityChip(label: tag),
-                  ),
-              ],
-            ),
-          ),
-          // 캐릭터 2568:1871. x=103 y=287 196x168.
-          PlantDetailPositioned(
-            top: 287,
-            height: 168,
-            child: Center(
-              child: OverflowBox(
-                maxWidth: double.infinity,
-                maxHeight: double.infinity,
-                child: PlantCharacterArt(width: plantArtWidthFor(196)),
-              ),
-            ),
-          ),
-          // 말풍선 2568:1759. x=74.5 y=475 253x47.05.
-          PlantDetailPositioned(
-            top: 475,
-            height: 47.053,
-            child: Center(
-              child: Container(
-                width: 253,
-                height: 47.053,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: kBackgroundWhite,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x1F000000), blurRadius: 5),
+            height: 522.053 - 132,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: kPlantPersonalityOrder.length,
+              onPageChanged: (index) => setState(() => _selectedIndex = index),
+              itemBuilder: (context, index) {
+                final type = kPlantPersonalityOrder[index];
+                final personality = kPlantPersonalities[type];
+                return Stack(
+                  children: [
+                    // 성격 이름 2568:1757. top 132 -> 상대 0.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: 25,
+                      child: Center(
+                        child: Text(
+                          personality?.label ?? '성격 없음',
+                          style: kTitleStyle.copyWith(
+                            color: kPersonalityTitle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 태그 칩 2568:1753/1755. top 170 -> 상대 38.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 170 - 132,
+                      height: 20.667,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (final tag in personality?.tags ?? const <String>[])
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 3.31,
+                              ),
+                              child: _PersonalityChip(label: tag),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // 캐릭터 2568:1871. top 287 -> 상대 155. 성격 무관
+                    // 단일 에셋이라 페이지마다 내용은 같지만, 같은
+                    // PageView 안에 있어 함께 슬라이드된다.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 287 - 132,
+                      height: 168,
+                      child: Center(
+                        child: OverflowBox(
+                          maxWidth: double.infinity,
+                          maxHeight: double.infinity,
+                          child: PlantCharacterArt(
+                            width: plantArtWidthFor(196),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 말풍선 2568:1759. top 475 -> 상대 343.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 475 - 132,
+                      height: 47.053,
+                      child: Center(
+                        child: Container(
+                          width: 253,
+                          height: 47.053,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: kBackgroundWhite,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x1F000000),
+                                blurRadius: 5,
+                              ),
+                            ],
+                          ),
+                          // 2568:1762는 16.506이지만 반올림해 본문 크기를 쓴다.
+                          child: Text(
+                            personality?.dialogue ?? '',
+                            style: kBodyStyle.copyWith(
+                              fontWeight: FontWeight.w400,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-                // 2568:1762는 16.506이지만 반올림해 본문 크기를 쓴다.
-                child: Text(
-                  personality?.dialogue ?? '',
-                  style: kBodyStyle.copyWith(
-                    fontWeight: FontWeight.w400,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
+                );
+              },
             ),
           ),
-          // 페이지 도트 2568:1744. x=152 y=561 98x8. 성격 6개 중 현재 것만
-          // 켠다. 이 화면은 넘길 수 없으므로 위치 표시로만 쓴다.
+          // 페이지 도트 2568:1744. x=152 y=561 98x8. 성격 6개 중 선택된
+          // 것을 켜고, 탭해서도 넘길 수 있게 한다.
           PlantDetailPositioned(
             top: 561.05,
             height: 8,
             child: Center(
               child: _PersonalityDots(
-                selectedIndex: kPlantPersonalityOrder.indexOf(
-                  plant.personalityType,
-                ),
+                selectedIndex: _selectedIndex,
+                onTapIndex: _goTo,
               ),
             ),
           ),
         ],
       ),
-      // 하단 버튼 2568:1735. x=34 y=790 334x51. 성격을 바꾸는 API가 없다.
-      bottomNavigationBar: const PlantDetailBottomAction(
+      // 하단 버튼 2568:1735. x=34 y=790 334x51. 선택한 성격을 상위로
+      // 반환한다.
+      bottomNavigationBar: PlantDetailBottomAction(
         label: '수정하기',
-        // TODO(design): PATCH /plants/{id}에 personality_type이 없어
-        // '수정하기'가 열 화면이 없다. API가 생기면 성격 선택으로 잇는다.
-        onPressed: null,
+        onPressed: () => Navigator.of(context).pop(selectedType),
       ),
     );
   }
@@ -367,11 +450,12 @@ class _PersonalityChip extends StatelessWidget {
   }
 }
 
-/// 2568:1744. 8px 원 6개, 활성만 오렌지.
+/// 2568:1744. 8px 원 6개, 활성만 오렌지. 탭해서도 넘길 수 있다.
 class _PersonalityDots extends StatelessWidget {
-  const _PersonalityDots({required this.selectedIndex});
+  const _PersonalityDots({required this.selectedIndex, this.onTapIndex});
 
   final int selectedIndex;
+  final ValueChanged<int>? onTapIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -379,13 +463,19 @@ class _PersonalityDots extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var index = 0; index < kPlantPersonalityOrder.length; index++)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 5),
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: index == selectedIndex ? kOrangeMain : kProgressInactive,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTapIndex == null ? null : () => onTapIndex!(index),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: index == selectedIndex
+                    ? kOrangeMain
+                    : kProgressInactive,
+              ),
             ),
           ),
       ],

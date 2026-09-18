@@ -11,6 +11,7 @@ abstract interface class PlantManagementRepository {
     String plantId, {
     String? nickname,
     String? placeName,
+    String? personalityType,
   });
 
   Future<ManagedPlant> updateAppearance(
@@ -78,6 +79,7 @@ class PlantManagementApi implements PlantManagementRepository {
     String plantId, {
     String? nickname,
     String? placeName,
+    String? personalityType,
   }) async {
     final normalizedNickname = nickname?.trim();
     final normalizedPlaceName = placeName?.trim();
@@ -100,6 +102,7 @@ class PlantManagementApi implements PlantManagementRepository {
     final body = <String, Object?>{
       'nickname': ?normalizedNickname,
       'place_name': ?normalizedPlaceName,
+      'personality_type': ?personalityType,
     };
     if (body.isEmpty) {
       throw const LeafieApiException(
