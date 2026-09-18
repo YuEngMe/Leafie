@@ -175,6 +175,7 @@ async def test_repository_completes_without_chat_and_notifies_once() -> None:
         user_id=uuid4(),
         nickname="새싹이",
         personality_type="CHIC",
+        body_id="body_circle",
     )
     added = []
 

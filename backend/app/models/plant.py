@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.enums import (
+    BodyType,
     DiaryWeather,
     PersonalityType,
     PlantCategory,
@@ -100,6 +101,7 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
             f"personality_type IN ({enum_values(PersonalityType)})",
             name="personality_type",
         ),
+        CheckConstraint(f"body_id IN ({enum_values(BodyType)})", name="body_id"),
         CheckConstraint(
             "char_length(registration_request_hash) = 64",
             name="registration_request_hash_length",
@@ -135,6 +137,7 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     started_on: Mapped[date] = mapped_column(Date, nullable=False)
     place_name: Mapped[str] = mapped_column(String(50), nullable=False)
     personality_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    body_id: Mapped[str] = mapped_column(String(100), nullable=False)
     color_id: Mapped[str] = mapped_column(String(100), nullable=False)
     hair_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
