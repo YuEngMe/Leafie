@@ -49,6 +49,18 @@ class PersonalityType(StrEnum):
     CHUNGCHEONG = "CHUNGCHEONG"
 
 
+class HairType(StrEnum):
+    SUNFLOWER = "hair_sunflower"
+    CHERRY_TOMATO = "hair_cherry_tomato"
+    HYDRANGEA = "hair_hydrangea"
+    POINTED_SUCCULENT = "hair_pointed_succulent"
+    MONSTERA = "hair_monstera"
+    FLOWER_CACTUS = "hair_flower_cactus"
+    ROSETTE_SUCCULENT = "hair_rosette_succulent"
+    SPROUT = "hair_sprout"
+    DAISY = "hair_daisy"
+
+
 class CareScheduleType(StrEnum):
     WATERING = "WATERING"
     REPOTTING = "REPOTTING"

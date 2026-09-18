@@ -187,7 +187,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "last_repotted_on": null,
   "personality_type": "INTROVERTED",
   "color_id": "GREEN_01",
-  "hair_id": "LEAF_03"
+  "hair_id": "hair_sprout"
 }
 ```
 
@@ -212,7 +212,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
       "species_display_name": "바질",
       "personality_type": "INTROVERTED",
       "color_id": "GREEN_01",
-      "hair_id": "LEAF_03",
+      "hair_id": "hair_sprout",
       "primary_photo_url": "signed-url-or-null",
       "started_on": "2026-07-01"
     }
@@ -241,7 +241,22 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ### `PATCH /plants/{plant_id}/appearance`
 
 ```json
-{ "color_id": "MINT_02", "hair_id": "LEAF_05" }
+{ "color_id": "MINT_02", "hair_id": "hair_monstera" }
+```
+
+`hair_id`는 아래 9개만 허용합니다. 이전 임시 ID와 `NONE`은 신규 등록·수정에
+사용하지 않습니다.
+
+```text
+hair_sunflower
+hair_cherry_tomato
+hair_hydrangea
+hair_pointed_succulent
+hair_monstera
+hair_flower_cactus
+hair_rosette_succulent
+hair_sprout
+hair_daisy
 ```
 
 ### `DELETE /plants/{plant_id}`
@@ -261,7 +276,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
     "days_together": 33,
     "personality_type": "INTROVERTED",
     "color_id": "MINT_02",
-    "hair_id": "LEAF_05",
+    "hair_id": "hair_monstera",
     "primary_photo_url": "signed-url-or-null"
   },
   "room": {

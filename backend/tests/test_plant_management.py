@@ -251,6 +251,8 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"color_id": "  "})
     with pytest.raises(ValidationError):
+        PlantAppearanceUpdateRequest.model_validate({"hair_id": "hair_unknown"})
+    with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"pot_type": "PLASTIC"})
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"accessory_id": "star"})
@@ -264,13 +266,16 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     detail = await service.get_plant(user_id, plant.id)
     updated = await service.update_plant(user_id, plant.id, PlantUpdateRequest(nickname=" 새이름 "))
     appearance = await service.update_appearance(
-        user_id, plant.id, PlantAppearanceUpdateRequest(color_id="yellow")
+        user_id,
+        plant.id,
+        PlantAppearanceUpdateRequest(color_id="yellow", hair_id="hair_monstera"),
     )
 
     assert listed.items[0].started_on == plant.started_on
     assert detail.nickname == "초록이"
     assert updated.nickname == "새이름"
     assert appearance.color_id == "yellow"
+    assert appearance.hair_id == "hair_monstera"
 
     with pytest.raises(AppError) as error:
         await service.get_plant(uuid4(), plant.id)

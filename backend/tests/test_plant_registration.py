@@ -129,7 +129,7 @@ def make_request(**overrides: object) -> PlantCreateRequest:
         "last_repotted_on": "2026-03-01",
         "personality_type": "OUTGOING",
         "color_id": "color_green_01",
-        "hair_id": "hair_leaf_01",
+        "hair_id": "hair_sprout",
     }
     payload.update(overrides)
     return PlantCreateRequest.model_validate(payload)
@@ -390,6 +390,7 @@ async def test_photo_registration_reuses_completed_identification_image() -> Non
             "species_identification_id": uuid4(),
         },
         {"color_id": "   "},
+        {"hair_id": "hair_unknown"},
         {"nickname": "가" * 31},
         {"place_name": "가" * 51},
         {"unexpected": "value"},
