@@ -310,8 +310,6 @@ void main() {
   ) async {
     final draft = _sampleDraft()
       ..placeName = '학교'
-      ..potType = '플라스틱 화분'
-      ..placement = '베란다'
       ..personalityType = 'OUTGOING'
       ..bodyColorId = 'color_orange_01';
 

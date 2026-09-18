@@ -207,11 +207,33 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('20'));
+      await tester.tap(find.text('10'));
       await tester.pumpAndSettle();
 
       expect(find.byType(DiaryEntryScreen), findsOneWidget);
-      expect(find.text('2026년 7월 20일 월요일'), findsOneWidget);
+      expect(find.text('2026년 7월 10일 금요일'), findsOneWidget);
+    });
+
+    testWidgets('오늘 이후 날짜는 글을 열지 않고 안내한다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(
+            store: _MemoryStore(),
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('20'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+      expect(
+        find.text('오늘 이후 날짜에는 다이어리를 쓸 수 없어요.'),
+        findsOneWidget,
+      );
     });
   });
 
