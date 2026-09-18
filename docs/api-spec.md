@@ -186,6 +186,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "last_watered_on": "2026-07-30",
   "last_repotted_on": null,
   "personality_type": "INTROVERTED",
+  "body_id": "body_circle",
   "color_id": "GREEN_01",
   "hair_id": "hair_sprout"
 }
@@ -211,6 +212,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
       "species_reference_id": "basil",
       "species_display_name": "바질",
       "personality_type": "INTROVERTED",
+      "body_id": "body_circle",
       "color_id": "GREEN_01",
       "hair_id": "hair_sprout",
       "primary_photo_url": "signed-url-or-null",
@@ -241,8 +243,15 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ### `PATCH /plants/{plant_id}/appearance`
 
 ```json
-{ "color_id": "MINT_02", "hair_id": "hair_monstera" }
+{
+  "body_id": "body_square",
+  "color_id": "MINT_02",
+  "hair_id": "hair_monstera"
+}
 ```
+
+`body_id`는 `body_circle`, `body_thumb`, `body_square` 중 하나이며 등록 후에도
+컬러·머리와 함께 독립적으로 변경할 수 있습니다. 성격은 별도 필드입니다.
 
 `hair_id`는 아래 9개만 허용합니다. 이전 임시 ID와 `NONE`은 신규 등록·수정에
 사용하지 않습니다.
@@ -275,6 +284,7 @@ hair_daisy
     "started_on": "2026-07-01",
     "days_together": 33,
     "personality_type": "INTROVERTED",
+    "body_id": "body_square",
     "color_id": "MINT_02",
     "hair_id": "hair_monstera",
     "primary_photo_url": "signed-url-or-null"

@@ -199,6 +199,7 @@ def make_plant(user_id: UUID, *, created_at: datetime | None = None) -> Plant:
         started_on=today_in_timezone("Asia/Seoul") - timedelta(days=10),
         place_name="거실",
         personality_type="OUTGOING",
+        body_id="body_circle",
         color_id="green",
         hair_id="leaf",
         created_at=now,
@@ -253,6 +254,8 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"hair_id": "hair_unknown"})
     with pytest.raises(ValidationError):
+        PlantAppearanceUpdateRequest.model_validate({"body_id": "body_unknown"})
+    with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"pot_type": "PLASTIC"})
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"accessory_id": "star"})
@@ -268,7 +271,9 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     appearance = await service.update_appearance(
         user_id,
         plant.id,
-        PlantAppearanceUpdateRequest(color_id="yellow", hair_id="hair_monstera"),
+        PlantAppearanceUpdateRequest(
+            body_id="body_square", color_id="yellow", hair_id="hair_monstera"
+        ),
     )
 
     assert listed.items[0].started_on == plant.started_on
@@ -276,6 +281,7 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     assert updated.nickname == "새이름"
     assert appearance.color_id == "yellow"
     assert appearance.hair_id == "hair_monstera"
+    assert appearance.body_id.value == "body_square"
 
     with pytest.raises(AppError) as error:
         await service.get_plant(uuid4(), plant.id)
@@ -456,6 +462,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     assert home.plant.started_on == plant.started_on
     assert home.plant.days_together == 11
     assert home.plant.personality_type.value == "OUTGOING"
+    assert home.plant.body_id.value == "body_circle"
     assert home.room is not None
     assert home.room.dialogue_key.value == "NORMAL"
     assert home.room.dialogue is None

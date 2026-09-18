@@ -61,6 +61,12 @@ class HairType(StrEnum):
     DAISY = "hair_daisy"
 
 
+class BodyType(StrEnum):
+    CIRCLE = "body_circle"
+    THUMB = "body_thumb"
+    SQUARE = "body_square"
+
+
 class CareScheduleType(StrEnum):
     WATERING = "WATERING"
     REPOTTING = "REPOTTING"

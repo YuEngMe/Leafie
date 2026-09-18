@@ -84,6 +84,15 @@ def test_plant_hair_openapi_exposes_the_nine_supported_designs() -> None:
     ]
 
 
+def test_plant_body_openapi_exposes_the_three_supported_designs() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    assert schemas["BodyType"]["enum"] == [
+        "body_circle",
+        "body_thumb",
+        "body_square",
+    ]
+
+
 PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
     ("GET", "/api/v1/letters", None, None),
     ("GET", "/api/v1/letters/unread-count", None, None),
@@ -138,6 +147,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
             "last_watered_on": "2026-07-30",
             "last_repotted_on": None,
             "personality_type": "OUTGOING",
+            "body_id": "body_circle",
             "color_id": "color_green_01",
             "hair_id": "hair_sprout",
         },

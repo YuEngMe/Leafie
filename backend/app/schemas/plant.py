@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import (
+    BodyType,
     CareEventSource,
     CareEventStatus,
     CareEventType,
@@ -31,6 +32,7 @@ class PlantCreateRequest(BaseModel):
     last_watered_on: Date
     last_repotted_on: Date | None = None
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str = Field(min_length=1, max_length=100)
     hair_id: HairType
 
@@ -68,6 +70,7 @@ class PlantListItemResponse(BaseModel):
     species_reference_id: str
     species_display_name: str
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     primary_photo_url: str | None
@@ -91,6 +94,7 @@ class PlantDetailResponse(BaseModel):
     started_on: Date
     place_name: str
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     created_at: datetime
@@ -126,6 +130,7 @@ class PlantUpdateRequest(BaseModel):
 class PlantAppearanceUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    body_id: BodyType | None = None
     color_id: str | None = Field(default=None, min_length=1, max_length=100)
     hair_id: HairType | None = None
 
@@ -187,6 +192,7 @@ class HomePlantResponse(BaseModel):
     started_on: Date
     days_together: int
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     primary_photo_url: str | None
