@@ -72,6 +72,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   Future<void> _openDay(DateTime date) async {
     if (_openingDay) return;
+    final todayOnly = DateTime(_today.year, _today.month, _today.day);
+    if (DateTime(date.year, date.month, date.day).isAfter(todayOnly)) {
+      setState(() => _selected = date);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('오늘 이후 날짜에는 다이어리를 쓸 수 없어요.')),
+      );
+      return;
+    }
     _openingDay = true;
     setState(() => _selected = date);
     try {

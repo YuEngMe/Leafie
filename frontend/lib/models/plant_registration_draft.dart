@@ -34,18 +34,15 @@ class PlantRegistrationDraft {
   // PLANT-06에서 채움. 함께한 시작일(started_on)은 여기 없음 —
   // 사용자가 입력하지 않고, 등록 제출 시점을 서버가 그대로 1일차로 기록한다.
   String? placeName;
-  String? potType;
-  String? placement;
   DateTime? lastWateredOn;
   DateTime? lastRepottedOn;
 
   // CHAR-01에서 채움. 값은 api-spec.md의 PersonalityType enum 그대로.
   String? personalityType;
 
-  // CHAR-02에서 컬러와 헤어를 선택. 장식은 아직 선택 UI 없음.
+  // CHAR-02에서 컬러와 헤어를 선택.
   String? bodyColorId;
   String? headItem;
-  String? accessory;
 
   PlantRegistrationSnapshot? _submissionSnapshot;
 
@@ -64,14 +61,11 @@ class PlantRegistrationSnapshot {
     required this.speciesReferenceId,
     required this.startedOn,
     required this.placeName,
-    required this.potType,
-    required this.placement,
     required this.lastWateredOn,
     required this.lastRepottedOn,
     required this.personalityType,
     required this.bodyColorId,
     required this.headItem,
-    required this.accessory,
     required this.speciesIdentificationId,
     required this.primaryMediaFileId,
   });
@@ -83,14 +77,11 @@ class PlantRegistrationSnapshot {
         speciesReferenceId: draft.species.referenceId,
         startedOn: draft.startedOn,
         placeName: draft.placeName!,
-        potType: draft.potType,
-        placement: draft.placement,
         lastWateredOn: draft.lastWateredOn!,
         lastRepottedOn: draft.lastRepottedOn,
         personalityType: draft.personalityType!,
         bodyColorId: draft.bodyColorId!,
         headItem: draft.headItem,
-        accessory: draft.accessory,
         speciesIdentificationId: draft.speciesIdentificationId,
         primaryMediaFileId: draft.primaryMediaFileId,
       );
@@ -100,14 +91,11 @@ class PlantRegistrationSnapshot {
   final String speciesReferenceId;
   final DateTime startedOn;
   final String placeName;
-  final String? potType;
-  final String? placement;
   final DateTime lastWateredOn;
   final DateTime? lastRepottedOn;
   final String personalityType;
   final String bodyColorId;
   final String? headItem;
-  final String? accessory;
   final String? speciesIdentificationId;
   final String? primaryMediaFileId;
 }

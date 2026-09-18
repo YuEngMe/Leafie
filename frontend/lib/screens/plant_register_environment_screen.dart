@@ -95,9 +95,6 @@ class _PlantRegisterEnvironmentScreenState
       return;
     }
 
-    // 화분 종류와 실내/실외는 이 화면에 입력 수단이 없다. 기본값을 채워
-    // 보내면 사용자가 고르지 않은 값이 서버에 남으므로 비운 채 넘긴다.
-    // TODO(design): 시안에 화분·위치 선택이 들어오면 여기서 채운다.
     widget.draft
       ..placeName = _placeNameController.text.trim()
       ..lastWateredOn = _lastWateredOn
