@@ -32,6 +32,7 @@ class FakeRepository:
             body_id="body_circle",
             color_id="green",
             hair_id="basil",
+            expression_id="expression_default",
         )
         self.guide = SpeciesCareGuide(
             species_reference_id="basil",

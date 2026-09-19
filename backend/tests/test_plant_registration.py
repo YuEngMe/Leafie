@@ -131,6 +131,7 @@ def make_request(**overrides: object) -> PlantCreateRequest:
         "body_id": "body_circle",
         "color_id": "color_green",
         "hair_id": "hair_sprout",
+        "expression_id": "expression_default",
     }
     payload.update(overrides)
     return PlantCreateRequest.model_validate(payload)
@@ -199,6 +200,7 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert plant.personality_type == "OUTGOING"
     assert plant.body_id == "body_circle"
     assert plant.color_id == "color_green"
+    assert plant.expression_id == "expression_default"
     assert repository.profile is not None
     assert repository.profile.selected_plant_id == plant.id
     assert repository.flush_count == 1
@@ -395,6 +397,7 @@ async def test_photo_registration_reuses_completed_identification_image() -> Non
         {"color_id": "color_unknown"},
         {"body_id": "body_unknown"},
         {"hair_id": "hair_unknown"},
+        {"expression_id": "expression_unknown"},
         {"nickname": "가" * 31},
         {"place_name": "가" * 51},
         {"unexpected": "value"},

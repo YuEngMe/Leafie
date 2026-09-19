@@ -285,6 +285,7 @@ class PlantManagementService:
                     body_id=context.plant.body_id,
                     color_id=context.plant.color_id,
                     hair_id=context.plant.hair_id,
+                    expression_id=context.plant.expression_id,
                     primary_photo_url=await self._photo_url(user_id, context.plant),
                     started_on=context.plant.started_on,
                 )
@@ -391,6 +392,7 @@ class PlantManagementService:
                 body_id=context.plant.body_id,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
+                expression_id=context.plant.expression_id,
                 primary_photo_url=await self._photo_url(user_id, context.plant),
             ),
             room=HomeRoomResponse(
@@ -444,6 +446,7 @@ class PlantManagementService:
             body_id=plant.body_id,
             color_id=plant.color_id,
             hair_id=plant.hair_id,
+            expression_id=plant.expression_id,
             created_at=plant.created_at,
             updated_at=plant.updated_at,
         )

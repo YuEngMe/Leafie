@@ -119,6 +119,7 @@ async def seed(db, queue, *, reserve=True):
                 body_id="body_circle",
                 color_id="green",
                 hair_id="leaf",
+                expression_id="expression_default",
             )
         )
         await session.flush()

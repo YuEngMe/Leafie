@@ -80,6 +80,13 @@ class BodyType(StrEnum):
     SQUARE = "body_square"
 
 
+class ExpressionType(StrEnum):
+    DEFAULT = "expression_default"
+    HAPPY = "expression_happy"
+    NEUTRAL = "expression_neutral"
+    SAD = "expression_sad"
+
+
 class CareScheduleType(StrEnum):
     WATERING = "WATERING"
     REPOTTING = "REPOTTING"

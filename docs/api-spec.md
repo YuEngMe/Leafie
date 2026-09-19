@@ -188,7 +188,8 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "personality_type": "INTROVERTED",
   "body_id": "body_circle",
   "color_id": "color_green",
-  "hair_id": "hair_sprout"
+  "hair_id": "hair_sprout",
+  "expression_id": "expression_default"
 }
 ```
 
@@ -215,6 +216,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
       "body_id": "body_circle",
       "color_id": "color_green",
       "hair_id": "hair_sprout",
+      "expression_id": "expression_default",
       "primary_photo_url": "signed-url-or-null",
       "started_on": "2026-07-01"
     }
@@ -246,12 +248,23 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 {
   "body_id": "body_square",
   "color_id": "color_blue",
-  "hair_id": "hair_monstera"
+  "hair_id": "hair_monstera",
+  "expression_id": "expression_happy"
 }
 ```
 
 `body_id`는 `body_circle`, `body_thumb`, `body_square` 중 하나이며 등록 후에도
-컬러·머리와 함께 독립적으로 변경할 수 있습니다. 성격은 별도 필드입니다.
+컬러·머리·표정과 함께 독립적으로 변경할 수 있습니다. 성격은 별도 필드입니다.
+
+`expression_id`는 아래 4개만 허용합니다. 바디와 독립적으로 선택하므로 프론트는
+바디 3종과 표정 4종을 조합해 표시합니다.
+
+```text
+expression_default
+expression_happy
+expression_neutral
+expression_sad
+```
 
 `color_id`는 아래 10개만 허용합니다.
 
@@ -302,6 +315,7 @@ hair_daisy
     "body_id": "body_square",
     "color_id": "color_blue",
     "hair_id": "hair_monstera",
+    "expression_id": "expression_happy",
     "primary_photo_url": "signed-url-or-null"
   },
   "room": {

@@ -109,6 +109,21 @@ def test_plant_registration_id_is_unique_per_user() -> None:
     assert plants.columns["registration_request_hash"].nullable is False
     assert plants.columns["nickname"].type.length == 30
     assert plants.columns["place_name"].type.length == 50
+    assert plants.columns["expression_id"].nullable is False
+    expression_check = next(
+        str(constraint.sqltext)
+        for constraint in plants.constraints
+        if constraint.name == "ck_plants_expression_id"
+    )
+    assert all(
+        value in expression_check
+        for value in (
+            "expression_default",
+            "expression_happy",
+            "expression_neutral",
+            "expression_sad",
+        )
+    )
     assert {"pot_type", "placement", "accessory_id"}.isdisjoint(plants.columns)
 
 

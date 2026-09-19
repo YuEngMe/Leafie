@@ -78,13 +78,14 @@ erDiagram
 | `body_id` | varchar | `body_circle`, `body_thumb`, `body_square` 중 하나 |
 | `color_id` | varchar | 신규 저장은 확정된 컬러 10종 중 하나 |
 | `hair_id` | varchar | 신규 저장은 확정된 식물 머리 9종 중 하나 |
+| `expression_id` | varchar | `expression_default`, `expression_happy`, `expression_neutral`, `expression_sad` 중 하나 |
 | `primary_media_file_id` | uuid | nullable, 소유 미디어 FK |
 | `client_registration_id` | uuid | 사용자별 멱등 키 |
 | `registration_request_hash` | varchar | 멱등 요청 검증 |
 | `created_at`, `updated_at` | timestamptz | 필수 |
 | `deleted_at` | timestamptz | nullable |
 
-`(user_id, client_registration_id)`는 unique입니다. 바디·컬러·머리는 서로 독립적인
+`(user_id, client_registration_id)`는 unique입니다. 바디·컬러·머리·표정은 서로 독립적인
 꾸미기 값입니다. 컨디션, 화분, 위치 분류와 장식 필드는
 두지 않습니다.
 

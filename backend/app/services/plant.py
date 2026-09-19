@@ -200,6 +200,7 @@ class PlantRegistrationService:
             body_id=request.body_id.value,
             color_id=request.color_id.value,
             hair_id=request.hair_id.value,
+            expression_id=request.expression_id.value,
             created_at=now,
             updated_at=now,
         )
