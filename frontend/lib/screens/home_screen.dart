@@ -147,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
+  int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
 
@@ -216,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
         _serverDialogue = room?.dialogue?.trim();
         _unreadNotificationCount = data.unreadNotificationCount;
+        _unreadLetterCount = data.unreadLetterCount;
         _loadingHome = false;
         _homeError = null;
         if (_serverDialogue?.isNotEmpty == true || hasWateringRequest) {
@@ -408,6 +410,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       'assets/images/home_watering_can.png',
                       fit: BoxFit.contain,
                       semanticLabel: '물뿌리개',
+                    ),
+                  ),
+                if (plant != null && _unreadLetterCount > 0)
+                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. x=319 y=390 55x62.
+                  Positioned(
+                    left: 319,
+                    top: 390,
+                    width: 55,
+                    height: 62.188,
+                    child: Image.asset(
+                      'assets/images/home_letter_badge.png',
+                      fit: BoxFit.contain,
+                      semanticLabel: '새 편지가 도착했어요',
                     ),
                   ),
                 if (plant != null)
