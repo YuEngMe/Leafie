@@ -29,6 +29,7 @@ class HomePlant {
     required this.personalityType,
     this.id,
     this.daysTogether,
+    this.hairId,
   });
 
   final String name;
@@ -36,6 +37,10 @@ class HomePlant {
   final DateTime? startedOn;
   final String? personalityType;
   final int? daysTogether;
+
+  /// 종으로 자동 매핑된 헤어. 서버가 준 값이 없으면(예: 위젯 생성자로 직접
+  /// 넘긴 경우) null이고, 이때 캐릭터는 민머리로 그려진다.
+  final String? hairId;
 
   /// 등록한 날이 1일차다(2026-08-04 팀 확인).
   int get dayCount {
@@ -207,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 startedOn: DateTime.tryParse(plant.startedOn),
                 personalityType: plant.personalityType,
                 daysTogether: plant.daysTogether,
+                hairId: plant.hairId,
               );
         _serverDialogue = room?.dialogue?.trim();
         _unreadNotificationCount = data.unreadNotificationCount;
@@ -392,12 +398,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     serverDialogue: _serverDialogue,
                   ),
                 if (plant != null)
-                  const Positioned(
-                    left: 78,
-                    top: 282,
-                    width: 248,
-                    height: 248,
-                    child: PlantCharacterArt(width: 248, sprouted: true),
+                  // 시안(4534:8528) 분무기: x=13.48 y=496 83.98x67.75.
+                  Positioned(
+                    left: 13.479,
+                    top: 496,
+                    width: 83.98,
+                    height: 67.751,
+                    child: Image.asset(
+                      'assets/images/home_watering_can.png',
+                      fit: BoxFit.contain,
+                      semanticLabel: '물뿌리개',
+                    ),
+                  ),
+                if (plant != null)
+                  // 시안(4534:8101) 캐릭터 몸통: x=123 y=396 155.2x143.
+                  // 새 body PNG는 그림이 캔버스의 89.7%(가로)/88.8%(세로)라,
+                  // 몸통 실물이 155.2가 되도록 위젯 폭을 155.2/0.897≈173으로
+                  // 잡고 가로 여백 5.15%·세로 여백 5.6%만큼 위치를 당긴다.
+                  Positioned(
+                    left: 123 - 173 * 0.0515,
+                    top: 396 - 173 * 0.056,
+                    width: 173,
+                    child: PlantCharacterArt(width: 173),
                   ),
                 if (plant != null)
                   Positioned(

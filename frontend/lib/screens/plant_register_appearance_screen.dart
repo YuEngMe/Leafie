@@ -17,14 +17,18 @@ const _colors = [
   (id: 'color_pink_01', label: '핑크', color: Color(0xFFFFC1DA)),
 ];
 
-// Stable client IDs for the five exported Figma 2555:67 hair options.
-const _hairs = [
-  (id: 'hair_cactus_column_01', label: '기둥 선인장', asset: '32'),
-  (id: 'hair_cactus_yellow_flower_01', label: '노란 꽃 선인장', asset: '34'),
-  (id: 'hair_cactus_heart_01', label: '하트 선인장', asset: '36'),
-  (id: 'hair_cactus_pink_flower_01', label: '분홍 꽃 선인장', asset: '35'),
-  (id: 'hair_cactus_bouquet_01', label: '꽃송이 선인장', asset: '33'),
-];
+/// 식별된 종의 category(`PlantSpeciesCandidate.categorySuggestion`)로 헤어를
+/// 자동 매핑한다. 사용자는 헤어를 고르지 않는다 — 종에 따라 결정된다.
+String hairForCategory(String category) => switch (category) {
+  'FLOWER' => 'hair_sunflower',
+  'SUCCULENT_CACTUS' => 'hair_flower_cactus',
+  'FOLIAGE' => 'hair_monstera',
+  'FRUIT' => 'hair_cherry_tomato',
+  'HERB' => 'hair_sprout',
+  'TREE' => 'hair_sprout',
+  'VINE' => 'hair_sprout',
+  _ => 'hair_sprout',
+};
 
 class PlantRegisterAppearanceScreen extends StatefulWidget {
   const PlantRegisterAppearanceScreen({super.key, required this.draft});
@@ -35,8 +39,11 @@ class PlantRegisterAppearanceScreen extends StatefulWidget {
 
 class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
   late String? _selectedColorId = widget.draft.bodyColorId;
-  late String? _selectedHairId = widget.draft.headItem;
-  bool _hair = false;
+  // 헤어는 사용자가 고르지 않는다. 종 category로 자동 매핑된 값을 그대로
+  // draft에 저장하고, 미리보기에도 그 헤어를 얹어 보여준다.
+  late final String _selectedHairId =
+      widget.draft.headItem ??
+      hairForCategory(widget.draft.species.categorySuggestion);
 
   void _confirm() {
     if (_selectedColorId == null) return;
@@ -72,7 +79,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
             child: Column(
               children: [
                 SizedBox(height: math.max(12, constraints.maxHeight - 440)),
-                const PlantCharacterArt(width: 200),
+                PlantCharacterArt(width: 200),
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
@@ -87,142 +94,41 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                   ),
                   child: Column(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (final label in ['컬러', '헤어'])
-                            Semantics(
-                              selected: _hair == (label == '헤어'),
-                              child: TextButton(
-                                onPressed: () =>
-                                    setState(() => _hair = label == '헤어'),
-                                child: Text(
-                                  label,
-                                  style: kSmallStyle.copyWith(
-                                    color: _hair == (label == '헤어')
-                                        ? kOrangeMain
-                                        : kTextLight,
-                                  ),
-                                ),
+                      const SizedBox(height: 8),
+                      ArcAppearancePicker(
+                        initialIndex: math.max(
+                          0,
+                          _colors.indexWhere(
+                            (c) =>
+                                c.id == (_selectedColorId ?? 'color_mint_01'),
+                          ),
+                        ),
+                        labels: [for (final c in _colors) c.label],
+                        onSelected: (index) => setState(() {
+                          _selectedColorId = _colors[index].id;
+                        }),
+                        itemBuilder: (context, index) {
+                          final option = _colors[index];
+                          return Container(
+                            key: ValueKey(option.id),
+                            decoration: BoxDecoration(
+                              color: option.color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _selectedColorId == option.id
+                                    ? kOrangeMain
+                                    : Colors.transparent,
+                                width: 3,
                               ),
                             ),
-                        ],
+                          );
+                        },
                       ),
-                      IndexedStack(
-                        index: _hair ? 1 : 0,
-                        children: [
-                          Column(
-                            children: [
-                              ArcAppearancePicker(
-                                initialIndex: math.max(
-                                  0,
-                                  _colors.indexWhere(
-                                    (c) =>
-                                        c.id ==
-                                        (_selectedColorId ?? 'color_mint_01'),
-                                  ),
-                                ),
-                                labels: [for (final c in _colors) c.label],
-                                onSelected: (index) => setState(() {
-                                  _selectedColorId = _colors[index].id;
-                                }),
-                                itemBuilder: (context, index) {
-                                  final option = _colors[index];
-                                  return Container(
-                                    key: ValueKey(option.id),
-                                    decoration: BoxDecoration(
-                                      color: option.color,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: _selectedColorId == option.id
-                                            ? kOrangeMain
-                                            : Colors.transparent,
-                                        width: 3,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Text(
-                                _selectedColorId == null
-                                    ? '밀거나 눌러 컬러를 선택해주세요'
-                                    : '${_colors.firstWhere((c) => c.id == _selectedColorId).label} 선택됨',
-                                style: kSmallStyle,
-                              ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              ArcAppearancePicker(
-                                initialIndex: math.max(
-                                  0,
-                                  _hairs.indexWhere(
-                                    (h) =>
-                                        h.id ==
-                                        (_selectedHairId ??
-                                            'hair_cactus_heart_01'),
-                                  ),
-                                ),
-                                labels: [for (final h in _hairs) h.label],
-                                onSelected: (index) => setState(() {
-                                  _selectedHairId = _hairs[index].id;
-                                }),
-                                itemBuilder: (context, index) {
-                                  final option = _hairs[index];
-                                  return Container(
-                                    key: ValueKey(option.id),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: _selectedHairId == option.id
-                                            ? kOrangeMain
-                                            : Colors.transparent,
-                                        width: 3,
-                                      ),
-                                    ),
-                                    child: FittedBox(
-                                      fit: BoxFit.contain,
-                                      child: SizedBox(
-                                        width: 140,
-                                        height: 130,
-                                        child: ClipRect(
-                                          child: Stack(
-                                            children: [
-                                              Positioned(
-                                                left: -switch (option.asset) {
-                                                  '32' || '33' => 30.0,
-                                                  '35' => 335.0,
-                                                  _ => 185.0,
-                                                },
-                                                top:
-                                                    option.asset == '36' ||
-                                                        option.asset == '33'
-                                                    ? -165
-                                                    : -25,
-                                                width: 512,
-                                                height: 512,
-                                                child: Image.asset(
-                                                  'assets/images/plant_hair_catalog.png',
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Text(
-                                _hairs.any((h) => h.id == _selectedHairId)
-                                    ? '${_hairs.firstWhere((h) => h.id == _selectedHairId).label} 선택됨'
-                                    : '밀거나 눌러 헤어를 선택해주세요',
-                                style: kSmallStyle,
-                              ),
-                            ],
-                          ),
-                        ],
+                      Text(
+                        _selectedColorId == null
+                            ? '밀거나 눌러 컬러를 선택해주세요'
+                            : '${_colors.firstWhere((c) => c.id == _selectedColorId).label} 선택됨',
+                        style: kSmallStyle,
                       ),
                       const SizedBox(height: 16),
                     ],

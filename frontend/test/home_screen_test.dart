@@ -214,7 +214,7 @@ void main() {
               nickname: '서버새싹',
               personalityType: 'OUTGOING',
               colorId: 'color_orange_01',
-              hairId: 'NONE',
+              hairId: 'hair_sprout',
               startedOn: '2026-05-01',
               daysTogether: 128,
               primaryPhotoUrl: null,
@@ -262,7 +262,7 @@ void main() {
               nickname: plantId == 'plant-b' ? '둘째' : '첫째',
               personalityType: 'OUTGOING',
               colorId: 'color_orange_01',
-              hairId: 'NONE',
+              hairId: 'hair_sprout',
               startedOn: '2026-05-01',
               daysTogether: 3,
               primaryPhotoUrl: null,
@@ -302,7 +302,7 @@ ManagedPlant _managedPlant(
   primaryPhotoUrl: null,
   personalityType: 'OUTGOING',
   colorId: 'color_orange_01',
-  hairId: 'NONE',
+  hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))

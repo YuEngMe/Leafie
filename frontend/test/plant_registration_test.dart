@@ -174,7 +174,7 @@ void main() {
       MaterialApp(
         home: PlantSpeciesSearchScreen(
           name: '씩씩이',
-          photoPicker: () async => File('assets/images/leafie_character.png'),
+          photoPicker: () async => File('assets/images/body_circle.png'),
         ),
       ),
     );
@@ -200,7 +200,7 @@ void main() {
           },
           galleryPhotoPicker: () async {
             galleryCalls++;
-            return File('assets/images/leafie_character.png');
+            return File('assets/images/body_circle.png');
           },
         ),
       ),

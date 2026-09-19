@@ -52,6 +52,7 @@ class _PlantRegisterCompleteScreenState
                 startedOn: snapshot?.startedOn ?? widget.draft.startedOn,
                 personalityType:
                     snapshot?.personalityType ?? widget.draft.personalityType,
+                hairId: snapshot?.headItem ?? widget.draft.headItem,
               ),
             ),
           ),
@@ -115,7 +116,6 @@ class _PlantRegisterCompleteScreenState
                   ),
                   child: PlantCharacterArt(
                     width: compact ? 150 : AppLayout.completionCharacterWidth,
-                    sprouted: true,
                   ),
                 ),
                 const Spacer(),

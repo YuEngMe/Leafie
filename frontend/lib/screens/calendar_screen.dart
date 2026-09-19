@@ -13,6 +13,7 @@ import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 enum CalendarViewMode { month, week }
 
@@ -381,19 +382,16 @@ class _CalendarHeader extends StatelessWidget {
                   border: Border.all(color: kAppleGreen, width: 1),
                 ),
                 child: photoUrl == null
-                    ? Padding(
-                        padding: const EdgeInsets.all(5),
-                        child: Image.asset(
-                          'assets/images/leafie_character_sprout.png',
-                          fit: BoxFit.contain,
-                        ),
+                    ? const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: PlantCharacterArt(width: 30.519),
                       )
                     : Image.network(
                         photoUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Image.asset(
-                          'assets/images/leafie_character_sprout.png',
-                          fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: PlantCharacterArt(width: 30.519),
                         ),
                       ),
               ),

@@ -154,7 +154,7 @@ Future<void> launch(
     final context = tester.element(find.byType(HomeScreen));
     for (final asset in [
       'home_bg_default',
-      'leafie_character',
+      'body_circle',
       'mailbox_house_v2',
       'mailbox_foreground',
       'mail_paper_texture',

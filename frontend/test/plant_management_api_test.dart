@@ -23,7 +23,7 @@ Map<String, Object?> _plantJson({
   'species_display_name': '몬스테라',
   'personality_type': 'CUTE',
   'color_id': colorId,
-  'hair_id': 'NONE',
+  'hair_id': 'hair_sprout',
   'primary_photo_url': null,
   'started_on': '2026-08-26',
   if (detail) ...{

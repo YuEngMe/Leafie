@@ -156,7 +156,7 @@ void main() {
               nickname: plantId == 'plant-b' ? '둘째' : '첫째',
               personalityType: 'OUTGOING',
               colorId: 'green',
-              hairId: 'NONE',
+              hairId: 'hair_sprout',
               startedOn: '2026-09-15',
               daysTogether: 3,
               primaryPhotoUrl: null,
@@ -525,7 +525,7 @@ ManagedPlant _managedPlant(
   primaryPhotoUrl: null,
   personalityType: 'OUTGOING',
   colorId: 'color_orange_01',
-  hairId: 'NONE',
+  hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))

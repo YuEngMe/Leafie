@@ -19,14 +19,12 @@ const double _kAppBarBand = 46 + YesoAppBar.height;
 const double _kGrassAssetTop = 770;
 const double _kGrassAssetHeight = 75;
 
-/// 캐릭터 PNG는 캔버스 둘레에 투명 여백이 있다. `leafie_character.png`는
-/// 331x298 안에서 실제 그림이 243x206(가로 73.41%)이고, 새싹 PNG는
-/// 512x512 안에서 362x413(가로 70.70%)이다. 그래서 시안 노드 폭을 그대로
-/// `PlantCharacterArt(width:)`에 넣으면 캐릭터가 시안의 70% 남짓으로
-/// 그려진다. 등록 흐름이 232·250 같은 값을 쓰는 것도 같은 보정이다.
+/// 캐릭터 PNG는 캔버스 둘레에 투명 여백이 있다. 새 body PNG(`body_circle.png`
+/// 등)는 590x549 안에서 실제 그림이 549x509(가로 93.05%)로, 여백이 거의
+/// 없다. 시안 노드 폭을 그대로 `PlantCharacterArt(width:)`에 넣으면 그림이
+/// 시안보다 살짝 작게 그려지므로 이 비율로 보정한다.
 /// 시안 노드 폭을 넣으면 그림이 그 폭으로 보이는 값을 돌려준다.
-double plantArtWidthFor(double figmaWidth, {bool sprouted = false}) =>
-    figmaWidth / (sprouted ? 0.7070 : 0.7341);
+double plantArtWidthFor(double figmaWidth) => figmaWidth / 0.897;
 
 /// 상세 흐름 화면 몸통. SafeArea 안에서 시안 y를 그대로 쓰게 해 준다.
 class PlantDetailBody extends StatelessWidget {
