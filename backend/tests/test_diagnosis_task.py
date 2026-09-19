@@ -176,6 +176,7 @@ async def test_repository_completes_without_chat_and_notifies_once() -> None:
         nickname="새싹이",
         personality_type="CHIC",
         body_id="body_circle",
+        expression_id="expression_default",
     )
     added = []
 

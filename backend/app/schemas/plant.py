@@ -12,6 +12,7 @@ from app.models.enums import (
     CareEventType,
     CareViewStatus,
     ColorType,
+    ExpressionType,
     HairType,
     PersonalityType,
     PlantCategory,
@@ -36,6 +37,7 @@ class PlantCreateRequest(BaseModel):
     body_id: BodyType
     color_id: ColorType
     hair_id: HairType
+    expression_id: ExpressionType
 
     @field_validator(
         "nickname",
@@ -73,6 +75,7 @@ class PlantListItemResponse(BaseModel):
     body_id: BodyType
     color_id: str
     hair_id: str
+    expression_id: ExpressionType
     primary_photo_url: str | None
     started_on: Date
 
@@ -97,6 +100,7 @@ class PlantDetailResponse(BaseModel):
     body_id: BodyType
     color_id: str
     hair_id: str
+    expression_id: ExpressionType
     created_at: datetime
     updated_at: datetime
 
@@ -133,6 +137,7 @@ class PlantAppearanceUpdateRequest(BaseModel):
     body_id: BodyType | None = None
     color_id: ColorType | None = None
     hair_id: HairType | None = None
+    expression_id: ExpressionType | None = None
 
     @model_validator(mode="after")
     def require_change(self) -> "PlantAppearanceUpdateRequest":
@@ -185,6 +190,7 @@ class HomePlantResponse(BaseModel):
     body_id: BodyType
     color_id: str
     hair_id: str
+    expression_id: ExpressionType
     primary_photo_url: str | None
 
 

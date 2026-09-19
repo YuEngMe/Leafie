@@ -202,6 +202,7 @@ def make_plant(user_id: UUID, *, created_at: datetime | None = None) -> Plant:
         body_id="body_circle",
         color_id="green",
         hair_id="leaf",
+        expression_id="expression_default",
         created_at=now,
         updated_at=now,
     )
@@ -256,6 +257,8 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"body_id": "body_unknown"})
     with pytest.raises(ValidationError):
+        PlantAppearanceUpdateRequest.model_validate({"expression_id": "expression_unknown"})
+    with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"pot_type": "PLASTIC"})
     with pytest.raises(ValidationError):
         PlantAppearanceUpdateRequest.model_validate({"accessory_id": "star"})
@@ -272,7 +275,10 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
         user_id,
         plant.id,
         PlantAppearanceUpdateRequest(
-            body_id="body_square", color_id="color_yellow", hair_id="hair_monstera"
+            body_id="body_square",
+            color_id="color_yellow",
+            hair_id="hair_monstera",
+            expression_id="expression_happy",
         ),
     )
 
@@ -282,6 +288,7 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     assert appearance.color_id == "color_yellow"
     assert appearance.hair_id == "hair_monstera"
     assert appearance.body_id.value == "body_square"
+    assert appearance.expression_id.value == "expression_happy"
 
     with pytest.raises(AppError) as error:
         await service.get_plant(uuid4(), plant.id)
@@ -463,6 +470,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     assert home.plant.days_together == 11
     assert home.plant.personality_type.value == "OUTGOING"
     assert home.plant.body_id.value == "body_circle"
+    assert home.plant.expression_id.value == "expression_default"
     assert home.room is not None
     assert home.room.dialogue_key.value == "NORMAL"
     assert home.room.dialogue is None

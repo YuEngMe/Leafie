@@ -23,6 +23,7 @@ from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMix
 from app.models.enums import (
     BodyType,
     DiaryWeather,
+    ExpressionType,
     PersonalityType,
     PlantCategory,
     SpeciesSelectionMethod,
@@ -103,6 +104,10 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         ),
         CheckConstraint(f"body_id IN ({enum_values(BodyType)})", name="body_id"),
         CheckConstraint(
+            f"expression_id IN ({enum_values(ExpressionType)})",
+            name="expression_id",
+        ),
+        CheckConstraint(
             "char_length(registration_request_hash) = 64",
             name="registration_request_hash_length",
         ),
@@ -140,6 +145,7 @@ class Plant(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     body_id: Mapped[str] = mapped_column(String(100), nullable=False)
     color_id: Mapped[str] = mapped_column(String(100), nullable=False)
     hair_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    expression_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
 class PlantPersonalityChange(Base, UUIDPrimaryKeyMixin):

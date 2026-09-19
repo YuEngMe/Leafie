@@ -141,6 +141,7 @@ def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> 
                 body_id="body_square",
                 color_id="color_blue",
                 hair_id="hair_sprout",
+                expression_id="expression_happy",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
@@ -176,6 +177,7 @@ def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> 
         "body_id": "body_thumb",
         "color_id": "color_green",
         "hair_id": "hair_sprout",
+        "expression_id": "expression_default",
     }
     created = client.post("/api/v1/plants", json=create_payload)
     assert created.status_code == 201
@@ -183,12 +185,20 @@ def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> 
 
     updated = client.patch(
         f"/api/v1/plants/{plant_id}/appearance",
-        json={"body_id": "body_square", "color_id": "color_blue"},
+        json={
+            "body_id": "body_square",
+            "color_id": "color_blue",
+            "expression_id": "expression_happy",
+        },
     )
     assert updated.status_code == 200
     assert updated.json()["body_id"] == "body_square"
     assert management.update_appearance.await_args.args[2].body_id.value == "body_square"
     assert management.update_appearance.await_args.args[2].color_id.value == "color_blue"
+    assert (
+        management.update_appearance.await_args.args[2].expression_id.value
+        == "expression_happy"
+    )
 
     invalid = client.patch(
         f"/api/v1/plants/{plant_id}/appearance",
@@ -201,6 +211,12 @@ def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> 
         json={"color_id": "color_unknown"},
     )
     assert invalid_color.status_code == 422
+
+    invalid_expression = client.patch(
+        f"/api/v1/plants/{plant_id}/appearance",
+        json={"expression_id": "expression_unknown"},
+    )
+    assert invalid_expression.status_code == 422
     assert management.update_appearance.await_count == 1
 
 
@@ -261,6 +277,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
             "body_id": "body_circle",
             "color_id": "color_green",
             "hair_id": "hair_sprout",
+            "expression_id": "expression_default",
         },
         None,
     ),
