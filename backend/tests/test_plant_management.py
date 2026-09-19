@@ -272,14 +272,14 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
         user_id,
         plant.id,
         PlantAppearanceUpdateRequest(
-            body_id="body_square", color_id="yellow", hair_id="hair_monstera"
+            body_id="body_square", color_id="color_yellow", hair_id="hair_monstera"
         ),
     )
 
     assert listed.items[0].started_on == plant.started_on
     assert detail.nickname == "초록이"
     assert updated.nickname == "새이름"
-    assert appearance.color_id == "yellow"
+    assert appearance.color_id == "color_yellow"
     assert appearance.hair_id == "hair_monstera"
     assert appearance.body_id.value == "body_square"
 

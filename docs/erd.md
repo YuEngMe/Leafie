@@ -76,7 +76,7 @@ erDiagram
 | `started_on` | date | 필수, 미래 불가 |
 | `personality_type` | enum | 6종 중 하나 |
 | `body_id` | varchar | `body_circle`, `body_thumb`, `body_square` 중 하나 |
-| `color_id` | varchar | 필수 |
+| `color_id` | varchar | 신규 저장은 확정된 컬러 10종 중 하나 |
 | `hair_id` | varchar | 신규 저장은 확정된 식물 머리 9종 중 하나 |
 | `primary_media_file_id` | uuid | nullable, 소유 미디어 FK |
 | `client_registration_id` | uuid | 사용자별 멱등 키 |
