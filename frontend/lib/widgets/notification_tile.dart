@@ -30,16 +30,15 @@ const Color kNotificationDotRead = Color(0xFFCCCBCB);
 /// 3448:28 제목.
 const Color kNotificationTitleColor = Color(0xFF1F2E21);
 
-/// 시안의 캐릭터 PNG. `NotificationData`에 어떤 캐릭터인지 알려주는 필드가
-/// 없어 종류별로 고를 수 없다.
-// TODO(design): 알림에 캐릭터/식물 이미지 필드가 생기면 종류별 에셋으로 바꾼다.
-const String kNotificationCharacterAsset =
-    'assets/images/notification_character.png';
+/// 알림 캐릭터. 지금은 새 2D 기본 캐릭터를 고정으로 쓴다.
+// TODO(backend): 알림 응답에 hair_id/color_id가 생기면 알림별 식물
+// 캐릭터(종별 헤어)로 바꾼다. (백엔드에 필드 추가 요청함)
+const String kNotificationCharacterAsset = 'assets/images/body_circle.png';
 
-/// 시안 3448:4408 캐릭터 박스(30.904×46.5, 타일 안에서 세로 중앙, x=32).
-const double kNotificationCharacterWidth = 30.904;
-const double kNotificationCharacterHeight = 46.5;
-const double kNotificationCharacterLeft = 32 - kNotificationTileLeft;
+/// 시안(4534:19902) 캐릭터 박스 48×48, 타일 안에서 세로 중앙, x=20.
+const double kNotificationCharacterWidth = 48;
+const double kNotificationCharacterHeight = 48;
+const double kNotificationCharacterLeft = 20 - kNotificationTileLeft;
 
 class NotificationTile extends StatelessWidget {
   const NotificationTile({
