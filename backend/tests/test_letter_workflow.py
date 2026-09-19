@@ -116,6 +116,7 @@ async def seed(db, queue, *, reserve=True):
                 started_on=date(2026, 1, 1),
                 place_name="집",
                 personality_type="INTROVERTED",
+                body_id="body_circle",
                 color_id="green",
                 hair_id="leaf",
             )

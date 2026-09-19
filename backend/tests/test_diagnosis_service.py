@@ -29,6 +29,7 @@ class FakeRepository:
             started_on=date(2026, 7, 1),
             place_name="학교",
             personality_type="OUTGOING",
+            body_id="body_circle",
             color_id="green",
             hair_id="basil",
         )

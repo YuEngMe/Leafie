@@ -6,10 +6,12 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import (
+    BodyType,
     CareEventSource,
     CareEventStatus,
     CareEventType,
     CareViewStatus,
+    ColorType,
     HairType,
     PersonalityType,
     PlantCategory,
@@ -31,14 +33,14 @@ class PlantCreateRequest(BaseModel):
     last_watered_on: Date
     last_repotted_on: Date | None = None
     personality_type: PersonalityType
-    color_id: str = Field(min_length=1, max_length=100)
+    body_id: BodyType
+    color_id: ColorType
     hair_id: HairType
 
     @field_validator(
         "nickname",
         "species_reference_id",
         "place_name",
-        "color_id",
     )
     @classmethod
     def strip_nonblank_text(cls, value: str) -> str:
@@ -68,6 +70,7 @@ class PlantListItemResponse(BaseModel):
     species_reference_id: str
     species_display_name: str
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     primary_photo_url: str | None
@@ -91,6 +94,7 @@ class PlantDetailResponse(BaseModel):
     started_on: Date
     place_name: str
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     created_at: datetime
@@ -126,18 +130,9 @@ class PlantUpdateRequest(BaseModel):
 class PlantAppearanceUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    color_id: str | None = Field(default=None, min_length=1, max_length=100)
+    body_id: BodyType | None = None
+    color_id: ColorType | None = None
     hair_id: HairType | None = None
-
-    @field_validator("color_id")
-    @classmethod
-    def strip_text(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("공백만 입력할 수 없습니다.")
-        return stripped
 
     @model_validator(mode="after")
     def require_change(self) -> "PlantAppearanceUpdateRequest":
@@ -187,6 +182,7 @@ class HomePlantResponse(BaseModel):
     started_on: Date
     days_together: int
     personality_type: PersonalityType
+    body_id: BodyType
     color_id: str
     hair_id: str
     primary_photo_url: str | None
