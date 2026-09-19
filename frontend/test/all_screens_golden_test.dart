@@ -63,11 +63,7 @@ void main() {
           context,
         ),
         precacheImage(
-          const AssetImage('assets/images/leafie_character.png'),
-          context,
-        ),
-        precacheImage(
-          const AssetImage('assets/images/leafie_character_sprout.png'),
+          const AssetImage('assets/images/body_circle.png'),
           context,
         ),
         for (final asset in [

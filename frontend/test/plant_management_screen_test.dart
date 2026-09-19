@@ -20,7 +20,7 @@ ManagedPlant _plant({
   primaryPhotoUrl: null,
   personalityType: 'CUTE',
   colorId: colorId,
-  hairId: 'NONE',
+  hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))

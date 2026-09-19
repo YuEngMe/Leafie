@@ -286,7 +286,8 @@ Map<String, Object?> _buildPayload(PlantRegistrationSnapshot draft) {
     'personality_type': draft.personalityType,
     'color_id': draft.bodyColorId.trim(),
     // 헤어 선택 UI를 거치지 않아도 서버의 필수 계약을 지킨다.
-    'hair_id': _nonBlankOr(draft.headItem, 'NONE'),
+    // 백엔드 HairType enum에는 'NONE'이 없어 유효한 기본값을 대신 쓴다.
+    'hair_id': _nonBlankOr(draft.headItem, 'hair_sprout'),
   };
 }
 

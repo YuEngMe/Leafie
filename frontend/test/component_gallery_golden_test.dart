@@ -37,7 +37,7 @@ void main() {
           context,
         ),
         precacheImage(
-          const AssetImage('assets/images/leafie_character.png'),
+          const AssetImage('assets/images/body_circle.png'),
           context,
         ),
       ]);

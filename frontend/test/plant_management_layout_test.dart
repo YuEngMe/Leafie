@@ -7,6 +7,7 @@ import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 
 /// 내 캐릭터(식물 관리) 흐름 8프레임의 좌표·색·문구를 시안과 맞춘다.
@@ -34,7 +35,7 @@ ManagedPlant _plant({
   primaryPhotoUrl: null,
   personalityType: personalityType,
   colorId: colorId,
-  hairId: 'NONE',
+  hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))
@@ -47,6 +48,7 @@ class _FakeRepository implements PlantManagementRepository {
   _FakeRepository(this.plants);
 
   List<ManagedPlant> plants;
+  String? appearanceHairId;
 
   @override
   Future<List<ManagedPlant>> listPlants() async => List.of(plants);
@@ -100,9 +102,12 @@ class _FakeRepository implements PlantManagementRepository {
     String plantId, {
     String? colorId,
     String? hairId,
-  }) async => plants
-      .firstWhere((item) => item.id == plantId)
-      .copyWith(colorId: colorId);
+  }) async {
+    appearanceHairId = hairId;
+    return plants
+        .firstWhere((item) => item.id == plantId)
+        .copyWith(colorId: colorId, hairId: hairId);
+  }
 
   @override
   Future<void> deletePlant(String plantId) async =>
@@ -161,9 +166,11 @@ void main() {
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
       // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
-      // 새싹 PNG 그림은 캔버스 아래 (512-476)/512 = 7.03%를 남긴다.
-      final drawn = plantArtWidthFor(61.219, sprouted: true);
-      final inkBottomGap = drawn * (512 - 476) / 512;
+      // body_circle.png 캔버스 698x649, 그림 bbox (36,36,662,612):
+      // 가로 그림 89.7%, 세로 아래 여백 (649-612)/649 = 5.70%.
+      final drawn = plantArtWidthFor(61.219);
+      final drawnHeight = drawn * 649 / 698;
+      final inkBottomGap = drawnHeight * (649 - 612) / 649;
 
       for (final entry in {'1': 98.5, '2': 200.5, '3': 305.5}.entries) {
         final rect = tester.getRect(
@@ -172,7 +179,7 @@ void main() {
         expect(rect.center.dx, _closeTo1px(entry.value));
         expect(rect.bottom - inkBottomGap, _closeTo1px(319));
         // 시안 캐릭터 61.22 폭이 실제로 그만큼 보이도록 그려진다.
-        expect(rect.width * 0.7070, _closeTo1px(61.219));
+        expect(rect.width * 0.897, _closeTo1px(61.219));
       }
 
       // 4번째는 2행 첫 칸. 선반 2는 y=441.
@@ -442,7 +449,7 @@ void main() {
       ),
     );
 
-    testWidgets('헤드라인·탭·체크 원 좌표', (tester) async {
+    testWidgets('헤드라인·컬러 라벨·체크 원 좌표', (tester) async {
       await pump(tester);
 
       // 2568:1786 앱바, 2568:1874 헤드라인 top 140.
@@ -451,12 +458,11 @@ void main() {
       expect(headline.top, _closeTo1px(140));
       expect(headline.center.dx, _closeTo1px(201));
 
-      // 2568:1806/1807 탭 글자 x=159 / 211, y=595.
+      // 2568:1806 탭 글자 x=159 y=595. 헤어 탭은 없앴고 컬러만 남는다.
       final colorTab = tester.getRect(find.text('컬러'));
       expect(colorTab.center.dx, _closeTo1px(159 + 11));
       expect(colorTab.center.dy, _closeTo1px(595 + 7));
-      final hairTab = tester.getRect(find.text('헤어'));
-      expect(hairTab.center.dx, _closeTo1px(211 + 11));
+      expect(find.text('헤어'), findsNothing);
 
       // 2568:1811 체크 원. 프레임 38x38의 중심이 (201, 779)이고, SVG는
       // 그림자까지 46x46으로 그려진다.
@@ -507,18 +513,43 @@ void main() {
       expect(purple.center.dy, _closeTo1px(697));
     });
 
-    testWidgets('헤어 탭으로 넘기면 스와치가 사라진다', (tester) async {
+    testWidgets('헤어는 고를 수 없고 미리보기에도 얹지 않는다', (tester) async {
       await pump(tester);
 
-      await tester.tap(find.byKey(const ValueKey('appearance_tab_헤어')));
+      // 헤어 스와치/피커가 전혀 없다.
+      for (final id in const [
+        'hair_sunflower',
+        'hair_cherry_tomato',
+        'hair_hydrangea',
+        'hair_pointed_succulent',
+        'hair_monstera',
+        'hair_flower_cactus',
+        'hair_rosette_succulent',
+        'hair_sprout',
+        'hair_daisy',
+      ]) {
+        expect(find.byKey(ValueKey('appearance_$id')), findsNothing);
+      }
+
+      // 새 캐릭터는 헤어를 얹지 않는다(hairId 파라미터 자체가 없어졌다).
+      expect(find.byType(PlantCharacterArt), findsOneWidget);
+    });
+
+    testWidgets('컬러만 바꾸고 적용하면 updateAppearance에 hairId 없이 colorId만 전달된다', (
+      tester,
+    ) async {
+      final repository = _FakeRepository([_plant()]);
+      await _pumpScreen(
+        tester,
+        PlantEditAppearanceScreen(plant: _plant(), repository: repository),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('appearance_color_purple_01')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('appearance_color_mint_01')),
-        findsNothing,
-      );
-      // 헤어 PNG 에셋이 아직 없어 안내만 둔다.
-      expect(find.text('헤어 꾸미기는 준비 중이에요'), findsOneWidget);
+      expect(repository.appearanceHairId, isNull);
     });
   });
 }

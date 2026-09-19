@@ -27,12 +27,12 @@ PlantRegistrationDraft _completeDraft() =>
 
 void main() {
   test('선택한 헤어 ID가 등록 요청과 고정된 초안에 유지된다', () {
-    final draft = _completeDraft()..headItem = 'hair_cactus_heart_01';
-    expect(buildPlantCreateRequest(draft)['hair_id'], 'hair_cactus_heart_01');
+    final draft = _completeDraft()..headItem = 'hair_sunflower';
+    expect(buildPlantCreateRequest(draft)['hair_id'], 'hair_sunflower');
     final snapshot = draft.freezeForSubmission();
-    draft.headItem = 'hair_cactus_column_01';
-    expect(snapshot.headItem, 'hair_cactus_heart_01');
-    expect(draft.freezeForSubmission().headItem, 'hair_cactus_heart_01');
+    draft.headItem = 'hair_monstera';
+    expect(snapshot.headItem, 'hair_sunflower');
+    expect(draft.freezeForSubmission().headItem, 'hair_sunflower');
   });
 
   LeafieApiClient client(
@@ -119,7 +119,7 @@ void main() {
       'last_repotted_on': '2026-08-01',
       'personality_type': 'OUTGOING',
       'color_id': 'color_orange_01',
-      'hair_id': 'NONE',
+      'hair_id': 'hair_sprout',
     });
   });
 
@@ -155,7 +155,7 @@ void main() {
       ..lastRepottedOn = null
       ..personalityType = 'CHIC'
       ..bodyColorId = 'color_green_01'
-      ..headItem = 'hair_cactus_heart_01';
+      ..headItem = 'hair_sunflower';
     final second = buildPlantCreateRequest(draft);
 
     expect(second, first);
@@ -172,7 +172,7 @@ void main() {
       'last_repotted_on': '2026-08-01',
       'personality_type': 'OUTGOING',
       'color_id': 'color_orange_01',
-      'hair_id': 'NONE',
+      'hair_id': 'hair_sprout',
     });
   });
 
@@ -386,7 +386,7 @@ void main() {
       'last_repotted_on': null,
       'personality_type': 'OUTGOING',
       'color_id': 'color_orange_01',
-      'hair_id': 'NONE',
+      'hair_id': 'hair_sprout',
     });
   });
 }

@@ -231,8 +231,7 @@ class _PlantShelfHouse extends StatelessWidget {
                 button: true,
                 label: visible[index].nickname,
                 child: PlantCharacterArt(
-                  width: plantArtWidthFor(_kCharacterWidth, sprouted: true),
-                  sprouted: true,
+                  width: plantArtWidthFor(_kCharacterWidth),
                 ),
               ),
             ),
@@ -262,15 +261,13 @@ class _PlantShelfHouse extends StatelessWidget {
   }
 
   /// 그려지는 캐릭터 상자. PNG 여백 때문에 시안 프레임보다 크다.
-  static final double _drawnWidth = plantArtWidthFor(
-    _kCharacterWidth,
-    sprouted: true,
-  );
-  static final double _drawnHeight = _drawnWidth * 512 / 512;
+  static final double _drawnWidth = plantArtWidthFor(_kCharacterWidth);
+  static final double _drawnHeight = _drawnWidth * 649 / 698;
 
-  /// 새싹 PNG는 캔버스 위에서 6.4%(63/512) 아래부터, 아래로 7.0% 남기고
-  /// 그림이 있다. 그림 밑선이 선반에 닿도록 그만큼 더 내린다.
-  static final double _inkBottomGap = _drawnHeight * (512 - 476) / 512;
+  /// body_circle.png는 캔버스(698x649) 안에서 그림 bbox가 (36,36,662,612).
+  /// 아래 여백 (649-612)/649 = 5.70%. 그림 밑선이 선반에 닿도록 그만큼 더
+  /// 내린다.
+  static final double _inkBottomGap = _drawnHeight * (649 - 612) / 649;
 
   /// index를 3열 x 3단 격자 좌표로 편다. 캐릭터는 선반 위에 밑선을 맞춘다.
   Widget _slot({required int index, required Widget child}) {
