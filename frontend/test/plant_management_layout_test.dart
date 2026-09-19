@@ -69,9 +69,31 @@ class _FakeRepository implements PlantManagementRepository {
     String plantId, {
     String? nickname,
     String? placeName,
-  }) async => plants
-      .firstWhere((item) => item.id == plantId)
-      .copyWith(nickname: nickname, placeName: placeName);
+    String? personalityType,
+  }) async {
+    final plant = plants.firstWhere((item) => item.id == plantId);
+    final updated = plant.copyWith(nickname: nickname, placeName: placeName);
+    if (personalityType == null) return updated;
+    return ManagedPlant(
+      id: updated.id,
+      nickname: updated.nickname,
+      speciesReferenceId: updated.speciesReferenceId,
+      speciesDisplayName: updated.speciesDisplayName,
+      primaryPhotoUrl: updated.primaryPhotoUrl,
+      personalityType: personalityType,
+      colorId: updated.colorId,
+      hairId: updated.hairId,
+      startedOn: updated.startedOn,
+      category: updated.category,
+      scientificName: updated.scientificName,
+      familyName: updated.familyName,
+      floweringPeriod: updated.floweringPeriod,
+      placeName: updated.placeName,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      isSelected: updated.isSelected,
+    );
+  }
 
   @override
   Future<ManagedPlant> updateAppearance(
@@ -312,8 +334,36 @@ void main() {
       // 2568:1762 말풍선 문구.
       expect(find.text('자 이제 물 줄 시간이야!'), findsOneWidget);
 
-      // 2568:1735 하단 버튼. 성격 변경 API가 없어 비활성이다.
+      // 2568:1735 하단 버튼. 이제 선택한 성격을 반환하는 활성 버튼이다.
       expect(find.text('수정하기'), findsOneWidget);
+      final button = tester.widget<PlantDetailBottomAction>(
+        find.byType(PlantDetailBottomAction),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('도트를 탭하면 다음 성격으로 넘어가고 수정하기가 그 값을 반환한다', (tester) async {
+      await _pumpScreen(
+        tester,
+        PlantPersonalityScreen(plant: _plant(personalityType: 'OUTGOING')),
+      );
+
+      // OUTGOING(0) 다음 도트를 눌러 CHIC(1)으로 옮긴다.
+      final dotsFinder = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString() == '_PersonalityDots',
+      );
+      final gestureDetectors = find.descendant(
+        of: dotsFinder,
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(gestureDetectors.at(1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('시크한 성격'), findsOneWidget);
+      expect(find.text('뭘 봐? 물이나 줘.'), findsOneWidget);
+
+      await tester.tap(find.text('수정하기'));
+      await tester.pumpAndSettle();
     });
   });
 
