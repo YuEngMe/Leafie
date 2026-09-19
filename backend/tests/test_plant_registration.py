@@ -129,7 +129,7 @@ def make_request(**overrides: object) -> PlantCreateRequest:
         "last_repotted_on": "2026-03-01",
         "personality_type": "OUTGOING",
         "body_id": "body_circle",
-        "color_id": "color_green_01",
+        "color_id": "color_green",
         "hair_id": "hair_sprout",
     }
     payload.update(overrides)
@@ -198,6 +198,7 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     assert plant.place_name == "학교"
     assert plant.personality_type == "OUTGOING"
     assert plant.body_id == "body_circle"
+    assert plant.color_id == "color_green"
     assert repository.profile is not None
     assert repository.profile.selected_plant_id == plant.id
     assert repository.flush_count == 1
@@ -391,7 +392,7 @@ async def test_photo_registration_reuses_completed_identification_image() -> Non
             "species_selection_method": "SEARCH",
             "species_identification_id": uuid4(),
         },
-        {"color_id": "   "},
+        {"color_id": "color_unknown"},
         {"body_id": "body_unknown"},
         {"hair_id": "hair_unknown"},
         {"nickname": "가" * 31},

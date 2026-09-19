@@ -49,6 +49,19 @@ class PersonalityType(StrEnum):
     CHUNGCHEONG = "CHUNGCHEONG"
 
 
+class ColorType(StrEnum):
+    RED = "color_red"
+    ORANGE = "color_orange"
+    YELLOW = "color_yellow"
+    LIGHT_GREEN = "color_light_green"
+    GREEN = "color_green"
+    SKY = "color_sky"
+    BLUE = "color_blue"
+    PURPLE = "color_purple"
+    PINK = "color_pink"
+    WHITE = "color_white"
+
+
 class HairType(StrEnum):
     SUNFLOWER = "hair_sunflower"
     CHERRY_TOMATO = "hair_cherry_tomato"

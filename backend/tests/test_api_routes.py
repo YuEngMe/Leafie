@@ -99,7 +99,23 @@ def test_plant_body_openapi_exposes_the_three_supported_designs() -> None:
     ]
 
 
-def test_plant_body_registration_and_appearance_http_contract(monkeypatch) -> None:
+def test_plant_color_openapi_exposes_the_ten_supported_colors() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    assert schemas["ColorType"]["enum"] == [
+        "color_red",
+        "color_orange",
+        "color_yellow",
+        "color_light_green",
+        "color_green",
+        "color_sky",
+        "color_blue",
+        "color_purple",
+        "color_pink",
+        "color_white",
+    ]
+
+
+def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> None:
     user_id = uuid4()
     plant_id = uuid4()
     registration = SimpleNamespace(
@@ -123,7 +139,7 @@ def test_plant_body_registration_and_appearance_http_contract(monkeypatch) -> No
                 place_name="학교",
                 personality_type="OUTGOING",
                 body_id="body_square",
-                color_id="color_green_01",
+                color_id="color_blue",
                 hair_id="hair_sprout",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
@@ -158,7 +174,7 @@ def test_plant_body_registration_and_appearance_http_contract(monkeypatch) -> No
         "last_repotted_on": None,
         "personality_type": "OUTGOING",
         "body_id": "body_thumb",
-        "color_id": "color_green_01",
+        "color_id": "color_green",
         "hair_id": "hair_sprout",
     }
     created = client.post("/api/v1/plants", json=create_payload)
@@ -167,17 +183,24 @@ def test_plant_body_registration_and_appearance_http_contract(monkeypatch) -> No
 
     updated = client.patch(
         f"/api/v1/plants/{plant_id}/appearance",
-        json={"body_id": "body_square"},
+        json={"body_id": "body_square", "color_id": "color_blue"},
     )
     assert updated.status_code == 200
     assert updated.json()["body_id"] == "body_square"
     assert management.update_appearance.await_args.args[2].body_id.value == "body_square"
+    assert management.update_appearance.await_args.args[2].color_id.value == "color_blue"
 
     invalid = client.patch(
         f"/api/v1/plants/{plant_id}/appearance",
         json={"body_id": "body_unknown"},
     )
     assert invalid.status_code == 422
+
+    invalid_color = client.patch(
+        f"/api/v1/plants/{plant_id}/appearance",
+        json={"color_id": "color_unknown"},
+    )
+    assert invalid_color.status_code == 422
     assert management.update_appearance.await_count == 1
 
 
@@ -236,7 +259,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
             "last_repotted_on": None,
             "personality_type": "OUTGOING",
             "body_id": "body_circle",
-            "color_id": "color_green_01",
+            "color_id": "color_green",
             "hair_id": "hair_sprout",
         },
         None,
@@ -247,7 +270,7 @@ PROTECTED_REQUESTS: list[tuple[str, str, dict[str, object] | None, dict[str, obj
     (
         "PATCH",
         f"/api/v1/plants/{uuid4()}/appearance",
-        {"color_id": "color_green_01"},
+        {"color_id": "color_green"},
         None,
     ),
     ("DELETE", f"/api/v1/plants/{uuid4()}", None, None),

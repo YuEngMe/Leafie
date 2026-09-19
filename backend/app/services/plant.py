@@ -198,7 +198,7 @@ class PlantRegistrationService:
             place_name=request.place_name,
             personality_type=request.personality_type.value,
             body_id=request.body_id.value,
-            color_id=request.color_id,
+            color_id=request.color_id.value,
             hair_id=request.hair_id.value,
             created_at=now,
             updated_at=now,
