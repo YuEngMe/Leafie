@@ -67,6 +67,8 @@ void main() {
           context,
         ),
         for (final asset in [
+          // 홈 캐릭터는 표정 애셋(expr_*)을 쓴다. 평소엔 기본 표정.
+          'assets/images/expr_default.png',
           'assets/images/home_bg_default.png',
           'assets/images/home_bg_afternoon.png',
           'assets/images/home_bg_evening.png',

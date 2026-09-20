@@ -197,6 +197,231 @@ void main() {
 
     expect(find.text('아 따뜻해~고마워!'), findsOneWidget);
     expect(find.text('나 햇빛이 부족해..'), findsNothing);
+    // 해를 누르면 "햇빛을 줬어요!" 토스트가 뜬다.
+    expect(find.text('햇빛을 줬어요!'), findsOneWidget);
+
+    // 광선 애니메이션 + 2초 토스트가 크래시/펜딩 타이머 없이 끝나야 한다.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('햇빛을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('아무 씬에서나 해를 누르면 햇빛 광선과 토스트가 뜬다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          // needsLight가 아닌 idle에서도 발동해야 한다.
+          initialScene: HomeScene.idle,
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-period-control')));
+    await tester.pump();
+
+    // 씬은 그대로(idle)여도 토스트는 떠야 한다.
+    expect(find.text('햇빛을 줬어요!'), findsOneWidget);
+    expect(find.text('아 따뜻해~고마워!'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle(); // 펜딩 타이머 없이 완료.
+    expect(find.text('햇빛을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('물뿌리개를 누르면 물주기 모션이 예외 없이 끝난다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final wateringCan = find.byKey(const ValueKey('home-watering-can'));
+    expect(wateringCan, findsOneWidget);
+    await tester.tap(wateringCan);
+    await tester.pump(); // 애니메이션 시작.
+    // 물을 주면 "물을 줬어요!" 토스트가 뜬다.
+    expect(find.text('물을 줬어요!'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
+    // 물줄기(1.4s) + 2초 토스트 + 페이드가 크래시/펜딩 타이머 없이 끝나야 한다.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(wateringCan, findsOneWidget);
+    expect(find.text('물을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('애니메이션이 꺼져 있어도 돌봄 토스트는 뜨고 2초 뒤 사라진다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MediaQuery(
+        data: MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialGaugesExpanded: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-watering-can')));
+    await tester.pump();
+    // 접근성상 모션은 생략해도 정보 전달을 위해 토스트는 떠야 한다.
+    expect(find.text('물을 줬어요!'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('물을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('캐릭터를 누르면 쓰담 모션이 예외 없이 끝난다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final character = find.byKey(const ValueKey('home-character-pet'));
+    expect(character, findsOneWidget);
+    await tester.tap(character);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(character, findsOneWidget);
+  });
+
+  group('돌보기 중에는 기쁜 표정을 짓는다', () {
+    /// 캐릭터(ValueKey('home-character-pet')) 아래에서 실제로 그려지는 캐릭터
+    /// 애셋 경로들. AnimatedSwitcher 크로스페이드 중에는 두 장이 함께 잡힌다.
+    Set<String> characterAssets(WidgetTester tester) {
+      return tester
+          .widgetList<Image>(
+            find.descendant(
+              of: find.byKey(const ValueKey('home-character-pet')),
+              matching: find.byType(Image),
+            ),
+          )
+          .map((image) => (image.image as AssetImage).assetName)
+          .toSet();
+    }
+
+    Future<void> pumpHome(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialScene: HomeScene.idle,
+            initialGaugesExpanded: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('평소에는 기본 표정이다', (tester) async {
+      await pumpHome(tester);
+
+      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+    });
+
+    testWidgets('물뿌리개를 누르면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
+      await pumpHome(tester);
+
+      await tester.tap(find.byKey(const ValueKey('home-watering-can')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+
+      // 물주기(3초) + 여운(0.5초) + 크로스페이드가 끝나면 기본으로 돌아온다.
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+    });
+
+    testWidgets('해를 누르면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
+      await pumpHome(tester);
+
+      await tester.tap(find.byKey(const ValueKey('home-period-control')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+
+      // 광선 3초 유지 + 페이드아웃이 끝나면 기본으로 돌아온다.
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+    });
+
+    testWidgets('캐릭터를 쓰담으면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
+      await pumpHome(tester);
+
+      await tester.tap(find.byKey(const ValueKey('home-character-pet')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+
+      // 쓰담 wiggle(550ms)이 끝나면 기본으로 돌아온다.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+    });
   });
 
   testWidgets('GET /home 결과로 이름과 D+를 갱신한다', (tester) async {
