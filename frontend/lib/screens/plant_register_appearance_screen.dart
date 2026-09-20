@@ -1,21 +1,16 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
+import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 
-const _colors = [
-  (id: 'color_orange_01', label: '오렌지', color: Color(0xFFFFC98B)),
-  (id: 'color_purple_01', label: '퍼플', color: Color(0xFFD9B3FA)),
-  (id: 'color_mint_01', label: '민트', color: Color(0xFFA8E6C1)),
-  (id: 'color_red_01', label: '레드', color: Color(0xFFFF8A8A)),
-  (id: 'color_pink_01', label: '핑크', color: Color(0xFFFFC1DA)),
-];
+const _colors = kPlantAppearanceColors;
 
 /// 식별된 종의 category(`PlantSpeciesCandidate.categorySuggestion`)로 헤어를
 /// 자동 매핑한다. 사용자는 헤어를 고르지 않는다 — 종에 따라 결정된다.
@@ -96,6 +91,11 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                     children: [
                       const SizedBox(height: 8),
                       ArcAppearancePicker(
+                        // 배경이 top-radius 100의 넓은 흰 반원이라 곡률이
+                        // 완만하다. 색 원들이 그 상단 호를 따라 완만히
+                        // 내려가도록 큰 R을 준다(디자이너 피드백: 회전 궤도를
+                        // 배경 원과 맞춘다).
+                        arcRadius: 360,
                         initialIndex: math.max(
                           0,
                           _colors.indexWhere(
@@ -139,94 +139,6 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
           ),
         );
       },
-    ),
-  );
-}
-
-/// Finite, snapping arc picker shared by colour and hair catalogues.
-class ArcAppearancePicker extends StatefulWidget {
-  const ArcAppearancePicker({
-    super.key,
-    required this.labels,
-    required this.itemBuilder,
-    required this.onSelected,
-    this.initialIndex = 0,
-  });
-  final List<String> labels;
-  final IndexedWidgetBuilder itemBuilder;
-  final ValueChanged<int> onSelected;
-  final int initialIndex;
-  @override
-  State<ArcAppearancePicker> createState() => _ArcPickerState();
-}
-
-class _ArcPickerState extends State<ArcAppearancePicker> {
-  late final _controller = PageController(
-    initialPage: widget.initialIndex,
-    viewportFraction: 0.23,
-  );
-  late int _index = widget.initialIndex;
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _select(int index) {
-    setState(() => _index = index);
-    HapticFeedback.selectionClick();
-    widget.onSelected(index);
-  }
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 130,
-    child: PageView.builder(
-      controller: _controller,
-      itemCount: widget.labels.length,
-      onPageChanged: _select,
-      itemBuilder: (context, index) => AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final page =
-              _controller.hasClients &&
-                  _controller.position.hasContentDimensions
-              ? _controller.page ?? _index.toDouble()
-              : _index.toDouble();
-          final distance = (index - page).abs();
-          return Transform.translate(
-            offset: Offset(0, math.min(54, distance * distance * 14)),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Semantics(
-                label: widget.labels[index],
-                button: true,
-                selected: index == _index,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    _select(index);
-                    if (MediaQuery.disableAnimationsOf(context)) {
-                      _controller.jumpToPage(index);
-                    } else {
-                      _controller.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOutCubic,
-                      );
-                    }
-                  },
-                  child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: widget.itemBuilder(context, index),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     ),
   );
 }
