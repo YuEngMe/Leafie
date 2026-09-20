@@ -32,6 +32,15 @@ class _StatefulTabState extends State<_StatefulTab> {
 Finder _navIcon(FigmaNavIcon icon) =>
     find.byWidgetPredicate((w) => w is FigmaBottomNavIcon && w.icon == icon);
 
+double _navOpacity(WidgetTester tester, FigmaNavIcon icon) => tester
+    .widget<AnimatedOpacity>(
+      find.ancestor(
+        of: _navIcon(icon),
+        matching: find.byType(AnimatedOpacity),
+      ),
+    )
+    .opacity;
+
 void main() {
   testWidgets('탭은 바와 상태를 유지하고 마이페이지 뒤로가기는 홈으로 간다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
@@ -183,5 +192,72 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CalendarScreen), findsOneWidget);
+  });
+
+  testWidgets('활성 탭은 진하게, 나머지는 흐리게 그린다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainTabShell(
+          home: const Center(child: Text('home-tab')),
+          diaryBuilder: (_) => const Center(child: Text('diary-tab')),
+          calendarBuilder: (_) => const Center(child: Text('calendar-tab')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 처음엔 home이 활성.
+    expect(_navOpacity(tester, FigmaNavIcon.home), 1.0);
+    expect(_navOpacity(tester, FigmaNavIcon.diary), 0.5);
+    expect(_navOpacity(tester, FigmaNavIcon.calendar), 0.5);
+    expect(_navOpacity(tester, FigmaNavIcon.my), 0.5);
+
+    // diary로 옮기면 강조가 따라간다.
+    await tester.tap(_navIcon(FigmaNavIcon.diary));
+    await tester.pumpAndSettle();
+    expect(_navOpacity(tester, FigmaNavIcon.diary), 1.0);
+    expect(_navOpacity(tester, FigmaNavIcon.home), 0.5);
+  });
+
+  testWidgets('탭 튕김 모션은 크래시 없이 끝난다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainTabShell(
+          home: const Center(child: Text('home-tab')),
+          diaryBuilder: (_) => const Center(child: Text('diary-tab')),
+          calendarBuilder: (_) => const Center(child: Text('calendar-tab')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    // 튕김(200ms) 도중에도 프레임이 정상적으로 돌아야 한다.
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('calendar-tab'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('바만 그리면 activeIcon 없이 넷 다 진하게 둔다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(child: SizedBox(width: 402, child: AppBottomNav())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final icon in FigmaNavIcon.values) {
+      expect(_navOpacity(tester, icon), 1.0, reason: icon.label);
+    }
   });
 }

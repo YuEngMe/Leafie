@@ -154,7 +154,8 @@ Future<void> launch(
     final context = tester.element(find.byType(HomeScreen));
     for (final asset in [
       'home_bg_default',
-      'body_circle',
+      // 홈 캐릭터는 표정 애셋(expr_*)을 쓴다. 평소엔 기본 표정.
+      'expr_default',
       'mailbox_house_v2',
       'mailbox_foreground',
       'mail_paper_texture',

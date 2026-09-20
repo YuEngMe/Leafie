@@ -270,12 +270,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PlantEditAppearanceScreen), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('appearance_color_pink_01')));
+    // 초기 mint(index 2)에서 바로 보이는 인접 색 lime(index 1)으로 바꾼다.
+    await tester.tap(find.byKey(const ValueKey('appearance_color_lime_01')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
     await tester.pumpAndSettle();
 
-    expect(repository.appearanceColor, 'color_pink_01');
+    expect(repository.appearanceColor, 'color_lime_01');
   });
 
   testWidgets('상세 > 성격은 식물의 성격 글자를 보여준다', (tester) async {

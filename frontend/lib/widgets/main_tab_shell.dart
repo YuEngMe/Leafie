@@ -97,7 +97,12 @@ class _MainTabShellState extends State<MainTabShell>
               fit: BoxFit.fill,
               child: SizedBox(
                 width: AppLayout.referenceViewport.width,
-                child: AppBottomNav(onTap: _select),
+                // _index 0/1/2 → home/diary/calendar. my 탭은 push 후 _index를
+                // 0으로 되돌리므로 바에서는 늘 home이 활성으로 보인다.
+                child: AppBottomNav(
+                  onTap: _select,
+                  activeIcon: FigmaNavIcon.values[_index],
+                ),
               ),
             ),
           ),

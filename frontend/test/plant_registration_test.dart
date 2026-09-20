@@ -295,8 +295,8 @@ void main() {
 
     expect(draft.bodyColorId, isNull);
 
-    // 반원 팔레트의 첫 스와치를 선택한 뒤 중앙 흰색 완료점으로 확정한다.
-    await tester.tap(find.byKey(const ValueKey('color_orange_01')));
+    // 반원 팔레트의 첫 스와치(lemon)를 선택한 뒤 중앙 흰색 완료점으로 확정한다.
+    await tester.tap(find.byKey(const ValueKey('color_lemon_01')));
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('선택 완료'));
     await tester.pumpAndSettle();
