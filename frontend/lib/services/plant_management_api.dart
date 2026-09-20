@@ -1,3 +1,4 @@
+import 'package:yeso_plant/models/plant_appearance_defaults.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 
 abstract interface class PlantManagementRepository {
@@ -16,8 +17,10 @@ abstract interface class PlantManagementRepository {
 
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   });
 
   Future<void> deletePlant(String plantId);
@@ -118,24 +121,33 @@ class PlantManagementApi implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) async {
+    final normalizedBodyId = bodyId?.trim();
     final normalizedColorId = colorId?.trim();
     final normalizedHairId = hairId?.trim();
-    if ((normalizedColorId != null &&
-            (normalizedColorId.isEmpty || normalizedColorId.length > 100)) ||
-        (normalizedHairId != null &&
-            (normalizedHairId.isEmpty || normalizedHairId.length > 100))) {
+    final normalizedExpressionId = expressionId?.trim();
+    bool invalid(String? value) =>
+        value != null && (value.isEmpty || value.length > 100);
+    if (invalid(normalizedBodyId) ||
+        invalid(normalizedColorId) ||
+        invalid(normalizedHairId) ||
+        invalid(normalizedExpressionId)) {
       throw const LeafieApiException(
         code: 'INVALID_APPEARANCE',
         message: '올바른 외형을 선택해주세요.',
         statusCode: 400,
       );
     }
+    // PATCH는 부분 수정이라 고른 것만 싣는다(누락 키는 서버가 유지).
     final body = <String, Object?>{
+      'body_id': ?normalizedBodyId,
       'color_id': ?normalizedColorId,
       'hair_id': ?normalizedHairId,
+      'expression_id': ?normalizedExpressionId,
     };
     if (body.isEmpty) {
       throw const LeafieApiException(
@@ -181,6 +193,10 @@ class ManagedPlant {
     required this.colorId,
     required this.hairId,
     required this.startedOn,
+    // 바디·표정 선택 UI는 #84·#85에서 붙는다. 그 전까지 응답에 없거나
+    // 모르는 값이면 백엔드 enum 기본값으로 떨어진다.
+    this.bodyId = kDefaultBodyId,
+    this.expressionId = kDefaultExpressionId,
     this.category,
     this.scientificName,
     this.familyName,
@@ -252,8 +268,15 @@ class ManagedPlant {
       speciesDisplayName: speciesDisplayName,
       primaryPhotoUrl: primaryPhotoUrl as String?,
       personalityType: personalityType,
+      // 응답의 body_id/expression_id는 enum이지만, 구버전 서버나 누락에도
+      // 화면이 죽지 않도록 모르는 값은 기본값으로 떨어뜨린다.
+      bodyId: normalizeBodyId(json['body_id']),
+      // color_id/hair_id는 응답 스키마가 아직 평문 str이라 레거시 값
+      // ("green" 등)이 올 수 있다. 그대로 보관하고, 카탈로그 조회 쪽에서
+      // 못 찾으면 폴백한다.
       colorId: colorId,
       hairId: hairId,
+      expressionId: normalizeExpressionId(json['expression_id']),
       startedOn: startedOn,
       category: requireDetail ? category as String : null,
       scientificName: requireDetail ? scientificName as String? : null,
@@ -289,8 +312,10 @@ class ManagedPlant {
   final String speciesDisplayName;
   final String? primaryPhotoUrl;
   final String personalityType;
+  final String bodyId;
   final String colorId;
   final String hairId;
+  final String expressionId;
   final DateTime startedOn;
   final String? category;
   final String? scientificName;
@@ -313,8 +338,10 @@ class ManagedPlant {
 
   ManagedPlant copyWith({
     String? nickname,
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
     String? placeName,
     bool? isSelected,
   }) => ManagedPlant(
@@ -324,8 +351,10 @@ class ManagedPlant {
     speciesDisplayName: speciesDisplayName,
     primaryPhotoUrl: primaryPhotoUrl,
     personalityType: personalityType,
+    bodyId: bodyId ?? this.bodyId,
     colorId: colorId ?? this.colorId,
     hairId: hairId ?? this.hairId,
+    expressionId: expressionId ?? this.expressionId,
     startedOn: startedOn,
     category: category,
     scientificName: scientificName,

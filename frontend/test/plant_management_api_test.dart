@@ -13,7 +13,7 @@ LeafieApiClient _client(LeafieTransport transport) => LeafieApiClient(
 Map<String, Object?> _plantJson({
   String id = 'plant-1',
   String nickname = '새싹이',
-  String colorId = 'color_mint_01',
+  String colorId = 'color_green',
   String placeName = '거실',
   bool detail = false,
 }) => {
@@ -177,21 +177,21 @@ void main() {
         request = input;
         return LeafieHttpResponse(
           statusCode: 200,
-          body: jsonEncode(_plantJson(colorId: 'color_pink_01', detail: true)),
+          body: jsonEncode(_plantJson(colorId: 'color_pink', detail: true)),
         );
       }),
     );
 
     final updated = await api.updateAppearance(
       'plant-1',
-      colorId: 'color_pink_01',
+      colorId: 'color_pink',
       hairId: 'hair_leaf_01',
     );
 
-    expect(updated.colorId, 'color_pink_01');
+    expect(updated.colorId, 'color_pink');
     expect(request.uri.path, '/api/v1/plants/plant-1/appearance');
     expect(request.body, {
-      'color_id': 'color_pink_01',
+      'color_id': 'color_pink',
       'hair_id': 'hair_leaf_01',
     });
   });

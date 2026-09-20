@@ -32,7 +32,9 @@ class HomePlant {
     required this.personalityType,
     this.id,
     this.daysTogether,
+    this.bodyId,
     this.hairId,
+    this.expressionId,
   });
 
   final String name;
@@ -44,6 +46,11 @@ class HomePlant {
   /// 종으로 자동 매핑된 헤어. 서버가 준 값이 없으면(예: 위젯 생성자로 직접
   /// 넘긴 경우) null이고, 이때 캐릭터는 민머리로 그려진다.
   final String? hairId;
+
+  /// 서버가 내려준 바디·표정(BodyType/ExpressionType enum). 선택 UI는
+  /// #84·#85에서 붙는다. 위젯 생성자로 직접 만든 경우 null이다.
+  final String? bodyId;
+  final String? expressionId;
 
   /// 등록한 날이 1일차다(2026-08-04 팀 확인).
   int get dayCount {
@@ -359,7 +366,9 @@ class _HomeScreenState extends State<HomeScreen>
                 startedOn: DateTime.tryParse(plant.startedOn),
                 personalityType: plant.personalityType,
                 daysTogether: plant.daysTogether,
+                bodyId: plant.bodyId,
                 hairId: plant.hairId,
+                expressionId: plant.expressionId,
               );
         _serverDialogue = room?.dialogue?.trim();
         _unreadNotificationCount = data.unreadNotificationCount;

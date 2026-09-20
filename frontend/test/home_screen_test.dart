@@ -438,7 +438,7 @@ void main() {
               id: 'plant-id',
               nickname: '서버새싹',
               personalityType: 'OUTGOING',
-              colorId: 'color_orange_01',
+              colorId: 'color_orange',
               hairId: 'hair_sprout',
               startedOn: '2026-05-01',
               daysTogether: 128,
@@ -486,7 +486,7 @@ void main() {
               id: plantId!,
               nickname: plantId == 'plant-b' ? '둘째' : '첫째',
               personalityType: 'OUTGOING',
-              colorId: 'color_orange_01',
+              colorId: 'color_orange',
               hairId: 'hair_sprout',
               startedOn: '2026-05-01',
               daysTogether: 3,
@@ -526,7 +526,7 @@ ManagedPlant _managedPlant(
   speciesDisplayName: '몬스테라',
   primaryPhotoUrl: null,
   personalityType: 'OUTGOING',
-  colorId: 'color_orange_01',
+  colorId: 'color_orange',
   hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
@@ -565,8 +565,10 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) => throw UnimplementedError();
 
   @override

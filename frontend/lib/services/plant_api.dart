@@ -284,10 +284,18 @@ Map<String, Object?> _buildPayload(PlantRegistrationSnapshot draft) {
         ? null
         : _isoDate(draft.lastRepottedOn!),
     'personality_type': draft.personalityType,
+    // body/color/hair/expression 네 개 모두 POST /plants 필수이고, 값은 백엔드
+    // enum(BodyType/ColorType/HairType/ExpressionType)으로 검증된다.
+    // 바디·표정 선택 UI는 #84·#85에서 붙을 때까지 기본값을 보낸다.
+    'body_id': _nonBlankOr(draft.bodyId, PlantRegistrationDraft.defaultBodyId),
     'color_id': draft.bodyColorId.trim(),
     // 헤어 선택 UI를 거치지 않아도 서버의 필수 계약을 지킨다.
     // 백엔드 HairType enum에는 'NONE'이 없어 유효한 기본값을 대신 쓴다.
     'hair_id': _nonBlankOr(draft.headItem, 'hair_sprout'),
+    'expression_id': _nonBlankOr(
+      draft.expressionId,
+      PlantRegistrationDraft.defaultExpressionId,
+    ),
   };
 }
 

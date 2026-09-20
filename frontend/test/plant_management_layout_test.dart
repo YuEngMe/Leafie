@@ -25,7 +25,7 @@ ManagedPlant _plant({
   String id = '1',
   String nickname = '새싹이',
   bool selected = true,
-  String colorId = 'color_mint_01',
+  String colorId = 'color_green',
   String personalityType = 'OUTGOING',
   int daysTogether = 128,
 }) => ManagedPlant(
@@ -102,8 +102,10 @@ class _FakeRepository implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) async {
     appearanceHairId = hairId;
     appearanceColor = colorId;
@@ -492,49 +494,49 @@ void main() {
       expect(picker.labels.length, 10);
       expect(
         picker.labels,
-        containsAll(const ['레몬', '라임', '민트', '스카이', '블루']),
+        containsAll(const ['레드', '오렌지', '옐로', '라이트 그린', '그린']),
       );
       expect(
         picker.labels,
-        containsAll(const ['퍼플', '핑크', '아이보리', '레드', '옐로우']),
+        containsAll(const ['스카이', '블루', '퍼플', '핑크', '화이트']),
       );
 
-      // 초기 선택(mint)은 카루셀 중앙에 렌더돼 보인다.
+      // 초기 선택(green)은 카루셀 중앙에 렌더돼 보인다.
       expect(
-        find.byKey(const ValueKey('appearance_color_mint_01')),
+        find.byKey(const ValueKey('appearance_color_green')),
         findsOneWidget,
       );
     });
 
-    testWidgets('뒤쪽 색(옐로우)을 밀어서 고를 수 있다', (tester) async {
+    testWidgets('뒤쪽 색(화이트 방향)을 밀어서 고를 수 있다', (tester) async {
       final repository = _FakeRepository([_plant()]);
       await _pumpScreen(
         tester,
         PlantEditAppearanceScreen(plant: _plant(), repository: repository),
       );
 
-      // 초기 선택은 mint(index 2). 목록 맨 뒤 yellow_01(index 9)까지 오른쪽
-      // 방향(음의 드래그)으로 페이지 하나씩 밀어 도달한다.
+      // 초기 선택은 green(index 4). 무한 순환이라 오른쪽 방향(음의 드래그)으로
+      // 페이지를 밀면 목록 끝을 지나 다시 orange(index 1)까지 감긴다.
       final pageView = find.byType(PageView);
       for (var i = 0; i < 7; i++) {
         await tester.drag(pageView, const Offset(-120, 0));
         await tester.pumpAndSettle();
       }
       expect(
-        find.byKey(const ValueKey('appearance_color_yellow_01')),
+        find.byKey(const ValueKey('appearance_color_orange')),
         findsOneWidget,
       );
       await tester.tap(
-        find.byKey(const ValueKey('appearance_color_yellow_01')),
+        find.byKey(const ValueKey('appearance_color_orange')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
       await tester.pumpAndSettle();
 
-      expect(repository.appearanceColor, 'color_yellow_01');
+      expect(repository.appearanceColor, 'color_orange');
     });
 
-    testWidgets('카루셀은 양방향 무한 순환 — 초기 색에서 왼쪽으로 밀면 마지막 색(옐로우)이 온다', (
+    testWidgets('카루셀은 양방향 무한 순환 — 초기 색에서 왼쪽으로 밀면 앞쪽 색(오렌지)이 온다', (
       tester,
     ) async {
       final repository = _FakeRepository([_plant()]);
@@ -543,23 +545,21 @@ void main() {
         PlantEditAppearanceScreen(plant: _plant(), repository: repository),
       );
 
-      // 초기 선택은 mint(index 2). 유한 목록이라면 왼쪽으로 밀어도 첫 색
-      // lemon(index 0)에서 멈추지만, 무한 순환에서는 앞으로 계속 감아 마지막
-      // 색 yellow(index 9)에 닿는다(2→1→0→9). 오른쪽으로 드래그하면 앞쪽
-      // 페이지로 이동한다. 스냅이 애매하지 않도록 페이지 하나씩 민다.
+      // 초기 선택은 green(index 4). 오른쪽으로 드래그하면 앞쪽 페이지로
+      // 이동해 orange(index 1)에 닿는다(4→3→2→1). 스냅이 애매하지 않도록
+      // 페이지 하나씩 민다.
       final pageView = find.byType(PageView);
       for (var i = 0; i < 3; i++) {
         await tester.drag(pageView, const Offset(120, 0));
         await tester.pumpAndSettle();
       }
-      // 유한 목록이었다면 절대 볼 수 없는 마지막 색 yellow가 중앙 근처에
-      // 렌더된다(첫 색에서 왼쪽으로 한 칸 더 감은 결과).
+      // 무한 순환 PageView가 앞쪽으로 감기며 orange가 중앙 근처에 렌더된다.
       expect(
-        find.byKey(const ValueKey('appearance_color_yellow_01')),
+        find.byKey(const ValueKey('appearance_color_orange')),
         findsOneWidget,
       );
       await tester.tap(
-        find.byKey(const ValueKey('appearance_color_yellow_01')),
+        find.byKey(const ValueKey('appearance_color_orange')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
@@ -567,7 +567,7 @@ void main() {
 
       // onSelected가 무한 페이지 인덱스가 아니라 0..9로 정규화된 실제 색
       // id를 넘긴다(색 저장이 깨지지 않는다).
-      expect(repository.appearanceColor, 'color_yellow_01');
+      expect(repository.appearanceColor, 'color_orange');
     });
 
     testWidgets('헤어는 고를 수 없고 미리보기에도 얹지 않는다', (tester) async {
@@ -601,8 +601,8 @@ void main() {
         PlantEditAppearanceScreen(plant: _plant(), repository: repository),
       );
 
-      // 초기 mint(index 2)에서 바로 보이는 인접 색 sky(index 3)로 바꾼다.
-      await tester.tap(find.byKey(const ValueKey('appearance_color_sky_01')));
+      // 초기 green(index 4)에서 바로 보이는 인접 색 sky(index 5)로 바꾼다.
+      await tester.tap(find.byKey(const ValueKey('appearance_color_sky')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
       await tester.pumpAndSettle();

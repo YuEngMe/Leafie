@@ -11,7 +11,7 @@ ManagedPlant _plant({
   required String id,
   required String nickname,
   bool selected = false,
-  String colorId = 'color_mint_01',
+  String colorId = 'color_green',
 }) => ManagedPlant(
   id: id,
   nickname: nickname,
@@ -107,8 +107,10 @@ class _FakeRepository implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) async {
     appearanceColor = colorId;
     final plant = plants.firstWhere((item) => item.id == plantId);
@@ -271,12 +273,12 @@ void main() {
     expect(find.byType(PlantEditAppearanceScreen), findsOneWidget);
 
     // 초기 mint(index 2)에서 바로 보이는 인접 색 lime(index 1)으로 바꾼다.
-    await tester.tap(find.byKey(const ValueKey('appearance_color_lime_01')));
+    await tester.tap(find.byKey(const ValueKey('appearance_color_light_green')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
     await tester.pumpAndSettle();
 
-    expect(repository.appearanceColor, 'color_lime_01');
+    expect(repository.appearanceColor, 'color_light_green');
   });
 
   testWidgets('상세 > 성격은 식물의 성격 글자를 보여준다', (tester) async {

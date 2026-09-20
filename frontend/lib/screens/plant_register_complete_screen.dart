@@ -52,7 +52,10 @@ class _PlantRegisterCompleteScreenState
                 startedOn: snapshot?.startedOn ?? widget.draft.startedOn,
                 personalityType:
                     snapshot?.personalityType ?? widget.draft.personalityType,
+                bodyId: snapshot?.bodyId ?? widget.draft.bodyId,
                 hairId: snapshot?.headItem ?? widget.draft.headItem,
+                expressionId:
+                    snapshot?.expressionId ?? widget.draft.expressionId,
               ),
             ),
           ),

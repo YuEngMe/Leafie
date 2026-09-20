@@ -1,3 +1,4 @@
+import 'package:yeso_plant/models/plant_appearance_defaults.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 
 class HomeApi {
@@ -82,6 +83,10 @@ class HomePlantData {
     required this.startedOn,
     required this.daysTogether,
     required this.primaryPhotoUrl,
+    // 바디·표정 선택 UI는 #84·#85에서 붙는다. 그 전까지 응답에 없거나
+    // 모르는 값이면 백엔드 enum 기본값으로 떨어진다.
+    this.bodyId = kDefaultBodyId,
+    this.expressionId = kDefaultExpressionId,
   });
 
   factory HomePlantData.fromJson(Map<String, dynamic> json) {
@@ -110,8 +115,13 @@ class HomePlantData {
       id: id,
       nickname: nickname,
       personalityType: personalityType,
+      // color_id/hair_id는 응답 스키마가 아직 평문 str이라 카탈로그에 없는
+      // 레거시 값이 올 수 있다. 그대로 들고 다니고 조회 쪽에서 폴백한다.
+      // body_id/expression_id는 모르는 값이면 기본값으로 떨어뜨린다.
+      bodyId: normalizeBodyId(json['body_id']),
       colorId: colorId,
       hairId: hairId,
+      expressionId: normalizeExpressionId(json['expression_id']),
       startedOn: startedOn,
       daysTogether: daysTogether,
       primaryPhotoUrl: primaryPhotoUrl as String?,
@@ -121,8 +131,10 @@ class HomePlantData {
   final String id;
   final String nickname;
   final String personalityType;
+  final String bodyId;
   final String colorId;
   final String hairId;
+  final String expressionId;
   final String startedOn;
   final int daysTogether;
   final String? primaryPhotoUrl;

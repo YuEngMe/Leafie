@@ -190,8 +190,10 @@ class _EmptyPlantRepository implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) => throw UnimplementedError();
 
   @override
