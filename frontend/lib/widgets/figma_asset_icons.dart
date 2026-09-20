@@ -70,7 +70,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
     this.onDiagnosisTap,
   });
 
-  static const Size figmaSize = Size(45, 117);
+  static const Size figmaSize = Size(45, 96);
 
   final VoidCallback? onOverviewTap;
   final VoidCallback? onDiagnosisTap;
@@ -92,7 +92,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
           children: [
             Positioned(
               left: 7.87,
-              top: 9.23,
+              top: 14,
               child: Image.asset(
                 'assets/images/icon_home_view_all.png',
                 width: 29.256,
@@ -101,7 +101,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
             ),
             Positioned(
               left: 11.5,
-              top: 65,
+              top: 50,
               child: Image.asset(
                 'assets/images/icon_home_view_diagnosis.png',
                 width: 22,
@@ -112,7 +112,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
               left: 0,
               top: 0,
               width: 45,
-              height: 58.5,
+              height: 48,
               child: Semantics(
                 label: '전체보기',
                 button: true,
@@ -126,9 +126,9 @@ class FigmaHomeViewSwitch extends StatelessWidget {
             ),
             Positioned(
               left: 0,
-              top: 58.5,
+              top: 48,
               width: 45,
-              height: 58.5,
+              height: 48,
               child: Semantics(
                 label: '진단',
                 button: true,
