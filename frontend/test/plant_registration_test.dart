@@ -296,7 +296,7 @@ void main() {
     expect(draft.bodyColorId, isNull);
 
     // 반원 팔레트의 첫 스와치(lemon)를 선택한 뒤 중앙 흰색 완료점으로 확정한다.
-    await tester.tap(find.byKey(const ValueKey('color_lemon_01')));
+    await tester.tap(find.byKey(const ValueKey('color_yellow')));
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('선택 완료'));
     await tester.pumpAndSettle();
@@ -311,7 +311,7 @@ void main() {
     final draft = _sampleDraft()
       ..placeName = '학교'
       ..personalityType = 'OUTGOING'
-      ..bodyColorId = 'color_orange_01';
+      ..bodyColorId = 'color_orange';
 
     await tester.pumpWidget(
       MaterialApp(
@@ -345,7 +345,7 @@ void main() {
       ..placeName = '학교'
       ..lastWateredOn = DateTime.now()
       ..personalityType = 'OUTGOING'
-      ..bodyColorId = 'color_orange_01';
+      ..bodyColorId = 'color_orange';
     await tester.pumpWidget(
       MaterialApp(
         home: PlantRegisterCompleteScreen(
@@ -375,7 +375,7 @@ void main() {
       ..placeName = '학교'
       ..lastWateredOn = DateTime(2026, 9, 5)
       ..personalityType = 'OUTGOING'
-      ..bodyColorId = 'color_orange_01';
+      ..bodyColorId = 'color_orange';
     await tester.pumpWidget(
       MaterialApp(
         home: PlantRegisterCompleteScreen(

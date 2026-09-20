@@ -23,7 +23,7 @@ PlantRegistrationDraft _completeDraft() =>
       ..lastWateredOn = DateTime(2026, 9, 4)
       ..lastRepottedOn = DateTime(2026, 8, 1)
       ..personalityType = 'OUTGOING'
-      ..bodyColorId = 'color_orange_01';
+      ..bodyColorId = 'color_orange';
 
 void main() {
   test('선택한 헤어 ID가 등록 요청과 고정된 초안에 유지된다', () {
@@ -118,8 +118,10 @@ void main() {
       'last_watered_on': '2026-09-04',
       'last_repotted_on': '2026-08-01',
       'personality_type': 'OUTGOING',
-      'color_id': 'color_orange_01',
+      'body_id': 'body_circle',
+      'color_id': 'color_orange',
       'hair_id': 'hair_sprout',
+      'expression_id': 'expression_default',
     });
   });
 
@@ -154,7 +156,7 @@ void main() {
       ..placeName = '수정된 장소'
       ..lastRepottedOn = null
       ..personalityType = 'CHIC'
-      ..bodyColorId = 'color_green_01'
+      ..bodyColorId = 'color_green'
       ..headItem = 'hair_sunflower';
     final second = buildPlantCreateRequest(draft);
 
@@ -171,8 +173,10 @@ void main() {
       'last_watered_on': '2026-09-04',
       'last_repotted_on': '2026-08-01',
       'personality_type': 'OUTGOING',
-      'color_id': 'color_orange_01',
+      'body_id': 'body_circle',
+      'color_id': 'color_orange',
       'hair_id': 'hair_sprout',
+      'expression_id': 'expression_default',
     });
   });
 
@@ -190,7 +194,7 @@ void main() {
           ..placeName = '학교'
           ..lastWateredOn = longNickname.lastWateredOn
           ..personalityType = 'OUTGOING'
-          ..bodyColorId = 'color_orange_01',
+          ..bodyColorId = 'color_orange',
       ),
       throwsA(
         isA<LeafieApiException>().having(
@@ -222,7 +226,7 @@ void main() {
           ..placeName = '학교'
           ..lastWateredOn = DateTime.now()
           ..personalityType = 'OUTGOING'
-          ..bodyColorId = 'color_orange_01';
+          ..bodyColorId = 'color_orange';
 
     expect(
       () => buildPlantCreateRequest(draft),
@@ -369,7 +373,7 @@ void main() {
           ..placeName = '학교'
           ..lastWateredOn = DateTime.now()
           ..personalityType = 'OUTGOING'
-          ..bodyColorId = 'color_orange_01';
+          ..bodyColorId = 'color_orange';
 
     final body = buildPlantCreateRequest(draft);
 
@@ -385,8 +389,10 @@ void main() {
       'last_watered_on': _dateString(draft.lastWateredOn!),
       'last_repotted_on': null,
       'personality_type': 'OUTGOING',
-      'color_id': 'color_orange_01',
+      'body_id': 'body_circle',
+      'color_id': 'color_orange',
       'hair_id': 'hair_sprout',
+      'expression_id': 'expression_default',
     });
   });
 }

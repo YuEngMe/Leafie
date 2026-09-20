@@ -524,7 +524,7 @@ ManagedPlant _managedPlant(
   speciesDisplayName: '몬스테라',
   primaryPhotoUrl: null,
   personalityType: 'OUTGOING',
-  colorId: 'color_orange_01',
+  colorId: 'color_orange',
   hairId: 'hair_sprout',
   startedOn: DateTime.now()
       .toUtc()
@@ -563,8 +563,10 @@ class _PlantRepository implements PlantManagementRepository {
   @override
   Future<ManagedPlant> updateAppearance(
     String plantId, {
+    String? bodyId,
     String? colorId,
     String? hairId,
+    String? expressionId,
   }) => throw UnimplementedError();
 
   @override

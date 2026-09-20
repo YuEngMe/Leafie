@@ -100,7 +100,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                           0,
                           _colors.indexWhere(
                             (c) =>
-                                c.id == (_selectedColorId ?? 'color_mint_01'),
+                                c.id == (_selectedColorId ?? 'color_green'),
                           ),
                         ),
                         labels: [for (final c in _colors) c.label],

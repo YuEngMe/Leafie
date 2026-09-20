@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:yeso_plant/models/plant_appearance_defaults.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
 
 /// 식물 등록 마법사(PLANT-01 → PLANT-06 → CHAR-01~04)가 모으는 값.
@@ -44,6 +45,15 @@ class PlantRegistrationDraft {
   String? bodyColorId;
   String? headItem;
 
+  /// 바디(body_id)·표정(expression_id)은 POST /plants 필수 필드지만 선택 UI는
+  /// 아직 없다(#84·#85에서 추가된다). 그 전까지는 백엔드 BodyType/
+  /// ExpressionType enum의 기본값을 그대로 보낸다.
+  String? bodyId;
+  String? expressionId;
+
+  static const String defaultBodyId = kDefaultBodyId;
+  static const String defaultExpressionId = kDefaultExpressionId;
+
   PlantRegistrationSnapshot? _submissionSnapshot;
 
   /// 첫 제출 시점의 값을 고정한다. 서버 응답을 받지 못해 재시도하더라도
@@ -64,8 +74,10 @@ class PlantRegistrationSnapshot {
     required this.lastWateredOn,
     required this.lastRepottedOn,
     required this.personalityType,
+    required this.bodyId,
     required this.bodyColorId,
     required this.headItem,
+    required this.expressionId,
     required this.speciesIdentificationId,
     required this.primaryMediaFileId,
   });
@@ -80,8 +92,11 @@ class PlantRegistrationSnapshot {
         lastWateredOn: draft.lastWateredOn!,
         lastRepottedOn: draft.lastRepottedOn,
         personalityType: draft.personalityType!,
+        bodyId: draft.bodyId ?? PlantRegistrationDraft.defaultBodyId,
         bodyColorId: draft.bodyColorId!,
         headItem: draft.headItem,
+        expressionId:
+            draft.expressionId ?? PlantRegistrationDraft.defaultExpressionId,
         speciesIdentificationId: draft.speciesIdentificationId,
         primaryMediaFileId: draft.primaryMediaFileId,
       );
@@ -94,8 +109,10 @@ class PlantRegistrationSnapshot {
   final DateTime lastWateredOn;
   final DateTime? lastRepottedOn;
   final String personalityType;
+  final String bodyId;
   final String bodyColorId;
   final String? headItem;
+  final String expressionId;
   final String? speciesIdentificationId;
   final String? primaryMediaFileId;
 }

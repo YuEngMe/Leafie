@@ -56,7 +56,7 @@ void main() {
     tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
     addTearDown(tester.view.reset);
     final value = draft()
-      ..bodyColorId = 'color_mint_01'
+      ..bodyColorId = 'color_green'
       ..headItem = 'hair_monstera';
     await tester.pumpWidget(
       MaterialApp(home: PlantRegisterAppearanceScreen(draft: value)),
