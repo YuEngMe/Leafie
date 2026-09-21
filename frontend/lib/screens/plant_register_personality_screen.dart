@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
-import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
+import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -93,7 +93,7 @@ class _PlantRegisterPersonalityScreenState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PlantRegisterAppearanceScreen(draft: widget.draft),
+        builder: (_) => PlantRegisterBodyScreen(draft: widget.draft),
       ),
     );
   }
@@ -138,13 +138,14 @@ class _PlantRegisterPersonalityScreenState
                               .toList(),
                         ),
                       ),
-                      const Positioned(
+                      Positioned(
                         top: AppLayout.personalityCharacterTop,
                         left: 0,
                         right: 0,
                         child: Center(
                           child: PlantCharacterArt(
                             width: AppLayout.personalityCharacterWidth,
+                            body: plantBodyFromId(widget.draft.bodyId),
                           ),
                         ),
                       ),

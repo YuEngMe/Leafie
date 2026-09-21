@@ -177,6 +177,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
                   width: plantArtWidthFor(176.15),
+                  body: plantBodyFromId(_plant.bodyId),
                   colorId: _plant.colorId,
                 ),
               ),
@@ -359,6 +360,7 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                           maxHeight: double.infinity,
                           child: PlantCharacterArt(
                             width: plantArtWidthFor(196),
+                            body: plantBodyFromId(widget.plant.bodyId),
                             colorId: widget.plant.colorId,
                           ),
                         ),

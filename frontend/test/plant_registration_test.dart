@@ -12,6 +12,7 @@ import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
+import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
@@ -261,7 +262,7 @@ void main() {
     expect(find.text('갤러리에서 선택'), findsOneWidget);
   });
 
-  testWidgets('성격 화면에서 스와이프로 고른 성격이 draft에 반영되어 꾸미기 화면으로 전달된다', (
+  testWidgets('성격 화면에서 스와이프로 고른 성격이 draft에 반영되어 바디 선택 화면으로 전달된다', (
     WidgetTester tester,
   ) async {
     final draft = _sampleDraft();
@@ -278,6 +279,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(draft.personalityType, 'CHIC');
+    // #84: 성격 다음은 바디 선택(step 5). 색선택은 그 뒤로 밀렸다.
+    expect(find.byType(PlantRegisterBodyScreen), findsOneWidget);
+  });
+
+  testWidgets('바디 선택 화면에서 바디를 고르고 완료하면 draft에 반영되어 꾸미기 화면으로 전달된다', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final draft = _sampleDraft();
+
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterBodyScreen(draft: draft)),
+    );
+
+    // 기본 선택은 body_circle. 통통이(body_thumb)를 탭해 바꾼다.
+    await tester.tap(find.bySemanticsLabel('통통이').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('선택 완료'));
+    await tester.pumpAndSettle();
+
+    expect(draft.bodyId, 'body_thumb');
     expect(find.byType(PlantRegisterAppearanceScreen), findsOneWidget);
   });
 

@@ -51,6 +51,7 @@ class _FakeRepository implements PlantManagementRepository {
   List<ManagedPlant> plants;
   String? appearanceHairId;
   String? appearanceColor;
+  String? appearanceBodyId;
 
   @override
   Future<List<ManagedPlant>> listPlants() async => List.of(plants);
@@ -109,9 +110,10 @@ class _FakeRepository implements PlantManagementRepository {
   }) async {
     appearanceHairId = hairId;
     appearanceColor = colorId;
+    appearanceBodyId = bodyId;
     return plants
         .firstWhere((item) => item.id == plantId)
-        .copyWith(colorId: colorId, hairId: hairId);
+        .copyWith(bodyId: bodyId, colorId: colorId, hairId: hairId);
   }
 
   @override
@@ -608,6 +610,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.appearanceHairId, isNull);
+      // 바디를 안 바꿨으면 body_id는 싣지 않는다(부분 PATCH).
+      expect(repository.appearanceBodyId, isNull);
+    });
+
+    testWidgets('바디만 바꾸고 적용하면 updateAppearance에 body_id만 전달된다', (
+      tester,
+    ) async {
+      final repository = _FakeRepository([_plant()]);
+      await _pumpScreen(
+        tester,
+        PlantEditAppearanceScreen(plant: _plant(), repository: repository),
+      );
+
+      // 초기 body_circle에서 body_thumb(통통이)로 바꾼다.
+      await tester.tap(find.byKey(const ValueKey('appearance_body_thumb')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(repository.appearanceBodyId, 'body_thumb');
+      // 색은 안 바꿨으니 color_id는 싣지 않는다(부분 PATCH).
+      expect(repository.appearanceColor, isNull);
     });
   });
 }

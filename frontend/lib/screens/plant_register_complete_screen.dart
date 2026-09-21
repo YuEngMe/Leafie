@@ -120,6 +120,7 @@ class _PlantRegisterCompleteScreenState
                   ),
                   child: PlantCharacterArt(
                     width: compact ? 150 : AppLayout.completionCharacterWidth,
+                    body: plantBodyFromId(widget.draft.bodyId),
                     colorId: widget.draft.bodyColorId,
                   ),
                 ),

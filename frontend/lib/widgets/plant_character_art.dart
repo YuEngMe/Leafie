@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 
-/// 캐릭터 바디 모양. 등록 시 사용자가 고른다. 백엔드 body_id가 아직
-/// 없어 지금은 circle 고정으로 그린다.
+/// 캐릭터 바디 모양. 등록 시 사용자가 고른다.
 enum PlantBody { circle, thumb, square }
+
+/// 저장/전송용 body_id 문자열('body_circle' 등)을 [PlantBody] enum으로 옮긴다.
+/// enum 이름과 'body_' 접미사가 일치하지만, 모르는 값(레거시·누락)에 죽지
+/// 않도록 명시적으로 매핑하고 circle로 폴백한다. 역방향은 `'body_${body.name}'`.
+PlantBody plantBodyFromId(String? bodyId) => switch (bodyId) {
+  'body_thumb' => PlantBody.thumb,
+  'body_square' => PlantBody.square,
+  _ => PlantBody.circle,
+};
 
 /// 캐릭터 표정. [none]이면 표정 없는 기본 body PNG를 그대로 그린다(기존 동작).
 /// 표정을 지정하면 `expr_*.png`(몸통+얼굴이 함께 그려진 완성 캐릭터)로 그린다.

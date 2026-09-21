@@ -39,21 +39,38 @@ class PlantEditAppearanceScreen extends StatefulWidget {
       _PlantEditAppearanceScreenState();
 }
 
+/// 편집 화면에서 고를 수 있는 바디 3종. 등록 바디선택 화면과 같은 목록이다.
+class _BodyChoice {
+  const _BodyChoice({required this.id, required this.label});
+  final String id;
+  final String label;
+}
+
+const _bodyChoices = [
+  _BodyChoice(id: 'body_circle', label: '동그라미'),
+  _BodyChoice(id: 'body_thumb', label: '통통이'),
+  _BodyChoice(id: 'body_square', label: '네모'),
+];
+
 class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
   late String _selectedColorId = widget.plant.colorId;
+  late String _selectedBodyId = widget.plant.bodyId;
   bool _busy = false;
 
   Future<void> _apply() async {
     final colorChanged = _selectedColorId != widget.plant.colorId;
-    if (!colorChanged) {
+    final bodyChanged = _selectedBodyId != widget.plant.bodyId;
+    if (!colorChanged && !bodyChanged) {
       Navigator.of(context).pop(widget.plant);
       return;
     }
     setState(() => _busy = true);
     try {
+      // PATCH는 부분 수정이라 실제로 바뀐 것만 싣는다.
       final updated = await widget.repository.updateAppearance(
         widget.plant.id,
-        colorId: _selectedColorId,
+        bodyId: bodyChanged ? _selectedBodyId : null,
+        colorId: colorChanged ? _selectedColorId : null,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on LeafieApiException catch (error) {
@@ -88,9 +105,58 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
                   width: plantArtWidthFor(196),
+                  body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,
                 ),
               ),
+            ),
+          ),
+          // 바디 선택 행. 미리보기(~455)와 팔레트 원(576) 사이 공간에 바디 3종을
+          // 한 줄로 앉힌다. 색은 회전 카루셀로 고르지만 바디는 3종뿐이라 한눈에
+          // 보이도록 고정 행으로 둔다. 선택된 바디는 kOrangeMain 테두리.
+          PlantDetailPositioned(
+            top: 470,
+            height: 96,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final choice in _bodyChoices)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: GestureDetector(
+                      key: ValueKey('appearance_${choice.id}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _busy
+                          ? null
+                          : () => setState(() => _selectedBodyId = choice.id),
+                      child: Semantics(
+                        button: true,
+                        selected: _selectedBodyId == choice.id,
+                        label: choice.label,
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: kBackgroundWhite,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _selectedBodyId == choice.id
+                                  ? kOrangeMain
+                                  : const Color(0xFFE8E8E8),
+                              width: 3,
+                            ),
+                          ),
+                          child: Image.asset(
+                            'assets/images/${choice.id}.png',
+                            fit: BoxFit.contain,
+                            semanticLabel: choice.label,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           // 팔레트 큰 원 2568:1796.

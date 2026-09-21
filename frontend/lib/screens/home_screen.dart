@@ -831,6 +831,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   child: PlantCharacterArt(
                                     key: ValueKey(expression),
                                     width: 173.74,
+                                    body: plantBodyFromId(plant.bodyId),
                                     expression: expression,
                                     colorId: plant.colorId,
                                   ),
