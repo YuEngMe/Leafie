@@ -834,6 +834,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     body: plantBodyFromId(plant.bodyId),
                                     expression: expression,
                                     colorId: plant.colorId,
+                                    hairId: plant.hairId,
                                   ),
                                 ),
                               ),

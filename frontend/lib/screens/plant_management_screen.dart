@@ -234,6 +234,7 @@ class _PlantShelfHouse extends StatelessWidget {
                   width: plantArtWidthFor(_kCharacterWidth),
                   body: plantBodyFromId(visible[index].bodyId),
                   colorId: visible[index].colorId,
+                  hairId: visible[index].hairId,
                 ),
               ),
             ),

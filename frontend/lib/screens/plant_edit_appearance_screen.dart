@@ -66,11 +66,13 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
     }
     setState(() => _busy = true);
     try {
-      // PATCH는 부분 수정이라 실제로 바뀐 것만 싣는다.
+      // PATCH는 부분 수정이라 바뀐 것만 싣되, 헤어는 이 화면에서 고를 수 없어도
+      // 종으로 결정된 현재 값을 그대로 실어 보내 서버에서 누락되지 않게 한다.
       final updated = await widget.repository.updateAppearance(
         widget.plant.id,
         bodyId: bodyChanged ? _selectedBodyId : null,
         colorId: colorChanged ? _selectedColorId : null,
+        hairId: widget.plant.hairId,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on LeafieApiException catch (error) {
@@ -107,6 +109,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                   width: plantArtWidthFor(196),
                   body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,
+                  hairId: widget.plant.hairId,
                 ),
               ),
             ),

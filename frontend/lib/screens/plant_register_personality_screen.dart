@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -146,6 +147,11 @@ class _PlantRegisterPersonalityScreenState
                           child: PlantCharacterArt(
                             width: AppLayout.personalityCharacterWidth,
                             body: plantBodyFromId(widget.draft.bodyId),
+                            // 성격 단계엔 아직 헤어를 draft에 저장하기 전이라
+                            // 종 매핑값으로 미리 얹어 보여준다.
+                            hairId:
+                                widget.draft.headItem ??
+                                hairForSpecies(widget.draft.species),
                           ),
                         ),
                       ),

@@ -26,6 +26,7 @@ class PlantCharacterArt extends StatelessWidget {
     this.body = PlantBody.circle,
     this.expression = PlantExpression.none,
     this.colorId,
+    this.hairId,
   });
 
   final double width;
@@ -36,6 +37,10 @@ class PlantCharacterArt extends StatelessWidget {
   /// 카탈로그에 없는 레거시 값이면 tint 없이 원본 PNG를 그린다.
   final String? colorId;
 
+  /// 종으로 자동 매핑된 헤어 애셋 id(`hair_*`). null이거나 카탈로그에 없는
+  /// 값이면 헤어를 얹지 않고 민머리로 그린다(기존 동작 유지).
+  final String? hairId;
+
   static const Map<PlantExpression, String> _expressionAssets = {
     PlantExpression.defaultFace: 'assets/images/expr_default.png',
     PlantExpression.happy: 'assets/images/expr_happy.png',
@@ -45,6 +50,41 @@ class PlantCharacterArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bodyArt = _buildBody();
+    final spec = hairId == null ? null : _kHairSpecs[hairId];
+    if (spec == null) return bodyArt;
+
+    // 헤어를 몸통 위에 얹는다. 몸통이 Stack 크기를 정하고, 헤어는 몸통 상단
+    // 중앙에 밑동을 붙인 채 위로 솟는다. 헤어 밑동은 정수리로 `overlap`만큼
+    // 파고들고(둥근 크라운에 얹히도록), 나머지는 얼굴 위로 자란다.
+    final bodyHeight = width * _kBodyAspect;
+    final hairWidth = width * spec.widthRatio;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.bottomCenter,
+      children: [
+        bodyArt,
+        Positioned(
+          // 헤어 밑동을 몸통 상단(bodyHeight)에서 overlap만큼 아래로 내려 얹는다.
+          bottom: bodyHeight - spec.overlap * width,
+          left: 0,
+          right: 0,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Image.asset(
+              'assets/images/$hairId.png',
+              width: hairWidth,
+              fit: BoxFit.contain,
+              semanticLabel: '식물 머리',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 몸통/표정 이미지(색 틴트 포함). 기존 렌더 로직 그대로.
+  Widget _buildBody() {
     final asset =
         _expressionAssets[expression] ?? 'assets/images/body_${body.name}.png';
     final image = Image.asset(
@@ -62,6 +102,39 @@ class PlantCharacterArt extends StatelessWidget {
     return PlantBodyTint(target: target, child: image);
   }
 }
+
+/// 몸통 body PNG(circle 698x649)의 세로/가로 비. `width`로 그린 몸통 높이를
+/// `width * _kBodyAspect`로 근사해 헤어 앵커의 기준으로 쓴다. thumb/square는
+/// 여백 비율이 조금 다르지만 헤어 앵커는 근사만 하면 되므로 하나로 통일한다.
+const double _kBodyAspect = 649 / 698;
+
+/// 헤어별 크기·오프셋 보정. 헤어 심볼 크기가 제각각(시안 5035:5886)이라
+/// 몸통 대비 상대값으로 정렬한다.
+/// - [widthRatio]: 헤어 렌더 폭 = `width * widthRatio`(몸통 폭 대비).
+/// - [overlap]: 헤어 밑동이 정수리로 파고드는 깊이(`width` 대비). 값이 클수록
+///   몸통 위로 얕게 얹히고, 작을수록 위로 높이 솟는다.
+///
+/// 근거: 시안 완성본(5028:4737)의 캐릭터별 전체 높이에서 "몸통 위로 솟는
+/// 정도"를 헤어 종횡비(실측 PNG)와 함께 환산했다. 세로로 긴 하월시아/토마토는
+/// 높이 솟고, 납작한 에케베리아(rosette)는 정수리에 얕게 얹힌다. 완벽 픽셀
+/// 정합이 아니라 시안 비율 근사이며 golden으로 확인한다(#90 재조정 여지).
+class _HairSpec {
+  const _HairSpec(this.widthRatio, this.overlap);
+  final double widthRatio;
+  final double overlap;
+}
+
+const Map<String, _HairSpec> _kHairSpecs = {
+  'hair_sprout': _HairSpec(0.96, 0.10), // 바질/기본: 잎 두 장 넓게, 낮고 넓게
+  'hair_cherry_tomato': _HairSpec(0.60, 0.06),
+  'hair_sunflower': _HairSpec(0.52, 0.05),
+  'hair_hydrangea': _HairSpec(0.62, 0.06),
+  'hair_monstera': _HairSpec(0.84, 0.08),
+  'hair_rosette_succulent': _HairSpec(0.72, 0.14), // 에케베리아: 납작, 정수리에 얕게
+  'hair_daisy': _HairSpec(0.60, 0.06),
+  'hair_flower_cactus': _HairSpec(0.58, 0.10),
+  'hair_pointed_succulent': _HairSpec(0.68, 0.05), // 하월시아: 길쭉, 가장 높이 솟음
+};
 
 /// 캐릭터 PNG(몸통+얼굴 한 장)에서 몸통만 [target] 색으로 물들인다.
 ///

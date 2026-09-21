@@ -122,6 +122,7 @@ class _PlantRegisterCompleteScreenState
                     width: compact ? 150 : AppLayout.completionCharacterWidth,
                     body: plantBodyFromId(widget.draft.bodyId),
                     colorId: widget.draft.bodyColorId,
+                    hairId: widget.draft.headItem,
                   ),
                 ),
                 const Spacer(),

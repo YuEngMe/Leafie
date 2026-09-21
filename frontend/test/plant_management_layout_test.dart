@@ -572,10 +572,10 @@ void main() {
       expect(repository.appearanceColor, 'color_orange');
     });
 
-    testWidgets('헤어는 고를 수 없고 미리보기에도 얹지 않는다', (tester) async {
+    testWidgets('헤어는 고를 수 없지만 현재 값이 미리보기에 얹힌다', (tester) async {
       await pump(tester);
 
-      // 헤어 스와치/피커가 전혀 없다.
+      // 헤어 스와치/피커가 전혀 없다(헤어는 종으로 자동 결정).
       for (final id in const [
         'hair_sunflower',
         'hair_cherry_tomato',
@@ -590,11 +590,14 @@ void main() {
         expect(find.byKey(ValueKey('appearance_$id')), findsNothing);
       }
 
-      // 새 캐릭터는 헤어를 얹지 않는다(hairId 파라미터 자체가 없어졌다).
-      expect(find.byType(PlantCharacterArt), findsOneWidget);
+      // 캐릭터 미리보기는 하나이고, 그 안에 종으로 결정된 헤어가 얹혀 그려진다.
+      final art = tester.widget<PlantCharacterArt>(
+        find.byType(PlantCharacterArt),
+      );
+      expect(art.hairId, 'hair_sprout');
     });
 
-    testWidgets('컬러만 바꾸고 적용하면 updateAppearance에 hairId 없이 colorId만 전달된다', (
+    testWidgets('컬러만 바꿔도 헤어는 현재 값을 함께 실어 보내 누락을 막는다', (
       tester,
     ) async {
       final repository = _FakeRepository([_plant()]);
@@ -609,7 +612,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
       await tester.pumpAndSettle();
 
-      expect(repository.appearanceHairId, isNull);
+      // 헤어는 이 화면에서 못 고르지만 종으로 결정된 현재 값을 그대로 싣는다.
+      expect(repository.appearanceHairId, 'hair_sprout');
       // 바디를 안 바꿨으면 body_id는 싣지 않는다(부분 PATCH).
       expect(repository.appearanceBodyId, isNull);
     });

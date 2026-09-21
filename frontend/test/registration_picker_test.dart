@@ -50,7 +50,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('기존 헤어 선택 데이터는 UI에 얹지 않아도 그대로 보존된다', (tester) async {
+  testWidgets('기존 헤어 데이터는 미리보기에 얹히고 draft에도 그대로 보존된다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
@@ -62,14 +62,20 @@ void main() {
       MaterialApp(home: PlantRegisterAppearanceScreen(draft: value)),
     );
     await tester.pumpAndSettle();
-    // 헤어는 고를 수 없고 화면에도 얹지 않지만 기존 값(hair_monstera)은
-    // draft 데이터로 그대로 유지된다(나중에 헤어 렌더 재도입 대비).
+    // 헤어는 고를 수 없지만 기존 값(hair_monstera)이 미리보기에 얹히고
+    // draft 데이터로도 그대로 유지된다.
     final context = tester.element(find.byType(PlantRegisterAppearanceScreen));
     await tester.runAsync(
-      () => precacheImage(
-        const AssetImage('assets/images/body_circle.png'),
-        context,
-      ),
+      () => Future.wait([
+        precacheImage(
+          const AssetImage('assets/images/body_circle.png'),
+          context,
+        ),
+        precacheImage(
+          const AssetImage('assets/images/hair_monstera.png'),
+          context,
+        ),
+      ]),
     );
     await tester.pumpAndSettle();
     await expectLater(
