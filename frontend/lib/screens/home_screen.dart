@@ -35,6 +35,7 @@ class HomePlant {
     this.bodyId,
     this.hairId,
     this.expressionId,
+    this.colorId,
   });
 
   final String name;
@@ -51,6 +52,10 @@ class HomePlant {
   /// #84·#85에서 붙는다. 위젯 생성자로 직접 만든 경우 null이다.
   final String? bodyId;
   final String? expressionId;
+
+  /// 사용자가 고른 바디 색(ColorType enum). 위젯 생성자로 직접 만든
+  /// 경우 null이고, 이때 캐릭터는 원본 노란색으로 그려진다.
+  final String? colorId;
 
   /// 등록한 날이 1일차다(2026-08-04 팀 확인).
   int get dayCount {
@@ -369,6 +374,7 @@ class _HomeScreenState extends State<HomeScreen>
                 bodyId: plant.bodyId,
                 hairId: plant.hairId,
                 expressionId: plant.expressionId,
+                colorId: plant.colorId,
               );
         _serverDialogue = room?.dialogue?.trim();
         _unreadNotificationCount = data.unreadNotificationCount;
@@ -826,6 +832,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     key: ValueKey(expression),
                                     width: 173.74,
                                     expression: expression,
+                                    colorId: plant.colorId,
                                   ),
                                 ),
                               ),

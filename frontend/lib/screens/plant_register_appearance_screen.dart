@@ -74,7 +74,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
             child: Column(
               children: [
                 SizedBox(height: math.max(12, constraints.maxHeight - 440)),
-                PlantCharacterArt(width: 200),
+                PlantCharacterArt(width: 200, colorId: _selectedColorId),
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,

@@ -86,7 +86,10 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
               child: OverflowBox(
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
-                child: PlantCharacterArt(width: plantArtWidthFor(196)),
+                child: PlantCharacterArt(
+                  width: plantArtWidthFor(196),
+                  colorId: _selectedColorId,
+                ),
               ),
             ),
           ),
