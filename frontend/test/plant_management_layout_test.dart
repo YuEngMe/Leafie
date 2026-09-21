@@ -456,14 +456,23 @@ void main() {
       ),
     );
 
-    testWidgets('헤드라인·앱바·체크 원 좌표', (tester) async {
+    testWidgets('앱바·바디 스위처·체크 원 좌표', (tester) async {
       await pump(tester);
 
-      // 2568:1786 앱바, 2568:1874 헤드라인 top 140.
+      // 2568:1786 앱바.
       expect(find.text('캐릭터 꾸미기'), findsOneWidget);
-      final headline = tester.getRect(find.text('식물을 꾸며주세요!'));
-      expect(headline.top, _closeTo1px(140));
-      expect(headline.center.dx, _closeTo1px(201));
+      // 5038:6460 시안: 헤드라인 자리에 바디 스위처가 온다(헤드라인 없음).
+      expect(find.text('식물을 꾸며주세요!'), findsNothing);
+      // 바디 스위처는 앱바 아래 top 143, 화면 중앙 정렬(dx≈201).
+      final bodyRow = tester.getRect(
+        find.byKey(const ValueKey('appearance_body_circle')),
+      );
+      expect(bodyRow.top, _closeTo1px(143));
+      final square = tester.getRect(
+        find.byKey(const ValueKey('appearance_body_square')),
+      );
+      // 3개 실루엣이 중앙 대칭: circle(왼)·square(오) 중심이 201 기준 대칭.
+      expect((bodyRow.center.dx + square.center.dx) / 2, _closeTo1px(201));
 
       // 컬러 선택은 등록 화면과 같은 드르륵 카루셀로 통일했다. 절대좌표
       // 탭 라벨('컬러')은 없앴고, 헤어 탭도 없다.

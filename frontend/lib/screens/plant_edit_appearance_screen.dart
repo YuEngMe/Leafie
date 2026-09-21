@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
@@ -91,11 +90,43 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
       appBar: const YesoAppBar(title: '캐릭터 꾸미기'),
       body: PlantDetailBody(
         children: [
-          // 헤드라인 2568:1874. top 140, 21/w600 진한 텍스트.
-          const PlantDetailPositioned(
-            top: 140,
-            height: 25,
-            child: Center(child: Text('식물을 꾸며주세요!', style: kTitleStyle)),
+          // 바디 스위처 5038:6460(노드 5070:906). 시안은 앱바 아래 작은 실루엣
+          // 3개(원/돔/라운드사각, 각 ~22×22)를 가로로 균등·중앙 정렬한다.
+          // 시안엔 이 자리에 헤드라인("식물을 꾸며주세요!")이 없고 스위처가
+          // 온다 — 등록 화면과 달리 편집 화면은 헤드라인 없이 스위처를 top 143에
+          // 앉힌다. 선택된 바디만 kOrangeMain으로 채우고 나머지는 회색. SVG
+          // 에셋이 없어 도형을 코드로 그린다. body_*.png 썸네일은 안 쓴다.
+          PlantDetailPositioned(
+            top: 143,
+            height: 22,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final choice in _bodyChoices)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: GestureDetector(
+                        key: ValueKey('appearance_${choice.id}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _busy
+                            ? null
+                            : () => setState(() => _selectedBodyId = choice.id),
+                        child: Semantics(
+                          button: true,
+                          selected: _selectedBodyId == choice.id,
+                          label: choice.label,
+                          child: _BodyGlyph(
+                            id: choice.id,
+                            selected: _selectedBodyId == choice.id,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
           // 캐릭터 미리보기 2568:1785. x=103 y=287 196x168.
           PlantDetailPositioned(
@@ -112,54 +143,6 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                   hairId: widget.plant.hairId,
                 ),
               ),
-            ),
-          ),
-          // 바디 선택 행. 미리보기(~455)와 팔레트 원(576) 사이 공간에 바디 3종을
-          // 한 줄로 앉힌다. 색은 회전 카루셀로 고르지만 바디는 3종뿐이라 한눈에
-          // 보이도록 고정 행으로 둔다. 선택된 바디는 kOrangeMain 테두리.
-          PlantDetailPositioned(
-            top: 470,
-            height: 96,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final choice in _bodyChoices)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: GestureDetector(
-                      key: ValueKey('appearance_${choice.id}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _busy
-                          ? null
-                          : () => setState(() => _selectedBodyId = choice.id),
-                      child: Semantics(
-                        button: true,
-                        selected: _selectedBodyId == choice.id,
-                        label: choice.label,
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: kBackgroundWhite,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedBodyId == choice.id
-                                  ? kOrangeMain
-                                  : const Color(0xFFE8E8E8),
-                              width: 3,
-                            ),
-                          ),
-                          child: Image.asset(
-                            'assets/images/${choice.id}.png',
-                            fit: BoxFit.contain,
-                            semanticLabel: choice.label,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
             ),
           ),
           // 팔레트 큰 원 2568:1796.
@@ -247,5 +230,54 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
         ],
       ),
     );
+  }
+}
+
+/// 바디 스위처의 실루엣 아이콘 하나(5038:6460). SVG 에셋이 없어 도형을
+/// 코드로 그린다. 시안 규격 ≈ 22×22, 선택 시 kOrangeMain·미선택 시 회색으로
+/// 도형 자체를 채운다(테두리가 아니라 면 색).
+class _BodyGlyph extends StatelessWidget {
+  const _BodyGlyph({required this.id, required this.selected});
+
+  final String id;
+  final bool selected;
+
+  static const double _size = 22;
+  // 시안 미선택 실루엣 회색(#D9D9D9 계열). 프로젝트 상수 kProgressInactive와 같은 값.
+  static const Color _idleColor = Color(0xFFD9D9D9);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? kOrangeMain : _idleColor;
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: DecoratedBox(decoration: _decorationFor(id, color)),
+    );
+  }
+
+  static BoxDecoration _decorationFor(String id, Color color) {
+    switch (id) {
+      case 'body_square':
+        // 네모: 라운드 처리된 사각형.
+        return BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(6),
+        );
+      case 'body_thumb':
+        // 통통이: 위는 둥근 돔, 아래는 평평(body_thumb.png 실루엣 근사).
+        // 위 두 모서리에만 큰 반지름을 줘 반원에 가까운 돔을 만든다.
+        return BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_size / 2),
+            bottom: Radius.circular(4),
+          ),
+        );
+      case 'body_circle':
+      default:
+        // 동그라미: 꽉 찬 원.
+        return BoxDecoration(color: color, shape: BoxShape.circle);
+    }
   }
 }
