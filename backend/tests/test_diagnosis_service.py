@@ -30,7 +30,7 @@ class FakeRepository:
             place_name="학교",
             personality_type="OUTGOING",
             body_id="body_circle",
-            color_id="green",
+            color_id="color_green",
             hair_id="basil",
             expression_id="expression_default",
         )
