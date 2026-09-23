@@ -204,13 +204,14 @@ class PlantRegistrationService:
             created_at=now,
             updated_at=now,
         )
+        watering_base_date = request.last_watered_on or today
         watering_schedule = CareSchedule(
             id=uuid4(),
             plant_id=plant.id,
             type=CareScheduleType.WATERING.value,
             interval_days=guide.default_watering_interval_days,
             next_due_date=next_recurring_due_date(
-                request.last_watered_on,
+                watering_base_date,
                 guide.default_watering_interval_days,
                 today,
             ),
@@ -226,15 +227,18 @@ class PlantRegistrationService:
             created_at=now,
             updated_at=now,
         )
-        watering_event = completed_care_event(
-            plant_id=plant.id,
-            schedule_id=watering_schedule.id,
-            care_type=CareEventType.WATERING,
-            performed_on=request.last_watered_on,
-            recorded_at=now,
-        )
         care_schedules: list[CareSchedule] = [watering_schedule]
-        care_events: list[CareEvent] = [watering_event]
+        care_events: list[CareEvent] = []
+        if request.last_watered_on is not None:
+            care_events.append(
+                completed_care_event(
+                    plant_id=plant.id,
+                    schedule_id=watering_schedule.id,
+                    care_type=CareEventType.WATERING,
+                    performed_on=request.last_watered_on,
+                    recorded_at=now,
+                )
+            )
         repotting_schedule: CareSchedule | None = None
         if (
             request.last_repotted_on is not None
@@ -356,7 +360,9 @@ class PlantRegistrationService:
 
     @staticmethod
     def _validate_dates(request: PlantCreateRequest, today: date) -> None:
-        dates = [request.started_on, request.last_watered_on]
+        dates = [request.started_on]
+        if request.last_watered_on is not None:
+            dates.append(request.last_watered_on)
         if request.last_repotted_on is not None:
             dates.append(request.last_repotted_on)
         if any(value > today for value in dates):

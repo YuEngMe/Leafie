@@ -183,7 +183,7 @@ Storage 파일은 멱등 Worker가 삭제합니다.
   "primary_media_file_id": "uuid-or-null",
   "place_name": "내 방 창가",
   "started_on": "2026-07-01",
-  "last_watered_on": "2026-07-30",
+  "last_watered_on": null,
   "last_repotted_on": null,
   "personality_type": "INTROVERTED",
   "body_id": "body_circle",
@@ -194,12 +194,14 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 ```
 
 - 검색 등록은 `species_identification_id`와 대표 사진이 null일 수 있습니다.
-- 분갈이 날짜는 선택값입니다.
+- 마지막 물 준 날과 분갈이 날짜는 선택값입니다.
 - 같은 사용자와 `client_registration_id`의 동일 요청은 최초 결과를 반환하고 다른 요청은
   `409 IDEMPOTENCY_KEY_REUSED`를 반환합니다.
 - 성공 시 식물, 물주기 반복 일정, 알려진 경우 분갈이 반복 일정을 한 번만 생성합니다.
 - `last_watered_on`과 `last_repotted_on`은 식물 행의 수정 필드가 아니라 최초 완료 이력과
-  다음 예정일 계산에 사용합니다. 분갈이 날짜가 null이면 분갈이 이력과 일정을 만들지 않습니다.
+  다음 예정일 계산에 사용합니다. 마지막 물 준 날이 null이면 완료 이력을 만들지 않고 API 요청
+  처리일을 기준으로 최초 물주기 일정을 계산합니다. 분갈이 날짜가 null이면 분갈이 이력과 일정을
+  만들지 않습니다.
 - 장식, 화분, 위치 분류, 컨디션과 대화 세션은 생성하지 않습니다.
 
 ### `GET /plants`

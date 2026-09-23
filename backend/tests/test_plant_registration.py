@@ -255,6 +255,27 @@ async def test_search_registration_creates_flat_plant_and_initial_resources() ->
     ]
 
 
+async def test_registration_without_last_watered_date_uses_today_without_fake_history() -> None:
+    service, repository, user_id = build_service()
+
+    await service.create_plant(
+        user_id,
+        make_request(last_watered_on=None, last_repotted_on=None),
+    )
+
+    schedule = next(
+        entity for entity in repository.added if isinstance(entity, CareSchedule)
+    )
+    events = [entity for entity in repository.added if isinstance(entity, CareEvent)]
+    assert repository.profile is not None
+    today = today_in_timezone(repository.profile.timezone)
+    assert schedule.next_due_date == today + timedelta(days=3)
+    assert not any(event.status == CareEventStatus.COMPLETED for event in events)
+    assert [(event.status, event.due_date) for event in events] == [
+        (CareEventStatus.SCHEDULED, schedule.next_due_date)
+    ]
+
+
 async def test_registration_retry_returns_existing_result_without_duplicates() -> None:
     service, repository, user_id = build_service()
     request = make_request()
