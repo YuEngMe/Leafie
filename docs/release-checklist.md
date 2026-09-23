@@ -15,7 +15,7 @@ pytest
 - Alembic migration이 단일 head이고 공유 DB가 최신 head입니다.
 - `public`의 사용자 데이터 테이블에 RLS가 활성화되어 있습니다.
 - 채팅, Tool Calling, 컨디션, 가지치기와 자유 할 일 계약이 API와 문서에 남아 있지 않습니다.
-- 식물 등록의 분갈이 날짜가 nullable이고 다이어리에 날씨와 제목이 있습니다.
+- 식물 등록의 마지막 물 준 날과 분갈이 날짜가 nullable이고 다이어리에 날씨와 제목이 있습니다.
 - `letters(diary_id)` unique와 완료 편지 불변 규칙이 DB·서비스에서 모두 보장됩니다.
 - 센서 소유 테이블과 판정 로직은 센서 담당 migration과 충돌하지 않습니다.
 

@@ -117,7 +117,7 @@ async def seed(db, queue, *, reserve=True):
                 place_name="집",
                 personality_type="INTROVERTED",
                 body_id="body_circle",
-                color_id="green",
+                color_id="color_green",
                 hair_id="leaf",
                 expression_id="expression_default",
             )
