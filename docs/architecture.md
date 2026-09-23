@@ -190,3 +190,6 @@ Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문
 
 장치 등록, Wi-Fi 연결, 측정 주기, 원시 토양 수분·조도 저장, 하루 권장 조도 누적 계산,
 물 요구와 급수 완료 판정은 센서 담당 문서와 구현에서 정의합니다.
+
+telemetry 수신 경로(API Gateway → SQS → Lambda → DB)와 센서 테이블은
+[센서 telemetry 수신](sensor-telemetry.md)에 정의합니다.
