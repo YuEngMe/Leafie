@@ -99,8 +99,11 @@ abstract final class AppLayout {
   // (헤드라인 152 / 태그 190 / 캐릭터 216 / 말풍선 504 / 인디케이터 590)
   static const double personalityTitleTop = 27; // 시안 152
   static const double personalityTagsTop = 65; // 시안 190
-  static const double personalityCharacterWidth = 250;
-  static const double personalityCharacterTop = 91; // 시안 216
+  // 시안 5460:721: 몸통(circle 기준) 폭 139, 바닥 y=488.85. 헤어는 박스 위로
+  // 솟으므로 박스 위치를 헤어 꼭대기가 아닌 몸통 바닥에 맞춘다.
+  // 폭 155 = 139 / 0.897(circle PNG 불투명 영역 비율).
+  static const double personalityCharacterWidth = 155;
+  static const double personalityCharacterTop = 227.5; // 몸통 바닥 시안 489
   static const double personalityBubbleTop = 379; // 시안 504
   static const double personalityDotsTop = 465; // 시안 590
   static const double appearanceCharacterWidth = 232;
@@ -109,10 +112,15 @@ abstract final class AppLayout {
   static const double appearanceTabTopOffset = -26;
   static const double appearanceSwatchesTopOffset = 17;
   static const double appearanceHairMessageTopOffset = 72;
-  static const double completionArtSize = 360;
-  static const double completionCharacterWidth = 230;
-  static const double completionTopGap = 112;
-  static const double completionTitleToArtGap = 0;
+  // 시안 4534:812 (본문 시작 y=92 기준). 몸통(square) 폭 156 → 모든 바디가
+  // 같은 크기로 보이도록 circle 기준 폭 182.4(= 163.6 / 0.897)로 그린다.
+  static const double completionTopGap = 96; // 제목 y=188
+  static const double completionGlowTop = 63; // 광원 원 y=251
+  static const double completionGlowSize = 408;
+  static const double completionCharacterWidth = 182.4;
+  // 몸통 바닥 y=596.9 → 박스 위 = 596.9 + 9.7 − 169.6 − 188.
+  static const double completionCharacterTop = 249;
+  static const double completionStageHeight = 471; // 광원 원 바닥 y=659
   static const double homeTopBarHeight = 68;
   static const double homeHumidityCardHeight = 54;
 

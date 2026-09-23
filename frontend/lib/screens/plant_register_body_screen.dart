@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
@@ -26,7 +25,8 @@ const _bodies = [
 ///
 /// 시안 5108:721: 회전 호 피커 대신, 캐릭터 미리보기 아래에 작은 실루엣
 /// 인디케이터 3개(편집 화면과 같은 `BodyGlyph` 원/돔/네모)를 가로로
-/// 중앙 정렬한다. 선택된 것만 주황이고, 탭하면 미리보기가 바뀐다.
+/// 중앙 정렬한다. 선택된 것만 주황이다. 캐릭터를 좌우로 밀거나(성격 화면과
+/// 같은 PageView) 인디케이터를 탭하면 바디가 바뀐다.
 class PlantRegisterBodyScreen extends StatefulWidget {
   const PlantRegisterBodyScreen({super.key, required this.draft});
   final PlantRegistrationDraft draft;
@@ -37,6 +37,31 @@ class PlantRegisterBodyScreen extends StatefulWidget {
 class _BodyState extends State<PlantRegisterBodyScreen> {
   late String _selectedBodyId =
       widget.draft.bodyId ?? PlantRegistrationDraft.defaultBodyId;
+  late final PageController _pageController = PageController(
+    initialPage: _indexOf(_selectedBodyId),
+  );
+
+  static int _indexOf(String id) {
+    final index = _bodies.indexWhere((b) => b.id == id);
+    return index < 0 ? 0 : index;
+  }
+
+  void _selectFromIndicator(String id) {
+    setState(() => _selectedBodyId = id);
+    _pageController.animateToPage(
+      _indexOf(id),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _confirm() {
     widget.draft.bodyId = _selectedBodyId;
@@ -60,58 +85,69 @@ class _BodyState extends State<PlantRegisterBodyScreen> {
       variant: PrimaryButtonVariant.enabled,
       onPressed: _confirm,
     ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              children: [
-                // 시안 미리보기 y=332, 스위처 y=558. 색선택 화면과 같은
-                // 방식으로 미리보기를 화면 아래쪽에 앉힌다. 456은 미리보기
-                // top을 시안 332에 맞추려 440에서 16px 올린 값이다(헤어가
-                // 없는 화면이라 위로 올려도 헤드라인과 겹치지 않는다).
-                SizedBox(height: math.max(12, constraints.maxHeight - 456)),
-                PlantCharacterArt(
-                  width: 200,
-                  body: plantBodyFromId(_selectedBodyId),
-                  colorId: widget.draft.bodyColorId,
+    // 스캐폴드가 왼쪽 정렬이라 폭을 꽉 채워 가운데 정렬한다.
+    child: SingleChildScrollView(
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          children: [
+            // 시안 5028:1193: 몸통(circle) 폭 170.44, 바닥 y=489,
+            // 인디케이터 y=558. 폭 190 = 170.44 / 0.897.
+            const SizedBox(height: _kArtTopGap),
+            // 몸통 박스 높이(= 폭 × 649/698)만큼 밀어서 넘기는 영역.
+            SizedBox(
+              height: _kArtWidth * 649 / 698,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _bodies.length,
+                onPageChanged: (index) =>
+                    setState(() => _selectedBodyId = _bodies[index].id),
+                itemBuilder: (context, index) => Center(
+                  child: PlantCharacterArt(
+                    width: _kArtWidth,
+                    body: plantBodyFromId(_bodies[index].id),
+                    colorId: widget.draft.bodyColorId,
+                  ),
                 ),
-                const SizedBox(height: 40),
-                // 바디 실루엣 인디케이터 3개(중앙 정렬, 선택만 주황).
-                // 22×22 글리프는 탭 영역이 좁아 편집 화면처럼 좌우 패딩과
-                // opaque GestureDetector로 탭 영역을 넓힌다.
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final option in _bodies)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: GestureDetector(
-                          key: ValueKey('body_${option.id}'),
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () =>
-                              setState(() => _selectedBodyId = option.id),
-                          child: Semantics(
-                            button: true,
-                            selected: _selectedBodyId == option.id,
-                            label: option.label,
-                            child: BodyGlyph(
-                              id: option.id,
-                              selected: _selectedBodyId == option.id,
-                            ),
-                          ),
+              ),
+            ),
+            const SizedBox(height: _kArtToIndicatorGap),
+            // 바디 실루엣 인디케이터 3개(시안 폭 86.7 → 글리프 간격 약 10).
+            // 22×22 글리프는 탭 영역이 좁아 opaque GestureDetector로 넓힌다.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final option in _bodies)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: GestureDetector(
+                      key: ValueKey('body_${option.id}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _selectFromIndicator(option.id),
+                      child: Semantics(
+                        button: true,
+                        selected: _selectedBodyId == option.id,
+                        label: option.label,
+                        child: BodyGlyph(
+                          id: option.id,
+                          selected: _selectedBodyId == option.id,
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 40),
+                    ),
+                  ),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
     ),
   );
 }
+
+const double _kArtWidth = 190;
+// 스캐폴드 본문 시작(헤드라인 아래)에서 몸통 박스 위까지. 박스 위 = 몸통 바닥
+// 489 + 박스 아래 여백(0.053 × 190) − 박스 높이(190 × 649/698).
+const double _kArtTopGap = 152;
+// 박스 바닥(≈499)에서 인디케이터 y=558까지.
+const double _kArtToIndicatorGap = 59;

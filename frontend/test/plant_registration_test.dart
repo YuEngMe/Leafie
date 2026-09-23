@@ -310,6 +310,32 @@ void main() {
     expect(find.byType(PlantRegisterAppearanceScreen), findsOneWidget);
   });
 
+  testWidgets('바디 선택 화면에서 캐릭터를 좌우로 밀어 바디를 바꿀 수 있다', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final draft = _sampleDraft();
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterBodyScreen(draft: draft)),
+    );
+
+    // 왼쪽으로 두 번 밀면 동그라미 → 통통이 → 네모.
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('통통이').first),
+      isSemantics(isSelected: true, label: '통통이'),
+    );
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('선택'));
+    await tester.pumpAndSettle();
+    expect(draft.bodyId, 'body_square');
+  });
+
   testWidgets('꾸미기 화면에서 컬러를 선택하고 중앙 완료점을 누르면 draft에 반영된다', (
     WidgetTester tester,
   ) async {
