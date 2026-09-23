@@ -1,9 +1,10 @@
-"""add sensor devices and readings
+"""add devices, device claims, plant links and sensor readings
 
 Revision ID: cd31c92afd23
 Revises: a9d4e7f2c610
 
-센서 소유 테이블과 telemetry consumer(Lambda) 전용 DB 역할 `sensor_ingest`를 추가한다.
+센서 소유 테이블(devices, device_claims, plant_devices, sensor_readings)과 telemetry
+consumer(Lambda) 전용 DB 역할 `sensor_ingest`를 추가한다.
 역할 비밀번호는 migration에 넣지 않는다. 적용 후 운영자가 별도로 설정한다.
 
     ALTER ROLE sensor_ingest PASSWORD '...';
@@ -19,22 +20,23 @@ down_revision = "a9d4e7f2c610"
 branch_labels = None
 depends_on = None
 
+SENSOR_TABLES = ("devices", "device_claims", "plant_devices", "sensor_readings")
+
 
 def upgrade() -> None:
     op.create_table(
-        "sensor_devices",
-        sa.Column("device_id", sa.String(12), primary_key=True),
+        "devices",
+        sa.Column("id", sa.String(12), primary_key=True),
         sa.Column(
-            "user_id",
+            "owner_user_id",
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("auth.users.id", ondelete="CASCADE"),
-            nullable=False,
         ),
-        sa.Column(
-            "plant_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("plants.id", ondelete="SET NULL"),
-        ),
+        sa.Column("device_token_hash", sa.String(64)),
+        sa.Column("status", sa.String(16), nullable=False, server_default="UNCLAIMED"),
+        sa.Column("firmware_version", sa.String(32)),
+        sa.Column("claimed_at", sa.DateTime(timezone=True)),
+        sa.Column("last_seen_at", sa.DateTime(timezone=True)),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -47,15 +49,96 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
-        sa.CheckConstraint("device_id ~ '^[0-9A-F]{12}$'", name="device_id_format"),
+        sa.CheckConstraint("id ~ '^[0-9A-F]{12}$'", name="id_format"),
+        sa.CheckConstraint("status IN ('UNCLAIMED', 'CLAIMED')", name="status"),
+        sa.CheckConstraint(
+            "device_token_hash IS NULL OR char_length(device_token_hash) = 64",
+            name="device_token_hash_length",
+        ),
+        sa.CheckConstraint(
+            "(status = 'CLAIMED' AND owner_user_id IS NOT NULL "
+            "AND device_token_hash IS NOT NULL AND claimed_at IS NOT NULL) "
+            "OR (status = 'UNCLAIMED' AND owner_user_id IS NULL AND device_token_hash IS NULL)",
+            name="claimed_state",
+        ),
     )
-    op.create_index("ix_sensor_devices_user_id", "sensor_devices", ["user_id"])
+    op.create_index("ix_devices_owner_user_id", "devices", ["owner_user_id"])
     op.create_index(
-        "uq_sensor_devices_plant_id",
-        "sensor_devices",
-        ["plant_id"],
+        "uq_devices_device_token_hash",
+        "devices",
+        ["device_token_hash"],
         unique=True,
-        postgresql_where=sa.text("plant_id IS NOT NULL"),
+        postgresql_where=sa.text("device_token_hash IS NOT NULL"),
+    )
+
+    op.create_table(
+        "device_claims",
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "device_id",
+            sa.String(12),
+            sa.ForeignKey("devices.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "user_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("auth.users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("claim_token_hash", sa.String(64), nullable=False, unique=True),
+        sa.Column("status", sa.String(16), nullable=False, server_default="PENDING"),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column("completed_at", sa.DateTime(timezone=True)),
+        sa.CheckConstraint(
+            "status IN ('PENDING', 'COMPLETED', 'EXPIRED', 'CANCELLED')", name="status"
+        ),
+        sa.CheckConstraint("char_length(claim_token_hash) = 64", name="claim_token_hash_length"),
+        sa.CheckConstraint(
+            "(status = 'COMPLETED') = (completed_at IS NOT NULL)", name="completed_at"
+        ),
+    )
+    op.create_index("ix_device_claims_user_id", "device_claims", ["user_id"])
+    op.create_index(
+        "uq_device_claims_pending_device",
+        "device_claims",
+        ["device_id"],
+        unique=True,
+        postgresql_where=sa.text("status = 'PENDING'"),
+    )
+
+    op.create_table(
+        "plant_devices",
+        sa.Column(
+            "device_id",
+            sa.String(12),
+            sa.ForeignKey("devices.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "plant_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("plants.id", ondelete="CASCADE"),
+            nullable=False,
+            unique=True,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
     )
 
     op.create_table(
@@ -64,7 +147,7 @@ def upgrade() -> None:
         sa.Column(
             "device_id",
             sa.String(12),
-            sa.ForeignKey("sensor_devices.device_id", ondelete="CASCADE"),
+            sa.ForeignKey("devices.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("sqs_message_id", postgresql.UUID(as_uuid=True), nullable=False, unique=True),
@@ -82,7 +165,7 @@ def upgrade() -> None:
     )
 
     # 앱(anon/authenticated)은 센서 테이블에 직접 접근하지 않는다. 백엔드 역할만 읽고 쓴다.
-    for table_name in ("sensor_devices", "sensor_readings"):
+    for table_name in SENSOR_TABLES:
         op.execute(f"ALTER TABLE public.{table_name} ENABLE ROW LEVEL SECURITY")
         op.execute(f"REVOKE ALL ON public.{table_name} FROM anon, authenticated")
 
@@ -101,7 +184,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("sensor_readings")
-    op.drop_table("sensor_devices")
+    op.drop_table("plant_devices")
+    op.drop_table("device_claims")
+    op.drop_table("devices")
     op.execute(
         "DO $$ BEGIN "
         "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sensor_ingest') THEN "
