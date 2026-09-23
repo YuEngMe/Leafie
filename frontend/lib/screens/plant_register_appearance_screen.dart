@@ -90,7 +90,16 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Column(
               children: [
-                SizedBox(height: math.max(12, constraints.maxHeight - 440)),
+                // 미리보기 위 여백. 헤어는 몸통 상단 위로 최대 ~164px(하월시아)
+                // 솟는데 Stack(clipBehavior: Clip.none)이라 그 높이가 레이아웃에
+                // 잡히지 않는다. child는 헤드라인 바로 아래(y=124.2)에서 시작하고
+                // 미리보기 몸통 top = 124.2 + 이 여백이므로, 여백이 헤어 솟음보다
+                // 작으면 헤어 꼭대기가 헤드라인을 파고든다. 작은 화면일수록
+                // maxHeight-440이 작아져 이 일이 생긴다(예: 360x740에서 124.8).
+                // 하한을 176으로 올려 어떤 기기에서도 헤어가 헤드라인 아래로
+                // 내려오게 한다. 큰 화면(402/393)은 maxHeight-440이 176보다 커서
+                // 그대로 선택되므로 배치가 바뀌지 않는다.
+                SizedBox(height: math.max(176, constraints.maxHeight - 440)),
                 PlantCharacterArt(
                   width: 200,
                   body: plantBodyFromId(widget.draft.bodyId),

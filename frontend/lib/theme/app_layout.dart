@@ -93,11 +93,16 @@ abstract final class AppLayout {
 
   /// 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
   static const double registrationNameFieldsGap = 76;
-  static const double personalityTagsTop = 38;
+  // 성격 화면 요소는 PageView의 Stack(top=0)을 기준으로 놓인다. 그 top=0의
+  // 절대 y는 상태바 46 + 앱바 46 + 진행바 21.425 + 간격 12 = 125.425다.
+  // 아래 상수는 시안 4534:195의 절대 y에서 이 125.425를 뺀 값이다.
+  // (헤드라인 152 / 태그 190 / 캐릭터 216 / 말풍선 504 / 인디케이터 590)
+  static const double personalityTitleTop = 27; // 시안 152
+  static const double personalityTagsTop = 65; // 시안 190
   static const double personalityCharacterWidth = 250;
-  static const double personalityCharacterTop = 104;
-  static const double personalityBubbleTop = 348;
-  static const double personalityDotsTop = 430;
+  static const double personalityCharacterTop = 91; // 시안 216
+  static const double personalityBubbleTop = 379; // 시안 504
+  static const double personalityDotsTop = 465; // 시안 590
   static const double appearanceCharacterWidth = 232;
   static const double appearanceCharacterTop = 64;
   static const double appearancePaletteTop = 399;

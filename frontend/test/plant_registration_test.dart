@@ -275,7 +275,8 @@ void main() {
     await tester.fling(find.byType(PageView), const Offset(-400, 0), 1000);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('다음'));
+    // 성격 화면의 하단 버튼 문구는 시안(4534:195)대로 '선택'이다.
+    await tester.tap(find.text('선택'));
     await tester.pumpAndSettle();
 
     expect(draft.personalityType, 'CHIC');
@@ -295,11 +296,12 @@ void main() {
       MaterialApp(home: PlantRegisterBodyScreen(draft: draft)),
     );
 
-    // 기본 선택은 body_circle. 통통이(body_thumb)를 탭해 바꾼다.
+    // 기본 선택은 body_circle. 통통이(body_thumb) 실루엣 인디케이터를 탭해 바꾼다.
     await tester.tap(find.bySemanticsLabel('통통이').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('선택 완료'));
+    // 시안 5108:721대로 확정 버튼 문구는 '선택'이다.
+    await tester.tap(find.bySemanticsLabel('선택'));
     await tester.pumpAndSettle();
 
     expect(draft.bodyId, 'body_thumb');

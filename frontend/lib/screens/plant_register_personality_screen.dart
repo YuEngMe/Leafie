@@ -119,12 +119,18 @@ class _PlantRegisterPersonalityScreenState
                   final personality = _personalities[index];
                   return Stack(
                     children: [
-                      Align(
-                        alignment: Alignment.topCenter,
-                        // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
-                        child: Text(
-                          personality.label,
-                          style: kTitleStyle.copyWith(color: kPersonalityTitle),
+                      Positioned(
+                        top: AppLayout.personalityTitleTop,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
+                          child: Text(
+                            personality.label,
+                            style: kTitleStyle.copyWith(
+                              color: kPersonalityTitle,
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(
@@ -200,7 +206,7 @@ class _PlantRegisterPersonalityScreenState
                 AppLayout.bottomPadding,
               ),
               child: PrimaryButton(
-                label: '다음',
+                label: '선택',
                 variant: PrimaryButtonVariant.enabled,
                 onPressed: _goToNextStep,
               ),
