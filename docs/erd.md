@@ -208,7 +208,7 @@ erDiagram
 
 센서 장치와 측정값 테이블은 센서 담당 스키마에 둡니다. `device_tokens`는 푸시 수신 설치
 정보이며 센서 장치가 아닙니다.
-`sensor_devices`, `sensor_readings`의 컬럼과 정책은
+`devices`, `device_claims`, `plant_devices`, `sensor_readings`의 컬럼과 정책은
 [센서 telemetry 수신](sensor-telemetry.md)을 따릅니다.
 
 ## 3. Enum

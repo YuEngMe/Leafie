@@ -38,17 +38,49 @@ API Gateway 매핑 템플릿이 경로의 `device_id`를 본문과 합쳐 큐에
 
 ## 테이블
 
+기기 등록(claim) 설계는 센서 펌웨어 저장소 `AGENTS.md` 10~17번을 따른다. 이 문서의 테이블은 그
+설계를 반영하되, claim API 자체는 아직 구현하지 않았다.
+
 | 테이블 | 설명 |
 |---|---|
-| `sensor_devices` | `device_id`(MAC 기반 12자리 대문자 hex, PK), `user_id`, `plant_id`(null 가능). 식물 하나에 기기 하나 |
+| `devices` | 센서 기기. `id`(MAC 기반 12자리 대문자 hex), `owner_user_id`, `device_token_hash`, `status`, `firmware_version`, `claimed_at`, `last_seen_at` |
+| `device_claims` | 기기 claim "시도". `device_id`, `user_id`, `claim_token_hash`, `status`, `expires_at`, `completed_at` |
+| `plant_devices` | 식물과 기기의 연결. 식물 하나에 기기 하나, 기기 하나에 식물 하나 |
 | `sensor_readings` | 측정값. `device_id` FK, `sqs_message_id`(UNIQUE), `measured_at`, `received_at`, `lux`, `soil_raw` |
+
+`devices`는 센서 장치이며, 푸시 수신용 앱 설치 정보인 `device_tokens`와 무관하다.
+
+### devices
+
+- `status`는 `UNCLAIMED` 또는 `CLAIMED`다. claim 성공 전에는 `owner_user_id`와 `device_token_hash`가
+  `NULL`이고, 성공 이후에만 `owner_user_id`, `device_token_hash`, `claimed_at`이 **함께** 채워진다.
+  CHECK 제약(`claimed_state`)이 이를 강제한다.
+- `device_token_hash`는 SHA-256 hex(64자)이며 NULL이 아니면 유일하다.
+- `last_seen_at`은 백엔드가 갱신한다. 수집 Lambda는 `devices`를 수정하지 않는다.
+- 소유 사용자가 삭제되면 기기와 그 측정값도 함께 삭제된다.
+
+### device_claims
+
+- `status`는 `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED`다. `completed_at`은 `COMPLETED`일 때만 채운다.
+- 기기당 `PENDING` claim은 하나만 허용한다 (여러 claim credential 동시 지원 안 함).
+- `device_claims.user_id`(claim을 요청한 사용자)와 `devices.owner_user_id`(현재 실제 소유자)는 의미가 다르다.
+
+### plant_devices
+
+- 식물이나 기기가 삭제되면 연결만 삭제된다. 식물 삭제는 기기와 측정값을 지우지 않는다.
+- 식물의 `user_id`와 기기의 `owner_user_id`가 같은지는 서비스 계층에서 검증한다 (DB 제약 없음).
+
+### sensor_readings
 
 - `received_at`은 저장 시각이 아니라 SQS `SentTimestamp`(API Gateway 수신 시각)다. 큐가 밀려도
   수신 순서를 판단할 수 있다.
 - `measured_at`은 null일 수 있으므로 시각 기준 조회는 `COALESCE(measured_at, received_at)`를 쓴다.
 - 표준 SQS는 같은 메시지를 두 번 줄 수 있어 `sqs_message_id`로 중복 저장을 막는다.
 - 등록되지 않은 `deviceId`는 FK 위반으로 저장되지 않고 DLQ로 간다.
-- 두 테이블 모두 RLS를 켜고 `anon`, `authenticated` 권한을 회수한다.
+- 아직 claim되지 않은 기기(`UNCLAIMED`)의 측정값은 DB가 막지 않는다. 정상 흐름에서는 기기가
+  `deviceToken`을 받은 뒤에만 전송하며, 이를 강제하는 것은 기기별 인증(다음 단계)의 몫이다.
+
+모든 센서 테이블은 RLS를 켜고 `anon`, `authenticated` 권한을 회수한다.
 
 ## consumer 전용 DB 역할
 
@@ -71,10 +103,11 @@ ALTER ROLE sensor_ingest PASSWORD '<새 비밀번호>';
 2. `sensor_ingest` 비밀번호를 설정한다.
 3. 접속 문자열을 SSM Parameter Store(SecureString)에 저장한다.
 4. consumer Lambda를 배포한다. 2, 3번 전에 배포하면 모든 메시지가 DLQ로 이동한다.
-5. 기기(또는 `sensor_devices` 테스트 행)를 만들고 telemetry가 저장되는지 확인한다.
+5. 기기를 등록하고 telemetry가 저장되는지 확인한다. claim API가 구현되기 전에는 `devices`에
+   `CLAIMED` 상태의 테스트 행(소유자, 64자 토큰 해시, `claimed_at`)을 직접 넣는다.
 
 ## 이 문서가 정하지 않는 것
 
-- claim API, `deviceToken` 발급·저장, 기기별 인증(Lambda Authorizer)
+- claim API(`POST /devices/{deviceId}/claims` 등), `deviceToken` 발급·저장, 기기별 telemetry 인증
 - 일별 누적 조도, 물 요구, 급수 판정, 편지 요약 어댑터(`LetterSensorSummary`)
 - 홈 표정과 센서 알림
