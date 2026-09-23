@@ -31,7 +31,7 @@ class PlantCreateRequest(BaseModel):
     primary_media_file_id: UUID | None = None
     started_on: Date
     place_name: str = Field(min_length=1, max_length=50)
-    last_watered_on: Date
+    last_watered_on: Date | None = None
     last_repotted_on: Date | None = None
     personality_type: PersonalityType
     body_id: BodyType

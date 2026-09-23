@@ -115,6 +115,11 @@ def test_plant_color_openapi_exposes_the_ten_supported_colors() -> None:
     ]
 
 
+def test_plant_registration_openapi_marks_last_watered_date_optional() -> None:
+    schema = create_app().openapi()["components"]["schemas"]["PlantCreateRequest"]
+    assert "last_watered_on" not in schema["required"]
+
+
 def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> None:
     user_id = uuid4()
     plant_id = uuid4()
