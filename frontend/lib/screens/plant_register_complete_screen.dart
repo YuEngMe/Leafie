@@ -90,37 +90,57 @@ class _PlantRegisterCompleteScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight < 700;
-            final artSize = compact ? 250.0 : AppLayout.completionArtSize;
+            // 작은 화면은 시안 배치를 비율로 줄인다.
+            final scale = constraints.maxHeight < 700 ? 0.75 : 1.0;
             return Column(
               children: [
-                SizedBox(height: compact ? 38 : AppLayout.completionTopGap),
-                Text(
-                  '당신의 식물 친구가 생겼어요!',
-                  style: kTitleStyle,
-                  textAlign: TextAlign.center,
-                ),
+                SizedBox(height: AppLayout.completionTopGap * scale),
+                // 시안 4534:812: 제목 y=188, 광원 원(408) y=251, 몸통 바닥
+                // y=596.9. 헤어는 박스 위로 솟으므로 몸통 바닥 기준으로 둔다.
                 SizedBox(
-                  height: compact ? 20 : AppLayout.completionTitleToArtGap,
-                ),
-                Container(
-                  width: artSize,
-                  height: artSize,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFFFFDFA0),
-                        Color(0xCCFFEAC2),
-                        Color(0x00FFFFFF),
-                      ],
-                      stops: [0, 0.5, 1],
-                    ),
-                  ),
-                  child: PlantCharacterArt(
-                    width: compact ? 150 : AppLayout.completionCharacterWidth,
-                    colorId: widget.draft.bodyColorId,
+                  height: AppLayout.completionStageHeight * scale,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Positioned(
+                        top: AppLayout.completionGlowTop * scale,
+                        child: Container(
+                          width: AppLayout.completionGlowSize * scale,
+                          height: AppLayout.completionGlowSize * scale,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                Color(0xFFFFDFA0),
+                                Color(0xCCFFEAC2),
+                                Color(0x00FFFFFF),
+                              ],
+                              stops: [0, 0.5, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Text(
+                          '당신의 리피가 완성되었어요!',
+                          style: kTitleStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      Positioned(
+                        top: AppLayout.completionCharacterTop * scale,
+                        child: PlantCharacterArt(
+                          width: AppLayout.completionCharacterWidth * scale,
+                          body: plantBodyFromId(widget.draft.bodyId),
+                          colorId: widget.draft.bodyColorId,
+                          hairId: widget.draft.headItem,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),

@@ -26,6 +26,14 @@ PlantRegistrationDraft _completeDraft() =>
       ..bodyColorId = 'color_orange';
 
 void main() {
+  test('마지막 물 준 날 없이 만든 등록 요청은 last_watered_on을 null로 보낸다', () {
+    final draft = _completeDraft()..lastWateredOn = null;
+    final request = buildPlantCreateRequest(draft);
+    expect(request.containsKey('last_watered_on'), isTrue);
+    expect(request['last_watered_on'], isNull);
+    expect(draft.freezeForSubmission().lastWateredOn, isNull);
+  });
+
   test('선택한 헤어 ID가 등록 요청과 고정된 초안에 유지된다', () {
     final draft = _completeDraft()..headItem = 'hair_sunflower';
     expect(buildPlantCreateRequest(draft)['hair_id'], 'hair_sunflower');

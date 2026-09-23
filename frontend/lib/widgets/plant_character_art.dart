@@ -1,15 +1,43 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 
-/// 캐릭터 바디 모양. 등록 시 사용자가 고른다. 백엔드 body_id가 아직
-/// 없어 지금은 circle 고정으로 그린다.
+/// 캐릭터 바디 모양. 등록 시 사용자가 고른다.
 enum PlantBody { circle, thumb, square }
 
-/// 캐릭터 표정. [none]이면 표정 없는 기본 body PNG를 그대로 그린다(기존 동작).
-/// 표정을 지정하면 `expr_*.png`(몸통+얼굴이 함께 그려진 완성 캐릭터)로 그린다.
-/// expr 애셋은 모두 787x731로 크기가 같아 서로 교체해도 위치가 틀어지지 않지만
-/// body PNG(circle=698x649)와는 여백 비율이 달라 호출부에서 폭/위치 보정이 필요하다.
+/// 저장/전송용 body_id 문자열('body_circle' 등)을 [PlantBody] enum으로 옮긴다.
+/// enum 이름과 'body_' 접미사가 일치하지만, 모르는 값(레거시·누락)에 죽지
+/// 않도록 명시적으로 매핑하고 circle로 폴백한다. 역방향은 `'body_${body.name}'`.
+PlantBody plantBodyFromId(String? bodyId) => switch (bodyId) {
+  'body_thumb' => PlantBody.thumb,
+  'body_square' => PlantBody.square,
+  _ => PlantBody.circle,
+};
+
+/// 캐릭터 표정. 몸통 위에 겹치는 얼굴 PNG를 고른다.
+/// [none]은 표정을 따로 정하지 않은 호출부용으로 기본 얼굴을 그린다.
 enum PlantExpression { none, defaultFace, happy, sad, blank }
+
+/// 몸통 PNG 경로. [colorId]('color_red' 등)가 카탈로그에 없거나 null이면
+/// 옐로 몸통을 쓴다.
+String plantBodyAssetFor(PlantBody body, String? colorId) {
+  final known = kPlantAppearanceColors.any((c) => c.id == colorId);
+  final color = known ? colorId!.substring('color_'.length) : 'yellow';
+  return 'assets/images/character/body_${body.name}_$color.png';
+}
+
+/// 얼굴 PNG 경로. 얼굴 PNG는 같은 바디의 몸통 PNG와 캔버스 크기·위치가
+/// 같아 몸통 위에 그대로 겹친다.
+String plantFaceAssetFor(PlantBody body, PlantExpression expression) {
+  final face = switch (expression) {
+    PlantExpression.none || PlantExpression.defaultFace => 'default',
+    PlantExpression.happy => 'happy',
+    PlantExpression.blank => 'neutral',
+    PlantExpression.sad => 'sad',
+  };
+  return 'assets/images/character/face_${body.name}_$face.png';
+}
 
 class PlantCharacterArt extends StatelessWidget {
   const PlantCharacterArt({
@@ -18,109 +46,258 @@ class PlantCharacterArt extends StatelessWidget {
     this.body = PlantBody.circle,
     this.expression = PlantExpression.none,
     this.colorId,
+    this.hairId,
   });
 
+  /// circle 몸통의 보이는 폭이 `width × 0.897`이 되는 기준 폭.
+  /// 위젯 박스는 바디와 무관하게 폭 `width`, 높이 `width × 649/698`이다.
   final double width;
   final PlantBody body;
   final PlantExpression expression;
 
   /// 사용자가 고른 바디 색(`kPlantAppearanceColors`의 id). null이거나
-  /// 카탈로그에 없는 레거시 값이면 tint 없이 원본 PNG를 그린다.
+  /// 카탈로그에 없는 레거시 값이면 옐로 몸통을 그린다.
   final String? colorId;
 
-  static const Map<PlantExpression, String> _expressionAssets = {
-    PlantExpression.defaultFace: 'assets/images/expr_default.png',
-    PlantExpression.happy: 'assets/images/expr_happy.png',
-    PlantExpression.sad: 'assets/images/expr_sad.png',
-    PlantExpression.blank: 'assets/images/expr_blank.png',
-  };
+  /// 종으로 자동 매핑된 헤어 애셋 id(`hair_*`). null이거나 카탈로그에 없는
+  /// 값이면 헤어를 얹지 않고 민머리로 그린다.
+  final String? hairId;
 
   @override
   Widget build(BuildContext context) {
-    final asset =
-        _expressionAssets[expression] ?? 'assets/images/body_${body.name}.png';
-    final image = Image.asset(
-      asset,
-      width: width,
-      fit: BoxFit.contain,
-      semanticLabel: '식물 친구 캐릭터',
+    // 1 Figma unit당 픽셀. circle 몸통(155.23 unit)이 width × 0.897로 보인다.
+    final u = width * _kVisibleBodyRatio / _kCircleBodyUnitWidth;
+    final geometry = _kBodyGeometry[body]!;
+    final boxHeight = width * _kBoxAspect;
+
+    // 몸통 바닥(박스 위에서 잰 y). 박스 바닥에서 0.05301 × width 위가 circle
+    // 기준이고, 바디별 시안 바닥 차이(bottomShift unit)만큼 옮긴다.
+    final bodyBottom =
+        boxHeight - width * _kBodyBottomInset - geometry.bottomShift * u;
+    final bodyTop = bodyBottom - geometry.bodyHeight * u;
+    final canvasWidth = geometry.canvasWidth * u;
+    final canvasHeight = geometry.canvasHeight * u;
+    // PNG 캔버스는 몸통을 사방 그림자 여백만큼 넓힌 것이라 박스 아래로
+    // 살짝 넘칠 수 있다(Clip.none).
+    final canvas = Rect.fromLTWH(
+      (width - canvasWidth) / 2,
+      bodyBottom + _kShadowMargin * u - canvasHeight,
+      canvasWidth,
+      canvasHeight,
     );
 
-    final target = plantBodyColorFor(colorId);
-    // 옐로는 원본 몸통색과 사실상 같다(#F9FAB8 vs #F8F9B4). 필터를 걸면
-    // 반올림 오차만 생기니 원본을 그대로 쓴다 — 기준점 겸 최적화.
-    if (target == null || colorId == 'color_yellow') return image;
+    final hair = hairId == null ? null : _kHairSpecs[hairId];
 
-    return PlantBodyTint(target: target, child: image);
-  }
-}
-
-/// 캐릭터 PNG(몸통+얼굴 한 장)에서 몸통만 [target] 색으로 물들인다.
-///
-/// PNG에 몸통 마스크가 없어 단순 `srcATop`는 쓸 수 없다(눈·입·볼까지
-/// 물든다). 대신 두 레이어를 겹친다.
-///
-/// 1. 몸통 레이어 — 밝기를 목표색으로 환산하는 행렬.
-///    `out_i = luma(src) * (target_i / bodyLuma)`
-///    몸통은 목표색으로 정확히 옮겨가고, 거의 검은 눈은 luma≈0이라
-///    그대로 검게 남는다. 대신 빨간 입은 회갈색으로 바래므로 —
-/// 2. 입 레이어 — 원본을 "붉은 정도"를 알파로 삼아 위에 얹어 되살린다.
-///    붉은 정도 = R - (G+B)/2. 몸통(#F8F9B4)은 0.13, 입(#DC5756)은 0.52라
-///    선형 알파 행렬만으로 둘을 가를 수 있다. 볼터치도 같이 살아난다.
-///
-/// 계수 [_k]/[_bias]는 "몸통 알파≈0, 입 알파≥1"을 만족하는 하한
-/// (k ≥ 1/(0.524-0.132) ≈ 2.55)에서 고른 값이다. k를 더 키우면 몸통이
-/// 원본 노랑 쪽으로 되돌아가 목표색이 흐려진다(실측 확인).
-class PlantBodyTint extends StatelessWidget {
-  const PlantBodyTint({super.key, required this.target, required this.child});
-
-  final Color target;
-  final Widget child;
-
-  /// 원본 캐릭터 PNG의 몸통색 #F8F9B4.
-  static const double _baseLuma =
-      0.299 * (0xF8 / 255) + 0.587 * (0xF9 / 255) + 0.114 * (0xB4 / 255);
-
-  static const double _k = 2.6;
-  static const double _bias = 0.345;
-
-  static const List<double> _mouthMatrix = <double>[
-    1, 0, 0, 0, 0, //
-    0, 1, 0, 0, 0,
-    0, 0, 1, 0, 0,
-    _k, -0.5 * _k, -0.5 * _k, 0, -_bias,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final argb = target.toARGB32();
-    final kr = (((argb >> 16) & 0xFF) / 255) / _baseLuma;
-    final kg = (((argb >> 8) & 0xFF) / 255) / _baseLuma;
-    final kb = ((argb & 0xFF) / 255) / _baseLuma;
-
-    final bodyMatrix = <double>[
-      0.299 * kr, 0.587 * kr, 0.114 * kr, 0, 0, //
-      0.299 * kg, 0.587 * kg, 0.114 * kg, 0, 0,
-      0.299 * kb, 0.587 * kb, 0.114 * kb, 0, 0,
-      0, 0, 0, 1, 0,
-    ];
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        ColorFiltered(
-          colorFilter: ColorFilter.matrix(bodyMatrix),
-          child: child,
-        ),
-        Positioned.fill(
-          child: Center(
-            child: ColorFiltered(
-              colorFilter: const ColorFilter.matrix(_mouthMatrix),
-              child: child,
+    return SizedBox(
+      width: width,
+      height: boxHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fromRect(
+            rect: canvas,
+            child: Image.asset(
+              plantBodyAssetFor(body, colorId),
+              fit: BoxFit.fill,
+              semanticLabel: '식물 친구 캐릭터',
             ),
           ),
-        ),
-      ],
+          Positioned.fromRect(
+            rect: canvas,
+            child: Image.asset(
+              plantFaceAssetFor(body, expression),
+              fit: BoxFit.fill,
+              excludeFromSemantics: true,
+            ),
+          ),
+          if (hair != null)
+            Positioned.fromRect(
+              rect: hair.rectFor(
+                body: body,
+                u: u,
+                centerX: width / 2,
+                bodyTop: bodyTop,
+              ),
+              child: Image.asset(
+                'assets/images/$hairId.png',
+                fit: BoxFit.fill,
+                semanticLabel: '식물 머리',
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
+
+/// 위젯 박스 세로/가로 비. 옛 circle PNG(698x649) 박스를 그대로 유지해
+/// 호출부 레이아웃이 바뀌지 않게 한다.
+const double _kBoxAspect = 649 / 698;
+
+/// `width` 계약: circle 몸통의 보이는 폭 = width × 0.897
+/// (`plantArtWidthFor(figmaW) = figmaW / 0.897`).
+const double _kVisibleBodyRatio = 0.897;
+
+/// circle 몸통 실제 폭(Figma unit).
+const double _kCircleBodyUnitWidth = 155.23;
+
+/// 박스 바닥에서 circle 몸통 바닥까지(width 대비). 옛 circle PNG의 아래
+/// 여백 37/698과 같다.
+const double _kBodyBottomInset = 37 / 698;
+
+/// 몸통·얼굴 PNG 캔버스가 몸통 bbox를 사방으로 넓힌 그림자 여백(unit).
+const double _kShadowMargin = 10.745;
+
+/// 바디별 PNG 기하(unit). 애셋은 세 바디 모두 같은 배율(4px = 1 unit)로
+/// 뽑혔고 바디별 크기 차이는 시안(5028:1662) 의도다.
+/// - [canvasWidth]/[canvasHeight]: PNG 캔버스 크기.
+/// - [bodyHeight]: 몸통 bbox 높이(헤어 밑동 기준인 정수리 위치 계산용).
+/// - [bottomShift]: circle 대비 시안 몸통 바닥 차이. +면 위로.
+class _BodyGeometry {
+  const _BodyGeometry(
+    this.canvasWidth,
+    this.canvasHeight,
+    this.bodyHeight,
+    this.bottomShift,
+  );
+  final double canvasWidth;
+  final double canvasHeight;
+  final double bodyHeight;
+  final double bottomShift;
+}
+
+const Map<PlantBody, _BodyGeometry> _kBodyGeometry = {
+  PlantBody.circle: _BodyGeometry(176.72, 164.48, 142.99, 0),
+  PlantBody.thumb: _BodyGeometry(171.49, 164.73, 143.24, -0.27),
+  PlantBody.square: _BodyGeometry(169.49, 161.83, 140.34, 1.91),
+};
+
+/// 헤어별 크기·위치(unit, 몸통 bbox 기준). 헤어 크기는 바디와 무관한 절대
+/// 크기다.
+/// - [width]/[height]: 시안 헤어 레이어 bbox. 헤어 PNG는 같은 컴포넌트
+///   (식물머리 5035:5886)에서 4배로 뽑아 [ink]가 곧 이 레이어 영역이므로
+///   비율이 정확히 맞는다(contain 계산은 안전장치로 남긴다).
+/// - [overlap]: 헤어 그림 바닥이 몸통 bbox 위쪽보다 아래로 내려온 깊이.
+/// - [dx]: 헤어 그림 중심 − 몸통 중심(+면 오른쪽). [dxByBody]가 있으면 우선.
+/// - [png]/[ink]: 헤어 PNG 캔버스 크기와 그 안의 시안 레이어 영역(px).
+///   PNG는 레이어 렌더 영역을 사방 3 unit 넓혀 뽑았다.
+///
+/// 근거: 시안 "홈에서 뜨는 캐릭터/식물 크기 예시"(5028:4737) 실측.
+/// flower_cactus만 시안 캐릭터가 없어 헤어 심볼(5035:5886) 크기에
+/// overlap 22·dx 0을 추정값으로 둔다.
+class _HairSpec {
+  const _HairSpec(
+    this.width,
+    this.height,
+    this.overlap,
+    this.dx, {
+    required this.png,
+    required this.ink,
+    this.dxByBody = const {},
+  });
+  final double width;
+  final double height;
+  final double overlap;
+  final double dx;
+  final Size png;
+  final Rect ink;
+  final Map<PlantBody, double> dxByBody;
+
+  /// 박스 좌표에서 헤어 PNG가 차지할 사각형.
+  Rect rectFor({
+    required PlantBody body,
+    required double u,
+    required double centerX,
+    required double bodyTop,
+  }) {
+    final scale = math.min(width / ink.width, height / ink.height) * u;
+    final inkCenterX = centerX + (dxByBody[body] ?? dx) * u;
+    final inkBottom = bodyTop + overlap * u;
+    return Rect.fromLTWH(
+      inkCenterX - ink.center.dx * scale,
+      inkBottom - ink.bottom * scale,
+      png.width * scale,
+      png.height * scale,
+    );
+  }
+}
+
+const Map<String, _HairSpec> _kHairSpecs = {
+  // 바질/기본.
+  'hair_sprout': _HairSpec(
+    183.30,
+    109.75,
+    18.75,
+    -0.95,
+    png: Size(765, 463),
+    ink: Rect.fromLTRB(16, 12, 749.2, 451),
+  ),
+  'hair_cherry_tomato': _HairSpec(
+    120.81,
+    177.99,
+    23.99,
+    20.79,
+    png: Size(530, 736),
+    ink: Rect.fromLTRB(12, 12, 495.3, 724),
+  ),
+  'hair_sunflower': _HairSpec(
+    95.00,
+    152.00,
+    25.00,
+    -4.12,
+    png: Size(404, 632),
+    ink: Rect.fromLTRB(12, 12, 392, 620),
+  ),
+  'hair_hydrangea': _HairSpec(
+    120.00,
+    169.96,
+    25.96,
+    -4.62,
+    png: Size(506, 705),
+    ink: Rect.fromLTRB(13, 13, 493, 692.8),
+    dxByBody: {PlantBody.thumb: -4.01},
+  ),
+  // 산세베리아(시안은 square 바디).
+  'hair_pointed_succulent': _HairSpec(
+    145.00,
+    181.91,
+    17.91,
+    4.50,
+    png: Size(605, 766),
+    ink: Rect.fromLTRB(12, 26, 592, 753.7),
+  ),
+  'hair_daisy': _HairSpec(
+    116.00,
+    165.00,
+    18.00,
+    -9.62,
+    png: Size(488, 685),
+    ink: Rect.fromLTRB(12, 12, 476, 672),
+  ),
+  // 에케베리아.
+  'hair_rosette_succulent': _HairSpec(
+    140.00,
+    83.48,
+    24.48,
+    -0.62,
+    png: Size(584, 358),
+    ink: Rect.fromLTRB(12, 12, 572, 345.9),
+  ),
+  'hair_monstera': _HairSpec(
+    160.00,
+    169.25,
+    25.25,
+    -21.62,
+    png: Size(664, 701),
+    ink: Rect.fromLTRB(12, 12, 652, 689),
+  ),
+  // 선인장: 시안 캐릭터 없음(5035:5886 심볼 폭, overlap·dx 추정).
+  'hair_flower_cactus': _HairSpec(
+    64.36,
+    138.02,
+    22,
+    0,
+    png: Size(282, 577),
+    ink: Rect.fromLTRB(12, 12, 269.5, 564.1),
+  ),
+};

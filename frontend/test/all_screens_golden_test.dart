@@ -63,12 +63,14 @@ void main() {
           context,
         ),
         precacheImage(
-          const AssetImage('assets/images/body_circle.png'),
+          const AssetImage('assets/images/character/body_circle_yellow.png'),
+          context,
+        ),
+        precacheImage(
+          const AssetImage('assets/images/character/face_circle_default.png'),
           context,
         ),
         for (final asset in [
-          // 홈 캐릭터는 표정 애셋(expr_*)을 쓴다. 평소엔 기본 표정.
-          'assets/images/expr_default.png',
           'assets/images/home_bg_default.png',
           'assets/images/home_bg_afternoon.png',
           'assets/images/home_bg_evening.png',

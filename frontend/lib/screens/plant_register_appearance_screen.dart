@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -25,6 +26,23 @@ String hairForCategory(String category) => switch (category) {
   _ => 'hair_sprout',
 };
 
+/// 종별로 헤어를 세분화해 매핑한다. category 매핑(같은 category = 같은 헤어)만으로는
+/// 데이지·수국·에케베리아·하월시아처럼 전용 헤어가 있는 종을 구분할 수 없어,
+/// 안정적인 `species.referenceId`(catalog:<학명-slug>)로 먼저 분기하고 표에 없는
+/// 종은 `hairForCategory`로 폴백한다. (백엔드 HairType enum에 9종 전부 있어 어떤
+/// hair_id를 보내도 POST /plants가 통과한다.)
+String hairForSpecies(PlantSpeciesCandidate species) =>
+    switch (species.referenceId) {
+      'catalog:helianthus-annuus' => 'hair_sunflower',
+      'catalog:bellis-perennis' => 'hair_daisy',
+      'catalog:hydrangea-macrophylla' => 'hair_hydrangea',
+      'catalog:monstera-deliciosa' => 'hair_monstera',
+      'catalog:cactaceae' => 'hair_flower_cactus',
+      'catalog:echeveria-elegans' => 'hair_rosette_succulent',
+      'catalog:haworthiopsis-attenuata' => 'hair_pointed_succulent',
+      _ => hairForCategory(species.categorySuggestion),
+    };
+
 class PlantRegisterAppearanceScreen extends StatefulWidget {
   const PlantRegisterAppearanceScreen({super.key, required this.draft});
   final PlantRegistrationDraft draft;
@@ -34,11 +52,10 @@ class PlantRegisterAppearanceScreen extends StatefulWidget {
 
 class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
   late String? _selectedColorId = widget.draft.bodyColorId;
-  // 헤어는 사용자가 고르지 않는다. 종 category로 자동 매핑된 값을 그대로
+  // 헤어는 사용자가 고르지 않는다. 종(referenceId)으로 자동 매핑된 값을 그대로
   // draft에 저장하고, 미리보기에도 그 헤어를 얹어 보여준다.
   late final String _selectedHairId =
-      widget.draft.headItem ??
-      hairForCategory(widget.draft.species.categorySuggestion);
+      widget.draft.headItem ?? hairForSpecies(widget.draft.species);
 
   void _confirm() {
     if (_selectedColorId == null) return;
@@ -55,7 +72,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
   @override
   Widget build(BuildContext context) => RegisterStepScaffold(
     appBarTitle: '캐릭터 만들기',
-    step: 5,
+    step: 6,
     title: '식물을 꾸며주세요!',
     subtitle: '',
     bottomButton: PrimaryButton(
@@ -73,8 +90,22 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Column(
               children: [
-                SizedBox(height: math.max(12, constraints.maxHeight - 440)),
-                PlantCharacterArt(width: 200, colorId: _selectedColorId),
+                // 미리보기 위 여백. 헤어는 몸통 상단 위로 최대 ~164px(하월시아)
+                // 솟는데 Stack(clipBehavior: Clip.none)이라 그 높이가 레이아웃에
+                // 잡히지 않는다. child는 헤드라인 바로 아래(y=124.2)에서 시작하고
+                // 미리보기 몸통 top = 124.2 + 이 여백이므로, 여백이 헤어 솟음보다
+                // 작으면 헤어 꼭대기가 헤드라인을 파고든다. 작은 화면일수록
+                // maxHeight-440이 작아져 이 일이 생긴다(예: 360x740에서 124.8).
+                // 하한을 176으로 올려 어떤 기기에서도 헤어가 헤드라인 아래로
+                // 내려오게 한다. 큰 화면(402/393)은 maxHeight-440이 176보다 커서
+                // 그대로 선택되므로 배치가 바뀌지 않는다.
+                SizedBox(height: math.max(176, constraints.maxHeight - 440)),
+                PlantCharacterArt(
+                  width: 200,
+                  body: plantBodyFromId(widget.draft.bodyId),
+                  colorId: _selectedColorId,
+                  hairId: _selectedHairId,
+                ),
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,

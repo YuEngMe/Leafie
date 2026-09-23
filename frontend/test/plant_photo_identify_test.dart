@@ -26,7 +26,7 @@ const _mockResult = PlantIdentification(
 );
 
 /// 사진 자체는 화면에 안 그려져도 되지만 File은 실재해야 한다.
-final _photo = File('assets/images/body_circle.png');
+final _photo = File('assets/images/character/body_circle_yellow.png');
 
 Widget _screen({PlantIdentifier? identifier}) => MaterialApp(
   home: PlantPhotoIdentifyScreen(

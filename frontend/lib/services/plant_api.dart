@@ -196,16 +196,12 @@ Map<String, Object?> buildPlantCreateRequest(PlantRegistrationDraft draft) {
 
   final nickname = draft.name.trim();
   final placeName = draft.placeName?.trim();
-  final lastWateredOn = draft.lastWateredOn;
   final personalityType = draft.personalityType?.trim();
   final colorId = draft.bodyColorId?.trim();
-  if (nickname.isEmpty ||
-      placeName == null ||
-      placeName.isEmpty ||
-      lastWateredOn == null) {
+  if (nickname.isEmpty || placeName == null || placeName.isEmpty) {
     throw const LeafieApiException(
       code: 'REGISTRATION_INCOMPLETE',
-      message: '식물의 애칭, 장소와 마지막 물 준 날을 입력해 주세요.',
+      message: '식물의 애칭과 장소를 입력해 주세요.',
       statusCode: 422,
     );
   }
@@ -249,7 +245,8 @@ Map<String, Object?> buildPlantCreateRequest(PlantRegistrationDraft draft) {
 
   final today = _dateOnly(DateTime.now());
   if (_dateOnly(draft.startedOn).isAfter(today) ||
-      _dateOnly(lastWateredOn).isAfter(today) ||
+      (draft.lastWateredOn != null &&
+          _dateOnly(draft.lastWateredOn!).isAfter(today)) ||
       (draft.lastRepottedOn != null &&
           _dateOnly(draft.lastRepottedOn!).isAfter(today))) {
     throw const LeafieApiException(
@@ -279,7 +276,9 @@ Map<String, Object?> _buildPayload(PlantRegistrationSnapshot draft) {
     'primary_media_file_id': photoRegistration ? mediaFileId : null,
     'started_on': _isoDate(draft.startedOn),
     'place_name': draft.placeName.trim(),
-    'last_watered_on': _isoDate(draft.lastWateredOn),
+    'last_watered_on': draft.lastWateredOn == null
+        ? null
+        : _isoDate(draft.lastWateredOn!),
     'last_repotted_on': draft.lastRepottedOn == null
         ? null
         : _isoDate(draft.lastRepottedOn!),

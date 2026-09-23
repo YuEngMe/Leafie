@@ -232,7 +232,9 @@ class _PlantShelfHouse extends StatelessWidget {
                 label: visible[index].nickname,
                 child: PlantCharacterArt(
                   width: plantArtWidthFor(_kCharacterWidth),
+                  body: plantBodyFromId(visible[index].bodyId),
                   colorId: visible[index].colorId,
+                  hairId: visible[index].hairId,
                 ),
               ),
             ),
@@ -265,9 +267,8 @@ class _PlantShelfHouse extends StatelessWidget {
   static final double _drawnWidth = plantArtWidthFor(_kCharacterWidth);
   static final double _drawnHeight = _drawnWidth * 649 / 698;
 
-  /// body_circle.png는 캔버스(698x649) 안에서 그림 bbox가 (36,36,662,612).
-  /// 아래 여백 (649-612)/649 = 5.70%. 그림 밑선이 선반에 닿도록 그만큼 더
-  /// 내린다.
+  /// PlantCharacterArt는 박스 바닥에서 박스 높이의 37/649(5.70%) 위에 circle
+  /// 몸통 밑선을 둔다. 그림 밑선이 선반에 닿도록 그만큼 더 내린다.
   static final double _inkBottomGap = _drawnHeight * (649 - 612) / 649;
 
   /// index를 3열 x 3단 격자 좌표로 편다. 캐릭터는 선반 위에 밑선을 맞춘다.

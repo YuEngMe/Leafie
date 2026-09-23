@@ -19,11 +19,9 @@ const double _kAppBarBand = 46 + YesoAppBar.height;
 const double _kGrassAssetTop = 770;
 const double _kGrassAssetHeight = 75;
 
-/// 캐릭터 PNG는 캔버스 둘레에 투명 여백이 있다. 새 body PNG(`body_circle.png`
-/// 등)는 590x549 안에서 실제 그림이 549x509(가로 93.05%)로, 여백이 거의
-/// 없다. 시안 노드 폭을 그대로 `PlantCharacterArt(width:)`에 넣으면 그림이
-/// 시안보다 살짝 작게 그려지므로 이 비율로 보정한다.
-/// 시안 노드 폭을 넣으면 그림이 그 폭으로 보이는 값을 돌려준다.
+/// `PlantCharacterArt(width:)`는 circle 몸통을 `width × 0.897` 폭으로 그린다
+/// (둘레는 그림자 여백). 시안 노드 폭을 넣으면 몸통이 그 폭으로 보이는
+/// `width`를 돌려준다.
 double plantArtWidthFor(double figmaWidth) => figmaWidth / 0.897;
 
 /// 상세 흐름 화면 몸통. SafeArea 안에서 시안 y를 그대로 쓰게 해 준다.

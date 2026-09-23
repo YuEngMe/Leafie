@@ -51,6 +51,7 @@ class _FakeRepository implements PlantManagementRepository {
   List<ManagedPlant> plants;
   String? appearanceHairId;
   String? appearanceColor;
+  String? appearanceBodyId;
 
   @override
   Future<List<ManagedPlant>> listPlants() async => List.of(plants);
@@ -109,9 +110,10 @@ class _FakeRepository implements PlantManagementRepository {
   }) async {
     appearanceHairId = hairId;
     appearanceColor = colorId;
+    appearanceBodyId = bodyId;
     return plants
         .firstWhere((item) => item.id == plantId)
-        .copyWith(colorId: colorId, hairId: hairId);
+        .copyWith(bodyId: bodyId, colorId: colorId, hairId: hairId);
   }
 
   @override
@@ -171,8 +173,8 @@ void main() {
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
       // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
-      // body_circle.png 캔버스 698x649, 그림 bbox (36,36,662,612):
-      // 가로 그림 89.7%, 세로 아래 여백 (649-612)/649 = 5.70%.
+      // PlantCharacterArt 박스(width × 649/698)에서 circle 몸통은
+      // 가로 89.7%, 아래 여백은 박스 높이의 37/649 = 5.70%.
       final drawn = plantArtWidthFor(61.219);
       final drawnHeight = drawn * 649 / 698;
       final inkBottomGap = drawnHeight * (649 - 612) / 649;
@@ -454,14 +456,23 @@ void main() {
       ),
     );
 
-    testWidgets('헤드라인·앱바·체크 원 좌표', (tester) async {
+    testWidgets('앱바·바디 스위처·체크 원 좌표', (tester) async {
       await pump(tester);
 
-      // 2568:1786 앱바, 2568:1874 헤드라인 top 140.
+      // 2568:1786 앱바.
       expect(find.text('캐릭터 꾸미기'), findsOneWidget);
-      final headline = tester.getRect(find.text('식물을 꾸며주세요!'));
-      expect(headline.top, _closeTo1px(140));
-      expect(headline.center.dx, _closeTo1px(201));
+      // 5038:6460 시안: 헤드라인 자리에 바디 스위처가 온다(헤드라인 없음).
+      expect(find.text('식물을 꾸며주세요!'), findsNothing);
+      // 바디 스위처는 앱바 아래 top 143, 화면 중앙 정렬(dx≈201).
+      final bodyRow = tester.getRect(
+        find.byKey(const ValueKey('appearance_body_circle')),
+      );
+      expect(bodyRow.top, _closeTo1px(143));
+      final square = tester.getRect(
+        find.byKey(const ValueKey('appearance_body_square')),
+      );
+      // 3개 실루엣이 중앙 대칭: circle(왼)·square(오) 중심이 201 기준 대칭.
+      expect((bodyRow.center.dx + square.center.dx) / 2, _closeTo1px(201));
 
       // 컬러 선택은 등록 화면과 같은 드르륵 카루셀로 통일했다. 절대좌표
       // 탭 라벨('컬러')은 없앴고, 헤어 탭도 없다.
@@ -570,10 +581,10 @@ void main() {
       expect(repository.appearanceColor, 'color_orange');
     });
 
-    testWidgets('헤어는 고를 수 없고 미리보기에도 얹지 않는다', (tester) async {
+    testWidgets('헤어는 고를 수 없지만 현재 값이 미리보기에 얹힌다', (tester) async {
       await pump(tester);
 
-      // 헤어 스와치/피커가 전혀 없다.
+      // 헤어 스와치/피커가 전혀 없다(헤어는 종으로 자동 결정).
       for (final id in const [
         'hair_sunflower',
         'hair_cherry_tomato',
@@ -588,11 +599,14 @@ void main() {
         expect(find.byKey(ValueKey('appearance_$id')), findsNothing);
       }
 
-      // 새 캐릭터는 헤어를 얹지 않는다(hairId 파라미터 자체가 없어졌다).
-      expect(find.byType(PlantCharacterArt), findsOneWidget);
+      // 캐릭터 미리보기는 하나이고, 그 안에 종으로 결정된 헤어가 얹혀 그려진다.
+      final art = tester.widget<PlantCharacterArt>(
+        find.byType(PlantCharacterArt),
+      );
+      expect(art.hairId, 'hair_sprout');
     });
 
-    testWidgets('컬러만 바꾸고 적용하면 updateAppearance에 hairId 없이 colorId만 전달된다', (
+    testWidgets('컬러만 바꿔도 헤어는 현재 값을 함께 실어 보내 누락을 막는다', (
       tester,
     ) async {
       final repository = _FakeRepository([_plant()]);
@@ -607,7 +621,30 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
       await tester.pumpAndSettle();
 
-      expect(repository.appearanceHairId, isNull);
+      // 헤어는 이 화면에서 못 고르지만 종으로 결정된 현재 값을 그대로 싣는다.
+      expect(repository.appearanceHairId, 'hair_sprout');
+      // 바디를 안 바꿨으면 body_id는 싣지 않는다(부분 PATCH).
+      expect(repository.appearanceBodyId, isNull);
+    });
+
+    testWidgets('바디만 바꾸고 적용하면 updateAppearance에 body_id만 전달된다', (
+      tester,
+    ) async {
+      final repository = _FakeRepository([_plant()]);
+      await _pumpScreen(
+        tester,
+        PlantEditAppearanceScreen(plant: _plant(), repository: repository),
+      );
+
+      // 초기 body_circle에서 body_thumb(통통이)로 바꾼다.
+      await tester.tap(find.byKey(const ValueKey('appearance_body_thumb')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(repository.appearanceBodyId, 'body_thumb');
+      // 색은 안 바꿨으니 color_id는 싣지 않는다(부분 PATCH).
+      expect(repository.appearanceColor, isNull);
     });
   });
 }

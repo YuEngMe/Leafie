@@ -4,8 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
+import 'package:yeso_plant/widgets/body_glyph.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
@@ -39,21 +39,40 @@ class PlantEditAppearanceScreen extends StatefulWidget {
       _PlantEditAppearanceScreenState();
 }
 
+/// 편집 화면에서 고를 수 있는 바디 3종. 등록 바디선택 화면과 같은 목록이다.
+class _BodyChoice {
+  const _BodyChoice({required this.id, required this.label});
+  final String id;
+  final String label;
+}
+
+const _bodyChoices = [
+  _BodyChoice(id: 'body_circle', label: '동그라미'),
+  _BodyChoice(id: 'body_thumb', label: '통통이'),
+  _BodyChoice(id: 'body_square', label: '네모'),
+];
+
 class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
   late String _selectedColorId = widget.plant.colorId;
+  late String _selectedBodyId = widget.plant.bodyId;
   bool _busy = false;
 
   Future<void> _apply() async {
     final colorChanged = _selectedColorId != widget.plant.colorId;
-    if (!colorChanged) {
+    final bodyChanged = _selectedBodyId != widget.plant.bodyId;
+    if (!colorChanged && !bodyChanged) {
       Navigator.of(context).pop(widget.plant);
       return;
     }
     setState(() => _busy = true);
     try {
+      // PATCH는 부분 수정이라 바뀐 것만 싣되, 헤어는 이 화면에서 고를 수 없어도
+      // 종으로 결정된 현재 값을 그대로 실어 보내 서버에서 누락되지 않게 한다.
       final updated = await widget.repository.updateAppearance(
         widget.plant.id,
-        colorId: _selectedColorId,
+        bodyId: bodyChanged ? _selectedBodyId : null,
+        colorId: colorChanged ? _selectedColorId : null,
+        hairId: widget.plant.hairId,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on LeafieApiException catch (error) {
@@ -72,23 +91,60 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
       appBar: const YesoAppBar(title: '캐릭터 꾸미기'),
       body: PlantDetailBody(
         children: [
-          // 헤드라인 2568:1874. top 140, 21/w600 진한 텍스트.
-          const PlantDetailPositioned(
-            top: 140,
-            height: 25,
-            child: Center(child: Text('식물을 꾸며주세요!', style: kTitleStyle)),
-          ),
-          // 캐릭터 미리보기 2568:1785. x=103 y=287 196x168.
+          // 바디 스위처 5038:6460(노드 5070:906). 시안은 앱바 아래 작은 실루엣
+          // 3개(원/돔/라운드사각, 각 ~22×22)를 가로로 균등·중앙 정렬한다.
+          // 시안엔 이 자리에 헤드라인("식물을 꾸며주세요!")이 없고 스위처가
+          // 온다 — 등록 화면과 달리 편집 화면은 헤드라인 없이 스위처를 top 143에
+          // 앉힌다. 선택된 바디만 kOrangeMain으로 채우고 나머지는 회색. SVG
+          // 에셋이 없어 도형을 코드로 그린다. body_*.png 썸네일은 안 쓴다.
           PlantDetailPositioned(
-            top: 287,
-            height: 168,
+            top: 143,
+            height: 22,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final choice in _bodyChoices)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: GestureDetector(
+                        key: ValueKey('appearance_${choice.id}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _busy
+                            ? null
+                            : () => setState(() => _selectedBodyId = choice.id),
+                        child: Semantics(
+                          button: true,
+                          selected: _selectedBodyId == choice.id,
+                          label: choice.label,
+                          child: BodyGlyph(
+                            id: choice.id,
+                            selected: _selectedBodyId == choice.id,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // 캐릭터 미리보기 5038:6460(5070:1240): 네모 몸통 폭 156, 바닥
+          // y=523.9, 헤어 꼭대기 y≈205(스위처 아래). 위젯 폭 182.4는 네모 156을
+          // circle 기준 폭으로 환산한 값(156/148×155.23/0.897). 헤어가 박스
+          // 위로 솟으므로 박스를 몸통 바닥 기준으로 둔다(박스 위 y=366).
+          PlantDetailPositioned(
+            top: 366,
+            height: 182.4 * 649 / 698,
             child: Center(
               child: OverflowBox(
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
-                  width: plantArtWidthFor(196),
+                  width: 182.4,
+                  body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,
+                  hairId: widget.plant.hairId,
                 ),
               ),
             ),

@@ -93,21 +93,34 @@ abstract final class AppLayout {
 
   /// 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
   static const double registrationNameFieldsGap = 76;
-  static const double personalityTagsTop = 38;
-  static const double personalityCharacterWidth = 250;
-  static const double personalityCharacterTop = 104;
-  static const double personalityBubbleTop = 348;
-  static const double personalityDotsTop = 430;
+  // 성격 화면 요소는 PageView의 Stack(top=0)을 기준으로 놓인다. 그 top=0의
+  // 절대 y는 상태바 46 + 앱바 46 + 진행바 21.425 + 간격 12 = 125.425다.
+  // 아래 상수는 시안 4534:195의 절대 y에서 이 125.425를 뺀 값이다.
+  // (헤드라인 152 / 태그 190 / 캐릭터 216 / 말풍선 504 / 인디케이터 590)
+  static const double personalityTitleTop = 27; // 시안 152
+  static const double personalityTagsTop = 65; // 시안 190
+  // 시안 5460:721: 몸통(circle 기준) 폭 139, 바닥 y=488.85. 헤어는 박스 위로
+  // 솟으므로 박스 위치를 헤어 꼭대기가 아닌 몸통 바닥에 맞춘다.
+  // 폭 155 = 139 / 0.897(circle PNG 불투명 영역 비율).
+  static const double personalityCharacterWidth = 155;
+  static const double personalityCharacterTop = 227.5; // 몸통 바닥 시안 489
+  static const double personalityBubbleTop = 379; // 시안 504
+  static const double personalityDotsTop = 465; // 시안 590
   static const double appearanceCharacterWidth = 232;
   static const double appearanceCharacterTop = 64;
   static const double appearancePaletteTop = 399;
   static const double appearanceTabTopOffset = -26;
   static const double appearanceSwatchesTopOffset = 17;
   static const double appearanceHairMessageTopOffset = 72;
-  static const double completionArtSize = 360;
-  static const double completionCharacterWidth = 230;
-  static const double completionTopGap = 112;
-  static const double completionTitleToArtGap = 0;
+  // 시안 4534:812 (본문 시작 y=92 기준). 몸통(square) 폭 156 → 모든 바디가
+  // 같은 크기로 보이도록 circle 기준 폭 182.4(= 163.6 / 0.897)로 그린다.
+  static const double completionTopGap = 96; // 제목 y=188
+  static const double completionGlowTop = 63; // 광원 원 y=251
+  static const double completionGlowSize = 408;
+  static const double completionCharacterWidth = 182.4;
+  // 몸통 바닥 y=596.9 → 박스 위 = 596.9 + 9.7 − 169.6 − 188.
+  static const double completionCharacterTop = 249;
+  static const double completionStageHeight = 471; // 광원 원 바닥 y=659
   static const double homeTopBarHeight = 68;
   static const double homeHumidityCardHeight = 54;
 

@@ -76,6 +76,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/character/
 
   fonts:
     # Figma 가이드(2026-08-29): 본문 폰트를 페이퍼로지로 교체.

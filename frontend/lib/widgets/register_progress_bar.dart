@@ -9,7 +9,7 @@ class RegisterProgressBar extends StatelessWidget {
   const RegisterProgressBar({
     super.key,
     required this.step,
-    this.totalSteps = 5,
+    this.totalSteps = 6,
   });
 
   /// 1부터 시작하는 현재 단계.
