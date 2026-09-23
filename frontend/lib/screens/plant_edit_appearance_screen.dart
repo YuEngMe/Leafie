@@ -129,16 +129,19 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
               ),
             ),
           ),
-          // 캐릭터 미리보기 2568:1785. x=103 y=287 196x168.
+          // 캐릭터 미리보기 5038:6460(5070:1240): 네모 몸통 폭 156, 바닥
+          // y=523.9, 헤어 꼭대기 y≈205(스위처 아래). 위젯 폭 182.4는 네모 156을
+          // circle 기준 폭으로 환산한 값(156/148×155.23/0.897). 헤어가 박스
+          // 위로 솟으므로 박스를 몸통 바닥 기준으로 둔다(박스 위 y=366).
           PlantDetailPositioned(
-            top: 287,
-            height: 168,
+            top: 366,
+            height: 182.4 * 649 / 698,
             child: Center(
               child: OverflowBox(
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
-                  width: plantArtWidthFor(196),
+                  width: 182.4,
                   body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,
                   hairId: widget.plant.hairId,

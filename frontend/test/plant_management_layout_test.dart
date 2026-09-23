@@ -173,8 +173,8 @@ void main() {
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
       // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
-      // body_circle.png 캔버스 698x649, 그림 bbox (36,36,662,612):
-      // 가로 그림 89.7%, 세로 아래 여백 (649-612)/649 = 5.70%.
+      // PlantCharacterArt 박스(width × 649/698)에서 circle 몸통은
+      // 가로 89.7%, 아래 여백은 박스 높이의 37/649 = 5.70%.
       final drawn = plantArtWidthFor(61.219);
       final drawnHeight = drawn * 649 / 698;
       final inkBottomGap = drawnHeight * (649 - 612) / 649;

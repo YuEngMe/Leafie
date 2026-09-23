@@ -37,7 +37,11 @@ void main() {
           context,
         ),
         precacheImage(
-          const AssetImage('assets/images/body_circle.png'),
+          const AssetImage('assets/images/character/body_circle_yellow.png'),
+          context,
+        ),
+        precacheImage(
+          const AssetImage('assets/images/character/face_circle_default.png'),
           context,
         ),
       ]);

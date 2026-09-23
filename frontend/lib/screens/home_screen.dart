@@ -776,15 +776,14 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 if (plant != null)
                   // 시안(4534:8101) 캐릭터 몸통: x=123 y=396 155.2x143.
-                  // 홈은 표정 애셋(expr_*.png, 787x731)을 쓴다. 이 그림은 캔버스의
-                  // 89.327%(가로)/88.098%(세로)이고 여백은 좌 5.337%·상 6.293%라,
-                  // 몸통 실물이 155.2가 되도록 위젯 폭을 155.2/0.89327≈173.74로
-                  // 잡고 그 여백만큼 위치를 당긴다(body_circle 기준 173/5.15%/5.6%
-                  // 이던 값과 몸통 실물 위치·크기는 동일하다).
+                  // PlantCharacterArt는 circle 몸통을 `width × 0.897` 폭으로
+                  // 박스 가로 가운데에 그리므로 폭은 155.2/0.897≈173.02다.
+                  // 몸통 위쪽은 박스 위에서 8.74 아래(박스 높이 160.87 − 바닥
+                  // 여백 9.17 − 몸통 높이 142.96)라 그만큼 위로 당긴다.
                   Positioned(
-                    left: 123 - 173.74 * 0.05337,
-                    top: 396 - 173.74 * 0.06293,
-                    width: 173.74,
+                    left: 123 - (173.02 - 155.2) / 2,
+                    top: 396 - 8.74,
+                    width: 173.02,
                     child: Semantics(
                       button: true,
                       label: '쓰담쓰담',
@@ -815,7 +814,8 @@ class _HomeScreenState extends State<HomeScreen>
                             final bounce =
                                 math.sin(bouncePhase * math.pi) * 6;
                             // 돌보기 중엔 기쁜 표정, 평소엔 기본 표정.
-                            // 애셋 크기가 같아 크로스페이드해도 위치가 안 튄다.
+                            // 얼굴 PNG는 캔버스가 같아 크로스페이드해도 위치가
+                            // 안 튄다.
                             final expression = _isBeingCaredFor
                                 ? PlantExpression.happy
                                 : PlantExpression.defaultFace;
@@ -830,7 +830,7 @@ class _HomeScreenState extends State<HomeScreen>
                                       : const Duration(milliseconds: 200),
                                   child: PlantCharacterArt(
                                     key: ValueKey(expression),
-                                    width: 173.74,
+                                    width: 173.02,
                                     body: plantBodyFromId(plant.bodyId),
                                     expression: expression,
                                     colorId: plant.colorId,

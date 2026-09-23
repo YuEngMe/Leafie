@@ -11,6 +11,7 @@ import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/notification_tile.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 class _StubRepository implements NotificationRepository {
   _StubRepository(this.items);
@@ -179,8 +180,8 @@ void main() {
       );
     }
 
-    // 캐릭터 이미지가 Material 아이콘을 대체했다.
-    expect(find.byType(Image), findsNWidgets(2));
+    // 캐릭터(몸통+얼굴)가 Material 아이콘을 대체했다. 타일마다 하나.
+    expect(find.byType(PlantCharacterArt), findsNWidgets(2));
     expect(find.byIcon(Icons.water_drop_outlined), findsNothing);
   });
 

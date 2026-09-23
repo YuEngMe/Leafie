@@ -7,6 +7,10 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 
+/// 홈 캐릭터는 circle 바디라 circle 얼굴을 쓴다.
+const _defaultFace = 'assets/images/character/face_circle_default.png';
+const _happyFace = 'assets/images/character/face_circle_happy.png';
+
 void main() {
   testWidgets('전달받은 실제 식물 이름과 D+를 표시한다', (tester) async {
     final plant = HomePlant(
@@ -339,9 +343,9 @@ void main() {
   });
 
   group('돌보기 중에는 기쁜 표정을 짓는다', () {
-    /// 캐릭터(ValueKey('home-character-pet')) 아래에서 실제로 그려지는 캐릭터
+    /// 캐릭터(ValueKey('home-character-pet')) 아래에서 실제로 그려지는 얼굴
     /// 애셋 경로들. AnimatedSwitcher 크로스페이드 중에는 두 장이 함께 잡힌다.
-    Set<String> characterAssets(WidgetTester tester) {
+    Set<String> faceAssets(WidgetTester tester) {
       return tester
           .widgetList<Image>(
             find.descendant(
@@ -350,6 +354,7 @@ void main() {
             ),
           )
           .map((image) => (image.image as AssetImage).assetName)
+          .where((asset) => asset.contains('/face_'))
           .toSet();
     }
 
@@ -378,7 +383,7 @@ void main() {
     testWidgets('평소에는 기본 표정이다', (tester) async {
       await pumpHome(tester);
 
-      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+      expect(faceAssets(tester), {_defaultFace});
     });
 
     testWidgets('물뿌리개를 누르면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
@@ -387,12 +392,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('home-watering-can')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+      expect(faceAssets(tester), contains(_happyFace));
 
       // 물주기(3초) + 여운(0.5초) + 크로스페이드가 끝나면 기본으로 돌아온다.
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
-      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+      expect(faceAssets(tester), {_defaultFace});
     });
 
     testWidgets('해를 누르면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
@@ -401,12 +406,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('home-period-control')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+      expect(faceAssets(tester), contains(_happyFace));
 
       // 광선 3초 유지 + 페이드아웃이 끝나면 기본으로 돌아온다.
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
-      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+      expect(faceAssets(tester), {_defaultFace});
     });
 
     testWidgets('캐릭터를 쓰담으면 기쁜 표정이 됐다가 기본으로 돌아온다', (tester) async {
@@ -415,12 +420,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('home-character-pet')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(characterAssets(tester), contains('assets/images/expr_happy.png'));
+      expect(faceAssets(tester), contains(_happyFace));
 
       // 쓰담 wiggle(550ms)이 끝나면 기본으로 돌아온다.
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
-      expect(characterAssets(tester), {'assets/images/expr_default.png'});
+      expect(faceAssets(tester), {_defaultFace});
     });
   });
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 // 시안 3448:2(알림). 좌표는 프레임 402×874 기준 절대값이고, 본문 top은
 // 상태바 46 + 앱바 46 = 92다.
@@ -33,7 +34,6 @@ const Color kNotificationTitleColor = Color(0xFF1F2E21);
 /// 알림 캐릭터. 지금은 새 2D 기본 캐릭터를 고정으로 쓴다.
 // TODO(backend): 알림 응답에 hair_id/color_id가 생기면 알림별 식물
 // 캐릭터(종별 헤어)로 바꾼다. (백엔드에 필드 추가 요청함)
-const String kNotificationCharacterAsset = 'assets/images/body_circle.png';
 
 /// 시안(4534:19902) 캐릭터 박스 48×48, 타일 안에서 세로 중앙, x=20.
 const double kNotificationCharacterWidth = 48;
@@ -60,9 +60,7 @@ class NotificationTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: kBackgroundWhite,
           borderRadius: BorderRadius.circular(50),
-          boxShadow: const [
-            BoxShadow(color: Color(0x2E000000), blurRadius: 4),
-          ],
+          boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -83,9 +81,12 @@ class NotificationTile extends StatelessWidget {
                         2,
                     width: kNotificationCharacterWidth,
                     height: kNotificationCharacterHeight,
-                    child: Image.asset(
-                      kNotificationCharacterAsset,
-                      fit: BoxFit.contain,
+                    // 옛 PNG(698x649)를 48x48에 contain으로 넣던 것과 같은
+                    // 48x44.6 박스가 세로 가운데에 온다.
+                    child: const Center(
+                      child: PlantCharacterArt(
+                        width: kNotificationCharacterWidth,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -110,8 +111,7 @@ class NotificationTile extends StatelessWidget {
                     // 3448:113 점 x=355, 지름 8.188, 타일 세로 중앙.
                     key: Key('notification-dot-${notification.id}'),
                     left: 355 - kNotificationTileLeft,
-                    top:
-                        (kNotificationTileHeight - 8.187793731689453) / 2,
+                    top: (kNotificationTileHeight - 8.187793731689453) / 2,
                     width: 8.187793731689453,
                     height: 8.187793731689453,
                     child: DecoratedBox(

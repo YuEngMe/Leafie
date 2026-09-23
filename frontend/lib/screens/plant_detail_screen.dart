@@ -167,16 +167,18 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               ),
             ),
           ),
-          // 캐릭터 2564:1045. x=114.46 y=215 176.15x201.63.
+          // 캐릭터 4534:7390(5038:6743): circle 몸통 폭 139.78, 바닥 y=436.4,
+          // 헤어 꼭대기 y≈169(날짜 문구 아래). 헤어가 박스 위로 솟으므로 박스를
+          // 몸통 바닥 기준으로 둔다(박스 위 y=299.8).
           PlantDetailPositioned(
-            top: 215,
-            height: 201.629,
+            top: 299.8,
+            height: plantArtWidthFor(139.78) * 649 / 698,
             child: Center(
               child: OverflowBox(
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
-                  width: plantArtWidthFor(176.15),
+                  width: plantArtWidthFor(139.78),
                   body: plantBodyFromId(_plant.bodyId),
                   colorId: _plant.colorId,
                   hairId: _plant.hairId,
@@ -347,20 +349,21 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ],
                       ),
                     ),
-                    // 캐릭터 2568:1871. top 287 -> 상대 155. 성격 무관
-                    // 단일 에셋이라 페이지마다 내용은 같지만, 같은
-                    // PageView 안에 있어 함께 슬라이드된다.
+                    // 캐릭터. 원래 시안(2568:1714)이 사라져 등록 성격 화면
+                    // (5460:721) 비율을 쓴다. 몸통 바닥을 말풍선 위 12(y=463)에
+                    // 두고, 가장 긴 헤어(산세베리아)가 태그 아래에서 시작하도록
+                    // 몸통 폭을 134(= 149.4 × 0.897)로 맞췄다. 박스 위 y=332.
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 287 - 132,
-                      height: 168,
+                      top: 332 - 132,
+                      height: 149.4 * 649 / 698,
                       child: Center(
                         child: OverflowBox(
                           maxWidth: double.infinity,
                           maxHeight: double.infinity,
                           child: PlantCharacterArt(
-                            width: plantArtWidthFor(196),
+                            width: 149.4,
                             body: plantBodyFromId(widget.plant.bodyId),
                             colorId: widget.plant.colorId,
                             hairId: widget.plant.hairId,

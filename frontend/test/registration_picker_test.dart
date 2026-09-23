@@ -68,7 +68,11 @@ void main() {
     await tester.runAsync(
       () => Future.wait([
         precacheImage(
-          const AssetImage('assets/images/body_circle.png'),
+          const AssetImage('assets/images/character/body_circle_green.png'),
+          context,
+        ),
+        precacheImage(
+          const AssetImage('assets/images/character/face_circle_default.png'),
           context,
         ),
         precacheImage(
@@ -109,10 +113,16 @@ void main() {
       expect(tester.takeException(), isNull);
       if (size.width == 402) {
         await tester.runAsync(
-          () => precacheImage(
-            const AssetImage('assets/images/body_circle.png'),
-            tester.element(find.byType(PlantRegisterAppearanceScreen)),
-          ),
+          () => Future.wait([
+            for (final asset in const [
+              'assets/images/character/body_circle_yellow.png',
+              'assets/images/character/face_circle_default.png',
+            ])
+              precacheImage(
+                AssetImage(asset),
+                tester.element(find.byType(PlantRegisterAppearanceScreen)),
+              ),
+          ]),
         );
         await tester.pumpAndSettle();
         await expectLater(
