@@ -48,7 +48,11 @@ void main() {
     expect(_bodyBottom(art), _near(488.85));
     final hair = tester.getRect(find.bySemanticsLabel('식물 머리').first);
     final tags = tester.getRect(find.text('#긍정적'));
-    expect(hair.top, greaterThan(tags.bottom));
+    // 헤어 PNG는 레이어 렌더 영역을 사방 3 unit 넓혀 뽑아 위쪽이 투명하다.
+    // 보이는 그림의 꼭대기는 이미지 사각형보다 3 unit(= 3 × width×0.897/155.23)
+    // 아래다.
+    final unit = art.width * 0.897 / 155.23;
+    expect(hair.top + 3 * unit, greaterThan(tags.bottom));
   });
 
   testWidgets('외형: 가운데 정렬, 몸통 바닥 489, 인디케이터 y=558', (tester) async {

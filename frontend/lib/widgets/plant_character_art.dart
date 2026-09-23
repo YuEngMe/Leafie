@@ -174,14 +174,13 @@ const Map<PlantBody, _BodyGeometry> _kBodyGeometry = {
 
 /// 헤어별 크기·위치(unit, 몸통 bbox 기준). 헤어 크기는 바디와 무관한 절대
 /// 크기다.
-/// - [width]/[height]: 시안 헤어 bbox. 헤어 그림(불투명 영역)을 이 상자 안에
-///   비율을 지켜 최대로 맞춘다(contain). 저장소 헤어 PNG 일부는 시안 헤어와
-///   종횡비가 달라(산세베리아·몬스테라는 더 길쭉) 폭만 맞추면 시안보다
-///   훨씬 높이 솟으므로, 시안 bbox를 넘지 않게 한다.
+/// - [width]/[height]: 시안 헤어 레이어 bbox. 헤어 PNG는 같은 컴포넌트
+///   (식물머리 5035:5886)에서 4배로 뽑아 [ink]가 곧 이 레이어 영역이므로
+///   비율이 정확히 맞는다(contain 계산은 안전장치로 남긴다).
 /// - [overlap]: 헤어 그림 바닥이 몸통 bbox 위쪽보다 아래로 내려온 깊이.
 /// - [dx]: 헤어 그림 중심 − 몸통 중심(+면 오른쪽). [dxByBody]가 있으면 우선.
-/// - [png]/[ink]: 헤어 PNG 캔버스 크기와 그 안의 불투명 bbox(px, PIL 실측).
-///   PNG 둘레 투명 여백을 빼고 그림 자체로 위 값을 맞춘다.
+/// - [png]/[ink]: 헤어 PNG 캔버스 크기와 그 안의 시안 레이어 영역(px).
+///   PNG는 레이어 렌더 영역을 사방 3 unit 넓혀 뽑았다.
 ///
 /// 근거: 시안 "홈에서 뜨는 캐릭터/식물 크기 예시"(5028:4737) 실측.
 /// flower_cactus만 시안 캐릭터가 없어 헤어 심볼(5035:5886) 크기에
@@ -230,32 +229,32 @@ const Map<String, _HairSpec> _kHairSpecs = {
     109.75,
     18.75,
     -0.95,
-    png: Size(908, 538),
-    ink: Rect.fromLTRB(4, 8, 902, 524),
+    png: Size(765, 463),
+    ink: Rect.fromLTRB(16, 12, 749.2, 451),
   ),
   'hair_cherry_tomato': _HairSpec(
     120.81,
     177.99,
     23.99,
     20.79,
-    png: Size(606, 854),
-    ink: Rect.fromLTRB(0, 68, 573, 853),
+    png: Size(530, 736),
+    ink: Rect.fromLTRB(12, 12, 495.3, 724),
   ),
   'hair_sunflower': _HairSpec(
     95.00,
     152.00,
     25.00,
     -4.12,
-    png: Size(369, 540),
-    ink: Rect.fromLTRB(0, 0, 369, 530),
+    png: Size(404, 632),
+    ink: Rect.fromLTRB(12, 12, 392, 620),
   ),
   'hair_hydrangea': _HairSpec(
     120.00,
     169.96,
     25.96,
     -4.62,
-    png: Size(567, 803),
-    ink: Rect.fromLTRB(0, 0, 538, 786),
+    png: Size(506, 705),
+    ink: Rect.fromLTRB(13, 13, 493, 692.8),
     dxByBody: {PlantBody.thumb: -4.01},
   ),
   // 산세베리아(시안은 square 바디).
@@ -264,16 +263,16 @@ const Map<String, _HairSpec> _kHairSpecs = {
     181.91,
     17.91,
     4.50,
-    png: Size(522, 667),
-    ink: Rect.fromLTRB(35, 13, 446, 644),
+    png: Size(605, 766),
+    ink: Rect.fromLTRB(12, 26, 592, 753.7),
   ),
   'hair_daisy': _HairSpec(
     116.00,
     165.00,
     18.00,
     -9.62,
-    png: Size(473, 672),
-    ink: Rect.fromLTRB(37, 37, 443, 661),
+    png: Size(488, 685),
+    ink: Rect.fromLTRB(12, 12, 476, 672),
   ),
   // 에케베리아.
   'hair_rosette_succulent': _HairSpec(
@@ -281,16 +280,16 @@ const Map<String, _HairSpec> _kHairSpecs = {
     83.48,
     24.48,
     -0.62,
-    png: Size(770, 460),
-    ink: Rect.fromLTRB(38, 0, 731, 447),
+    png: Size(584, 358),
+    ink: Rect.fromLTRB(12, 12, 572, 345.9),
   ),
   'hair_monstera': _HairSpec(
     160.00,
     169.25,
     25.25,
     -21.62,
-    png: Size(630, 667),
-    ink: Rect.fromLTRB(148, 60, 581, 652),
+    png: Size(664, 701),
+    ink: Rect.fromLTRB(12, 12, 652, 689),
   ),
   // 선인장: 시안 캐릭터 없음(5035:5886 심볼 폭, overlap·dx 추정).
   'hair_flower_cactus': _HairSpec(
@@ -298,7 +297,7 @@ const Map<String, _HairSpec> _kHairSpecs = {
     138.02,
     22,
     0,
-    png: Size(709, 708),
-    ink: Rect.fromLTRB(19, 18, 690, 689),
+    png: Size(282, 577),
+    ink: Rect.fromLTRB(12, 12, 269.5, 564.1),
   ),
 };
