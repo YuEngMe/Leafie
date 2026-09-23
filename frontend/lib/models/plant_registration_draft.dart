@@ -89,7 +89,7 @@ class PlantRegistrationSnapshot {
         speciesReferenceId: draft.species.referenceId,
         startedOn: draft.startedOn,
         placeName: draft.placeName!,
-        lastWateredOn: draft.lastWateredOn!,
+        lastWateredOn: draft.lastWateredOn,
         lastRepottedOn: draft.lastRepottedOn,
         personalityType: draft.personalityType!,
         bodyId: draft.bodyId ?? PlantRegistrationDraft.defaultBodyId,
@@ -106,7 +106,7 @@ class PlantRegistrationSnapshot {
   final String speciesReferenceId;
   final DateTime startedOn;
   final String placeName;
-  final DateTime lastWateredOn;
+  final DateTime? lastWateredOn;
   final DateTime? lastRepottedOn;
   final String personalityType;
   final String bodyId;

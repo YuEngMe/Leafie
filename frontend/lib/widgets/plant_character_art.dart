@@ -57,7 +57,11 @@ class PlantCharacterArt extends StatelessWidget {
     // 헤어를 몸통 위에 얹는다. 몸통이 Stack 크기를 정하고, 헤어는 몸통 상단
     // 중앙에 밑동을 붙인 채 위로 솟는다. 헤어 밑동은 정수리로 `overlap`만큼
     // 파고들고(둥근 크라운에 얹히도록), 나머지는 얼굴 위로 자란다.
-    final bodyHeight = width * _kBodyAspect;
+    // 표정 애셋은 circle 전용이라 바디와 무관하게 circle 앵커를 쓴다.
+    final anchor = expression == PlantExpression.none
+        ? _kBodyGeometry[body]!.hairAnchor
+        : _kBodyAspect;
+    final bodyHeight = width * anchor;
     final hairWidth = width * spec.widthRatio;
     return Stack(
       clipBehavior: Clip.none,
@@ -83,13 +87,18 @@ class PlantCharacterArt extends StatelessWidget {
     );
   }
 
-  /// 몸통/표정 이미지(색 틴트 포함). 기존 렌더 로직 그대로.
+  /// 몸통/표정 이미지(색 틴트 포함).
+  ///
+  /// 표정 없는 몸통은 바디와 무관하게 같은 크기 박스(circle 기준
+  /// `width x width*_kBodyAspect`)에 아래 정렬로 그린다. 바디를 바꿔도 위젯
+  /// 크기가 그대로라 주변 레이아웃(인디케이터 등)이 흔들리지 않고, 보이는
+  /// 몸통 크기는 [_kBodyGeometry]가 시안 비율에 맞춘다.
   Widget _buildBody() {
-    final asset =
-        _expressionAssets[expression] ?? 'assets/images/body_${body.name}.png';
+    final expressionAsset = _expressionAssets[expression];
+    final geometry = _kBodyGeometry[body]!;
     final image = Image.asset(
-      asset,
-      width: width,
+      expressionAsset ?? 'assets/images/body_${body.name}.png',
+      width: expressionAsset == null ? width * geometry.scale : width,
       fit: BoxFit.contain,
       semanticLabel: '식물 친구 캐릭터',
     );
@@ -97,16 +106,54 @@ class PlantCharacterArt extends StatelessWidget {
     final target = plantBodyColorFor(colorId);
     // 옐로는 원본 몸통색과 사실상 같다(#F9FAB8 vs #F8F9B4). 필터를 걸면
     // 반올림 오차만 생기니 원본을 그대로 쓴다 — 기준점 겸 최적화.
-    if (target == null || colorId == 'color_yellow') return image;
+    final art = target == null || colorId == 'color_yellow'
+        ? image
+        : PlantBodyTint(target: target, child: image);
+    if (expressionAsset != null) return art;
 
-    return PlantBodyTint(target: target, child: image);
+    return SizedBox(
+      width: width,
+      height: width * _kBodyAspect,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: width * geometry.bottomInset),
+          child: art,
+        ),
+      ),
+    );
   }
 }
 
-/// 몸통 body PNG(circle 698x649)의 세로/가로 비. `width`로 그린 몸통 높이를
-/// `width * _kBodyAspect`로 근사해 헤어 앵커의 기준으로 쓴다. thumb/square는
-/// 여백 비율이 조금 다르지만 헤어 앵커는 근사만 하면 되므로 하나로 통일한다.
+/// 몸통 body PNG(circle 698x649)의 세로/가로 비. 몸통 박스 높이와 표정 애셋의
+/// 헤어 앵커 기준으로 쓴다.
 const double _kBodyAspect = 649 / 698;
+
+/// 바디별 렌더 보정. body PNG 3장은 export 배율과 투명 여백이 서로 달라
+/// (circle 698x649, thumb 762x731, square 750x715) 같은 폭으로 그리면 circle이
+/// 가장 작아 보이고 바디를 바꿀 때 크기가 흔들린다. 시안(캐릭터 꾸미기
+/// 5028:1662/1665/1666)은 몸통 폭이 circle 170.44 · thumb 164.70 · square 162.50,
+/// 중심 x가 같고 바닥이 거의 같다.
+/// - [scale]: PNG 렌더 폭 = `width * scale`. 실측 불투명 영역 폭
+///   (circle 626/698, thumb 690/762, square 679/750)으로 보이는 몸통 폭을
+///   시안 비율에 맞춘 값. circle이 기준이라 1.0.
+/// - [bottomInset]: 박스 바닥에서 띄우는 거리(`width` 대비). 보이는 몸통 바닥을
+///   시안 높이(circle 489, thumb 489.27, square 487.09)에 맞춘다.
+/// - [hairAnchor]: 헤어 밑동 기준 높이(`width` 대비). 바디별 정수리 높이에
+///   circle PNG의 상단 여백을 더해 circle과 같은 기준으로 [_HairSpec.overlap]을
+///   쓸 수 있게 한다.
+class _BodyGeometry {
+  const _BodyGeometry(this.scale, this.bottomInset, this.hairAnchor);
+  final double scale;
+  final double bottomInset;
+  final double hairAnchor;
+}
+
+const Map<PlantBody, _BodyGeometry> _kBodyGeometry = {
+  PlantBody.circle: _BodyGeometry(1.0, 0, _kBodyAspect),
+  PlantBody.thumb: _BodyGeometry(0.9571, 0.0051, 0.9271),
+  PlantBody.square: _BodyGeometry(0.9445, 0.0178, 0.9269),
+};
 
 /// 헤어별 크기·오프셋 보정. 헤어 심볼 크기가 제각각(시안 5035:5886)이라
 /// 몸통 대비 상대값으로 정렬한다.

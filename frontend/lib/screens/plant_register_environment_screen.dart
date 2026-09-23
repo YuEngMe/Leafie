@@ -70,25 +70,14 @@ class _PlantRegisterEnvironmentScreenState
       ).showSnackBar(const SnackBar(content: Text('장소를 입력해주세요')));
       return;
     }
-    if (_lastWateredOn == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('마지막 물 준 날을 선택해주세요')));
-      return;
-    }
+    // 마지막 물 준 날·분갈이 날은 둘 다 선택값이다(백엔드 #92). 고른 날짜만
+    // 미래인지 검사한다.
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
-    final wateredOnly = DateTime(
-      _lastWateredOn!.year,
-      _lastWateredOn!.month,
-      _lastWateredOn!.day,
-    );
-    final repotted = _lastRepottedOn;
-    final repottedOnly = repotted == null
-        ? null
-        : DateTime(repotted.year, repotted.month, repotted.day);
-    if (wateredOnly.isAfter(todayOnly) ||
-        (repottedOnly != null && repottedOnly.isAfter(todayOnly))) {
+    bool isFuture(DateTime? date) =>
+        date != null &&
+        DateTime(date.year, date.month, date.day).isAfter(todayOnly);
+    if (isFuture(_lastWateredOn) || isFuture(_lastRepottedOn)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')));

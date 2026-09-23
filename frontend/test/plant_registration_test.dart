@@ -115,19 +115,21 @@ void main() {
     );
   });
 
-  testWidgets('장소만 입력하고 물 준 날을 고르지 않으면 다음으로 넘어가지 않는다', (
+  testWidgets('물 준 날을 고르지 않아도 장소만 입력하면 다음으로 넘어간다', (
     WidgetTester tester,
   ) async {
+    // 마지막 물 준 날·분갈이 날은 선택값이다(백엔드 #92).
     final draft = _sampleDraft();
     await tester.pumpWidget(
       MaterialApp(home: PlantRegisterEnvironmentScreen(draft: draft)),
     );
     await tester.enterText(find.byType(TextField).first, '학교');
     await tester.tap(find.text('다음'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('마지막 물 준 날을 선택해주세요'), findsOneWidget);
-    expect(find.byType(PlantRegisterPersonalityScreen), findsNothing);
+    expect(find.byType(PlantRegisterPersonalityScreen), findsOneWidget);
+    expect(draft.placeName, '학교');
+    expect(draft.lastWateredOn, isNull);
   });
 
   testWidgets('늦게 끝난 이전 검색은 최신 검색 결과를 덮어쓰지 않는다', (WidgetTester tester) async {
