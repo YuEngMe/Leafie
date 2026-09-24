@@ -323,7 +323,7 @@ hair_daisy
   "room": {
     "background_phase": "DAY",
     "dialogue_key": "NORMAL",
-    "dialogue": null
+    "dialogue": "와줬네… 사실 조금 기다렸어."
   },
   "today_events": [
     {
@@ -341,9 +341,9 @@ hair_daisy
 ```
 
 함께한 날짜는 시작 당일을 1일로 계산합니다. `background_phase`는 사용자 시간대 기준
-06:00~17:59에 `DAY`, 그 밖에는 `NIGHT`입니다. 실제 성격별 대사가 확정되기 전에는
-`dialogue_key=NORMAL`, `dialogue=null`을 반환합니다. 같은 상황의 대사 선택은 하루 동안
-고정하되, 센서·관리·편지 등 현재 상황이 바뀌면 상황 키는 바뀔 수 있습니다.
+06:00~17:59에 `DAY`, 그 밖에는 `NIGHT`입니다. 홈 대사는 여섯 성격과 11개 상황별 고정
+문구를 사용합니다. 발동 조건·우선순위·유지 시간과 센서 연동이 확정되기 전에는
+`dialogue_key=NORMAL`과 해당 성격의 평소 대사를 반환합니다.
 
 `today_events`는 선택 식물의 오늘 물주기·분갈이·비료 일정입니다. 해 아이콘 교감은 앱
 애니메이션이며 API 호출이 없습니다. 센서 장치·토양 수분·일별 누적 조도 게이지는 센서
