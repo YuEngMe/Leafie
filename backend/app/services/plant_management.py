@@ -13,7 +13,7 @@ from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
 from app.models.care import CareEvent
 from app.models.diagnosis import Diagnosis
-from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus
+from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus, PersonalityType
 from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
@@ -50,6 +50,102 @@ class PlantContext:
 @dataclass(frozen=True, slots=True)
 class DeletePlantResult:
     enqueue_cleanup: bool
+
+
+HOME_DIALOGUES: dict[HomeDialogueKey, dict[PersonalityType, str]] = {
+    HomeDialogueKey.NORMAL: {
+        PersonalityType.OUTGOING: "오늘도 같이 놀자!",
+        PersonalityType.CHIC: "됐어. 그냥 있어.",
+        PersonalityType.CUTE: "오늘은 뭐 하고 놀까?",
+        PersonalityType.INTROVERTED: "와줬네… 사실 조금 기다렸어.",
+        PersonalityType.CRUSH: "오늘도 네 생각만 했어….",
+        PersonalityType.CHUNGCHEONG: "기다리고 있었구먼유.",
+    },
+    HomeDialogueKey.WATERING_COMPLETED: {
+        PersonalityType.OUTGOING: "물 고마워!",
+        PersonalityType.CHIC: "물 줬네. 됐어.",
+        PersonalityType.CUTE: "헤헤, 물 먹으니까 기분이 좋아졌어!",
+        PersonalityType.INTROVERTED: "물 줘서 고마워… 이제 목 안 말라.",
+        PersonalityType.CRUSH: "네가 준 물이라 더 달아..ㅎ",
+        PersonalityType.CHUNGCHEONG: "아이고, 물 잘 먹었슈.",
+    },
+    HomeDialogueKey.LIGHT_LOW: {
+        PersonalityType.OUTGOING: "나 햇빛 보고 싶어!",
+        PersonalityType.CHIC: "좀 어둡네. 신경 쓰이게.",
+        PersonalityType.CUTE: "나 햇빛 구경하고 싶은데 같이 가줄래?",
+        PersonalityType.INTROVERTED: "저기… 조금만 더 밝은 곳으로 가도 될까?",
+        PersonalityType.CRUSH: "네 옆이면 어두워도 괜찮은데… 그래도 햇빛 좀…",
+        PersonalityType.CHUNGCHEONG: "햇빛이 영 부족허구먼유…",
+    },
+    HomeDialogueKey.LIGHT_HIGH: {
+        PersonalityType.OUTGOING: "햇빛이 너무 뜨거워!",
+        PersonalityType.CHIC: "너무 밝아. 눈부시게.",
+        PersonalityType.CUTE: "나 조금 뜨거운 것 같아!",
+        PersonalityType.INTROVERTED: "햇빛이 조금 따가워… 그늘에서 쉬면 안 될까?",
+        PersonalityType.CRUSH: "너무 뜨거워… 네가 그늘 되어주면 안 돼?",
+        PersonalityType.CHUNGCHEONG: "햇빛이 좀 세구먼유…",
+    },
+    HomeDialogueKey.LIGHT_OPTIMAL: {
+        PersonalityType.OUTGOING: "여기 자리 완전 마음에 들어!",
+        PersonalityType.CHIC: "이 정도면 뭐, 나쁘지 않네.",
+        PersonalityType.CUTE: "나 여기 마음에 들어!",
+        PersonalityType.INTROVERTED: "여기 햇살 좋다… 나 여기 있어도 되지?",
+        PersonalityType.CRUSH: "이 햇빛, 너랑 같이 쬐고 싶다…",
+        PersonalityType.CHUNGCHEONG: "햇빛 딱 좋구먼유. 이 정도면 됐슈.",
+    },
+    HomeDialogueKey.SOIL_MOISTURE_LOW: {
+        PersonalityType.OUTGOING: "목말라~!",
+        PersonalityType.CHIC: "건조해. 티는 안 낼 거지만.",
+        PersonalityType.CUTE: "나 물 주는 거 까먹은 건 아니지…?",
+        PersonalityType.INTROVERTED: "나… 목이 조금 마른 것 같아. 물 줄 수 있어?",
+        PersonalityType.CRUSH: "목말라… 근데 네 관심이 더 고파",
+        PersonalityType.CHUNGCHEONG: "공기가 좀 메마른디유…",
+    },
+    HomeDialogueKey.SOIL_MOISTURE_HIGH: {
+        PersonalityType.OUTGOING: "물은 그만줘도 돼!",
+        PersonalityType.CHIC: "축축해. 별로야.",
+        PersonalityType.CUTE: "촉촉한 건 좋은데… 이건 조금 많아!",
+        PersonalityType.INTROVERTED: "물은 지금 충분해… 조금만 쉬었다 마실게.",
+        PersonalityType.CRUSH: "물은 됐고, 네 마음이나 더 줘!",
+        PersonalityType.CHUNGCHEONG: "습기가 좀 많구먼유…",
+    },
+    HomeDialogueKey.DIARY_PROMPT: {
+        PersonalityType.OUTGOING: "오늘 기록 하나 남겨줘",
+        PersonalityType.CHIC: "쓰든 말든 네 맘인데... 궁금하긴 해.",
+        PersonalityType.CUTE: "오늘의 나도 기록해줄 거지?",
+        PersonalityType.INTROVERTED: "오늘은 어떻게 지냈어…? 적어 주면 읽고 싶어.",
+        PersonalityType.CRUSH: "오늘 네 하루, 나한테만 몰래 알려줄래?",
+        PersonalityType.CHUNGCHEONG: "나한테도 오늘 이야기 좀 해주셔유.",
+    },
+    HomeDialogueKey.DIAGNOSIS_PROMPT: {
+        PersonalityType.OUTGOING: "잠깐! 내 상태 한 번 봐줄래?",
+        PersonalityType.CHIC: "나 한번 진단해봐. 딱히 걱정되는 거 아니고 그냥.",
+        PersonalityType.CUTE: "내 상태가 궁금해! 나 한번 살펴봐줘~",
+        PersonalityType.INTROVERTED: "저기… 내 모습 한 번만 살펴봐 줄래?",
+        PersonalityType.CRUSH: "내 상태, 너한테만 보여주고 싶어…",
+        PersonalityType.CHUNGCHEONG: "요새 내 상태가 좀 궁금허시쥬? 한번 봐주셔유.",
+    },
+    HomeDialogueKey.LETTER_SENT: {
+        PersonalityType.OUTGOING: "네 마음 잘 받았어! 내 답장도 받아줘!",
+        PersonalityType.CHIC: "일기 읽었어. 답장 보낸다, 별거 아니지만.",
+        PersonalityType.CUTE: "이거 소중하게 간직할게! 내 이야기도 들어줘!",
+        PersonalityType.INTROVERTED: "답장 써 봤어… 조금 쑥스럽지만 읽어 줄래?",
+        PersonalityType.CRUSH: "네 마음 읽었어… 나도 답장에 진심 담았어!",
+        PersonalityType.CHUNGCHEONG: "오늘 이야기도 잘 봤슈. 내 답장도 읽어봐유.",
+    },
+    HomeDialogueKey.DIARY_RECEIVED: {
+        PersonalityType.OUTGOING: "오늘 이야기도 잘 받았어!",
+        PersonalityType.CHIC: "오늘도 썼네. 나쁘지 않아.",
+        PersonalityType.CUTE: "오늘의 이야기를 들려줘서 고마워",
+        PersonalityType.INTROVERTED: "네 이야기 잘 받았어… 나한테 들려줘서 고마워.",
+        PersonalityType.CRUSH: "오늘 이야기, 소중히 간직할게!",
+        PersonalityType.CHUNGCHEONG: "당신 이야기를 들으니 나도 기분이 좋아졌구먼유.",
+    },
+}
+
+
+def home_dialogue(personality_type: str, dialogue_key: HomeDialogueKey) -> str:
+    return HOME_DIALOGUES[dialogue_key][PersonalityType(personality_type)]
 
 
 def plant_media_ids_query(plant_id: UUID) -> Select:
@@ -382,6 +478,7 @@ class PlantManagementService:
 
         today = today_in_timezone(context.timezone)
         today_events = await self._repository.list_today_events(context.plant.id, today)
+        dialogue_key = HomeDialogueKey.NORMAL
         return HomeResponse(
             plant=HomePlantResponse(
                 id=context.plant.id,
@@ -397,8 +494,8 @@ class PlantManagementService:
             ),
             room=HomeRoomResponse(
                 background_phase=home_background_phase(context.timezone),
-                dialogue_key=HomeDialogueKey.NORMAL,
-                dialogue=None,
+                dialogue_key=dialogue_key,
+                dialogue=home_dialogue(context.plant.personality_type, dialogue_key),
             ),
             today_events=[agenda_event_response(event, today) for event in today_events],
             unread_letter_count=unread_letter_count,

@@ -17,19 +17,21 @@ from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
 from app.main import create_app
 from app.models.care import CareEvent
-from app.models.enums import CareEventSource, CareEventStatus, MediaStatus
+from app.models.enums import CareEventSource, CareEventStatus, MediaStatus, PersonalityType
 from app.models.media import MediaFile
 from app.models.plant import Plant, PlantPersonalityChange, SpeciesCareGuide
 from app.models.user import UserProfile
-from app.schemas.plant import PlantAppearanceUpdateRequest, PlantUpdateRequest
+from app.schemas.plant import HomeDialogueKey, PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
 from app.services.plant import today_in_timezone
 from app.services.plant_management import (
+    HOME_DIALOGUES,
     DeletePlantResult,
     PlantContext,
     PlantManagementService,
     days_together,
     home_background_phase,
+    home_dialogue,
 )
 from app.tasks.plant import PlantDeleteHandler
 
@@ -473,7 +475,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     assert home.plant.expression_id.value == "expression_default"
     assert home.room is not None
     assert home.room.dialogue_key.value == "NORMAL"
-    assert home.room.dialogue is None
+    assert home.room.dialogue == "오늘도 같이 놀자!"
     assert [event.view_status.value for event in home.today_events] == ["TODAY"]
     assert "daily_memo" not in home.model_dump()
 
@@ -517,6 +519,20 @@ def test_home_days_start_at_one_and_background_changes_at_six_and_eighteen() -> 
     ).value == "NIGHT"
 
 
+def test_home_dialogues_cover_every_personality_and_situation() -> None:
+    assert set(HOME_DIALOGUES) == set(HomeDialogueKey)
+    assert all(set(dialogues) == set(PersonalityType) for dialogues in HOME_DIALOGUES.values())
+    assert home_dialogue("CUTE", HomeDialogueKey.LIGHT_LOW) == (
+        "나 햇빛 구경하고 싶은데 같이 가줄래?"
+    )
+    assert home_dialogue("CRUSH", HomeDialogueKey.WATERING_COMPLETED) == (
+        "네가 준 물이라 더 달아..ㅎ"
+    )
+    assert home_dialogue("CHUNGCHEONG", HomeDialogueKey.DIARY_RECEIVED) == (
+        "당신 이야기를 들으니 나도 기분이 좋아졌구먼유."
+    )
+
+
 def test_home_route_returns_v2_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     user_id = uuid4()
     plant = make_plant(user_id)
@@ -557,7 +573,7 @@ def test_home_route_returns_v2_contract(monkeypatch: pytest.MonkeyPatch) -> None
     }
     assert payload["plant"]["days_together"] == 11
     assert payload["room"]["dialogue_key"] == "NORMAL"
-    assert payload["room"]["dialogue"] is None
+    assert payload["room"]["dialogue"] == "오늘도 같이 놀자!"
     assert payload["today_events"][0]["care_type"] == "WATERING"
     assert payload["unread_letter_count"] == 3
 

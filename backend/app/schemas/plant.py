@@ -216,7 +216,7 @@ class HomeDialogueKey(StrEnum):
 class HomeRoomResponse(BaseModel):
     background_phase: HomeBackgroundPhase
     dialogue_key: HomeDialogueKey
-    dialogue: str | None
+    dialogue: str
 
 
 class HomeResponse(BaseModel):
