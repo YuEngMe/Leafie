@@ -209,6 +209,28 @@ async def test_repository_completes_without_chat_and_notifies_once() -> None:
     assert queue.enqueue.call_args.kwargs["session"] is session
 
 
+def test_healthy_recommended_care_ignores_disease_treatment_and_rules() -> None:
+    result = DiagnosisProviderResult(
+        overall_condition="HEALTHY",
+        condition_label="건강해 보여요",
+        observations=["뚜렷한 이상 징후 없음"],
+        possible_causes=[{"name": "뿌리 썩음", "confidence": 0.1}],
+        care_suggestions=["손상된 뿌리를 제거하세요."],
+        provider_name="fake",
+        model_name="fake-v1",
+    )
+    context = {
+        "last_watered_on": "2026-09-20",
+        "diagnosis_profile": {
+            "cautions": ["질병 관련 관리 주의사항"],
+            "symptom_checks": [{"possible_causes": ["뿌리 썩음"], "check": ["뿌리"]}],
+        },
+    }
+    assert build_recommended_care(result, context) == [
+        "현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요."
+    ]
+
+
 def test_recommended_care_uses_species_rules_and_recent_watering() -> None:
     result = DiagnosisProviderResult(
         overall_condition="UNHEALTHY",
