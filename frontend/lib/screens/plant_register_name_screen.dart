@@ -43,7 +43,7 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
     return RegisterStepScaffold(
       appBarTitle: '내 식물 등록하기',
       step: 1,
-      title: '식물의 이름을 지어주세요!',
+      title: '리피의 이름을 지어주세요!',
       subtitle: '당신의 식물을 뭐라고 부를까요?',
       scrollable: true,
       bottomButton: PrimaryButton(

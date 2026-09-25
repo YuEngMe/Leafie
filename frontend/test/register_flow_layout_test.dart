@@ -54,7 +54,7 @@ void main() {
 
       // 물결은 프레임(238x15)보다 넘쳐 243x21.425로 그려진다.
       _expectAt(tester, '진행 물결', find.byType(RegisterProgressBar), 79.5, 91.79);
-      _expectAt(tester, '헤드라인', find.text('식물의 이름을 지어주세요!'), 45, 140);
+      _expectAt(tester, '헤드라인', find.text('리피의 이름을 지어주세요!'), 45, 140);
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
 
