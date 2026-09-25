@@ -104,6 +104,7 @@ class _PlantRegisterEnvironmentScreenState
       step: 3,
       title: '내 식물을 챙긴 날은 언제인가요?',
       subtitle: '',
+      scrollable: true,
       bottomButton: PrimaryButton(
         label: '다음',
         variant: PrimaryButtonVariant.enabled,
