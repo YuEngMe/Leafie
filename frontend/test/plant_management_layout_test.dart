@@ -201,6 +201,26 @@ void main() {
       expect(plus.width, _closeTo1px(34.048));
     });
 
+    testWidgets('하단 잔디가 화면 바닥에 붙는다 (4694:1454)', (tester) async {
+      await _pumpScreen(
+        tester,
+        PlantManagementScreen(repository: _FakeRepository([_plant()])),
+      );
+      final grass = find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName ==
+                'assets/images/plants_house_grass.png',
+      );
+      expect(grass, findsOneWidget);
+      final rect = tester.getRect(grass);
+      // 새싹 top 774 ~ 프레임 바닥 874.
+      expect(rect.top, _closeTo1px(774));
+      expect(rect.bottom, _closeTo1px(874));
+      expect(rect.width, _closeTo1px(402));
+    });
+
     testWidgets('9칸이 다 차면 + 가 사라진다', (tester) async {
       final repository = _FakeRepository([
         for (var i = 1; i <= 9; i++)

@@ -47,6 +47,10 @@ const double _kCloudTop = -155;
 const double _kCloudWidth = 499;
 const double _kCloudHeight = 300;
 
+/// 하단 잔디(4694:1454). 새싹 두 포기 top 774부터 프레임 바닥 874까지를
+/// 투명 배경으로 잘라 둔 그림이다. 상세 화면 잔디와 같은 모양이다.
+const double _kGrassHeight = 874 - 774;
+
 class PlantManagementScreen extends StatefulWidget {
   const PlantManagementScreen({
     super.key,
@@ -220,6 +224,20 @@ class _PlantShelfHouse extends StatelessWidget {
             height: _kShelfHeight,
             child: const ColoredBox(color: kPlantsHouseYellow),
           ),
+        // 잔디는 집 밑동을 덮는다. 시안에서 화면 바닥에 붙어 있으므로
+        // 위가 아니라 바닥 기준으로 건다. 상단 안전 영역이 시안보다 커도
+        // 잔디가 화면 밖으로 밀려나지 않는다.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: _kGrassHeight,
+          child: Image.asset(
+            'assets/images/plants_house_grass.png',
+            fit: BoxFit.fill,
+            excludeFromSemantics: true,
+          ),
+        ),
         for (var index = 0; index < visible.length; index++)
           _slot(
             index: index,

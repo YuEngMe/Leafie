@@ -17,6 +17,7 @@ class RegisterStepScaffold extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.bottomButton,
+    this.scrollable = false,
   });
 
   final String appBarTitle;
@@ -27,6 +28,11 @@ class RegisterStepScaffold extends StatelessWidget {
 
   /// 하단에 고정할 버튼. 식물찾기처럼 버튼이 없는 단계는 비워 둔다.
   final Widget? bottomButton;
+
+  /// 본문에 입력칸이 있는 단계는 키보드가 올라오면 본문 높이가 줄어
+  /// 고정 간격 Column이 넘친다. 이때 본문만 스크롤되게 한다. 목록처럼
+  /// 스스로 스크롤하는 본문(식물찾기)에는 켜지 않는다.
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +67,15 @@ class RegisterStepScaffold extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(child: child),
+            Expanded(
+              child: scrollable
+                  ? SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: child,
+                    )
+                  : child,
+            ),
             if (bottomButton != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(

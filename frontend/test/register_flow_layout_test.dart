@@ -54,7 +54,7 @@ void main() {
 
       // 물결은 프레임(238x15)보다 넘쳐 243x21.425로 그려진다.
       _expectAt(tester, '진행 물결', find.byType(RegisterProgressBar), 79.5, 91.79);
-      _expectAt(tester, '헤드라인', find.text('식물의 이름을 지어주세요!'), 45, 140);
+      _expectAt(tester, '헤드라인', find.text('리피의 이름을 지어주세요!'), 45, 140);
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
 
@@ -149,5 +149,28 @@ void main() {
       );
       expect(bar.step, want, reason: screen.runtimeType.toString());
     }
+  });
+
+  // 시뮬레이터에서 키보드를 열면 "BOTTOM OVERFLOWED BY 123 PIXELS"가 떴다.
+  // iPhone 16 Pro 키보드 높이(336)를 viewInsets로 올려 같은 조건을 만든다.
+  group('키보드가 열려도 넘치지 않는다', () {
+    Future<void> openKeyboard(WidgetTester tester, Widget screen) async {
+      _setUpView(tester);
+      await tester.pumpWidget(MaterialApp(home: screen));
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('1단계 이름', (tester) async {
+      await openKeyboard(tester, const PlantRegisterNameScreen());
+      expect(tester.takeException(), isNull);
+      expect(find.byType(PrimaryButton), findsOneWidget);
+    });
+
+    testWidgets('3단계 환경', (tester) async {
+      await openKeyboard(tester, PlantRegisterEnvironmentScreen(draft: _draft()));
+      expect(tester.takeException(), isNull);
+    });
   });
 }
