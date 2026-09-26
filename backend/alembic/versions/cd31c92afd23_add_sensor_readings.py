@@ -1,9 +1,9 @@
-"""add devices, device claims, plant links and sensor readings
+"""add sensor_devices, device claims, plant links and sensor readings
 
 Revision ID: cd31c92afd23
 Revises: a9d4e7f2c610
 
-센서 소유 테이블(devices, device_claims, plant_devices, sensor_readings)과 telemetry
+센서 소유 테이블(sensor_devices, sensor_device_claims, plant_sensor_devices, sensor_readings)과 telemetry
 consumer(Lambda) 전용 DB 역할 `sensor_ingest`를 추가한다.
 역할 비밀번호는 migration에 넣지 않는다. 적용 후 운영자가 별도로 설정한다.
 
@@ -20,19 +20,19 @@ down_revision = "a9d4e7f2c610"
 branch_labels = None
 depends_on = None
 
-SENSOR_TABLES = ("devices", "device_claims", "plant_devices", "sensor_readings")
+SENSOR_TABLES = ("sensor_devices", "sensor_device_claims", "plant_sensor_devices", "sensor_readings")
 
 
 def upgrade() -> None:
     op.create_table(
-        "devices",
+        "sensor_devices",
         sa.Column("id", sa.String(12), primary_key=True),
         sa.Column(
             "owner_user_id",
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("auth.users.id", ondelete="CASCADE"),
         ),
-        sa.Column("device_token_hash", sa.String(64)),
+        sa.Column("sensor_token_hash", sa.String(64)),
         sa.Column("status", sa.String(16), nullable=False, server_default="UNCLAIMED"),
         sa.Column("firmware_version", sa.String(32)),
         sa.Column("claimed_at", sa.DateTime(timezone=True)),
@@ -52,27 +52,27 @@ def upgrade() -> None:
         sa.CheckConstraint("id ~ '^[0-9A-F]{12}$'", name="id_format"),
         sa.CheckConstraint("status IN ('UNCLAIMED', 'CLAIMED')", name="status"),
         sa.CheckConstraint(
-            "device_token_hash IS NULL OR char_length(device_token_hash) = 64",
-            name="device_token_hash_length",
+            "sensor_token_hash IS NULL OR char_length(sensor_token_hash) = 64",
+            name="sensor_token_hash_length",
         ),
         sa.CheckConstraint(
             "(status = 'CLAIMED' AND owner_user_id IS NOT NULL "
-            "AND device_token_hash IS NOT NULL AND claimed_at IS NOT NULL) "
-            "OR (status = 'UNCLAIMED' AND owner_user_id IS NULL AND device_token_hash IS NULL)",
+            "AND sensor_token_hash IS NOT NULL AND claimed_at IS NOT NULL) "
+            "OR (status = 'UNCLAIMED' AND owner_user_id IS NULL AND sensor_token_hash IS NULL)",
             name="claimed_state",
         ),
     )
-    op.create_index("ix_devices_owner_user_id", "devices", ["owner_user_id"])
+    op.create_index("ix_sensor_devices_owner_user_id", "sensor_devices", ["owner_user_id"])
     op.create_index(
-        "uq_devices_device_token_hash",
-        "devices",
-        ["device_token_hash"],
+        "uq_sensor_devices_sensor_token_hash",
+        "sensor_devices",
+        ["sensor_token_hash"],
         unique=True,
-        postgresql_where=sa.text("device_token_hash IS NOT NULL"),
+        postgresql_where=sa.text("sensor_token_hash IS NOT NULL"),
     )
 
     op.create_table(
-        "device_claims",
+        "sensor_device_claims",
         sa.Column(
             "id",
             postgresql.UUID(as_uuid=True),
@@ -82,7 +82,7 @@ def upgrade() -> None:
         sa.Column(
             "device_id",
             sa.String(12),
-            sa.ForeignKey("devices.id", ondelete="CASCADE"),
+            sa.ForeignKey("sensor_devices.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column(
@@ -109,21 +109,21 @@ def upgrade() -> None:
             "(status = 'COMPLETED') = (completed_at IS NOT NULL)", name="completed_at"
         ),
     )
-    op.create_index("ix_device_claims_user_id", "device_claims", ["user_id"])
+    op.create_index("ix_sensor_device_claims_user_id", "sensor_device_claims", ["user_id"])
     op.create_index(
-        "uq_device_claims_pending_device",
-        "device_claims",
+        "uq_sensor_device_claims_pending_device",
+        "sensor_device_claims",
         ["device_id"],
         unique=True,
         postgresql_where=sa.text("status = 'PENDING'"),
     )
 
     op.create_table(
-        "plant_devices",
+        "plant_sensor_devices",
         sa.Column(
             "device_id",
             sa.String(12),
-            sa.ForeignKey("devices.id", ondelete="CASCADE"),
+            sa.ForeignKey("sensor_devices.id", ondelete="CASCADE"),
             primary_key=True,
         ),
         sa.Column(
@@ -147,7 +147,7 @@ def upgrade() -> None:
         sa.Column(
             "device_id",
             sa.String(12),
-            sa.ForeignKey("devices.id", ondelete="CASCADE"),
+            sa.ForeignKey("sensor_devices.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("sqs_message_id", postgresql.UUID(as_uuid=True), nullable=False, unique=True),
@@ -184,9 +184,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("sensor_readings")
-    op.drop_table("plant_devices")
-    op.drop_table("device_claims")
-    op.drop_table("devices")
+    op.drop_table("plant_sensor_devices")
+    op.drop_table("sensor_device_claims")
+    op.drop_table("sensor_devices")
     op.execute(
         "DO $$ BEGIN "
         "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sensor_ingest') THEN "

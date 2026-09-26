@@ -11,21 +11,21 @@ from app.models.plant import (
     PlantPersonalityChange,
     SpeciesCareGuide,
 )
-from app.models.sensor import Device, DeviceClaim, PlantDevice, SensorReading
+from app.models.sensor import PlantSensorDevice, SensorDevice, SensorDeviceClaim, SensorReading
 from app.models.user import DeviceToken, UserProfile
 
 __all__ = [
     "CareEvent",
     "CareSchedule",
-    "Device",
-    "DeviceClaim",
     "DeviceToken",
     "Diagnosis",
     "Letter",
     "MediaFile",
     "Notification",
     "Plant",
-    "PlantDevice",
+    "PlantSensorDevice",
+    "SensorDevice",
+    "SensorDeviceClaim",
     "PlantDiary",
     "PlantPersonalityChange",
     "SensorReading",

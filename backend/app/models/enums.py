@@ -152,12 +152,12 @@ class DevicePlatform(StrEnum):
     ANDROID = "ANDROID"
 
 
-class DeviceStatus(StrEnum):
+class SensorDeviceStatus(StrEnum):
     UNCLAIMED = "UNCLAIMED"
     CLAIMED = "CLAIMED"
 
 
-class DeviceClaimStatus(StrEnum):
+class SensorDeviceClaimStatus(StrEnum):
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     EXPIRED = "EXPIRED"

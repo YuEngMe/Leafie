@@ -1,8 +1,8 @@
 # API 명세 v2
 
 최신 화면과 제품 결정을 기준으로 한 목표 계약입니다. 실제 배포 계약은 구현 완료 후
-FastAPI OpenAPI를 기준으로 검증합니다. 센서 API와 센서 데이터 필드는 이 문서 범위가
-아닙니다.
+FastAPI OpenAPI를 기준으로 검증합니다. 센서 기기 claim은 14절입니다. 측정값 업로드는
+FastAPI가 아니라 API Gateway이며 [센서 telemetry 수신](sensor-telemetry.md)을 따릅니다.
 
 세부 제안과 미확정 정책은 [전환 기준](product-transition.md)을 우선 확인합니다.
 
@@ -44,6 +44,8 @@ DiagnosisStatus = PENDING | PROCESSING | COMPLETED | NEEDS_RETAKE | FAILED | CAN
 DiagnosisCondition = HEALTHY | UNHEALTHY | UNCERTAIN
 LetterStatus = PENDING | PROCESSING | COMPLETED | FAILED
 MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
+SensorDeviceStatus = UNCLAIMED | CLAIMED
+SensorDeviceClaimStatus = PENDING | COMPLETED | EXPIRED | CANCELLED
 ```
 
 `TODAY`와 `OVERDUE`는 저장 상태가 아니라 `due_date`와 사용자 시간대로 계산한 표시값입니다.
@@ -588,9 +590,60 @@ hair_daisy
 
 ### `DELETE /devices/{device_id}`
 
-`devices`는 푸시 수신용 앱 설치 정보이며 식물 센서 장치가 아닙니다.
+이 `devices` 경로는 푸시 수신용 앱 설치(`device_tokens`)입니다. 식물 센서 기기는
+`sensor-devices`이며 테이블은 `sensor_devices`입니다.
 
-## 14. 내부 비동기 작업
+## 14. 센서 기기
+
+경로는 Base URL `/api/v1` 기준입니다. 기기를 식별하는 `deviceId`는 12자리 대문자 hex이며
+`sensor_devices.id`와 같습니다. 푸시용 `POST /devices`와 리소스가 다릅니다.
+
+측정 업로드 `POST /devices/{deviceId}/telemetry`는 API Gateway에 있으며 이 절의 경로가
+아닙니다. 호스트가 달라 경로 이름을 바꾸지 않습니다.
+
+### `POST /sensor-devices/{deviceId}/claims`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다.
+
+`sensor_device_claims`에 `PENDING` 행을 만들고 `claimToken`을 발급합니다. TTL은 5분이고
+DB에는 해시만 저장합니다. 기기당 `PENDING`은 하나입니다. 다른 사용자가 소유한 기기는
+거절합니다.
+
+```json
+{ "claimToken": "..." }
+```
+
+### `POST /sensor-device-claims/{claimToken}/complete`
+
+호출 주체는 ESP32입니다. 사용자 JWT가 없습니다. claim 전이라 `deviceToken`도 없습니다.
+
+```json
+{ "deviceId": "D40592E7D168" }
+```
+
+`claimToken`은 경로에, `deviceId`는 본문에 있습니다. 서버는 본문 `deviceId`가 claim에
+묶인 기기와 같은지 확인합니다.
+
+성공하면 `deviceToken`을 발급하고 해시만 `sensor_devices.sensor_token_hash`에 저장합니다.
+`sensor_devices`는 `CLAIMED`가 되며 `owner_user_id`, `sensor_token_hash`, `claimed_at`을
+함께 채웁니다.
+
+```json
+{ "deviceToken": "..." }
+```
+
+펌웨어가 재시도하지 않는 오류는 `deviceId` 누락 `400`, claim과 불일치 `409`, 만료
+`410`입니다. `429`와 `5xx`는 재시도합니다. 응답이 유실된 뒤 같은 `claimToken`으로 다시
+호출할 수 있어야 합니다. 이미 완료된 claim에서 새 `deviceToken`을 발급할지는 아직
+정하지 않았습니다.
+
+### `GET /sensor-device-claims/{claimToken}`
+
+앱이 claim 결과를 확인하려고 폴링합니다. 결과는 BLE로 기기에 다시 내려가지 않습니다.
+응답의 `status`는 `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED` 중 하나입니다.
+`deviceToken`은 이 응답에 넣지 않습니다.
+
+## 15. 내부 비동기 작업
 
 외부에 노출하지 않는 작업 종류:
 

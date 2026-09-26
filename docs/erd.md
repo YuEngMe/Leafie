@@ -1,7 +1,8 @@
 # ERD 및 데이터 정책
 
 이 문서는 최신 제품 기준의 목표 스키마입니다. Alembic migration과 SQLAlchemy 모델은
-이 계약에 맞춰 별도 구현합니다. 센서 소유 테이블은 포함하지 않습니다.
+이 계약에 맞춰 별도 구현합니다. 센서 기기 테이블은 이 문서에 포함합니다. 측정값 수신
+경로(API Gateway, SQS, Lambda)는 [센서 telemetry 수신](sensor-telemetry.md)에 둡니다.
 
 표는 변경 대상의 개념 요약입니다. 생략된 기존 컬럼을 삭제하지 않습니다. 실제 변경은
 [전환 기준](product-transition.md)과 기능별 migration에서 확정합니다.
@@ -15,6 +16,11 @@ erDiagram
     USER_PROFILES ||--o{ MEDIA_FILES : uploads
     USER_PROFILES ||--o{ NOTIFICATIONS : receives
     USER_PROFILES ||--o{ DEVICE_TOKENS : registers
+    USER_PROFILES |o--o{ SENSOR_DEVICES : owns
+    SENSOR_DEVICES ||--o{ SENSOR_DEVICE_CLAIMS : claims
+    SENSOR_DEVICES ||--o| PLANT_SENSOR_DEVICES : links
+    PLANTS ||--o| PLANT_SENSOR_DEVICES : links
+    SENSOR_DEVICES ||--o{ SENSOR_READINGS : reports
     SPECIES_CARE_GUIDES ||--o{ PLANTS : classifies
     PLANTS ||--o{ CARE_SCHEDULES : schedules
     PLANTS ||--o{ CARE_EVENTS : records
@@ -202,14 +208,77 @@ erDiagram
 - `media_files`: 소유자, Storage key, 용도, MIME, 크기, 완료·삭제 상태를 저장합니다.
 - `species_identifications`: 입력 사진, 비동기 상태, 순서가 있는 지원 종 후보를 저장합니다.
 - `notifications`: 사용자, 종류, 제목·본문, 대상 화면과 리소스 ID, `read_at`을 저장합니다.
-- `device_tokens`: 기존 푸시 설치 정보 테이블을 유지합니다.
+- `device_tokens`: 기존 푸시 설치 정보 테이블을 유지합니다. 센서 기기인 `sensor_devices`와
+  무관합니다.
 - Queue 발행은 기존 DB 트랜잭션 연동을 재사용합니다. 별도 outbox 테이블 추가는
   기존 구조로 원자성을 보장할 수 없는 경우에만 검토합니다.
 
-센서 장치와 측정값 테이블은 센서 담당 스키마에 둡니다. `device_tokens`는 푸시 수신 설치
-정보이며 센서 장치가 아닙니다.
-`devices`, `device_claims`, `plant_devices`, `sensor_readings`의 컬럼과 정책은
-[센서 telemetry 수신](sensor-telemetry.md)을 따릅니다.
+### `sensor_devices`
+
+식물 센서 기기입니다. `id`는 ESP가 base MAC으로 만드는 12자리 대문자 hex이며, 와이어
+위의 `deviceId`와 같습니다.
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | varchar(12) | PK, `^[0-9A-F]{12}$` |
+| `owner_user_id` | uuid | nullable, `auth.users` FK. claim 전 NULL |
+| `sensor_token_hash` | varchar(64) | nullable, SHA-256 hex. NULL이 아니면 유일. 와이어의 `deviceToken` 해시 |
+| `status` | varchar(16) | `UNCLAIMED` 또는 `CLAIMED`. 기본 `UNCLAIMED` |
+| `firmware_version` | varchar(32) | nullable |
+| `claimed_at` | timestamptz | nullable |
+| `last_seen_at` | timestamptz | nullable. 백엔드가 갱신한다. 수집 Lambda는 이 테이블을 수정하지 않는다 |
+| `created_at`, `updated_at` | timestamptz | 필수 |
+
+`CLAIMED`이면 `owner_user_id`, `sensor_token_hash`, `claimed_at`이 모두 채워지고,
+`UNCLAIMED`이면 소유자와 토큰 해시가 NULL입니다.
+
+### `sensor_device_claims`
+
+claim 시도입니다. `user_id`는 claim을 요청한 사용자이고, `sensor_devices.owner_user_id`는
+현재 소유자입니다.
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | uuid | PK |
+| `device_id` | varchar(12) | `sensor_devices.id` FK |
+| `user_id` | uuid | 요청한 사용자 FK |
+| `claim_token_hash` | varchar(64) | unique, SHA-256 hex. 평문 `claimToken`은 저장하지 않는다 |
+| `status` | varchar(16) | `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED` |
+| `expires_at` | timestamptz | 발급 후 5분 |
+| `created_at` | timestamptz | 필수 |
+| `completed_at` | timestamptz | `COMPLETED`일 때만 |
+
+기기당 `PENDING`은 하나입니다. claim 성공 전에만 `user_id`가 있고 `owner_user_id`는 NULL일
+수 있습니다. 성공 뒤에 `owner_user_id`를 그 사용자로 바꿉니다.
+
+### `plant_sensor_devices`
+
+식물과 센서 기기의 연결입니다. 식물 하나에 기기 하나, 기기 하나에 식물 하나입니다.
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `device_id` | varchar(12) | PK, `sensor_devices.id` FK |
+| `plant_id` | uuid | unique, `plants.id` FK |
+| `created_at` | timestamptz | 필수 |
+
+식물의 `user_id`와 기기의 `owner_user_id`가 같은지는 서비스 계층에서 검증합니다.
+
+### `sensor_readings`
+
+기기가 올리는 원시 측정값입니다. 수집 Lambda가 INSERT만 합니다.
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | bigint | PK, identity |
+| `device_id` | varchar(12) | `sensor_devices.id` FK |
+| `sqs_message_id` | uuid | unique. SQS 재전달 중복 방지 |
+| `measured_at` | timestamptz | nullable. 기기 시각. 시각 동기화 전이면 NULL |
+| `received_at` | timestamptz | 필수. API Gateway 수신 시각(SQS `SentTimestamp`) |
+| `lux` | numeric(8,1) | nullable, 0 이상 |
+| `soil_raw` | smallint | nullable, 0–4095 |
+
+시각 기준 조회는 `COALESCE(measured_at, received_at)`를 씁니다. 수신 경로와 역할
+`sensor_ingest`는 [센서 telemetry 수신](sensor-telemetry.md)을 따릅니다.
 
 ## 3. Enum
 
@@ -223,6 +292,8 @@ DiagnosisStatus = PENDING | PROCESSING | COMPLETED | NEEDS_RETAKE | FAILED | CAN
 DiagnosisCondition = HEALTHY | UNHEALTHY | UNCERTAIN
 LetterStatus = PENDING | PROCESSING | COMPLETED | FAILED
 MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
+SensorDeviceStatus = UNCLAIMED | CLAIMED
+SensorDeviceClaimStatus = PENDING | COMPLETED | EXPIRED | CANCELLED
 ```
 
 ## 4. 핵심 제약과 인덱스
@@ -236,6 +307,14 @@ MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 - `letters(status, lease_until)`, `letters(plant_id, published_at, id)` index
 - `notifications(user_id, read_at, created_at desc)` index
 - `diagnoses(plant_id, created_at desc)` index
+- `sensor_devices.id`는 12자리 대문자 hex. `CLAIMED` 상태 제약은 위 표를 따른다
+- `sensor_devices.sensor_token_hash` partial unique (NULL 제외)
+- `sensor_device_claims(device_id)` partial unique where `status = PENDING`
+- `sensor_device_claims.claim_token_hash` unique
+- `plant_sensor_devices.plant_id` unique
+- `sensor_readings.sqs_message_id` unique
+- `sensor_readings(device_id, received_at desc)` index
+- 센서 테이블은 RLS를 켜고 `anon`, `authenticated` 권한을 회수한다
 - 사용자 입력 날짜는 사용자 시간대로 해석하고 저장 시 date 또는 UTC timestamptz를 구분합니다.
 
 ## 5. 삭제 정책
@@ -244,6 +323,8 @@ MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 - 다이어리 사진, 대표 사진과 진단 사진의 실제 Storage 삭제는 Queue 작업으로 처리합니다.
 - 편지 삭제는 우편함에서의 soft delete이며 원본 다이어리는 유지합니다.
 - 회원 탈퇴는 JWT 사용 차단을 우선하고 데이터·Storage 삭제는 멱등 Worker로 마무리합니다.
+- 사용자 삭제는 `sensor_devices`와 그 claim, 측정값을 함께 지웁니다.
+- 식물 삭제는 `plant_sensor_devices` 연결만 지웁니다. 기기와 측정값은 남습니다.
 
 ## 6. 제거된 구조
 
@@ -255,4 +336,4 @@ MediaPurpose = PLANT_PROFILE | SPECIES_IDENTIFICATION | DIARY | DIAGNOSIS
 - 가지치기와 자유 할 일 이벤트
 - 장식, 화분 재질, 위치 분류
 - 진단과 채팅 연결
-- 센서 원시 데이터와 판정 로직
+- 일별 조도 누적, 물 요구·급수 판정

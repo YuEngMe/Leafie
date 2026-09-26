@@ -12,8 +12,8 @@ ESP32-C3 --HTTPS--> API Gateway --> SQS(표준 큐) --> Lambda(consumer) --> Sup
 ```
 
 - API Gateway와 Lambda는 FastAPI와 별개로 AWS에서 운영한다. FastAPI는 이 경로를 거치지 않는다.
-- 요청: `POST /devices/{device_id}/telemetry`. 이 `devices`는 푸시 수신용 `POST /devices`와
-  무관한 센서 장치다.
+- 요청: `POST /devices/{device_id}/telemetry`. 호스트가 API Gateway라 FastAPI의 푸시용
+  `POST /api/v1/devices`와 경로가 같아도 라우팅이 겹치지 않는다. 이 경로는 바꾸지 않는다.
 - 인증은 `x-api-key`(모든 기기 공통 키)다. 기기별 인증은 claim API 구현 후 교체한다.
 
 ## 요청 본문
@@ -38,34 +38,26 @@ API Gateway 매핑 템플릿이 경로의 `device_id`를 본문과 합쳐 큐에
 
 ## 테이블
 
-기기 등록(claim) 설계는 센서 펌웨어 저장소 `AGENTS.md` 10~17번을 따른다. 이 문서의 테이블은 그
-설계를 반영하되, claim API 자체는 아직 구현하지 않았다.
+컬럼과 CHECK 제약은 [ERD](erd.md)가 기준이다. claim API는 [API 명세](api-spec.md) 14절이다.
+테이블은 `sensor_devices`, `sensor_device_claims`, `plant_sensor_devices`, `sensor_readings`다.
+`sensor_devices`는 푸시 수신용 `device_tokens`와 무관하다.
 
-| 테이블 | 설명 |
-|---|---|
-| `devices` | 센서 기기. `id`(MAC 기반 12자리 대문자 hex), `owner_user_id`, `device_token_hash`, `status`, `firmware_version`, `claimed_at`, `last_seen_at` |
-| `device_claims` | 기기 claim "시도". `device_id`, `user_id`, `claim_token_hash`, `status`, `expires_at`, `completed_at` |
-| `plant_devices` | 식물과 기기의 연결. 식물 하나에 기기 하나, 기기 하나에 식물 하나 |
-| `sensor_readings` | 측정값. `device_id` FK, `sqs_message_id`(UNIQUE), `measured_at`, `received_at`, `lux`, `soil_raw` |
+### sensor_devices
 
-`devices`는 센서 장치이며, 푸시 수신용 앱 설치 정보인 `device_tokens`와 무관하다.
-
-### devices
-
-- `status`는 `UNCLAIMED` 또는 `CLAIMED`다. claim 성공 전에는 `owner_user_id`와 `device_token_hash`가
-  `NULL`이고, 성공 이후에만 `owner_user_id`, `device_token_hash`, `claimed_at`이 **함께** 채워진다.
+- `status`는 `UNCLAIMED` 또는 `CLAIMED`다. claim 성공 전에는 `owner_user_id`와 `sensor_token_hash`가
+  `NULL`이고, 성공 이후에만 `owner_user_id`, `sensor_token_hash`, `claimed_at`이 **함께** 채워진다.
   CHECK 제약(`claimed_state`)이 이를 강제한다.
-- `device_token_hash`는 SHA-256 hex(64자)이며 NULL이 아니면 유일하다.
-- `last_seen_at`은 백엔드가 갱신한다. 수집 Lambda는 `devices`를 수정하지 않는다.
+- `sensor_token_hash`는 와이어의 `deviceToken`을 SHA-256 hex(64자)로 저장한 값이며 NULL이 아니면 유일하다.
+- `last_seen_at`은 백엔드가 갱신한다. 수집 Lambda는 `sensor_devices`를 수정하지 않는다.
 - 소유 사용자가 삭제되면 기기와 그 측정값도 함께 삭제된다.
 
-### device_claims
+### sensor_device_claims
 
 - `status`는 `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED`다. `completed_at`은 `COMPLETED`일 때만 채운다.
 - 기기당 `PENDING` claim은 하나만 허용한다 (여러 claim credential 동시 지원 안 함).
-- `device_claims.user_id`(claim을 요청한 사용자)와 `devices.owner_user_id`(현재 실제 소유자)는 의미가 다르다.
+- `sensor_device_claims.user_id`(claim을 요청한 사용자)와 `sensor_devices.owner_user_id`(현재 실제 소유자)는 의미가 다르다.
 
-### plant_devices
+### plant_sensor_devices
 
 - 식물이나 기기가 삭제되면 연결만 삭제된다. 식물 삭제는 기기와 측정값을 지우지 않는다.
 - 식물의 `user_id`와 기기의 `owner_user_id`가 같은지는 서비스 계층에서 검증한다 (DB 제약 없음).
@@ -103,11 +95,12 @@ ALTER ROLE sensor_ingest PASSWORD '<새 비밀번호>';
 2. `sensor_ingest` 비밀번호를 설정한다.
 3. 접속 문자열을 SSM Parameter Store(SecureString)에 저장한다.
 4. consumer Lambda를 배포한다. 2, 3번 전에 배포하면 모든 메시지가 DLQ로 이동한다.
-5. 기기를 등록하고 telemetry가 저장되는지 확인한다. claim API가 구현되기 전에는 `devices`에
-   `CLAIMED` 상태의 테스트 행(소유자, 64자 토큰 해시, `claimed_at`)을 직접 넣는다.
+5. 기기를 등록하고 telemetry가 저장되는지 확인한다. claim API가 구현되기 전에는 `sensor_devices`에
+   `CLAIMED` 상태의 테스트 행(소유자, 64자 `sensor_token_hash`, `claimed_at`)을 직접 넣는다.
 
 ## 이 문서가 정하지 않는 것
 
-- claim API(`POST /devices/{deviceId}/claims` 등), `deviceToken` 발급·저장, 기기별 telemetry 인증
+- claim API 구현(`POST /api/v1/sensor-devices/{deviceId}/claims` 등). 계약은 [API 명세](api-spec.md) 14절
+- 기기별 telemetry 인증. 지금은 공통 API 키만 확인한다
 - 일별 누적 조도, 물 요구, 급수 판정, 편지 요약 어댑터(`LetterSensorSummary`)
 - 홈 표정과 센서 알림
