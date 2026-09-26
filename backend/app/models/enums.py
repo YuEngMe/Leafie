@@ -152,5 +152,17 @@ class DevicePlatform(StrEnum):
     ANDROID = "ANDROID"
 
 
+class SensorDeviceStatus(StrEnum):
+    UNCLAIMED = "UNCLAIMED"
+    CLAIMED = "CLAIMED"
+
+
+class SensorDeviceClaimStatus(StrEnum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
+
+
 def enum_values(enum_type: type[StrEnum]) -> str:
     return ", ".join(f"'{item.value}'" for item in enum_type)
