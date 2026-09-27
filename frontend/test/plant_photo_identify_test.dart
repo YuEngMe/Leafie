@@ -114,4 +114,54 @@ void main() {
     expect(find.text('사진으로 찾지 못했어요'), findsOneWidget);
     expect(find.byType(PlantResultCard), findsNothing);
   });
+
+  testWidgets('결과 카드는 아래에서 떠오르며 나타난다', (tester) async {
+    _setUpView(tester);
+    final pending = Completer<PlantIdentification>();
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+
+    pending.complete(_mockResult);
+    await tester.pump(); // 결과로 바뀐 첫 프레임
+    await tester.pump(const Duration(milliseconds: 50));
+    final card = find.byKey(const ValueKey('identify-result-card'));
+    Opacity opacityOf() => tester.widget<Opacity>(
+      find.descendant(of: card, matching: find.byType(Opacity)).first,
+    );
+    double dyOf() => tester
+        .widget<Transform>(
+          find.descendant(of: card, matching: find.byType(Transform)).first,
+        )
+        .transform
+        .getTranslation()
+        .y;
+    expect(opacityOf().opacity, lessThan(1));
+    expect(dyOf(), greaterThan(0), reason: '아직 아래에 있다');
+
+    await tester.pumpAndSettle();
+    expect(opacityOf().opacity, 1);
+    expect(dyOf(), 0);
+  });
+
+  testWidgets('모션을 끄면 결과 카드는 움직이지 않고 페이드만 한다', (tester) async {
+    _setUpView(tester);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final pending = Completer<PlantIdentification>();
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+    pending.complete(_mockResult);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final card = find.byKey(const ValueKey('identify-result-card'));
+    final translation = tester
+        .widget<Transform>(
+          find.descendant(of: card, matching: find.byType(Transform)).first,
+        )
+        .transform
+        .getTranslation();
+    expect(translation.y, 0);
+  });
 }

@@ -12,6 +12,9 @@ abstract final class AppMotion {
   /// 화면 안에서 자리를 옮기는 물체. 천천히 출발하고 천천히 멈춘다.
   static const Curve easeInOut = Cubic(0.77, 0, 0.175, 1);
 
+  /// 투명도·색만 바뀌는 전환. 급하게 튀지 않고 고르게 스며든다(CSS ease).
+  static const Curve ease = Cubic(0.25, 0.1, 0.25, 1);
+
   /// 버튼·아이콘을 눌렀을 때 줄어들었다 돌아오는 시간(권장 100~160ms).
   static const Duration press = Duration(milliseconds: 120);
 

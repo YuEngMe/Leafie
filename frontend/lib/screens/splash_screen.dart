@@ -46,8 +46,12 @@ class _SplashScreenState extends State<SplashScreen>
     });
   }
 
+  /// 탭으로 건너뛴 뒤 연출 타이머가 끝나 한 번 더 넘어가지 않도록 막는다.
+  bool _left = false;
+
   void _goNext() {
-    if (!mounted) return;
+    if (!mounted || _left) return;
+    _left = true;
     if (widget.onDone != null) {
       widget.onDone!();
       return;
@@ -78,70 +82,77 @@ class _SplashScreenState extends State<SplashScreen>
     final wordW = _wordAspect * _logoHeight;
     final symW = _symbolAspect * _logoHeight;
 
-    return Scaffold(
-      backgroundColor: kBackgroundWhite,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final t = _controller.value;
-            // 심볼 팝: 글자 구간이 끝난 뒤 진행(_wordSpan~1)에서 스케일 튐.
-            final st = ((t - _wordSpan) / (1 - _wordSpan)).clamp(0.0, 1.0);
-            final symScale = _popScale(st);
-            final symOpacity = Curves.easeOut.transform(st.clamp(0.0, 1.0));
+    // 앱을 켤 때마다 보는 화면이라, 화면 어디든 탭하면 연출을 기다리지 않고
+    // 바로 넘어간다(디자이너 확인). 연출 자체는 그대로 둔다.
+    return GestureDetector(
+      key: const ValueKey('splash-skip'),
+      behavior: HitTestBehavior.opaque,
+      onTap: _goNext,
+      child: Scaffold(
+        backgroundColor: kBackgroundWhite,
+        body: Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = _controller.value;
+              // 심볼 팝: 글자 구간이 끝난 뒤 진행(_wordSpan~1)에서 스케일 튐.
+              final st = ((t - _wordSpan) / (1 - _wordSpan)).clamp(0.0, 1.0);
+              final symScale = _popScale(st);
+              final symOpacity = Curves.easeOut.transform(st.clamp(0.0, 1.0));
 
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // 글자 — 왼→오른 계단식 페이드.
-                SizedBox(
-                  width: wordW,
-                  height: _logoHeight,
-                  child: ShaderMask(
-                    blendMode: BlendMode.dstIn,
-                    shaderCallback: (rect) {
-                      final stops = <double>[];
-                      final colors = <Color>[];
-                      for (int i = 0; i < _steps; i++) {
-                        stops.add(i / (_steps - 1));
-                        colors.add(
-                          Colors.white.withValues(alpha: _letterAlpha(i, t)),
-                        );
-                      }
-                      return LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        stops: stops,
-                        colors: colors,
-                      ).createShader(rect);
-                    },
-                    child: Image.asset(
-                      'assets/images/leafie_logo_word.png',
-                      fit: BoxFit.contain,
-                      semanticLabel: 'Leafie',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: _gap),
-                // 심볼 — 글자 뒤에 통통 팝.
-                SizedBox(
-                  width: symW,
-                  height: _logoHeight,
-                  child: Opacity(
-                    opacity: symOpacity,
-                    child: Transform.scale(
-                      scale: symScale,
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 글자 — 왼→오른 계단식 페이드.
+                  SizedBox(
+                    width: wordW,
+                    height: _logoHeight,
+                    child: ShaderMask(
+                      blendMode: BlendMode.dstIn,
+                      shaderCallback: (rect) {
+                        final stops = <double>[];
+                        final colors = <Color>[];
+                        for (int i = 0; i < _steps; i++) {
+                          stops.add(i / (_steps - 1));
+                          colors.add(
+                            Colors.white.withValues(alpha: _letterAlpha(i, t)),
+                          );
+                        }
+                        return LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          stops: stops,
+                          colors: colors,
+                        ).createShader(rect);
+                      },
                       child: Image.asset(
-                        'assets/images/leafie_logo_symbol.png',
+                        'assets/images/leafie_logo_word.png',
                         fit: BoxFit.contain,
+                        semanticLabel: 'Leafie',
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(width: _gap),
+                  // 심볼 — 글자 뒤에 통통 팝.
+                  SizedBox(
+                    width: symW,
+                    height: _logoHeight,
+                    child: Opacity(
+                      opacity: symOpacity,
+                      child: Transform.scale(
+                        scale: symScale,
+                        child: Image.asset(
+                          'assets/images/leafie_logo_symbol.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

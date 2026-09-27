@@ -390,7 +390,20 @@ void main() {
     expect(find.byKey(const ValueKey('mail-house-envelope')), findsOneWidget);
     await expectMailboxGolden(tester, 'goldens/mail_house_402.png');
     await tester.tap(find.byKey(const ValueKey('mail-house-envelope')));
+    // 목록은 크기 변화 없이 투명에서 불투명으로 스르륵 나타난다.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    Opacity reveal() => tester.widget<Opacity>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('mail-list-reveal')),
+            matching: find.byType(Opacity),
+          )
+          .first,
+    );
+    expect(reveal().opacity, inExclusiveRange(0, 1));
     await tester.pumpAndSettle();
+    expect(reveal().opacity, 1);
     expect(find.text('아직 도착한 편지가 없어요.'), findsOneWidget);
   });
 
