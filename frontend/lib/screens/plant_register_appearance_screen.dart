@@ -141,7 +141,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                         itemBuilder: (context, index) {
                           final option = _colors[index];
                           return Container(
-                            key: ValueKey(option.id),
+                            key: ValueKey('appearance_${option.id}'),
                             decoration: BoxDecoration(
                               color: option.color,
                               shape: BoxShape.circle,

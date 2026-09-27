@@ -111,7 +111,6 @@ abstract final class AppLayout {
   static const double appearancePaletteTop = 399;
   static const double appearanceTabTopOffset = -26;
   static const double appearanceSwatchesTopOffset = 17;
-  static const double appearanceHairMessageTopOffset = 72;
   // 시안 4534:812 (본문 시작 y=92 기준). 몸통(square) 폭 156 → 모든 바디가
   // 같은 크기로 보이도록 circle 기준 폭 182.4(= 163.6 / 0.897)로 그린다.
   static const double completionTopGap = 96; // 제목 y=188
