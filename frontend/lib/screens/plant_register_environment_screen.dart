@@ -7,6 +7,7 @@ import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 class PlantRegisterEnvironmentScreen extends StatefulWidget {
   const PlantRegisterEnvironmentScreen({super.key, required this.draft});
@@ -20,6 +21,15 @@ class PlantRegisterEnvironmentScreen extends StatefulWidget {
 
 class _PlantRegisterEnvironmentScreenState
     extends State<PlantRegisterEnvironmentScreen> {
+  @override
+  void initState() {
+    super.initState();
+    const RegistrationDraftStore().save(
+      RegistrationStep.environment,
+      widget.draft,
+    );
+  }
+
   final _placeNameController = TextEditingController();
   final _lastWateredController = TextEditingController();
   final _lastRepottedController = TextEditingController();

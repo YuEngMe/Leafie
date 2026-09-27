@@ -9,6 +9,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 Future<String> _submitPlantRegistration(PlantRegistrationDraft draft) async {
   return PlantApi().registerPlant(draft);
@@ -19,12 +20,15 @@ class PlantRegisterCompleteScreen extends StatefulWidget {
     super.key,
     required this.draft,
     this.submit,
+    this.draftStore = const RegistrationDraftStore(),
   });
 
   final PlantRegistrationDraft draft;
 
   /// Supabase를 초기화하지 않는 위젯 테스트에서 갈아끼운다.
   final Future<String> Function(PlantRegistrationDraft)? submit;
+
+  final RegistrationDraftStore draftStore;
 
   @override
   State<PlantRegisterCompleteScreen> createState() =>
@@ -33,14 +37,24 @@ class PlantRegisterCompleteScreen extends StatefulWidget {
 
 class _PlantRegisterCompleteScreenState
     extends State<PlantRegisterCompleteScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.draftStore.save(RegistrationStep.complete, widget.draft);
+  }
+
   bool _submitting = false;
 
   Future<void> _submit() async {
     setState(() => _submitting = true);
+    var registered = false;
     try {
       final plantId = await (widget.submit ?? _submitPlantRegistration)(
         widget.draft,
       );
+      registered = true;
+      // 등록이 끝났으니 이어하기 기록을 지운다.
+      await widget.draftStore.clear();
       if (mounted) {
         final snapshot = widget.draft.submissionSnapshot;
         Navigator.of(context).pushAndRemoveUntil(
@@ -78,6 +92,11 @@ class _PlantRegisterCompleteScreenState
         ).showSnackBar(const SnackBar(content: Text('식물을 등록하지 못했어요.')));
       }
     } finally {
+      // 실패했으면 이번에 고정된 요청 본문까지 남겨 둔다. 앱을 껐다 켜서
+      // 재시도해도 같은 id·같은 본문으로 보내야 중복 생성·충돌이 없다.
+      if (!registered) {
+        await widget.draftStore.save(RegistrationStep.complete, widget.draft);
+      }
       if (mounted) setState(() => _submitting = false);
     }
   }

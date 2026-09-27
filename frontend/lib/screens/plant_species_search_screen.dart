@@ -16,6 +16,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 export 'package:yeso_plant/models/plant_species_candidate.dart';
 
@@ -94,6 +95,17 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
 }
 
 class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 앱을 껐다 켜도 애칭부터 다시 적지 않게 여기서부터 진행 상태를 남긴다.
+    // 등록 흐름 밖에서 종만 찾을 때(name 없음)는 남기지 않는다.
+    final name = widget.name;
+    if (name != null && name.isNotEmpty) {
+      const RegistrationDraftStore().saveName(name);
+    }
+  }
+
   final _queryController = TextEditingController();
   List<PlantSpeciesCandidate> _results = initialPlantSuggestions;
   bool _loading = false;
