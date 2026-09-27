@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 /// Figma 3628:2412의 기본 variant 3628:2411. 홈·다이어리·캘린더가 함께 쓴다.
@@ -52,8 +53,8 @@ class AppBottomNav extends StatelessWidget {
   }
 }
 
-/// 아이콘 하나. 활성이면 opacity 1, 비활성이면 0.5로 그리고, 탭하면 눌린
-/// 피드백으로 scale 1.0 → 1.15 → 1.0을 200ms 동안 한 번 튕긴다.
+/// 아이콘 하나. 활성이면 opacity 1, 비활성이면 0.5로 그리고, 누르는 동안
+/// 0.95로 살짝 줄어든다(눌림 피드백).
 class _NavItem extends StatefulWidget {
   const _NavItem({
     required this.icon,
@@ -73,41 +74,14 @@ class _NavItem extends StatefulWidget {
   State<_NavItem> createState() => _NavItemState();
 }
 
-class _NavItemState extends State<_NavItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _bounce = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 200),
-  );
+class _NavItemState extends State<_NavItem> {
+  /// 손가락이 닿아 있는 동안 true. 누르는 순간 줄어들어 눌렸다는 것을 바로
+  /// 알린다(손을 뗀 뒤에 튕기면 반응이 한 박자 늦게 느껴진다).
+  bool _pressed = false;
 
-  // 1.0 → 1.15 → 1.0. 눌린 순간 살짝 커졌다 제자리로 돌아온다.
-  late final Animation<double> _scale = _bounce.drive(
-    TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.15)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 1,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.15, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 1,
-      ),
-    ]),
-  );
-
-  @override
-  void dispose() {
-    _bounce.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    // 접근성: 모션을 끈 사용자에게는 튕김을 생략한다.
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      _bounce.forward(from: 0);
-    }
-    widget.onTap?.call();
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
   }
 
   @override
@@ -118,20 +92,28 @@ class _NavItemState extends State<_NavItem>
     final padX = (minTarget - widget.icon.figmaSize.width) / 2;
     final padY = (minTarget - widget.icon.figmaSize.height) / 2;
     // 정보 전달이라 opacity 강조는 모션을 꺼도 유지하되, 그때는 즉시 반영한다.
-    final opacityDuration = MediaQuery.disableAnimationsOf(context)
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final opacityDuration = reduceMotion
         ? Duration.zero
         : const Duration(milliseconds: 180);
     return Positioned(
       left: widget.left - padX,
       top: widget.top - padY,
       child: GestureDetector(
-        onTap: _handleTap,
+        // 누를 수 없는 아이콘(onTap 없음)은 눌림 피드백도 주지 않는다.
+        onTapDown: widget.onTap == null ? null : (_) => _setPressed(true),
+        onTapUp: widget.onTap == null ? null : (_) => _setPressed(false),
+        onTapCancel: widget.onTap == null ? null : () => _setPressed(false),
+        onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
           // Transform.scale은 레이아웃을 밀지 않아 시안 좌표를 지킨다.
-          child: ScaleTransition(
-            scale: _scale,
+          // 접근성: 모션을 끈 사용자에게는 크기 변화를 생략한다.
+          child: AnimatedScale(
+            scale: _pressed && !reduceMotion ? AppMotion.pressScale : 1,
+            duration: AppMotion.press,
+            curve: AppMotion.easeOut,
             child: AnimatedOpacity(
               opacity: widget.active ? 1.0 : 0.5,
               duration: opacityDuration,
