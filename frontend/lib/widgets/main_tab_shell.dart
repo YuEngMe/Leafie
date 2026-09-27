@@ -18,10 +18,11 @@ class MainTabShell extends StatefulWidget {
   final WidgetBuilder calendarBuilder;
 
   @override
-  State<MainTabShell> createState() => _MainTabShellState();
+  State<MainTabShell> createState() => MainTabShellState();
 }
 
-class _MainTabShellState extends State<MainTabShell>
+/// 홈이 알림을 따라 다른 탭으로 옮길 때 [select]를 부른다.
+class MainTabShellState extends State<MainTabShell>
     with SingleTickerProviderStateMixin {
   int _index = 0;
   final _visited = <int>{0};
@@ -37,7 +38,7 @@ class _MainTabShellState extends State<MainTabShell>
     super.dispose();
   }
 
-  void _select(FigmaNavIcon tab) {
+  void select(FigmaNavIcon tab) {
     if (tab == FigmaNavIcon.my) {
       // Reset underneath the profile route so every back gesture returns home.
       Navigator.of(
@@ -64,7 +65,7 @@ class _MainTabShellState extends State<MainTabShell>
   Widget build(BuildContext context) => PopScope(
     canPop: _index == 0,
     onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) _select(FigmaNavIcon.home);
+      if (!didPop) select(FigmaNavIcon.home);
     },
     child: Stack(
       fit: StackFit.expand,
@@ -100,7 +101,7 @@ class _MainTabShellState extends State<MainTabShell>
                 // _index 0/1/2 → home/diary/calendar. my 탭은 push 후 _index를
                 // 0으로 되돌리므로 바에서는 늘 home이 활성으로 보인다.
                 child: AppBottomNav(
-                  onTap: _select,
+                  onTap: select,
                   activeIcon: FigmaNavIcon.values[_index],
                 ),
               ),

@@ -15,6 +15,8 @@ import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/letter_api.dart';
+import 'package:yeso_plant/services/notification_api.dart';
+import 'package:yeso_plant/services/notification_target.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -126,6 +128,7 @@ class HomeScreen extends StatefulWidget {
     this.loadHomeForPlant,
     this.plantRepository,
     this.notificationBuilder,
+    this.notificationRepository,
     this.plantManagementBuilder,
     this.letterRepository,
   });
@@ -142,6 +145,9 @@ class HomeScreen extends StatefulWidget {
   final Future<HomeDashboardData> Function(String? plantId)? loadHomeForPlant;
   final PlantManagementRepository? plantRepository;
   final WidgetBuilder? notificationBuilder;
+
+  /// 기본 알림 화면이 쓸 저장소. 테스트에서 갈아끼운다.
+  final NotificationRepository? notificationRepository;
   final Widget Function(
     BuildContext context,
     PlantManagementRepository repository,
@@ -160,12 +166,14 @@ class _HomeScreenState extends State<HomeScreen>
   late bool _gaugesExpanded;
   HomePlant? _serverPlant;
   String? _serverDialogue;
+  String? _serverDialogueKey;
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+  final _tabShellKey = GlobalKey<MainTabShellState>();
 
   // 씬과 독립된 로컬 돌보기 모션 컨트롤러들(백엔드/씬 전환에 영향 없음).
   // late final 지연 초기화를 쓰면 build에서 한 번도 접근되지 않은 채 dispose가
@@ -220,6 +228,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (widget.plant == null) {
       _loadingHome = true;
       _loadHome();
+    } else {
+      // 등록 직후처럼 /home을 부르지 않는 경로도 배지는 센다.
+      _refreshLetterBadge();
     }
     _loadPlants();
   }
@@ -349,14 +360,20 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  Future<void> _loadHome([String? plantId]) async {
+  /// 늦게 도착한 이전 식물 응답이 새 식물 화면을 덮지 않도록 마지막 요청만
+  /// 반영한다.
+  int _homeRequest = 0;
+
+  /// 응답을 반영했으면 true. 실패했거나 더 새 요청에 밀렸으면 false.
+  Future<bool> _loadHome([String? plantId]) async {
+    final request = ++_homeRequest;
     try {
       final data = widget.loadHomeForPlant != null
           ? await widget.loadHomeForPlant!(plantId)
           : plantId == null && widget.loadHome != null
           ? await widget.loadHome!()
           : await HomeApi().fetchHome(plantId: plantId);
-      if (!mounted) return;
+      if (!mounted || request != _homeRequest) return false;
       final room = data.room;
       final hasWateringRequest = data.todayEvents.any(
         (event) => event.careType == 'WATERING' && event.completable,
@@ -377,21 +394,56 @@ class _HomeScreenState extends State<HomeScreen>
                 colorId: plant.colorId,
               );
         _serverDialogue = room?.dialogue?.trim();
+        _serverDialogueKey = room?.dialogueKey;
         _unreadNotificationCount = data.unreadNotificationCount;
-        _unreadLetterCount = data.unreadLetterCount;
         _loadingHome = false;
         _homeError = null;
-        if (_serverDialogue?.isNotEmpty == true || hasWateringRequest) {
-          _scene = HomeScene.needsWater;
-        }
+        // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
+        // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
+        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무로 씬을
+        // 정하지 않고, 오늘 끝낼 물주기 일정이 있는지만 본다.
+        _scene = hasWateringRequest ? HomeScene.needsWater : HomeScene.idle;
       });
+      unawaited(_refreshLetterBadge());
+      return true;
     } on LeafieApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _homeRequest) return false;
       setState(() {
         _loadingHome = false;
         _homeError = error.message;
       });
+      return false;
     }
+  }
+
+  /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
+  /// 같은 식물 기준으로 센다. 홈 응답의 unread_letter_count는 전체 식물
+  /// 합계라 쓰지 않는다.
+  Future<void> _refreshLetterBadge() async {
+    final plantId = (_serverPlant ?? widget.plant)?.id;
+    if (plantId == null) {
+      if (mounted) setState(() => _unreadLetterCount = 0);
+      return;
+    }
+    try {
+      final count = await _letterRepository.unreadCount(plantId);
+      // 그사이 다른 식물로 넘어갔으면 이전 식물 개수를 띄우지 않는다.
+      if (!mounted || (_serverPlant ?? widget.plant)?.id != plantId) return;
+      setState(() => _unreadLetterCount = count);
+    } catch (_) {
+      // 배지는 부가 정보라 조회에 실패해도 홈을 막지 않고 배지만 숨긴다.
+      if (mounted) setState(() => _unreadLetterCount = 0);
+    }
+  }
+
+  Future<void> _openMailbox(String? plantId) async {
+    await showPlantMailbox(
+      context,
+      plantId: plantId,
+      repository: _letterRepository,
+    );
+    // 편지를 읽거나 지웠을 수 있으니 닫힌 뒤 다시 센다.
+    if (mounted) await _refreshLetterBadge();
   }
 
   Future<void> _loadPlants() async {
@@ -401,6 +453,24 @@ class _HomeScreenState extends State<HomeScreen>
     } on LeafieApiException {
       // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
     }
+  }
+
+  /// 방을 옮길 때 이전 식물에 걸던 돌보기 모션·토스트·말풍선을 지운다.
+  /// 새 식물의 씬은 _loadHome 응답으로 다시 정해진다.
+  void _resetRoomMotion() {
+    _careToastTimer?.cancel();
+    _sunHideTimer?.cancel();
+    _wateringAfterglowTimer?.cancel();
+    _raysController.value = 0;
+    _wateringController.value = 0;
+    _petController.value = 0;
+    _sunActive = false;
+    _wateringAfterglow = false;
+    _careToastLabel = null;
+    _careToastOpacity = 0;
+    _serverDialogue = null;
+    _serverDialogueKey = null;
+    _scene = HomeScene.idle;
   }
 
   Future<void> _switchPlant(int delta) async {
@@ -413,7 +483,10 @@ class _HomeScreenState extends State<HomeScreen>
     if (currentIndex < 0) currentIndex = 0;
     final nextIndex = (currentIndex + delta) % _plants.length;
     final next = _plants[nextIndex];
-    setState(() => _switchingPlant = true);
+    setState(() {
+      _switchingPlant = true;
+      _resetRoomMotion();
+    });
     try {
       await _plantRepository.selectPlant(next.id);
       await _loadHome(next.id);
@@ -460,20 +533,79 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
+    // 알림을 누르면 목록을 닫고 그 알림을 돌려받아 홈에서 이동한다. 우편함은
+    // 홈 위에 뜨는 화면이고 캘린더는 홈의 탭이라, 알림 화면 위에 쌓지 않는다.
+    final selected = await Navigator.of(context).push<NotificationData>(
       MaterialPageRoute(
         builder:
-            widget.notificationBuilder ?? (_) => const NotificationScreen(),
+            widget.notificationBuilder ??
+            (routeContext) => NotificationScreen(
+              repository: widget.notificationRepository,
+              plants: _plants,
+              onNotificationSelected: (notification) {
+                // 갈 곳이 없는 알림은 읽음 처리만 하고 목록에 머문다.
+                if (notificationTargetOf(notification) == null) return;
+                // 두 알림을 빠르게 연달아 누르면 pop이 두 번 불려 홈까지
+                // 닫힐 수 있다. 알림 화면이 맨 위일 때만 닫는다.
+                if (ModalRoute.of(routeContext)?.isCurrent != true) return;
+                Navigator.of(routeContext).pop(notification);
+              },
+            ),
       ),
     );
     if (!mounted) return;
     await _loadHome((_serverPlant ?? widget.plant)?.id);
+    if (!mounted || selected == null) return;
+    await _openNotificationTarget(selected);
+  }
+
+  Future<void> _openNotificationTarget(NotificationData notification) async {
+    switch (notificationTargetOf(notification)) {
+      case MailboxTarget(:final plantId):
+        await _openMailbox(plantId);
+      case DiagnosisTarget(:final diagnosisId):
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => DiagnosisDetailScreen(diagnosisId: diagnosisId),
+          ),
+        );
+      case CalendarTarget(:final plantId):
+        // 캘린더 탭은 지금 방의 식물을 보여 주므로 알림의 식물로 먼저 옮긴다.
+        if (plantId != (_serverPlant ?? widget.plant)?.id) {
+          if (_switchingPlant) return;
+          setState(() {
+            _switchingPlant = true;
+            _resetRoomMotion();
+          });
+          var loaded = false;
+          try {
+            await _plantRepository.selectPlant(plantId);
+            loaded = await _loadHome(plantId);
+            await _loadPlants();
+          } on LeafieApiException catch (error) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(error.message)));
+            }
+          } finally {
+            if (mounted) setState(() => _switchingPlant = false);
+          }
+          // 식물을 못 옮겼으면 엉뚱한 식물의 캘린더를 열지 않는다.
+          if (!loaded) return;
+        }
+        if (!mounted) return;
+        _tabShellKey.currentState?.select(FigmaNavIcon.calendar);
+      case null:
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final plant = _serverPlant ?? widget.plant;
     return MainTabShell(
+      key: _tabShellKey,
       home: _buildHome(context),
       diaryBuilder: (_) => DiaryScreen(
         key: ValueKey(plant?.id),
@@ -601,7 +733,12 @@ class _HomeScreenState extends State<HomeScreen>
                 if (plant != null && !_gaugesExpanded)
                   _HomeConversation(
                     scene: _scene,
-                    serverDialogue: _serverDialogue,
+                    // 목마른 말풍선에는 흙이 마른 상황의 서버 대사만 쓴다.
+                    // 평소 대사(NORMAL)를 요청 말풍선에 넣으면 물을 달라는
+                    // 말이 아닌 문장이 뜬다.
+                    serverDialogue: _serverDialogueKey == 'SOIL_MOISTURE_LOW'
+                        ? _serverDialogue
+                        : null,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -853,11 +990,7 @@ class _HomeScreenState extends State<HomeScreen>
                       label: '우편함 열기',
                       child: GestureDetector(
                         key: const ValueKey('home-mailbox'),
-                        onTap: () => showPlantMailbox(
-                          context,
-                          plantId: plant.id,
-                          repository: _letterRepository,
-                        ),
+                        onTap: () => _openMailbox(plant.id),
                         child: const FigmaHomeAssetIcon(FigmaHomeIcon.mailbox),
                       ),
                     ),

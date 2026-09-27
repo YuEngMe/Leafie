@@ -22,11 +22,23 @@ void main() {
     expect(content.runes.length, greaterThan(100));
 
     final requests = <LeafieHttpRequest>[];
+    // 홈 우편함 배지는 편지 흐름과 따로 센다. 아래 요청 순서 검증을
+    // 흐리지 않도록 별도 목록에 모은다.
+    final badgeRequests = <LeafieHttpRequest>[];
+    var unreadCount = 1;
     final client = LeafieApiClient(
       baseUrl: 'http://localhost:8000/api/v1',
       accessTokenProvider: () async => 'integration-token',
       transport: (request) async {
+        if (request.uri.path.endsWith('/letters/unread-count')) {
+          badgeRequests.add(request);
+          return LeafieHttpResponse(
+            statusCode: 200,
+            body: jsonEncode({'unread_count': unreadCount}),
+          );
+        }
         requests.add(request);
+        if (request.method == 'DELETE') unreadCount = 0;
         final base = <String, Object?>{
           'id': letterId,
           'plant_id': plantId,
@@ -99,6 +111,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // 배지는 지금 방 식물의 안 읽은 편지 수로 센다.
+    expect(badgeRequests, hasLength(1));
+    expect(badgeRequests.single.uri.queryParameters, {'plant_id': plantId});
+    expect(
+      find.image(const AssetImage('assets/images/home_letter_badge.png')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('home-mailbox')));
     for (var i = 0; i < 20; i++) {
@@ -146,6 +165,16 @@ void main() {
     );
     expect(requests.last.uri.path, '/api/v1/letters/$letterId');
     expect(find.text('아직 도착한 편지가 없어요.'), findsOneWidget);
+
+    // 우편함을 닫으면 배지를 다시 센다. 편지를 지웠으니 배지가 사라진다.
+    final badge = find.image(
+      const AssetImage('assets/images/home_letter_badge.png'),
+    );
+    await tester.tap(find.byTooltip('닫기').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('mail-list')), findsNothing);
+    expect(badgeRequests, hasLength(2));
+    expect(badge, findsNothing);
     expect(
       requests.every(
         (request) =>

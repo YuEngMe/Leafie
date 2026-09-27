@@ -19,6 +19,19 @@ class LetterApi implements PlantLetterRepository {
   Future<String>? _recipientLookup;
 
   @override
+  Future<int> unreadCount(String plantId) async {
+    final response = await _client.get(
+      '/letters/unread-count',
+      queryParameters: {'plant_id': plantId},
+    );
+    final count = response['unread_count'];
+    if (count is! int || count < 0) {
+      throw _invalidResponse('안 읽은 편지 수를 읽을 수 없습니다.');
+    }
+    return count;
+  }
+
+  @override
   Future<List<PlantLetter>> listLetters(String plantId) async {
     final recipient = await _getRecipient();
     final letters = <PlantLetter>[];
