@@ -383,6 +383,8 @@ def normalize_recommended_care(items: list[str]) -> list[str]:
 
 
 def build_recommended_care(result: DiagnosisProviderResult, context: dict) -> list[str]:
+    if result.overall_condition == DiagnosisCondition.HEALTHY:
+        return ["현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요."]
     items = list(result.care_suggestions[:5])
     profile = context.get("diagnosis_profile") or {}
     items.extend((profile.get("cautions") or [])[:2])
@@ -401,8 +403,6 @@ def build_recommended_care(result: DiagnosisProviderResult, context: dict) -> li
             )
     if items:
         return items
-    if result.overall_condition == DiagnosisCondition.HEALTHY:
-        return ["현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요."]
     return ["3일 후 같은 부위를 다시 촬영해 상태 변화를 확인해 주세요."]
 
 

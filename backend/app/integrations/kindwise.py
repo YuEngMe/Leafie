@@ -115,16 +115,18 @@ def _normalize_response(payload: object, *, latency_ms: int) -> DiagnosisProvide
     if healthy:
         condition = DiagnosisCondition.HEALTHY
         label = "건강해 보여요"
-        observations = ["사진에서 뚜렷한 건강 이상 징후가 감지되지 않았습니다."]
+        observations = ["뚜렷한 이상 징후 없음"]
         causes = []
+        care = []
     else:
         condition = DiagnosisCondition.UNHEALTHY
         label = "조금 관리가 필요해요"
-        observations = [f"{cause.name} 관련 징후가 감지되었습니다." for cause in causes]
+        # Disease candidates are possible causes, not independently observed symptoms.
+        observations = ["건강 이상 가능성"]
         if not causes:
             condition = DiagnosisCondition.UNCERTAIN
             label = "추가 확인이 필요해요"
-            observations = ["사진만으로 건강 이상 징후를 구분하기 어렵습니다."]
+            observations = ["사진만으로 판별 어려움"]
 
     response_id = payload.get("access_token")
     model_name = payload.get("model_version") or "plant.health-v3"

@@ -74,13 +74,72 @@ async def test_kindwise_provider_normalizes_health_result() -> None:
     assert result.overall_condition == "UNHEALTHY"
     assert result.possible_causes[0].name == "물 부족"
     assert result.possible_causes[0].confidence == 0.88
-    assert result.observations == ["물 부족 관련 징후가 감지되었습니다."]
+    assert result.observations == ["건강 이상 가능성"]
     assert result.care_suggestions == [
         "흙이 마른 뒤 물을 충분히 주세요.",
         "직사광선을 피해주세요.",
     ]
     assert result.response_id == "assessment-1"
     await client.aclose()
+
+
+@pytest.mark.parametrize("healthy", [True, False])
+async def test_health_verdict_does_not_turn_causes_into_observed_symptoms(healthy: bool) -> None:
+    payload = {
+        "result": {
+            "is_plant": {"binary": True},
+            "is_healthy": {"binary": healthy},
+            "disease": {
+                "suggestions": [{
+                    "name": "root rot",
+                    "probability": 0.1,
+                    "details": {
+                        "local_name": "뿌리 썩음",
+                        "is_harmful": True,
+                        "treatment": {"biological": ["손상된 뿌리를 제거하세요."]},
+                    },
+                }],
+            },
+        },
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as client:
+        result = await KindwiseDiagnosisProvider(_settings(), client).diagnose(
+            _image(), "image/png", {}
+        )
+
+    if healthy:
+        assert result.overall_condition == "HEALTHY"
+        assert result.possible_causes == []
+        assert result.care_suggestions == []
+        assert result.observations == ["뚜렷한 이상 징후 없음"]
+    else:
+        assert result.overall_condition == "UNHEALTHY"
+        assert result.possible_causes[0].name == "뿌리 썩음"
+        assert result.care_suggestions == ["손상된 뿌리를 제거하세요."]
+        assert result.observations == ["건강 이상 가능성"]
+    assert all("뿌리 썩음" not in item for item in result.observations)
+
+
+async def test_unhealthy_without_harmful_candidates_is_uncertain() -> None:
+    payload = {
+        "result": {
+            "is_plant": {"binary": True},
+            "is_healthy": {"binary": False},
+            "disease": {"suggestions": []},
+        },
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as client:
+        result = await KindwiseDiagnosisProvider(_settings(), client).diagnose(
+            _image(), "image/png", {}
+        )
+    assert result.overall_condition == "UNCERTAIN"
+    assert result.observations == ["사진만으로 판별 어려움"]
+    assert result.possible_causes == []
+    assert result.care_suggestions == []
 
 
 async def test_kindwise_provider_requests_retake_when_plant_is_not_visible() -> None:

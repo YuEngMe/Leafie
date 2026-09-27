@@ -540,7 +540,7 @@ hair_daisy
   "photo_url": "signed-url",
   "overall_condition": "UNHEALTHY",
   "condition_label": "조금 관리가 필요해요",
-  "observations": ["잎 끝 마름", "잎 처짐"],
+  "observations": ["건강 이상 가능성"],
   "possible_causes": [
     { "name": "수분 부족", "confidence": 0.76 }
   ],
@@ -549,6 +549,18 @@ hair_daisy
 ```
 
 진단은 채팅이나 편지와 연결하지 않습니다.
+
+현재 Kindwise 연동의 `observations`는 건강 판정 요약이며, 사진에서 개별 증상을
+추출한 목록이 아닙니다. 원인 후보는 `possible_causes`에만 표시합니다.
+- `HEALTHY`: `observations=["뚜렷한 이상 징후 없음"]`, 원인 후보는 빈 목록이며
+  추천 관리는 `현재 관리 방법을 유지하고 정기적으로 상태를 확인해 주세요.`입니다.
+  공급자가 질병 후보나 처치를 함께 반환해도 건강 판정에는 적용하지 않습니다.
+- `UNHEALTHY`: `observations=["건강 이상 가능성"]`과 원인 후보, 추천 관리를 반환합니다.
+- `UNCERTAIN`: 유해 원인 후보를 구분하지 못한 경우
+  `observations=["사진만으로 판별 어려움"]`을 반환합니다.
+
+프론트는 기존 필드와 배열 타입을 그대로 사용합니다. 별도 건강 점수나 상세 증상
+추출 기능은 제공하지 않으며, 이 정책은 새로 처리되는 진단부터 적용합니다.
 
 진단 분리 구현(#43): 생성 요청은 `media_file_id`만 받습니다. 기존 `conversation_id`를
 계속 보내면 추가 필드 검증으로 거부합니다. 상세 응답에는 `related_conversation_id`가
