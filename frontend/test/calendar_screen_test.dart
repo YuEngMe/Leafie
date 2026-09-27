@@ -99,6 +99,40 @@ void main() {
     expect(repository.requests, hasLength(2));
   });
 
+  testWidgets('지난 날짜 일정을 완료하면 그 날짜를 수행일로 보낸다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeCalendarRepository(
+      items: [
+        _item(
+          id: 'repot-1',
+          date: DateTime(2026, 7, 12),
+          careType: 'REPOTTING',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CalendarScreen(
+          plantId: 'plant-1',
+          repository: repository,
+          today: DateTime(2026, 7, 15),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // 오늘(15일)과 같은 주의 12일을 고른다.
+    await tester.tap(find.text('12').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('calendar-complete-repot-1')));
+    await tester.pumpAndSettle();
+
+    expect(repository.completedEventIds, ['repot-1']);
+    expect(repository.completedOn, [DateTime(2026, 7, 12)]);
+    expect(repository.requests, hasLength(2));
+  });
+
   testWidgets('일정 추가 시트에서 비료 주기를 골라 등록한다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(items: const []);

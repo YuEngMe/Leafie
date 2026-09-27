@@ -5,6 +5,7 @@ import 'package:yeso_plant/widgets/body_glyph.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 /// 고를 수 있는 바디 3종. body_id 문자열과 화면에 보일 한글 라벨을 묶는다.
 /// 편집 화면(plant_edit_appearance_screen)의 `_bodyChoices`와 같은 목록이다.
@@ -35,6 +36,12 @@ class PlantRegisterBodyScreen extends StatefulWidget {
 }
 
 class _BodyState extends State<PlantRegisterBodyScreen> {
+  @override
+  void initState() {
+    super.initState();
+    const RegistrationDraftStore().save(RegistrationStep.body, widget.draft);
+  }
+
   late String _selectedBodyId =
       widget.draft.bodyId ?? PlantRegistrationDraft.defaultBodyId;
   late final PageController _pageController = PageController(

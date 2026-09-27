@@ -9,6 +9,7 @@ import 'package:yeso_plant/screens/login_screen.dart';
 import 'package:yeso_plant/screens/splash_screen.dart';
 import 'package:yeso_plant/screens/oauth_nickname_screen.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -151,6 +152,8 @@ class _YesoAppState extends State<YesoApp> {
         }
         break;
       case AuthChangeEvent.signedOut:
+        // 등록 임시저장은 기기에 남으므로, 다른 계정이 이어받지 않게 지운다.
+        const RegistrationDraftStore().clear();
         _runOrDefer(() => _openLoginScreen(navigator));
         break;
       default:

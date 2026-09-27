@@ -9,6 +9,7 @@ import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 class _PersonalityOption {
   const _PersonalityOption({
@@ -80,6 +81,15 @@ class PlantRegisterPersonalityScreen extends StatefulWidget {
 
 class _PlantRegisterPersonalityScreenState
     extends State<PlantRegisterPersonalityScreen> {
+  @override
+  void initState() {
+    super.initState();
+    const RegistrationDraftStore().save(
+      RegistrationStep.personality,
+      widget.draft,
+    );
+  }
+
   final _pageController = PageController();
   int _selectedIndex = 0;
 

@@ -10,6 +10,7 @@ import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
+import 'package:yeso_plant/services/registration_draft_store.dart';
 
 const _colors = kPlantAppearanceColors;
 
@@ -51,6 +52,15 @@ class PlantRegisterAppearanceScreen extends StatefulWidget {
 }
 
 class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
+  @override
+  void initState() {
+    super.initState();
+    const RegistrationDraftStore().save(
+      RegistrationStep.appearance,
+      widget.draft,
+    );
+  }
+
   late String? _selectedColorId = widget.draft.bodyColorId;
   // 헤어는 사용자가 고르지 않는다. 종(referenceId)으로 자동 매핑된 값을 그대로
   // draft에 저장하고, 미리보기에도 그 헤어를 얹어 보여준다.

@@ -62,6 +62,12 @@ class PlantRegistrationDraft {
       _submissionSnapshot ??= PlantRegistrationSnapshot.fromDraft(this);
 
   PlantRegistrationSnapshot? get submissionSnapshot => _submissionSnapshot;
+
+  /// 앱을 껐다 켜서 이어할 때, 이미 한 번 보낸 요청 본문을 되살린다. 응답을
+  /// 못 받은 첫 요청으로 서버에 식물이 생겼을 수 있어, 그 사이 화면에서 값을
+  /// 바꿨더라도 재시도는 같은 본문이어야 한다.
+  void restoreSubmissionSnapshot(PlantRegistrationSnapshot snapshot) =>
+      _submissionSnapshot = snapshot;
 }
 
 class PlantRegistrationSnapshot {

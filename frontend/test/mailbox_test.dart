@@ -119,6 +119,10 @@ class Repository implements PlantLetterRepository {
     await pendingDeletes[letterId];
     if (failDelete) throw StateError('offline');
   }
+
+  @override
+  Future<int> unreadCount(String plantId) async =>
+      letters.where((letter) => !letter.isRead).length;
 }
 
 Future<void> launch(
@@ -157,6 +161,8 @@ Future<void> launch(
       // 홈 캐릭터: 옐로 circle 몸통 + 기본 얼굴.
       'character/body_circle_yellow',
       'character/face_circle_default',
+      // 안 읽은 편지가 있으면 홈 우편함 위에 뜨는 배지.
+      'home_letter_badge',
       'mailbox_house_v2',
       'mailbox_foreground',
       'mail_paper_texture',

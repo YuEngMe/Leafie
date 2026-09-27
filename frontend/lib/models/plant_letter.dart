@@ -28,4 +28,7 @@ abstract interface class PlantLetterRepository {
   Future<PlantLetter> getLetter(String plantId, String letterId);
   Future<void> markRead(String plantId, String letterId);
   Future<void> deleteLetter(String plantId, String letterId);
+
+  /// 이 식물의 안 읽은 편지 수. 홈 우편함 배지에 쓴다.
+  Future<int> unreadCount(String plantId);
 }

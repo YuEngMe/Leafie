@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/services/notification_api.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/widgets/plant_detail_components.dart';
 
 // 시안 3448:2(알림). 좌표는 프레임 402×874 기준 절대값이고, 본문 top은
 // 상태바 46 + 앱바 46 = 92다.
@@ -31,24 +33,43 @@ const Color kNotificationDotRead = Color(0xFFCCCBCB);
 /// 3448:28 제목.
 const Color kNotificationTitleColor = Color(0xFF1F2E21);
 
-/// 알림 캐릭터. 지금은 새 2D 기본 캐릭터를 고정으로 쓴다.
-// TODO(backend): 알림 응답에 hair_id/color_id가 생기면 알림별 식물
-// 캐릭터(종별 헤어)로 바꾼다. (백엔드에 필드 추가 요청함)
+/// 알림 캐릭터는 그 알림 식물의 몸통·색·헤어로 그린다(시안 4534:19877).
+/// 알림 응답에는 외형이 없어 plant_id로 식물 목록에서 찾는다. 찾지 못하면
+/// (삭제된 식물, 식물과 무관한 알림) 기본 캐릭터를 쓴다.
 
-/// 시안(4534:19902) 캐릭터 박스 48×48, 타일 안에서 세로 중앙, x=20.
+/// 시안(4534:19903) 회색 원 48×48. 타일(top 169) 안 x=20 y=174.
 const double kNotificationCharacterWidth = 48;
 const double kNotificationCharacterHeight = 48;
 const double kNotificationCharacterLeft = 20 - kNotificationTileLeft;
+const double kNotificationCharacterTop = 174 - 169;
+const Color kNotificationCharacterBackground = Color(0xFFCCCBCB);
+
+/// 원 안 캐릭터(4889:1530). 몸통 22 폭, 몸통 가로 중심 x=43, 몸통 바닥
+/// y=219. 헤어는 몸통 위로 얹혀 원 안(top 175)까지 올라온다.
+const double _kNotificationBodyWidth = 22;
+const double _kNotificationBodyCenterX = 43 - kNotificationTileLeft;
+const double _kNotificationBodyBottom = 219 - 169;
+
+/// `PlantCharacterArt` 박스는 폭의 649/698 높이이고, 몸통 밑선은 박스
+/// 높이의 612/649 지점이다(plant_management_screen과 같은 환산).
+final double _kNotificationArtWidth = plantArtWidthFor(
+  _kNotificationBodyWidth,
+);
+final double _kNotificationArtHeight = _kNotificationArtWidth * 649 / 698;
 
 class NotificationTile extends StatelessWidget {
   const NotificationTile({
     super.key,
     required this.notification,
     required this.onTap,
+    this.plant,
   });
 
   final NotificationData notification;
   final VoidCallback onTap;
+
+  /// 이 알림의 식물. 없으면 기본 캐릭터.
+  final ManagedPlant? plant;
 
   @override
   Widget build(BuildContext context) {
@@ -73,20 +94,31 @@ class NotificationTile extends StatelessWidget {
               height: kNotificationTileHeight,
               child: Stack(
                 children: [
-                  Positioned(
+                  const Positioned(
                     left: kNotificationCharacterLeft,
-                    top:
-                        (kNotificationTileHeight -
-                            kNotificationCharacterHeight) /
-                        2,
+                    top: kNotificationCharacterTop,
                     width: kNotificationCharacterWidth,
                     height: kNotificationCharacterHeight,
-                    // 옛 PNG(698x649)를 48x48에 contain으로 넣던 것과 같은
-                    // 48x44.6 박스가 세로 가운데에 온다.
-                    child: const Center(
-                      child: PlantCharacterArt(
-                        width: kNotificationCharacterWidth,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: kNotificationCharacterBackground,
+                        shape: BoxShape.circle,
                       ),
+                    ),
+                  ),
+                  Positioned(
+                    left: _kNotificationBodyCenterX - _kNotificationArtWidth / 2,
+                    top:
+                        _kNotificationBodyBottom -
+                        _kNotificationArtHeight * 612 / 649,
+                    width: _kNotificationArtWidth,
+                    height: _kNotificationArtHeight,
+                    child: PlantCharacterArt(
+                      key: Key('notification-character-${notification.id}'),
+                      width: _kNotificationArtWidth,
+                      body: plantBodyFromId(plant?.bodyId),
+                      colorId: plant?.colorId,
+                      hairId: plant?.hairId,
                     ),
                   ),
                   Positioned(
