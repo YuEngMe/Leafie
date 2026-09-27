@@ -177,7 +177,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!item.completable || _completingIds.contains(item.id)) return;
     setState(() => _completingIds.add(item.id));
     try {
-      await _repository.completeEvent(item.id, performedOn: _today);
+      // 지난 날짜의 일정을 뒤늦게 완료하면 그날 한 것으로 기록한다. 늘 오늘을
+      // 보내면 다음 예정일이 실제보다 늦게 잡힌다. 서버는 미래 날짜를 받지
+      // 않으므로 오늘을 넘지 않게 자른다.
+      final performedOn = item.date.isAfter(_today) ? _today : item.date;
+      await _repository.completeEvent(item.id, performedOn: performedOn);
       await _loadCalendar();
     } on LeafieApiException catch (error) {
       if (!mounted) return;
