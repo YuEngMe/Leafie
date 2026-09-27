@@ -193,9 +193,8 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
               itemBuilder: (context, index) {
                 final option = kPlantAppearanceColors[index];
                 return DecoratedBox(
-                  // 계약 테스트가 이 prefix로 스와치를 찾는다
-                  // (appearance_color_<id>). 등록 화면과 명명 규칙이
-                  // 다르니 여기서는 반드시 prefix를 붙인다.
+                  // 테스트가 이 이름으로 스와치를 찾는다(appearance_color_<id>).
+                  // 등록 화면도 같은 규칙을 쓴다.
                   key: ValueKey('appearance_${option.id}'),
                   decoration: BoxDecoration(
                     color: option.color,
