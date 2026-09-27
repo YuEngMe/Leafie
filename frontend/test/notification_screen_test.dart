@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/notification_api.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/notification_tile.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 class _FakeNotificationRepository implements NotificationRepository {
   _FakeNotificationRepository(this.notifications);
@@ -159,5 +161,63 @@ void main() {
 
     expect(find.text('도착한 알림이 없어요.'), findsOneWidget);
     expect(find.byKey(const Key('notification-list')), findsNothing);
+  });
+
+  testWidgets('알림마다 그 식물의 몸통·색·헤어로 캐릭터를 그린다 (4534:19877)', (tester) async {
+    tester.view.physicalSize = AppLayout.referenceViewport;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    NotificationData forPlant(String id, String? plantId) => NotificationData(
+      id: id,
+      plantId: plantId,
+      type: 'WATERING_REMINDER',
+      title: '알림 $id',
+      body: '본문',
+      sourceType: null,
+      sourceId: null,
+      readAt: null,
+      createdAt: DateTime.now(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationScreen(
+          repository: _FakeNotificationRepository([
+            forPlant('mine', 'plant-a'),
+            forPlant('deleted', 'plant-gone'),
+            forPlant('general', null),
+          ]),
+          plants: [
+            ManagedPlant(
+              id: 'plant-a',
+              nickname: '씩씩이',
+              speciesReferenceId: 'catalog:sansevieria',
+              speciesDisplayName: '산세베리아',
+              primaryPhotoUrl: null,
+              personalityType: 'OUTGOING',
+              bodyId: 'body_square',
+              colorId: 'color_yellow',
+              hairId: 'hair_pointed_succulent',
+              startedOn: DateTime(2026, 9, 1),
+              placeName: '거실',
+              isSelected: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    PlantCharacterArt art(String id) => tester.widget<PlantCharacterArt>(
+      find.byKey(Key('notification-character-$id')),
+    );
+    expect(art('mine').body, PlantBody.square);
+    expect(art('mine').colorId, 'color_yellow');
+    expect(art('mine').hairId, 'hair_pointed_succulent');
+    // 식물을 못 찾으면 기본 캐릭터.
+    for (final id in ['deleted', 'general']) {
+      expect(art(id).body, PlantBody.circle);
+      expect(art(id).colorId, isNull);
+      expect(art(id).hairId, isNull);
+    }
   });
 }

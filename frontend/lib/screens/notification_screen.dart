@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/notification_api.dart';
+import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/notification_tile.dart';
@@ -13,9 +14,13 @@ class NotificationScreen extends StatefulWidget {
     super.key,
     this.repository,
     this.onNotificationSelected,
+    this.plants = const [],
   });
 
   final NotificationRepository? repository;
+
+  /// 알림별 캐릭터를 그리려고 받는 사용자의 식물 목록(plant_id로 찾는다).
+  final List<ManagedPlant> plants;
   final NotificationSelected? onNotificationSelected;
 
   @override
@@ -92,6 +97,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
+  }
+
+  late final Map<String, ManagedPlant> _plantsById = {
+    for (final plant in widget.plants) plant.id: plant,
+  };
+
+  ManagedPlant? _plantFor(NotificationData notification) {
+    final plantId = notification.plantId;
+    return plantId == null ? null : _plantsById[plantId];
   }
 
   Future<void> _select(NotificationData notification) async {
@@ -209,6 +223,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         NotificationTile(
           notification: items[index],
           onTap: () => _select(items[index]),
+          plant: _plantFor(items[index]),
         ),
       ],
     ];
