@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 abstract final class AppLayout {
   static const Size referenceViewport = Size(402, 874);
 
+  /// 시안이 그린 상태바 높이. 실제 iPhone 16 Pro의 상단 안전 영역은 62라
+  /// 그대로 두면 모든 화면이 시안보다 16 아래에 앉는다.
+  static const double designStatusBarHeight = 46;
+
   static const double authHorizontalPadding = 34;
   // 2395:31 로고 top 156. 상태바 46과 앱바 높이를 뺀 나머지.
   /// 제목 '로그인' top은 시안에서 58(=874/2-367.5-11.5). 상태바 46을 빼면 12.
