@@ -8,6 +8,7 @@ from app.api.v1.media import router as media_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.plants import home_router
 from app.api.v1.plants import router as plants_router
+from app.api.v1.sensor import router as sensor_devices_router
 from app.api.v1.species import router as species_router
 from app.api.v1.system import router as system_router
 from app.api.v1.users import router as users_router
@@ -24,3 +25,4 @@ router.include_router(diaries_router)
 router.include_router(letters_router)
 router.include_router(care_router)
 router.include_router(diagnoses_router)
+router.include_router(sensor_devices_router)

@@ -620,6 +620,28 @@ A 요청 후 B 요청으로 날짜를 변경한 뒤 A를 재전송해도 B의 �
 측정 업로드 `POST /devices/{deviceId}/telemetry`는 API Gateway에 있으며 이 절의 경로가
 아닙니다. 호스트가 달라 경로 이름을 바꾸지 않습니다.
 
+### `POST /sensor-devices`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 앱이 BLE `device-info`로 받은
+`deviceId`를 서버에 등록해 `sensor_devices` 행을 만든다. 등록만으로는 아무 권한도 생기지
+않으며, 소유권은 claim `complete`(ESP 응답 시점)에서만 확정된다.
+
+```json
+{ "deviceId": "D40592E7D168" }
+```
+
+`deviceId`는 12자리 대문자 hex이며 형식이 틀리면 `422`다. 신규 생성은 `201`, 이미 등록된
+`deviceId`는 오류 없이 현재 상태를 담아 `200`으로 응답한다(앱 재시도 대비 멱등). 이미
+`CLAIMED`된 기기를 다시 등록해도 소유자를 바꾸거나 상태를 되돌리지 않으며, 다른 사용자의
+소유 여부는 응답에 노출하지 않는다. 동시 등록(같은 `deviceId`)에도 행이 하나만 생기고
+unique 충돌은 `200`으로 처리한다.
+
+```json
+{ "deviceId": "D40592E7D168", "status": "UNCLAIMED" }
+```
+
+등록되지 않은 `deviceId`로 아래 claim 생성을 호출하면 `404`다.
+
 ### `POST /sensor-devices/{deviceId}/claims`
 
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다.
