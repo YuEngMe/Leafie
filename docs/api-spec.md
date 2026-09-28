@@ -647,8 +647,9 @@ unique 충돌은 `200`으로 처리한다.
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다.
 
 `sensor_device_claims`에 `PENDING` 행을 만들고 `claimToken`을 발급합니다. TTL은 5분이고
-DB에는 해시만 저장합니다. 기기당 `PENDING`은 하나입니다. 다른 사용자가 소유한 기기는
-거절합니다.
+DB에는 해시만 저장합니다. 기기당 `PENDING`은 하나입니다. 기존 `PENDING`이 있으면
+취소하고 새로 발급합니다. 등록되지 않은 `deviceId`는 `404`, `UNCLAIMED`가 아닌 기기는
+(다른 사용자 소유 포함, 소유 여부는 노출하지 않음) `409`로 거절합니다.
 
 ```json
 { "claimToken": "..." }
@@ -673,16 +674,23 @@ DB에는 해시만 저장합니다. 기기당 `PENDING`은 하나입니다. 다�
 { "deviceToken": "..." }
 ```
 
-펌웨어가 재시도하지 않는 오류는 `deviceId` 누락 `400`, claim과 불일치 `409`, 만료
-`410`입니다. `429`와 `5xx`는 재시도합니다. 응답이 유실된 뒤 같은 `claimToken`으로 다시
-호출할 수 있어야 합니다. 이미 완료된 claim에서 새 `deviceToken`을 발급할지는 아직
-정하지 않았습니다.
+펌웨어가 재시도하지 않는 오류는 `deviceId` 누락(형식 오류 포함) `422`, claim을 찾을 수
+없음 `404`, claim과 불일치 `409`, 만료 `410`입니다. `429`와 `5xx`는 재시도합니다.
+
+**응답 유실 후 재시도(멱등)**: 같은 `claimToken`으로 다시 호출할 수 있어야 합니다. 이미
+`COMPLETED`된 claim이 `expires_at`(최초 발급 후 5분) 이내에 다시 호출되면 새
+`deviceToken`을 재발급하고 `sensor_token_hash`를 덮어써 이전 토큰을 무효화합니다(
+`owner_user_id`, `claimed_at`은 그대로 유지). `expires_at`이 지난 뒤의 재호출은 `410`
+입니다. 동시 호출은 `sensor_device_claims`/`sensor_devices`에 대한 조건부 UPDATE로
+하나만 실제 claim을 완료시키고, 진 쪽은 위와 같은 재발급 경로를 탑니다.
 
 ### `GET /sensor-device-claims/{claimToken}`
 
 앱이 claim 결과를 확인하려고 폴링합니다. 결과는 BLE로 기기에 다시 내려가지 않습니다.
-응답의 `status`는 `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED` 중 하나입니다.
-`deviceToken`은 이 응답에 넣지 않습니다.
+사용자 JWT가 필요하며, 다른 사용자의 claim은 `404`로 응답합니다(존재 여부를 노출하지
+않음). 응답의 `status`는 `PENDING`, `COMPLETED`, `EXPIRED`, `CANCELLED` 중 하나입니다.
+`PENDING`이지만 `expires_at`이 지났으면 `EXPIRED`로 보고합니다. `deviceToken`은 이
+응답에 넣지 않습니다.
 
 ## 15. 내부 비동기 작업
 
