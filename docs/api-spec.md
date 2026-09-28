@@ -571,6 +571,25 @@ A 요청 후 B 요청으로 날짜를 변경한 뒤 A를 재전송해도 B의 �
 프론트는 기존 필드와 배열 타입을 그대로 사용합니다. 별도 건강 점수나 상세 증상
 추출 기능은 제공하지 않으며, 이 정책은 새로 처리되는 진단부터 적용합니다.
 
+#### 진단 수치 표시 정책 (#64, 2026-09-28 확정)
+
+- Kindwise의 건강 판정과 질병 후보, 관리 안내를 사용하며 별도 건강 점수나 권장 물양을
+  계산하거나 LLM으로 생성하지 않습니다. `condition_score`와 ml 단위 물양 필드는 추가하지 않습니다.
+- `is_healthy.probability`는 건강 여부의 판단 확률이지 건강 상태의 점수가 아닙니다.
+  현재 응답에는 노출하지 않으며 0~100 건강 점수로 변환하지 않습니다.
+- `possible_causes[].confidence`는 해당 원인 후보의 확률(0~1)입니다. 프론트에서
+  백분율로 표시할 경우 원인 후보 확률로만 표시하고, `null`은 0%로 대체하지 않습니다.
+- `recommended_care`는 관리 안내 문자열 목록입니다. 공급자의 예방·생물학적 처치
+  문구를 사용하며 건강 판정에는 위의 유지 관리 안내를 적용합니다. 정확한 ml 값은
+  공급자 표준 응답에 없으므로 문구에서 추정하거나 기본 물양을 삽입하지 않습니다.
+- 시안의 `34점`, `5ml`은 구현 요구사항에서 제외합니다. 화면은 `condition_label`,
+  `observations`, `possible_causes`, `recommended_care`로 구성하고 지원하지 않는 숫자는
+  표시하지 않습니다. 기존 정규화 계약을 유지하며 공급자 원본 JSON을 그대로 노출하지 않습니다.
+
+근거: [Kindwise 공식 OpenAPI](https://plant.id/api/v3/openapi.yaml),
+[공식 Handbook의 treatment/watering 설명](https://www.kindwise.com/handbook).
+plant.id의 `watering.min/max`도 건조·보통·습윤의 선호 범위(1~3)이며 물양(ml)이 아닙니다.
+
 진단 분리 구현(#43): 생성 요청은 `media_file_id`만 받습니다. 기존 `conversation_id`를
 계속 보내면 추가 필드 검증으로 거부합니다. 상세 응답에는 `related_conversation_id`가
 없습니다. 같은 사진을 다른 식물의 진단에 재사용하면 `409 DIAGNOSIS_MEDIA_ALREADY_USED`를
