@@ -30,6 +30,7 @@ from app.schemas.diagnosis import (
     DiagnosisListResponse,
     DiagnosisStatusResponse,
 )
+from app.services.letter import lock_active_plant
 
 RETRYABLE_FAILURE_CODES = {
     "DATABASE_UNAVAILABLE",
@@ -179,6 +180,17 @@ class SQLAlchemyDiagnosisAPIRepository:
     async def get_owned(
         self, diagnosis_id: UUID, user_id: UUID, *, lock: bool = False
     ) -> DiagnosisRecord | None:
+        if lock:
+            plant_id = await self._session.scalar(
+                select(Diagnosis.plant_id)
+                .join(Plant, Plant.id == Diagnosis.plant_id)
+                .where(Diagnosis.id == diagnosis_id, Plant.user_id == user_id)
+            )
+            if (
+                plant_id is None
+                or await lock_active_plant(self._session, user_id, plant_id) is None
+            ):
+                return None
         statement = (
             select(Diagnosis, MediaFile.object_path)
             .join(Plant, Plant.id == Diagnosis.plant_id)

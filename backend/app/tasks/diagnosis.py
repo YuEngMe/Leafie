@@ -7,6 +7,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.db.session import Database
@@ -22,11 +23,12 @@ from app.integrations.diagnosis import (
 from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.models.diagnosis import Diagnosis
-from app.models.enums import DiagnosisCondition, DiagnosisStatus
+from app.models.enums import DiagnosisCondition, DiagnosisStatus, MediaStatus
 from app.models.media import MediaFile
 from app.models.notification import Notification
 from app.models.plant import Plant
 from app.schemas.queue import JobType, QueueJob
+from app.services.letter import lock_active_plant
 from app.tasks.base import PermanentTaskError
 
 logger = logging.getLogger(__name__)
@@ -72,8 +74,36 @@ class SQLAlchemyDiagnosisRepository:
         self._database = database
         self._queue = queue
 
+    async def _lock_source(self, session: AsyncSession, diagnosis_id: UUID) -> Plant | None:
+        source = (
+            await session.execute(
+                select(Plant.user_id, Diagnosis.plant_id, Diagnosis.media_file_id)
+                .join(Plant, Plant.id == Diagnosis.plant_id)
+                .where(Diagnosis.id == diagnosis_id)
+            )
+        ).one_or_none()
+        if source is None:
+            return None
+        # Use the same account -> plant -> child lock order as deletion and letters.
+        plant = await lock_active_plant(session, source.user_id, source.plant_id)
+        if plant is None:
+            return None
+        media = await session.scalar(
+            select(MediaFile)
+            .where(
+                MediaFile.id == source.media_file_id,
+                MediaFile.user_id == source.user_id,
+                MediaFile.status == MediaStatus.READY,
+                MediaFile.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        return plant if media is not None else None
+
     async def start(self, diagnosis_id: UUID) -> DiagnosisWork | None:
         async with self._database.session_context() as session:
+            if await self._lock_source(session, diagnosis_id) is None:
+                return None
             row = (
                 await session.execute(
                     update(Diagnosis)
@@ -124,6 +154,9 @@ class SQLAlchemyDiagnosisRepository:
         recommended_care: list[str],
     ) -> None:
         async with self._database.session_context() as session:
+            plant = await self._lock_source(session, diagnosis_id)
+            if plant is None:
+                return
             diagnosis = await session.scalar(
                 select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
             )
@@ -149,7 +182,6 @@ class SQLAlchemyDiagnosisRepository:
             diagnosis.cost_currency = result.cost_currency
             diagnosis.completed_at = datetime.now(UTC)
 
-            plant = await session.get(Plant, diagnosis.plant_id)
             if plant is not None:
                 title, body = diagnosis_notification_copy(
                     plant.nickname,

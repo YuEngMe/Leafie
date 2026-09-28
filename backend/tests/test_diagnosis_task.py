@@ -195,6 +195,7 @@ async def test_repository_completes_without_chat_and_notifies_once() -> None:
     repository = SQLAlchemyDiagnosisRepository(
         SimpleNamespace(session_context=session_context), queue
     )
+    repository._lock_source = AsyncMock(return_value=plant)
     result = await FakeProvider().diagnose(b"image", "image/jpeg", {"species_name": "바질"})
     for _ in range(2):
         await repository.complete(diagnosis.id, accepted_quality(), result, ["물을 주세요."])

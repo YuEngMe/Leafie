@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.db.session import Database
@@ -12,9 +13,10 @@ from app.integrations.plantnet import (
     PlantNetProvider,
 )
 from app.integrations.storage import StorageGateway
-from app.models.enums import SpeciesIdentificationStatus
+from app.models.enums import MediaStatus, SpeciesIdentificationStatus
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.plant import SpeciesCareGuide
+from app.models.user import UserProfile
 from app.schemas.queue import QueueJob
 from app.schemas.species import SpeciesCandidate
 from app.services.species import guide_to_candidate
@@ -35,8 +37,45 @@ class SpeciesIdentificationRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
 
+    async def _lock_source(
+        self, session: AsyncSession, identification_id: UUID
+    ) -> MediaFile | None:
+        source = (
+            await session.execute(
+                select(SpeciesIdentification.user_id, SpeciesIdentification.media_file_id).where(
+                    SpeciesIdentification.id == identification_id
+                )
+            )
+        ).one_or_none()
+        if source is None:
+            return None
+        profile = await session.scalar(
+            select(UserProfile)
+            .where(
+                UserProfile.user_id == source.user_id,
+                UserProfile.deleted_at.is_(None),
+                UserProfile.deletion_status.is_(None),
+            )
+            .with_for_update()
+        )
+        if profile is None:
+            return None
+        return await session.scalar(
+            select(MediaFile)
+            .where(
+                MediaFile.id == source.media_file_id,
+                MediaFile.user_id == source.user_id,
+                MediaFile.status == MediaStatus.READY,
+                MediaFile.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+
     async def start(self, identification_id: UUID) -> IdentificationWork | None:
         async with self._database.session_context() as session:
+            media_file = await self._lock_source(session, identification_id)
+            if media_file is None:
+                return None
             media_file_id = await session.scalar(
                 update(SpeciesIdentification)
                 .where(
@@ -62,9 +101,6 @@ class SpeciesIdentificationRepository:
                     )
                 return None
 
-            media_file = await session.get(MediaFile, media_file_id)
-            if media_file is None:
-                return None
             return IdentificationWork(
                 object_path=media_file.object_path,
                 content_type=media_file.content_type,
@@ -112,11 +148,17 @@ class SpeciesIdentificationRepository:
         candidates: list[SpeciesCandidate],
     ) -> None:
         async with self._database.session_context() as session:
-            identification = await session.get(SpeciesIdentification, identification_id)
-            if identification is None or identification.status in {
-                SpeciesIdentificationStatus.COMPLETED,
-                SpeciesIdentificationStatus.FAILED,
-            }:
+            if await self._lock_source(session, identification_id) is None:
+                return
+            identification = await session.scalar(
+                select(SpeciesIdentification)
+                .where(SpeciesIdentification.id == identification_id)
+                .with_for_update()
+            )
+            if (
+                identification is None
+                or identification.status != SpeciesIdentificationStatus.PROCESSING
+            ):
                 return
             identification.status = SpeciesIdentificationStatus.COMPLETED.value
             identification.candidates = [
@@ -127,7 +169,13 @@ class SpeciesIdentificationRepository:
 
     async def fail(self, identification_id: UUID, failure_code: str) -> None:
         async with self._database.session_context() as session:
-            identification = await session.get(SpeciesIdentification, identification_id)
+            if await self._lock_source(session, identification_id) is None:
+                return
+            identification = await session.scalar(
+                select(SpeciesIdentification)
+                .where(SpeciesIdentification.id == identification_id)
+                .with_for_update()
+            )
             if identification is None or identification.status in {
                 SpeciesIdentificationStatus.COMPLETED,
                 SpeciesIdentificationStatus.FAILED,
