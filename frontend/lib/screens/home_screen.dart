@@ -401,9 +401,14 @@ class _HomeScreenState extends State<HomeScreen>
         _homeError = null;
         // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
         // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
-        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무로 씬을
-        // 정하지 않고, 오늘 끝낼 물주기 일정이 있는지만 본다.
-        _scene = hasWateringRequest ? HomeScene.needsWater : HomeScene.idle;
+        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
+        // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
+        _scene = switch (room?.dialogueKey) {
+          _ when hasWateringRequest => HomeScene.needsWater,
+          'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
+          'LIGHT_LOW' => HomeScene.needsLight,
+          _ => HomeScene.idle,
+        };
       });
       unawaited(_refreshLetterBadge());
       return true;
@@ -454,6 +459,20 @@ class _HomeScreenState extends State<HomeScreen>
     } on LeafieApiException {
       // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
     }
+  }
+
+  /// 요청 말풍선에 넣을 서버 대사. 말풍선과 같은 상황의 대사만 쓴다.
+  /// 평소 대사(NORMAL)나 다른 상황의 대사를 넣으면 말풍선과 안 맞는 문장이
+  /// 뜨므로, 그때는 null을 돌려 시안 문구를 쓰게 한다.
+  String? get _requestDialogue {
+    final expectedKey = switch (_scene) {
+      HomeScene.needsWater => 'SOIL_MOISTURE_LOW',
+      HomeScene.needsLight => 'LIGHT_LOW',
+      _ => null,
+    };
+    return expectedKey != null && _serverDialogueKey == expectedKey
+        ? _serverDialogue
+        : null;
   }
 
   /// 방을 옮길 때 이전 식물에 걸던 돌보기 모션·토스트·말풍선을 지운다.
@@ -734,12 +753,7 @@ class _HomeScreenState extends State<HomeScreen>
                 if (plant != null && !_gaugesExpanded)
                   _HomeConversation(
                     scene: _scene,
-                    // 목마른 말풍선에는 흙이 마른 상황의 서버 대사만 쓴다.
-                    // 평소 대사(NORMAL)를 요청 말풍선에 넣으면 물을 달라는
-                    // 말이 아닌 문장이 뜬다.
-                    serverDialogue: _serverDialogueKey == 'SOIL_MOISTURE_LOW'
-                        ? _serverDialogue
-                        : null,
+                    serverDialogue: _requestDialogue,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -1233,11 +1247,17 @@ class _HomeConversation extends StatelessWidget {
           ),
         ),
       ),
-      HomeScene.needsLight => const Positioned(
+      HomeScene.needsLight => Positioned(
         left: 0,
         right: 0,
         top: 209,
-        child: Center(child: PlantRequestBubble(message: '나 햇빛이 부족해..')),
+        child: Center(
+          child: PlantRequestBubble(
+            message: serverDialogue?.isNotEmpty == true
+                ? serverDialogue!
+                : '나 햇빛이 부족해..',
+          ),
+        ),
       ),
       HomeScene.cared => const Positioned(
         left: 0,
