@@ -18,7 +18,12 @@ from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 
 MIGRATION = Path(__file__).parents[1] / "alembic/versions/cd31c92afd23_add_sensor_readings.py"
-SENSOR_TABLES = ("sensor_devices", "sensor_device_claims", "plant_sensor_devices", "sensor_readings")
+SENSOR_TABLES = (
+    "sensor_devices",
+    "sensor_device_claims",
+    "plant_sensor_devices",
+    "sensor_readings",
+)
 DEVICE_ID = "D40592E7D168"
 OTHER_DEVICE_ID = "AAAAAAAAAAAA"
 INSERT_READING = text(
@@ -95,7 +100,9 @@ def test_sensor_models_match_migration_contract() -> None:
         assert tables["sensor_readings"].columns[column].nullable is True
     assert tables["sensor_readings"].columns["received_at"].nullable is False
     assert tables["sensor_readings"].columns["sqs_message_id"].unique is True
-    assert {"ck_sensor_devices_claimed_state", "ck_sensor_devices_status"} <= constraint_names("sensor_devices")
+    assert {"ck_sensor_devices_claimed_state", "ck_sensor_devices_status"} <= constraint_names(
+        "sensor_devices"
+    )
 
 
 @pytest.fixture
@@ -309,7 +316,9 @@ async def test_device_id_format(db):
 async def test_new_device_is_unclaimed_without_owner_or_token(db):
     await run(db, "INSERT INTO sensor_devices (id) VALUES (:id)", id=DEVICE_ID)
 
-    row = (await run(db, "SELECT status, owner_user_id, sensor_token_hash FROM sensor_devices")).one()
+    row = (
+        await run(db, "SELECT status, owner_user_id, sensor_token_hash FROM sensor_devices")
+    ).one()
     assert tuple(row) == ("UNCLAIMED", None, None)
 
 
