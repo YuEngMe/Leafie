@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -20,6 +21,7 @@ from app.models.user import UserProfile
 from app.schemas.queue import QueueJob
 from app.schemas.species import SpeciesCandidate
 from app.services.species import guide_to_candidate
+from app.tasks.ai_lease import claim, defer_if_active, owns
 from app.tasks.base import PermanentTaskError
 
 
@@ -27,15 +29,16 @@ from app.tasks.base import PermanentTaskError
 class IdentificationWork:
     object_path: str
     content_type: str
-
-
-class SpeciesIdentificationInProgressError(Exception):
-    pass
+    token: UUID
 
 
 class SpeciesIdentificationRepository:
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self, database: Database, *, lease_seconds: int = 240, max_attempts: int = 5
+    ) -> None:
         self._database = database
+        self._lease_seconds = lease_seconds
+        self._max_attempts = max_attempts
 
     async def _lock_source(
         self, session: AsyncSession, identification_id: UUID
@@ -76,46 +79,49 @@ class SpeciesIdentificationRepository:
             media_file = await self._lock_source(session, identification_id)
             if media_file is None:
                 return None
-            media_file_id = await session.scalar(
-                update(SpeciesIdentification)
-                .where(
-                    SpeciesIdentification.id == identification_id,
-                    SpeciesIdentification.status == SpeciesIdentificationStatus.PENDING,
-                )
-                .values(
-                    status=SpeciesIdentificationStatus.PROCESSING.value,
-                    provider="PLANTNET",
-                    failure_code=None,
-                )
-                .returning(SpeciesIdentification.media_file_id)
+            row = await session.scalar(
+                select(SpeciesIdentification)
+                .where(SpeciesIdentification.id == identification_id)
+                .with_for_update()
             )
-            if media_file_id is None:
-                current_status = await session.scalar(
-                    select(SpeciesIdentification.status).where(
-                        SpeciesIdentification.id == identification_id
-                    )
-                )
-                if current_status == SpeciesIdentificationStatus.PROCESSING:
-                    raise SpeciesIdentificationInProgressError(
-                        "식물 인식 작업이 이미 처리 중입니다."
-                    )
+            if row is None:
                 return None
+            token = claim(
+                row,
+                lease_seconds=self._lease_seconds,
+                max_attempts=self._max_attempts,
+                failure_code="SPECIES_PROVIDER_UNAVAILABLE",
+            )
+            if token is None:
+                return None
+            row.provider = "PLANTNET"
 
             return IdentificationWork(
                 object_path=media_file.object_path,
                 content_type=media_file.content_type,
+                token=token,
             )
 
-    async def release_for_retry(self, identification_id: UUID) -> None:
+    async def release_for_retry(self, identification_id: UUID, *, token: UUID) -> None:
         async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(SpeciesIdentification)
+                .where(SpeciesIdentification.id == identification_id)
+                .with_for_update()
+            )
+            if not owns(row, token):
+                return
             await session.execute(
                 update(SpeciesIdentification)
                 .where(
                     SpeciesIdentification.id == identification_id,
                     SpeciesIdentification.status == SpeciesIdentificationStatus.PROCESSING,
+                    SpeciesIdentification.lease_token == token,
                 )
                 .values(
                     status=SpeciesIdentificationStatus.PENDING.value,
+                    lease_token=None,
+                    lease_until=None,
                     failure_code=None,
                 )
             )
@@ -146,6 +152,8 @@ class SpeciesIdentificationRepository:
         self,
         identification_id: UUID,
         candidates: list[SpeciesCandidate],
+        *,
+        token: UUID,
     ) -> None:
         async with self._database.session_context() as session:
             if await self._lock_source(session, identification_id) is None:
@@ -155,11 +163,9 @@ class SpeciesIdentificationRepository:
                 .where(SpeciesIdentification.id == identification_id)
                 .with_for_update()
             )
-            if (
-                identification is None
-                or identification.status != SpeciesIdentificationStatus.PROCESSING
-            ):
+            if not owns(identification, token):
                 return
+            identification.lease_token = identification.lease_until = None
             identification.status = SpeciesIdentificationStatus.COMPLETED.value
             identification.candidates = [
                 candidate.model_dump(mode="json", exclude_none=True) for candidate in candidates
@@ -167,7 +173,7 @@ class SpeciesIdentificationRepository:
             identification.failure_code = None
             identification.completed_at = datetime.now(UTC)
 
-    async def fail(self, identification_id: UUID, failure_code: str) -> None:
+    async def fail(self, identification_id: UUID, failure_code: str, *, token: UUID) -> None:
         async with self._database.session_context() as session:
             if await self._lock_source(session, identification_id) is None:
                 return
@@ -176,27 +182,47 @@ class SpeciesIdentificationRepository:
                 .where(SpeciesIdentification.id == identification_id)
                 .with_for_update()
             )
-            if identification is None or identification.status in {
-                SpeciesIdentificationStatus.COMPLETED,
-                SpeciesIdentificationStatus.FAILED,
-            }:
+            if not owns(identification, token):
                 return
+            identification.lease_token = identification.lease_until = None
             identification.status = SpeciesIdentificationStatus.FAILED.value
             identification.candidates = []
             identification.failure_code = failure_code
             identification.completed_at = datetime.now(UTC)
 
+    async def fail_after_retries(self, identification_id: UUID) -> None:
+        async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(SpeciesIdentification)
+                .where(SpeciesIdentification.id == identification_id)
+                .with_for_update()
+            )
+            if row is None or row.status not in {"PENDING", "PROCESSING"}:
+                return
+            defer_if_active(row)
+            row.status = "FAILED"
+            row.failure_code = "SPECIES_PROVIDER_UNAVAILABLE"
+            row.lease_token = row.lease_until = None
+            row.completed_at = datetime.now(UTC)
+
 
 class SpeciesIdentificationHandler:
+    manages_attempts = True
+
     def __init__(
         self,
         repository: SpeciesIdentificationRepository,
         storage: StorageGateway,
         provider: PlantNetProvider,
+        *,
+        external_call_timeout_seconds: float = 60,
     ) -> None:
+        if external_call_timeout_seconds <= 0:
+            raise ValueError("external_call_timeout_seconds must be positive")
         self._repository = repository
         self._storage = storage
         self._provider = provider
+        self._timeout = external_call_timeout_seconds
 
     async def __call__(self, job: QueueJob) -> None:
         work = await self._repository.start(job.resource_id)
@@ -204,10 +230,16 @@ class SpeciesIdentificationHandler:
             return
 
         try:
-            image = await self._storage.download_object(work.object_path)
-            provider_candidates = await self._provider.identify(image, work.content_type)
+            image = await asyncio.wait_for(
+                self._storage.download_object(work.object_path), timeout=self._timeout
+            )
+            provider_candidates = await asyncio.wait_for(
+                self._provider.identify(image, work.content_type), timeout=self._timeout
+            )
             if not provider_candidates:
-                await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
+                await self._repository.fail(
+                    job.resource_id, "SPECIES_NO_CANDIDATES", token=work.token
+                )
                 return
 
             guides = await self._repository.find_guides(provider_candidates)
@@ -220,27 +252,29 @@ class SpeciesIdentificationHandler:
                 seen_reference_ids.add(guide.species_reference_id)
                 candidates.append(normalize_candidate(provider_candidate, guide))
             if not candidates:
-                await self._repository.fail(job.resource_id, "SPECIES_NO_CANDIDATES")
+                await self._repository.fail(
+                    job.resource_id, "SPECIES_NO_CANDIDATES", token=work.token
+                )
                 return
-            await self._repository.complete(job.resource_id, candidates)
+            await self._repository.complete(job.resource_id, candidates, token=work.token)
         except PlantNetPermanentError as exc:
-            await self._repository.fail(job.resource_id, exc.failure_code)
+            await self._repository.fail(job.resource_id, exc.failure_code, token=work.token)
             raise PermanentTaskError(
                 exc.failure_code,
                 "식물 사진 인식을 완료할 수 없습니다.",
             ) from exc
         except AppError as exc:
             if exc.code == "MEDIA_UPLOAD_NOT_FOUND":
-                await self._repository.fail(job.resource_id, exc.code)
+                await self._repository.fail(job.resource_id, exc.code, token=work.token)
                 raise PermanentTaskError(exc.code, exc.message) from exc
-            await self._repository.release_for_retry(job.resource_id)
+            await self._repository.release_for_retry(job.resource_id, token=work.token)
             raise
         except Exception:
-            await self._repository.release_for_retry(job.resource_id)
+            await self._repository.release_for_retry(job.resource_id, token=work.token)
             raise
 
     async def on_exhausted(self, job: QueueJob) -> None:
-        await self._repository.fail(job.resource_id, "SPECIES_PROVIDER_UNAVAILABLE")
+        await self._repository.fail_after_retries(job.resource_id)
 
 
 def normalize_candidate(

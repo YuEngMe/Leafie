@@ -139,6 +139,18 @@ FastAPI는 비밀번호를 받거나 저장하지 않습니다. 모든 보호 AP
 
 ## 10. Queue와 신뢰성
 
+진단·종인식은 행 잠금 아래 `lease_token`, `lease_until`, `attempt_count`를 갱신해 선점합니다.
+살아 있는 lease의 중복 수신은 실패 처리하거나 archive하지 않고 만료 시점까지 미룹니다.
+중단 후 메시지가 재전달되면 만료 lease를 새 토큰으로 회수합니다. 완료·실패·재촬영·재시도
+변경은 해당 토큰의 실행만 허용하며, 이전 실행은 새 실행의 복구 메시지도 archive하지 않습니다.
+재시도 한도는 큐 read 횟수가 아닌 DB의 실제 선점 횟수로 관리합니다. 진단의 사용자 명시적
+재시도는 선점 횟수를 초기화합니다. API 응답에 내부 lease 필드를 노출하지 않습니다.
+정상 외부 호출 제한시간보다 lease를 길게 잡지만 외부 API 응답 직후 프로세스가 죽으면
+공급자 재호출·중복 과금 가능성까지 없애지는 못합니다.
+
+배포 시 구 Worker를 모두 종료한 뒤 migration과 API/Worker 갱신을 수행합니다.
+자세한 배포·기존 고아 작업 처리 범위는 [검증 기록](ai-backend-verification.md)을 따릅니다.
+
 Worker 작업:
 
 - `SPECIES_IDENTIFICATION_RUN`

@@ -98,15 +98,25 @@ async def run_worker() -> None:
     registry.register(
         JobType.SPECIES_IDENTIFICATION_RUN,
         SpeciesIdentificationHandler(
-            SpeciesIdentificationRepository(database),
+            SpeciesIdentificationRepository(
+                database,
+                lease_seconds=max(240, int(settings.plantnet_timeout_seconds * 2) + 60),
+                max_attempts=settings.worker_max_attempts,
+            ),
             storage,
             plantnet,
+            external_call_timeout_seconds=settings.plantnet_timeout_seconds,
         ),
     )
     registry.register(
         JobType.DIAGNOSIS_RUN,
         DiagnosisHandler(
-            SQLAlchemyDiagnosisRepository(database, queue),
+            SQLAlchemyDiagnosisRepository(
+                database,
+                queue,
+                lease_seconds=max(240, int(settings.kindwise_timeout_seconds * 3) + 60),
+                max_attempts=settings.worker_max_attempts,
+            ),
             storage,
             LocalDiagnosisImageQualityChecker(),
             kindwise,

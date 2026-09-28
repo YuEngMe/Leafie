@@ -267,6 +267,8 @@ class DiagnosisService:
                 existing.status = DiagnosisStatus.PENDING.value
                 existing.failure_code = None
                 existing.started_at = None
+                existing.lease_token = existing.lease_until = None
+                existing.attempt_count = 0
                 existing.completed_at = None
                 return _created_response(existing), True
             if (
@@ -351,6 +353,8 @@ class DiagnosisService:
         item.status = DiagnosisStatus.PENDING.value
         item.failure_code = None
         item.started_at = None
+        item.lease_token = item.lease_until = None
+        item.attempt_count = 0
         item.completed_at = None
         return DiagnosisStatusResponse(diagnosis_id=item.id, status=item.status)
 

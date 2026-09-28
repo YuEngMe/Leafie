@@ -1,6 +1,6 @@
 # AI 백엔드 검증 기록
 
-검증일: 2026-09-28. 기준 main: `05d59fb` 및 이번 삭제 경합 보호 변경.
+검증일: 2026-09-28. 기준 main: `6cfbb95`(#113 센서 claim 포함) 및 이번 AI 복구 변경.
 공유 DB 변경, 서비스 배포, 센서 규칙 구현, FCM/APNs 실발송은 하지 않았습니다.
 
 ## 실제 Provider 호출
@@ -34,16 +34,23 @@ API 키, 원본 사진, 공급자 응답 식별자는 저장소에 기록하지 
   테스트 대역이며 실제 Supabase Storage/pgmq까지 연결한 검증과 구분합니다.
 - CI에서 AI·편지·관리 일정·센서 테스트 전용 DB를 모두 준비합니다. 기존 센서 DB 테스트가
   환경변수 누락으로 skip되지 않게 합니다. 테스트는 localhost의 지정된 전용 DB만 허용합니다.
-- 새 migration은 없습니다. 단일 Alembic head는 `b7e3a91d6f20`입니다.
+- 진단·종인식의 실행 lease와 토큰 검증으로 중단 후 재선점, 늦은 결과/실패 무시,
+  동시 선점 방지, DB 기반 재시도 한도를 적용합니다. 활성 lease의 중복 수신은 큐에서
+  지연하며 실제 선점 횟수를 소모하지 않습니다.
+- heartbeat 대기 만료와 handler의 `TimeoutError`를 구분합니다. Worker 취소 시 실행 중인
+  handler도 취소하며 복구 메시지를 archive하지 않습니다.
+- 신규 migration `b7e3a91d6f20 -> d2f6a83b9c10`으로 두 테이블에
+  `lease_token`, `lease_until`, `attempt_count`를 추가합니다. 최소 기존 테이블과
+  PROCESSING/COMPLETED 행을 둔 임시 DB에서 증분 upgrade와 기본값/상태 보존을 확인합니다.
 - 로컬 PostgreSQL 17의 AI·편지·관리 일정·센서 전용 DB를 사용한 전체 테스트:
-  **472 passed, 0 skipped**. Starlette 테스트 클라이언트 의존성 deprecation 경고 1건.
+  **506 passed, 0 skipped**. Starlette 테스트 클라이언트 의존성 deprecation 경고 1건.
   Ruff, `pip check`, `git diff --check` 통과.
 
 ## 센서 계약: 있음과 미정의 구분
 
 | 항목 | 문서상 상태 | 이번 처리 |
 |---|---|---|
-| 기기 등록·claim | [API 명세 14절](api-spec.md)의 경로·JWT·TTL·오류·토큰 규칙 있음 | 센서 담당 #96/#97 범위. 대신 구현하지 않음 |
+| 기기 등록·claim | #111·#113 병합. JWT·TTL·오류·만료 전 재호출 시 토큰 교체 계약 있음 | 최신 main 통합 및 회귀 테스트. 기기 관리/식물 연결 #97은 별도 |
 | 원시 측정값 수신/저장 | [telemetry 문서](sensor-telemetry.md)의 `created_at`·`lux`·`soilRaw`, DB·SQS 규칙 있음 | 기존 DB 회귀 테스트 실행, 수집 규칙 변경 없음 |
 | 편지 소비 인터페이스 | `LetterSensorSummary.read(plant_id, diary_date) -> str`, 최대 4000자·오류 처리 있음 | 기존 Worker/Provider 테스트 유지 |
 | 누적 조도·급수 판정 | 측정값에서 해당 날짜 결과를 산출하는 방식·임계값·확정 결과 조회 계약 없음 | 계산을 임의 구현하지 않음 |
@@ -52,6 +59,22 @@ API 키, 원본 사진, 공급자 응답 식별자는 저장소에 기록하지 
 인터페이스가 있다는 것과 실제 요약 조회 구현이 준비됐다는 것은 다릅니다.
 `UnconfiguredLetterSensorSummary`는 유지하며 `LETTER_GENERATION_ENABLED`를 켜지 않습니다.
 센서 요약이 준비되면 기존 어댑터 자리에 연결하면 됩니다.
+
+## AI 복구 배포 순서와 한계
+
+1. 구 버전 Worker를 모두 종료합니다. 구 Worker는 실행 토큰을 확인하지 않으므로 신·구
+   버전을 섞어 실행하면 늦은 응답 보호가 성립하지 않습니다.
+2. 대상 DB를 확인하고 `alembic upgrade head`로 `d2f6a83b9c10`을 적용합니다.
+   이번 검증은 임시 로컬 DB만 사용했으며 공유 Supabase DB에는 아직 적용하지 않았습니다.
+3. 새 API/Worker를 함께 반영합니다. 외부 응답 필드는 그대로지만 ORM은 새 컬럼을 사용합니다.
+4. 살아 있는 큐 메시지는 재전달 시 복구됩니다. 과거 구 버전이 이미 archive한 메시지는
+   자동 복원하지 않습니다. 장시간 PROCESSING 행과 큐를 대조하고, 실제 실행이 없음을
+   확인한 건만 동일 resource_id로 기존 작업을 재enqueue해야 합니다. 유료 재호출 위험 때문에
+   migration에서 전체 AI 작업을 일괄 재발행하지 않습니다.
+
+DB/큐 장애로 선점 자체가 불가능하면 메시지를 유지하며 재시도합니다. 실제 AI 선점은
+`worker_max_attempts`로 제한합니다. 프로세스 SIGKILL의 운영 환경 검증 대신 로컬 실제
+handler의 취소, lease 만료 후 재전달, 동시 재선점, 이전 토큰의 모든 쓰기 차단을 검증했습니다.
 
 ## 아직 완료로 표시하지 않는 검증
 

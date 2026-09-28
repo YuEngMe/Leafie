@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import os
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
@@ -35,6 +35,7 @@ from app.models.plant import Plant, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.services.diagnosis import SQLAlchemyDiagnosisAPIRepository
 from app.services.plant_management import SQLAlchemyPlantManagementRepository
+from app.tasks.base import TaskDeferred
 from app.tasks.diagnosis import (
     DiagnosisHandler,
     SQLAlchemyDiagnosisRepository,
@@ -196,9 +197,10 @@ async def test_late_diagnosis_result_cannot_publish_after_deletion(ai_db, target
     ids = await seed(ai_db)
     queue = SimpleNamespace(enqueue=AsyncMock())
     repo = SQLAlchemyDiagnosisRepository(ai_db, queue)
-    assert await repo.start(ids.diagnosis) is not None
+    work = await repo.start(ids.diagnosis)
+    assert work is not None
     await invalidate(ai_db, ids, target)
-    await repo.complete(ids.diagnosis, quality(), result(), ["Keep current care"])
+    await repo.complete(ids.diagnosis, quality(), result(), ["Keep current care"], token=work.token)
     async with ai_db.session_context() as session:
         diagnosis = await session.get(Diagnosis, ids.diagnosis)
         assert diagnosis.status != "COMPLETED"
@@ -218,9 +220,10 @@ async def test_species_does_not_start_for_deleted_sources(ai_db, target):
 async def test_late_species_result_cannot_complete_after_deletion(ai_db, target):
     ids = await seed(ai_db)
     repo = SpeciesIdentificationRepository(ai_db)
-    assert await repo.start(ids.identification) is not None
+    work = await repo.start(ids.identification)
+    assert work is not None
     await invalidate(ai_db, ids, target)
-    await repo.complete(ids.identification, [])
+    await repo.complete(ids.identification, [], token=work.token)
     async with ai_db.session_context() as session:
         item = await session.get(SpeciesIdentification, ids.identification)
         assert item.status != "COMPLETED"
@@ -231,9 +234,12 @@ async def test_diagnosis_completion_and_notification_are_idempotent(ai_db):
     ids = await seed(ai_db)
     queue = SimpleNamespace(enqueue=AsyncMock())
     repo = SQLAlchemyDiagnosisRepository(ai_db, queue)
-    assert await repo.start(ids.diagnosis) is not None
+    work = await repo.start(ids.diagnosis)
+    assert work is not None
     for _ in range(2):
-        await repo.complete(ids.diagnosis, quality(), result(), ["Keep current care"])
+        await repo.complete(
+            ids.diagnosis, quality(), result(), ["Keep current care"], token=work.token
+        )
     async with ai_db.session_context() as session:
         assert (await session.get(Diagnosis, ids.diagnosis)).status == "COMPLETED"
         assert await session.scalar(select(func.count()).select_from(Notification)) == 1
@@ -244,9 +250,11 @@ async def test_diagnosis_queue_failure_rolls_back_result_and_notification(ai_db)
     ids = await seed(ai_db)
     queue = SimpleNamespace(enqueue=AsyncMock(side_effect=RuntimeError("queue failed")))
     repo = SQLAlchemyDiagnosisRepository(ai_db, queue)
-    await repo.start(ids.diagnosis)
+    work = await repo.start(ids.diagnosis)
     with pytest.raises(RuntimeError, match="queue failed"):
-        await repo.complete(ids.diagnosis, quality(), result(), ["Keep current care"])
+        await repo.complete(
+            ids.diagnosis, quality(), result(), ["Keep current care"], token=work.token
+        )
     async with ai_db.session_context() as session:
         assert (await session.get(Diagnosis, ids.diagnosis)).status == "PROCESSING"
         assert await session.scalar(select(func.count()).select_from(Notification)) == 0
@@ -256,7 +264,7 @@ async def test_deletion_lock_wins_over_late_diagnosis_completion(ai_db):
     ids = await seed(ai_db)
     queue = SimpleNamespace(enqueue=AsyncMock())
     repo = SQLAlchemyDiagnosisRepository(ai_db, queue)
-    await repo.start(ids.diagnosis)
+    work = await repo.start(ids.diagnosis)
     async with ai_db.session_context() as session:
         deleting = SQLAlchemyPlantManagementRepository(session)
         await deleting.get_profile(ids.user, lock=True)
@@ -264,7 +272,9 @@ async def test_deletion_lock_wins_over_late_diagnosis_completion(ai_db):
         plant.deleted_at = datetime.now(UTC)
         await session.flush()
         completion = asyncio.create_task(
-            repo.complete(ids.diagnosis, quality(), result(), ["Keep current care"])
+            repo.complete(
+                ids.diagnosis, quality(), result(), ["Keep current care"], token=work.token
+            )
         )
         try:
             await asyncio.sleep(0.05)
@@ -284,6 +294,176 @@ async def test_retry_repository_rejects_deleted_account(ai_db):
     async with ai_db.session_context() as session:
         repository = SQLAlchemyDiagnosisAPIRepository(session)
         assert await repository.get_owned(ids.diagnosis, ids.user, lock=True) is None
+
+
+def ai_repository(db, ids, kind, *, max_attempts=5):
+    if kind == "diagnosis":
+        return (
+            SQLAlchemyDiagnosisRepository(
+                db, SimpleNamespace(enqueue=AsyncMock()), max_attempts=max_attempts
+            ),
+            Diagnosis,
+            ids.diagnosis,
+        )
+    return (
+        SpeciesIdentificationRepository(db, max_attempts=max_attempts),
+        SpeciesIdentification,
+        ids.identification,
+    )
+
+
+async def expire_lease(db, model, resource_id):
+    async with db.session_context() as session:
+        await session.execute(
+            update(model)
+            .where(model.id == resource_id)
+            .values(lease_until=datetime.now(UTC) - timedelta(seconds=1))
+        )
+
+
+async def complete_ai(repo, kind, resource_id, token):
+    if kind == "diagnosis":
+        await repo.complete(resource_id, quality(), result(), ["Keep care"], token=token)
+    else:
+        await repo.complete(resource_id, [], token=token)
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_live_ai_lease_defers_duplicate_delivery(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind)
+    first = await repo.start(resource_id)
+    with pytest.raises(TaskDeferred) as exc:
+        await repo.start(resource_id)
+    assert 1 <= exc.value.delay_seconds <= 240
+    async with ai_db.session_context() as session:
+        row = await session.get(model, resource_id)
+        assert row.attempt_count == 1
+        assert row.lease_token == first.token
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_ai_crash_recovery_fences_all_old_mutations(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind)
+    old = await repo.start(resource_id)
+    await expire_lease(ai_db, model, resource_id)
+    current = await repo.start(resource_id)
+    assert current.token != old.token
+    with pytest.raises(TaskDeferred):
+        await complete_ai(repo, kind, resource_id, old.token)
+    with pytest.raises(TaskDeferred):
+        await repo.fail(resource_id, "STALE_FAILURE", token=old.token)
+    if kind == "diagnosis":
+        with pytest.raises(TaskDeferred):
+            await repo.release_for_retry(resource_id, "STALE_RETRY", token=old.token)
+        with pytest.raises(TaskDeferred):
+            await repo.needs_retake(resource_id, quality(), token=old.token)
+    else:
+        with pytest.raises(TaskDeferred):
+            await repo.release_for_retry(resource_id, token=old.token)
+    async with ai_db.session_context() as session:
+        row = await session.get(model, resource_id)
+        assert row.status == "PROCESSING"
+        assert row.lease_token == current.token
+        assert row.attempt_count == 2
+        assert row.failure_code is None
+        assert await session.scalar(select(func.count()).select_from(Notification)) == 0
+    await complete_ai(repo, kind, resource_id, current.token)
+    assert await repo.start(resource_id) is None
+    async with ai_db.session_context() as session:
+        row = await session.get(model, resource_id)
+        assert row.status == "COMPLETED"
+        assert row.lease_token is row.lease_until is None
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_repeated_ai_crashes_have_a_persisted_attempt_limit(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind, max_attempts=2)
+    for _ in range(2):
+        assert await repo.start(resource_id) is not None
+        await expire_lease(ai_db, model, resource_id)
+    assert await repo.start(resource_id) is None
+    async with ai_db.session_context() as session:
+        row = await session.get(model, resource_id)
+        assert row.status == "FAILED"
+        assert row.attempt_count == 2
+        assert row.lease_token is row.lease_until is None
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_legacy_processing_without_lease_can_recover(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind)
+    async with ai_db.session_context() as session:
+        await session.execute(
+            update(model).where(model.id == resource_id).values(status="PROCESSING")
+        )
+    assert await repo.start(resource_id) is not None
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_only_one_worker_can_reclaim_expired_ai_lease(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind)
+    await repo.start(resource_id)
+    await expire_lease(ai_db, model, resource_id)
+    results = await asyncio.gather(
+        repo.start(resource_id), repo.start(resource_id), return_exceptions=True
+    )
+    assert sum(isinstance(item, TaskDeferred) for item in results) == 1
+    assert sum(hasattr(item, "token") for item in results) == 1
+
+
+@pytest.mark.parametrize("kind", ["diagnosis", "species"])
+async def test_actual_handler_cancellation_then_redelivery_completes(ai_db, kind):
+    ids = await seed(ai_db)
+    repo, model, resource_id = ai_repository(ai_db, ids, kind)
+    started = asyncio.Event()
+
+    async def interrupted_download(path):
+        started.set()
+        await asyncio.Event().wait()
+
+    storage = SimpleNamespace(download_object=AsyncMock(side_effect=interrupted_download))
+    if kind == "diagnosis":
+        handler = DiagnosisHandler(
+            repo,
+            storage,
+            SimpleNamespace(check=AsyncMock(return_value=quality())),
+            SimpleNamespace(diagnose=AsyncMock(return_value=result())),
+            lambda result, context: ["Keep care"],
+        )
+    else:
+        provider = SimpleNamespace(
+            identify=AsyncMock(
+                return_value=[
+                    PlantNetCandidate(
+                        scientific_name="Ocimum basilicum",
+                        common_names=["Basil"],
+                        confidence=0.9,
+                        gbif_id=2927096,
+                    )
+                ]
+            )
+        )
+        handler = SpeciesIdentificationHandler(repo, storage, provider)
+    job = SimpleNamespace(resource_id=resource_id)
+    task = asyncio.create_task(handler(job))
+    await asyncio.wait_for(started.wait(), timeout=5)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    async with ai_db.session_context() as session:
+        assert (await session.get(model, resource_id)).status == "PROCESSING"
+    storage.download_object = AsyncMock(return_value=b"image")
+    await expire_lease(ai_db, model, resource_id)
+    await handler(job)
+    async with ai_db.session_context() as session:
+        row = await session.get(model, resource_id)
+        assert row.status == "COMPLETED"
+        assert row.attempt_count == 2
 
 
 @pytest.mark.parametrize("kind", ["diagnosis", "species"])
