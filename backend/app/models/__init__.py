@@ -11,6 +11,7 @@ from app.models.plant import (
     PlantPersonalityChange,
     SpeciesCareGuide,
 )
+from app.models.sensor import PlantSensorDevice, SensorDevice, SensorDeviceClaim, SensorReading
 from app.models.user import DeviceToken, UserProfile
 
 __all__ = [
@@ -22,8 +23,12 @@ __all__ = [
     "MediaFile",
     "Notification",
     "Plant",
+    "PlantSensorDevice",
+    "SensorDevice",
+    "SensorDeviceClaim",
     "PlantDiary",
     "PlantPersonalityChange",
+    "SensorReading",
     "SpeciesCareGuide",
     "SpeciesIdentification",
     "UserProfile",

@@ -11,6 +11,7 @@
 - [제품 전환 기준과 미확정 정책](docs/product-transition.md)
 - [API 명세](docs/api-spec.md)
 - [ERD 및 데이터 정책](docs/erd.md)
+- [센서 telemetry 수신](docs/sensor-telemetry.md)
 - [와이어프레임 1:1 매핑](docs/wireframe-mapping.md)
 - [백엔드 기능별 작업 계획](docs/backend-work-plan.md)
 - [브랜치·커밋·PR 규칙](CONTRIBUTING.md)
