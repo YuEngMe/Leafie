@@ -75,6 +75,14 @@ class FakeCareRepository:
             return None
         return CareEventContext(event=event, timezone=self.timezone)
 
+    async def lock_owned_plant_for_event(self, event_id: UUID, user_id: UUID) -> bool:
+        event = self.events.get(event_id)
+        return (
+            event is not None
+            and event.plant_id == self.plant_id
+            and user_id == self.user_id
+        )
+
     async def get_schedule_for_update(self, schedule_id: UUID) -> CareSchedule | None:
         return self.schedules.get(schedule_id)
 
