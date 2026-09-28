@@ -20,6 +20,7 @@ import 'package:yeso_plant/services/notification_target.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
@@ -847,19 +848,25 @@ class _HomeScreenState extends State<HomeScreen>
                           animation: _wateringController,
                           builder: (context, child) {
                             final t = _wateringController.value;
-                            // 0~0.25 떠올라 이동+회전(easeOut), 0.25~0.75 붓는
-                            // 자세 유지, 0.75~1.0 원위치 복귀(easeIn). raise는
-                            // 목표 상태로의 진행도(0=원위치, 1=시안 붓는 위치).
+                            // 0~0.25 떠올라 이동+회전, 0.25~0.75 붓는 자세 유지,
+                            // 0.75~1.0 원위치 복귀. raise는 목표 상태로의
+                            // 진행도(0=원위치, 1=시안 붓는 위치).
+                            // 떠오를 때는 탭에 바로 반응하도록 빨리 출발하는
+                            // ease-out, 돌아올 때는 화면을 가로지르는 이동이라
+                            // ease-in-out으로 부드럽게 내려앉힌다. 예전
+                            // easeIn은 끝까지 가속해 제자리에 "쾅" 멈췄다.
                             final double raise;
                             if (t <= 0) {
                               raise = 0;
                             } else if (t < 0.25) {
-                              raise = Curves.easeOut.transform(t / 0.25);
+                              raise = AppMotion.easeOut.transform(t / 0.25);
                             } else if (t < 0.75) {
                               raise = 1;
                             } else {
                               raise = 1 -
-                                  Curves.easeIn.transform((t - 0.75) / 0.25);
+                                  AppMotion.easeInOut.transform(
+                                    (t - 0.75) / 0.25,
+                                  );
                             }
                             // 좌하단 원위치(위젯중심 x≈55.5 y≈529.9)에서 시안
                             // 몸통 중심(x≈262 y≈180=캐릭터 위 오른쪽)까지 대각선

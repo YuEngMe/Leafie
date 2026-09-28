@@ -83,6 +83,8 @@ void main() {
           'assets/images/icon_home_afternoon.png',
           'assets/images/icon_home_moon.png',
           'assets/images/icon_home_check.png',
+          // 물뿌리개가 아직 안 불렸을 때 찍히면 결과가 실행마다 달라진다.
+          'assets/images/home_watering_can.png',
         ])
           precacheImage(AssetImage(asset), context),
       ]);

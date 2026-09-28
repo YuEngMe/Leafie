@@ -22,21 +22,13 @@ class MainTabShell extends StatefulWidget {
 }
 
 /// 홈이 알림을 따라 다른 탭으로 옮길 때 [select]를 부른다.
-class MainTabShellState extends State<MainTabShell>
-    with SingleTickerProviderStateMixin {
+///
+/// 탭 전환은 애니메이션 없이 바로 바꾼다. 하루 수십 번 누르는 동작이라
+/// 전환 모션은 매번 느리게만 만든다. 예전 180ms 페이드는 새 탭을 투명(0)에서
+/// 다시 그려 전환마다 화면이 번쩍였다. iOS 탭 바도 즉시 바뀐다.
+class MainTabShellState extends State<MainTabShell> {
   int _index = 0;
   final _visited = <int>{0};
-  late final _fade = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 180),
-    value: 1,
-  );
-
-  @override
-  void dispose() {
-    _fade.dispose();
-    super.dispose();
-  }
 
   void select(FigmaNavIcon tab) {
     if (tab == FigmaNavIcon.my) {
@@ -45,7 +37,6 @@ class MainTabShellState extends State<MainTabShell>
         context,
       ).push(MaterialPageRoute<void>(builder: (_) => const MyPageScreen()));
       setState(() => _index = 0);
-      _fade.value = 1;
       return;
     }
     final next = tab.index;
@@ -54,11 +45,6 @@ class MainTabShellState extends State<MainTabShell>
       _index = next;
       _visited.add(next);
     });
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _fade.value = 1;
-    } else {
-      _fade.forward(from: 0);
-    }
   }
 
   @override
@@ -70,20 +56,17 @@ class MainTabShellState extends State<MainTabShell>
     child: Stack(
       fit: StackFit.expand,
       children: [
-        FadeTransition(
-          opacity: _fade,
-          child: IndexedStack(
-            index: _index,
-            children: [
-              widget.home,
-              _visited.contains(1)
-                  ? widget.diaryBuilder(context)
-                  : const SizedBox.shrink(),
-              _visited.contains(2)
-                  ? widget.calendarBuilder(context)
-                  : const SizedBox.shrink(),
-            ],
-          ),
+        IndexedStack(
+          index: _index,
+          children: [
+            widget.home,
+            _visited.contains(1)
+                ? widget.diaryBuilder(context)
+                : const SizedBox.shrink(),
+            _visited.contains(2)
+                ? widget.calendarBuilder(context)
+                : const SizedBox.shrink(),
+          ],
         ),
         Positioned(
           left: 0,

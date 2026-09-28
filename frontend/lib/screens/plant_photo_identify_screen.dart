@@ -7,6 +7,7 @@ import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
@@ -265,10 +266,12 @@ class _IdentifyResult extends StatelessWidget {
           right: 0,
           // 2318:2928 중심 y=179.5, 글자 상자 top 169. 앱바 아래(92) 기준.
           top: 77,
-          child: Text(
-            '이 식물은 ${result.candidate.displayName}이군요?',
-            textAlign: TextAlign.center,
-            style: kTitleStyle.copyWith(color: kPersonalityTitle),
+          child: _RevealIn(
+            child: Text(
+              '이 식물은 ${result.candidate.displayName}이군요?',
+              textAlign: TextAlign.center,
+              style: kTitleStyle.copyWith(color: kPersonalityTitle),
+            ),
           ),
         ),
         // 2318:2931 카드 묶음 top=238.62.
@@ -277,11 +280,16 @@ class _IdentifyResult extends StatelessWidget {
           right: 0,
           top: 146.62,
           child: Center(
-            child: PlantResultCard(
-              imageProvider: FileImage(photo),
-              speciesName: result.candidate.displayName,
-              familyName: result.familyName,
-              bloomSeason: result.bloomSeason,
+            child: _RevealIn(
+              key: const ValueKey('identify-result-card'),
+              rise: 24,
+              duration: const Duration(milliseconds: 500),
+              child: PlantResultCard(
+                imageProvider: FileImage(photo),
+                speciesName: result.candidate.displayName,
+                familyName: result.familyName,
+                bloomSeason: result.bloomSeason,
+              ),
             ),
           ),
         ),
@@ -291,13 +299,53 @@ class _IdentifyResult extends StatelessWidget {
           right: 0,
           top: 667,
           child: Center(
-            child: PlantResultConfirmButtons(
-              onConfirm: onAccept,
-              onReject: onReject,
+            child: _RevealIn(
+              child: PlantResultConfirmButtons(
+                onConfirm: onAccept,
+                onReject: onReject,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 분석 화면에서 결과로 바뀔 때 한 번 재생하는 등장. [rise]만큼 아래에서
+/// 떠오르며 투명도가 0에서 1로 올라간다(rise 0이면 페이드만).
+///
+/// 식물마다 한 번뿐인 "이 식물은 ○○이군요?" 순간이라 디자이너 확인을 거쳐
+/// 결과 카드가 떠오르며 등장하게 했다. 모션을 끈 사용자에게는 움직임 없이
+/// 페이드만 남긴다.
+class _RevealIn extends StatelessWidget {
+  const _RevealIn({
+    super.key,
+    required this.child,
+    this.rise = 0,
+    this.duration = const Duration(milliseconds: 300),
+  });
+
+  final Widget child;
+  final double rise;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: AppMotion.easeOut,
+      // 투명도·위치가 바뀌는 동안 카드(사진 포함)를 다시 그리지 않게 한다.
+      child: RepaintBoundary(child: child),
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, reduceMotion ? 0 : rise * (1 - t)),
+          child: child,
+        ),
+      ),
     );
   }
 }
