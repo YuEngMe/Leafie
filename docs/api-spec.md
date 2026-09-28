@@ -642,6 +642,59 @@ unique 충돌은 `200`으로 처리한다.
 
 등록되지 않은 `deviceId`로 아래 claim 생성을 호출하면 `404`다.
 
+### `GET /sensor-devices`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 호출자가 소유한(`owner_user_id`가
+본인인) 기기 목록을 반환합니다. 기기당 연결된 식물(`plantId`, 없으면 `null`)과
+`sensor_readings`의 최신 1건(`lux`, `soilRaw`, `measuredAt`, 측정값이 없으면 모두
+`null`)을 함께 반환합니다.
+
+```json
+{
+  "items": [
+    {
+      "deviceId": "D40592E7D168",
+      "status": "CLAIMED",
+      "lastSeenAt": "2026-07-01T00:00:00Z",
+      "plantId": "uuid-or-null",
+      "lux": 123.4,
+      "soilRaw": 2048,
+      "measuredAt": "2026-07-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### `DELETE /sensor-devices/{deviceId}`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 소유 해제(unclaim)입니다. 기기 행은
+지우지 않고 `UNCLAIMED`로 되돌리며 `owner_user_id`, `sensor_token_hash`, `claimed_at`을
+비웁니다. 식물과 연결돼 있었다면 그 연결(`plant_sensor_devices`)도 함께 제거합니다.
+호출자 소유가 아니거나(이미 `UNCLAIMED`인 경우 포함) 존재하지 않는 `deviceId`는 소유
+여부를 노출하지 않고 `404`로 응답합니다. 성공하면 `204`이며, 이후 같은 기기로 새 claim을
+만들 수 있습니다(공장 초기화 후 재등록도 이 경로로 처리됩니다).
+
+### `PUT /plants/{plant_id}/sensor-device`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 식물과 기기를 연결합니다(1:1).
+
+```json
+{ "deviceId": "D40592E7D168" }
+```
+
+`plant_id`가 호출자 소유가 아니면 `404`, `deviceId`가 호출자 소유(claim 완료)가 아니면
+`404`입니다(소유 여부 비노출). 식물 또는 기기가 이미 다른 쪽에 연결돼 있으면 기존 연결을
+끊고 자동으로 교체합니다.
+
+```json
+{ "plantId": "uuid", "deviceId": "D40592E7D168" }
+```
+
+### `DELETE /plants/{plant_id}/sensor-device`
+
+호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 연결을 해제합니다. `plant_id`가
+호출자 소유가 아니면 `404`, 연결이 이미 없으면 오류 없이 `204`(멱등)입니다.
+
 ### `POST /sensor-devices/{deviceId}/claims`
 
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다.
