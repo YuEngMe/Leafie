@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -118,7 +118,10 @@ class SQLAlchemyCareRepository:
         return await self._session.scalar(
             select(CareEvent).where(
                 CareEvent.plant_id == plant_id,
-                CareEvent.client_event_id == client_event_id,
+                or_(
+                    CareEvent.client_event_id == client_event_id,
+                    CareEvent.previous_request_hashes.has_key(str(client_event_id)),
+                ),
             )
         )
 
@@ -203,7 +206,12 @@ class CareService:
             plant_id, request.client_event_id
         )
         if existing is not None:
-            if existing.creation_request_hash != request_hash:
+            stored_hash = (
+                existing.creation_request_hash
+                if existing.client_event_id == request.client_event_id
+                else (existing.previous_request_hashes or {}).get(str(request.client_event_id))
+            )
+            if stored_hash != request_hash:
                 raise AppError(
                     code="CLIENT_EVENT_ID_REUSED",
                     message="이미 다른 일정 생성에 사용한 client_event_id입니다.",
@@ -282,6 +290,12 @@ class CareService:
             return MutationResult(response=event_response(event), created=True)
 
         event.schedule_id = schedule.id if schedule is not None else event.schedule_id
+        # Retain every superseded key so delayed retries cannot undo a later date change.
+        if event.client_event_id is not None and event.creation_request_hash is not None:
+            event.previous_request_hashes = {
+                **(event.previous_request_hashes or {}),
+                str(event.client_event_id): event.creation_request_hash,
+            }
         event.client_event_id = request.client_event_id
         event.creation_request_hash = request_hash
         event.due_date = request.due_date

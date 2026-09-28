@@ -46,7 +46,11 @@ class FakeCareRepository:
             (
                 event
                 for event in self.events.values()
-                if event.plant_id == plant_id and event.client_event_id == client_event_id
+                if event.plant_id == plant_id
+                and (
+                    event.client_event_id == client_event_id
+                    or str(client_event_id) in (event.previous_request_hashes or {})
+                )
             ),
             None,
         )
@@ -267,6 +271,63 @@ async def test_repotting_creates_recurring_schedule_when_missing() -> None:
     assert event.schedule_id == schedule.id
 
 
+@pytest.mark.parametrize("interval_days", [365, None])
+async def test_repotting_replays_preserve_latest_date(interval_days: int | None) -> None:
+    service, repository, user_id, plant_id = build_service()
+    repository.default_repotting_interval_days = interval_days
+    today = today_in_timezone(repository.timezone)
+    requests = [
+        make_event_request(care_type="REPOTTING", due_date=today + timedelta(days=days))
+        for days in (1, 8, 15)
+    ]
+    for request in requests:
+        latest = await service.create_event(user_id, plant_id, request)
+
+    for request in requests:
+        replay = await service.create_event(user_id, plant_id, request)
+        assert replay.created is False
+        assert replay.response == latest.response
+    assert len(repository.events) == 1
+    if interval_days is not None:
+        assert next(iter(repository.schedules.values())).next_due_date == requests[-1].due_date
+
+    for request in requests:
+        with pytest.raises(AppError) as error:
+            await service.create_event(
+                user_id, plant_id,
+                request.model_copy(update={"due_date": today + timedelta(days=20)}),
+            )
+        assert error.value.code == "CLIENT_EVENT_ID_REUSED"
+
+
+async def test_old_repotting_replay_after_completion_does_not_move_next_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, repository, user_id, plant_id = build_service()
+    today = today_in_timezone(repository.timezone)
+    first_request = make_event_request(care_type="REPOTTING", due_date=today)
+    first = await service.create_event(user_id, plant_id, first_request)
+    await service.create_event(
+        user_id, plant_id,
+        make_event_request(care_type="REPOTTING", due_date=today + timedelta(days=7)),
+    )
+    completed = await service.complete_event(
+        user_id, first.response.id, CareEventCompleteRequest(performed_on=today)
+    )
+    next_event = repository.events[completed.next_event.id]
+    next_due_date = next_event.due_date
+    monkeypatch.setattr("app.services.care.today_in_timezone", lambda _: today + timedelta(days=1))
+
+    replay = await service.create_event(user_id, plant_id, first_request)
+
+    assert replay.created is False
+    assert replay.response.id == first.response.id
+    assert replay.response.status == "COMPLETED"
+    assert next_event.due_date == next_due_date
+    assert next(iter(repository.schedules.values())).next_due_date == next_due_date
+    assert len(repository.events) == 2
+
+
 async def test_repotting_without_species_interval_is_one_time() -> None:
     service, repository, user_id, plant_id = build_service()
     repository.default_repotting_interval_days = None
@@ -400,6 +461,13 @@ def test_care_http_routes_create_and_complete(monkeypatch: pytest.MonkeyPatch) -
         repotting_moved = client.post(
             f"/api/v1/plants/{plant_id}/care-events", json=moved_repotting_payload
         )
+        old_repotting_replayed = client.post(
+            f"/api/v1/plants/{plant_id}/care-events", json=repotting_payload
+        )
+        old_repotting_key_reused = client.post(
+            f"/api/v1/plants/{plant_id}/care-events",
+            json={**repotting_payload, "due_date": moved_repotting_payload["due_date"]},
+        )
         invalid_type = client.post(
             f"/api/v1/plants/{plant_id}/care-events",
             json={**create_payload, "care_type": "CUSTOM"},
@@ -426,6 +494,11 @@ def test_care_http_routes_create_and_complete(monkeypatch: pytest.MonkeyPatch) -
     assert repotting_moved.status_code == 200
     assert repotting_moved.json()["id"] == repotting_created.json()["id"]
     assert repotting_moved.json()["due_date"] == moved_repotting_payload["due_date"]
+    assert old_repotting_replayed.status_code == 200
+    assert old_repotting_replayed.json() == repotting_moved.json()
+    assert "previous_request_hashes" not in old_repotting_replayed.json()
+    assert old_repotting_key_reused.status_code == 409
+    assert old_repotting_key_reused.json()["error"]["code"] == "CLIENT_EVENT_ID_REUSED"
     assert invalid_type.status_code == 422
     assert past_due.status_code == 400
     assert past_due.json()["error"]["code"] == "PAST_DUE_DATE_NOT_ALLOWED"

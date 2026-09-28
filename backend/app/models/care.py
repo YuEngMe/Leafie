@@ -12,6 +12,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -97,6 +98,9 @@ class CareEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     client_event_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
     creation_request_hash: Mapped[str | None] = mapped_column(String(64))
+    previous_request_hashes: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'SCHEDULED'")
