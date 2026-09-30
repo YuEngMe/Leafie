@@ -92,8 +92,17 @@ class FakeSensorDeviceClaimRepository:
         device.claimed_at = claimed_at
         return True
 
-    async def rotate_device_token(self, device_id: str, token_hash: str) -> None:
-        self.devices[device_id].sensor_token_hash = token_hash
+    async def rotate_device_token(
+        self, claim_id: UUID, device_id: str, user_id: UUID, token_hash: str
+    ) -> bool:
+        device = self.devices[device_id]
+        if (
+            device.owner_user_id != user_id
+            or self.claims[claim_id].status != SensorDeviceClaimStatus.COMPLETED.value
+        ):
+            return False
+        device.sensor_token_hash = token_hash
+        return True
 
 
 def unclaimed_device(device_id: str = DEVICE_ID) -> SensorDevice:

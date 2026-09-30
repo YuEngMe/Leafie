@@ -95,7 +95,9 @@ class SensorDeviceClaimRepository(Protocol):
         self, device_id: str, user_id: UUID, token_hash: str, claimed_at: datetime
     ) -> bool: ...
 
-    async def rotate_device_token(self, device_id: str, token_hash: str) -> None: ...
+    async def rotate_device_token(
+        self, claim_id: UUID, device_id: str, user_id: UUID, token_hash: str
+    ) -> bool: ...
 
 
 class SQLAlchemySensorDeviceClaimRepository:
@@ -165,12 +167,30 @@ class SQLAlchemySensorDeviceClaimRepository:
         )
         return result.rowcount == 1
 
-    async def rotate_device_token(self, device_id: str, token_hash: str) -> None:
+    async def rotate_device_token(
+        self, claim_id: UUID, device_id: str, user_id: UUID, token_hash: str
+    ) -> bool:
+        # 기기 행을 먼저 잠근 뒤 별도 문장으로 조건을 검사한다(READ COMMITTED에서는 잠금 이후
+        # 문장이 최신 커밋을 본다). 해제/재claim된 기기의 오래된 claim은 여기서 걸러진다.
         await self._session.execute(
+            select(SensorDevice.id).where(SensorDevice.id == device_id).with_for_update()
+        )
+        result = await self._session.execute(
             update(SensorDevice)
-            .where(SensorDevice.id == device_id)
+            .where(
+                SensorDevice.id == device_id,
+                SensorDevice.owner_user_id == user_id,
+                SensorDevice.status == SensorDeviceStatus.CLAIMED.value,
+                select(SensorDeviceClaim.id)
+                .where(
+                    SensorDeviceClaim.id == claim_id,
+                    SensorDeviceClaim.status == SensorDeviceClaimStatus.COMPLETED.value,
+                )
+                .exists(),
+            )
             .values(sensor_token_hash=token_hash)
         )
+        return result.rowcount == 1
 
 
 class SensorDeviceClaimService:
@@ -249,14 +269,18 @@ class SensorDeviceClaimService:
 
         if claim.status == SensorDeviceClaimStatus.COMPLETED:
             device_token = secrets.token_hex(32)
-            await self._repository.rotate_device_token(claim.device_id, hash_token(device_token))
+            rotated = await self._repository.rotate_device_token(
+                claim.id, claim.device_id, claim.user_id, hash_token(device_token)
+            )
+            if not rotated:
+                raise AppError(
+                    code="CLAIM_EXPIRED", message="claim이 만료되었습니다.", status_code=410
+                )
             return SensorDeviceClaimCompleteResponse(device_token=device_token)
 
         raise AppError(code="CLAIM_EXPIRED", message="claim이 만료되었습니다.", status_code=410)
 
-    async def get_status(
-        self, user_id: UUID, claim_token: str
-    ) -> SensorDeviceClaimStatusResponse:
+    async def get_status(self, user_id: UUID, claim_token: str) -> SensorDeviceClaimStatusResponse:
         claim = await self._repository.get_claim_by_token_hash(hash_token(claim_token))
         if claim is None or claim.user_id != user_id:
             raise AppError(

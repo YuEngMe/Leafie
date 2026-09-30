@@ -82,13 +82,16 @@ class FakeSensorDeviceManagementRepository:
     async def delete_link_for_plant(self, plant_id: UUID) -> None:
         self.links.pop(plant_id, None)
 
-    async def release_device(self, device: SensorDevice) -> None:
+    async def release_device(self, device: SensorDevice, user_id: UUID) -> bool:
+        if device.owner_user_id != user_id:
+            return False
         for plant_id in [pid for pid, did in self.links.items() if did == device.id]:
             del self.links[plant_id]
         device.status = SensorDeviceStatus.UNCLAIMED.value
         device.owner_user_id = None
         device.sensor_token_hash = None
         device.claimed_at = None
+        return True
 
     async def flush(self) -> None:
         pass
