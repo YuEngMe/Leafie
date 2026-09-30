@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,7 +52,7 @@ class SensorDeviceListItemResponse(BaseModel):
     status: SensorDeviceStatus
     last_seen_at: datetime | None = Field(alias="lastSeenAt")
     plant_id: UUID | None = Field(alias="plantId")
-    lux: Decimal | None = None
+    lux: float | None = None
     soil_raw: int | None = Field(alias="soilRaw")
     measured_at: datetime | None = Field(alias="measuredAt")
 

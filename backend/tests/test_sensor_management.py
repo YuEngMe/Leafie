@@ -136,7 +136,7 @@ async def test_list_devices_includes_plant_link_and_latest_reading() -> None:
 
     item = result.items[0]
     assert item.plant_id == plant_id
-    assert item.lux == Decimal("123.4")
+    assert item.lux == 123.4
     assert item.soil_raw == 2048
     assert item.measured_at == measured_at
 
@@ -294,7 +294,8 @@ async def test_release_device_allows_reclaim_by_a_new_owner() -> None:
     assert device.owner_user_id is None
 
 
-def test_sensor_device_list_and_release_http_contract(monkeypatch) -> None:
+@pytest.mark.parametrize("lux,soil_raw", [(None, None), (Decimal("123.4"), 2048)])
+def test_sensor_device_list_and_release_http_contract(monkeypatch, lux, soil_raw) -> None:
     management_service = SimpleNamespace(
         list_devices=AsyncMock(
             return_value=SensorDeviceListResponse(
@@ -304,8 +305,8 @@ def test_sensor_device_list_and_release_http_contract(monkeypatch) -> None:
                         status=SensorDeviceStatus.CLAIMED,
                         last_seen_at=None,
                         plant_id=None,
-                        lux=None,
-                        soil_raw=None,
+                        lux=lux,
+                        soil_raw=soil_raw,
                         measured_at=None,
                     )
                 ]
@@ -331,8 +332,8 @@ def test_sensor_device_list_and_release_http_contract(monkeypatch) -> None:
                 "status": "CLAIMED",
                 "lastSeenAt": None,
                 "plantId": None,
-                "lux": None,
-                "soilRaw": None,
+                "lux": float(lux) if lux is not None else None,
+                "soilRaw": soil_raw,
                 "measuredAt": None,
             }
         ]

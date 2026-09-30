@@ -1,6 +1,7 @@
 """Opt-in PostgreSQL checks for sensor claim/unclaim ownership races (leafie_care_test)."""
 
 import asyncio
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,6 +9,7 @@ from sqlalchemy import delete, select
 
 from app.core.errors import AppError
 from app.db.base import AUTH_USERS_TABLE
+from app.models.plant import Plant
 from app.models.sensor import PlantSensorDevice, SensorDevice
 from app.services.sensor import (
     SensorDeviceClaimService,
@@ -143,6 +145,41 @@ async def test_connect_waits_for_release_and_is_rejected(sensor_db):
         await repo.release_device(device, user_a)
     with pytest.raises(AppError) as error:
         await racing
+    assert error.value.status_code == 404
+    async with db.session_context() as session:
+        assert await session.scalar(select(PlantSensorDevice)) is None
+
+
+@pytest.mark.parametrize("operation", ["connect", "disconnect"])
+async def test_plant_link_change_rejects_concurrent_soft_delete(sensor_db, operation):
+    db, user_id, _, plant_id = sensor_db
+    await claim(db, user_id)
+    started = asyncio.Event()
+
+    class ObservedRepository(SQLAlchemySensorDeviceManagementRepository):
+        async def get_owned_plant(self, user_id, plant_id):
+            started.set()
+            return await super().get_owned_plant(user_id, plant_id)
+
+    async def change_link():
+        async with db.session_context() as session:
+            service = SensorDeviceManagementService(ObservedRepository(session))
+            if operation == "connect":
+                return await service.connect_plant_device(user_id, plant_id, DEVICE_ID)
+            return await service.disconnect_plant_device(user_id, plant_id)
+
+    async with db.session_context() as deletion:
+        plant = await deletion.scalar(
+            select(Plant).where(Plant.id == plant_id).with_for_update()
+        )
+        plant.deleted_at = datetime.now(UTC)
+        await deletion.flush()
+        racing = asyncio.create_task(change_link())
+        await asyncio.wait_for(started.wait(), timeout=5)
+        await asyncio.sleep(0.5)
+    with pytest.raises(AppError) as error:
+        await asyncio.wait_for(racing, timeout=5)
+    assert error.value.code == "PLANT_NOT_FOUND"
     assert error.value.status_code == 404
     async with db.session_context() as session:
         assert await session.scalar(select(PlantSensorDevice)) is None

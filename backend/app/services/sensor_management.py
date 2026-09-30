@@ -100,9 +100,12 @@ class SQLAlchemySensorDeviceManagementRepository:
 
     async def get_owned_plant(self, user_id: UUID, plant_id: UUID) -> Plant | None:
         return await self._session.scalar(
-            select(Plant).where(
+            select(Plant)
+            .where(
                 Plant.id == plant_id, Plant.user_id == user_id, Plant.deleted_at.is_(None)
             )
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
 
     async def remove_existing_links(self, *, plant_id: UUID, device_id: str) -> None:
