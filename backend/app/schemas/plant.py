@@ -95,6 +95,8 @@ class PlantDetailResponse(BaseModel):
     flowering_period: str | None
     primary_photo_url: str | None
     started_on: Date
+    last_watered_on: Date | None
+    last_repotted_on: Date | None
     place_name: str
     personality_type: PersonalityType
     body_id: BodyType
@@ -111,6 +113,8 @@ class PlantUpdateRequest(BaseModel):
     nickname: str | None = Field(default=None, min_length=1, max_length=30)
     place_name: str | None = Field(default=None, min_length=1, max_length=50)
     personality_type: PersonalityType | None = None
+    last_watered_on: Date | None = None
+    last_repotted_on: Date | None = None
 
     @field_validator("nickname", "place_name")
     @classmethod

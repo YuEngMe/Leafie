@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -11,11 +12,10 @@ from app.integrations.plantnet import (
 from app.models.enums import PlantCategory
 from app.models.plant import SpeciesCareGuide
 from app.schemas.queue import JobType, QueueJob
-from app.tasks.base import PermanentTaskError
+from app.tasks.base import PermanentTaskError, TaskDeferred
 from app.tasks.species import (
     IdentificationWork,
     SpeciesIdentificationHandler,
-    SpeciesIdentificationInProgressError,
     find_matching_guide,
 )
 
@@ -25,6 +25,7 @@ class FakeRepository:
         self.work: IdentificationWork | None = IdentificationWork(
             object_path="user/species/image.jpg",
             content_type="image/jpeg",
+            token=uuid4(),
         )
         self.guides: dict[str, SpeciesCareGuide] = {}
         self.completed = []
@@ -44,15 +45,21 @@ class FakeRepository:
     async def find_guides(self, _candidates):
         return self.guides
 
-    async def complete(self, identification_id, candidates):
+    async def complete(self, identification_id, candidates, *, token):
+        assert token == self.work.token
         self.completed.append((identification_id, candidates))
 
-    async def release_for_retry(self, identification_id):
+    async def release_for_retry(self, identification_id, *, token):
+        assert token == self.work.token
         self.released.append(identification_id)
         self.started.discard(identification_id)
 
-    async def fail(self, identification_id, failure_code):
+    async def fail(self, identification_id, failure_code, *, token):
+        assert token == self.work.token
         self.failures.append((identification_id, failure_code))
+
+    async def fail_after_retries(self, identification_id):
+        self.failures.append((identification_id, "SPECIES_PROVIDER_UNAVAILABLE"))
 
 
 class FakeStorage:
@@ -296,15 +303,28 @@ async def test_species_handler_ignores_duplicate_message_delivery() -> None:
 
 async def test_species_handler_retries_duplicate_processing_delivery() -> None:
     repository = FakeRepository()
-    repository.start_error = SpeciesIdentificationInProgressError(
-        "식물 인식 작업이 이미 처리 중입니다."
-    )
+    repository.start_error = TaskDeferred(30)
     provider = FakeProvider()
 
-    with pytest.raises(SpeciesIdentificationInProgressError):
+    with pytest.raises(TaskDeferred):
         await SpeciesIdentificationHandler(repository, FakeStorage(), provider)(make_job())
 
     assert provider.calls == 0
+
+
+async def test_species_download_timeout_releases_owned_lease():
+    class SlowStorage:
+        async def download_object(self, path):
+            await asyncio.Event().wait()
+
+    repository = FakeRepository()
+    job = make_job()
+    handler = SpeciesIdentificationHandler(
+        repository, SlowStorage(), FakeProvider(), external_call_timeout_seconds=0.01
+    )
+    with pytest.raises(TimeoutError):
+        await handler(job)
+    assert repository.released == [job.resource_id]
 
 
 def test_species_candidate_matches_catalog_alias_case_insensitively() -> None:

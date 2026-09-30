@@ -600,6 +600,63 @@ void main() {
       expect(find.text('나 지금 목말라.. 물이 필요해'), findsOneWidget);
     });
 
+    testWidgets('햇빛 부족 상황이면 햇빛 말풍선에 서버 대사를 띄운다', (tester) async {
+      await pumpHome(
+        tester,
+        (id) async => dashboard(
+          id ?? 'plant-a',
+          wateringRequest: false,
+          dialogueKey: 'LIGHT_LOW',
+          dialogue: '햇빛 좀 쬐고 싶어!',
+        ),
+        _FakePlantManagementRepository([
+          _managedPlant('plant-a', '첫째', selected: true),
+        ]),
+      );
+
+      expect(find.byType(PlantRequestBubble), findsOneWidget);
+      expect(find.text('햇빛 좀 쬐고 싶어!'), findsOneWidget);
+    });
+
+    testWidgets('흙이 마른 상황이면 일정이 없어도 목마른 말풍선에 서버 대사를 띄운다', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        (id) async => dashboard(
+          id ?? 'plant-a',
+          wateringRequest: false,
+          dialogueKey: 'SOIL_MOISTURE_LOW',
+          dialogue: '목이 바싹 말랐어!',
+        ),
+        _FakePlantManagementRepository([
+          _managedPlant('plant-a', '첫째', selected: true),
+        ]),
+      );
+
+      expect(find.text('목이 바싹 말랐어!'), findsOneWidget);
+    });
+
+    testWidgets('물주기 일정과 햇빛 부족이 겹치면 물을 먼저 띄우고 햇빛 대사는 넣지 않는다', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        (id) async => dashboard(
+          id ?? 'plant-a',
+          wateringRequest: true,
+          dialogueKey: 'LIGHT_LOW',
+          dialogue: '햇빛 좀 쬐고 싶어!',
+        ),
+        _FakePlantManagementRepository([
+          _managedPlant('plant-a', '첫째', selected: true),
+        ]),
+      );
+
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsOneWidget);
+      expect(find.text('햇빛 좀 쬐고 싶어!'), findsNothing);
+    });
+
     testWidgets('목마른 식물에서 다른 식물로 넘어가면 말풍선이 사라진다', (tester) async {
       await pumpHome(
         tester,

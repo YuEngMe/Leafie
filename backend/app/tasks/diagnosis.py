@@ -7,6 +7,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.db.session import Database
@@ -22,11 +23,13 @@ from app.integrations.diagnosis import (
 from app.integrations.queue import JobQueue
 from app.integrations.storage import StorageGateway
 from app.models.diagnosis import Diagnosis
-from app.models.enums import DiagnosisCondition, DiagnosisStatus
+from app.models.enums import DiagnosisCondition, DiagnosisStatus, MediaStatus
 from app.models.media import MediaFile
 from app.models.notification import Notification
 from app.models.plant import Plant
 from app.schemas.queue import JobType, QueueJob
+from app.services.letter import lock_active_plant
+from app.tasks.ai_lease import claim, defer_if_active, owns
 from app.tasks.base import PermanentTaskError
 
 logger = logging.getLogger(__name__)
@@ -37,6 +40,7 @@ class DiagnosisWork:
     object_path: str
     content_type: str
     input_context: dict
+    token: UUID
 
 
 class DiagnosisRepository(Protocol):
@@ -48,17 +52,23 @@ class DiagnosisRepository(Protocol):
         quality: DiagnosisImageQualityResult,
         result: DiagnosisProviderResult,
         recommended_care: list[str],
+        *,
+        token: UUID,
     ) -> None: ...
 
     async def needs_retake(
         self,
         diagnosis_id: UUID,
         quality: DiagnosisImageQualityResult,
+        *,
+        token: UUID,
     ) -> None: ...
 
-    async def release_for_retry(self, diagnosis_id: UUID, failure_code: str) -> None: ...
+    async def release_for_retry(
+        self, diagnosis_id: UUID, failure_code: str, *, token: UUID
+    ) -> None: ...
 
-    async def fail(self, diagnosis_id: UUID, failure_code: str) -> None: ...
+    async def fail(self, diagnosis_id: UUID, failure_code: str, *, token: UUID) -> None: ...
 
     async def fail_after_retries(
         self,
@@ -68,33 +78,63 @@ class DiagnosisRepository(Protocol):
 
 
 class SQLAlchemyDiagnosisRepository:
-    def __init__(self, database: Database, queue: JobQueue) -> None:
+    def __init__(
+        self,
+        database: Database,
+        queue: JobQueue,
+        *,
+        lease_seconds: int = 240,
+        max_attempts: int = 5,
+    ) -> None:
         self._database = database
         self._queue = queue
+        self._lease_seconds = lease_seconds
+        self._max_attempts = max_attempts
+
+    async def _lock_source(self, session: AsyncSession, diagnosis_id: UUID) -> Plant | None:
+        source = (
+            await session.execute(
+                select(Plant.user_id, Diagnosis.plant_id, Diagnosis.media_file_id)
+                .join(Plant, Plant.id == Diagnosis.plant_id)
+                .where(Diagnosis.id == diagnosis_id)
+            )
+        ).one_or_none()
+        if source is None:
+            return None
+        # Use the same account -> plant -> child lock order as deletion and letters.
+        plant = await lock_active_plant(session, source.user_id, source.plant_id)
+        if plant is None:
+            return None
+        media = await session.scalar(
+            select(MediaFile)
+            .where(
+                MediaFile.id == source.media_file_id,
+                MediaFile.user_id == source.user_id,
+                MediaFile.status == MediaStatus.READY,
+                MediaFile.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        return plant if media is not None else None
 
     async def start(self, diagnosis_id: UUID) -> DiagnosisWork | None:
         async with self._database.session_context() as session:
-            row = (
-                await session.execute(
-                    update(Diagnosis)
-                    .where(
-                        Diagnosis.id == diagnosis_id,
-                        Diagnosis.status == DiagnosisStatus.PENDING,
-                    )
-                    .values(
-                        status=DiagnosisStatus.PROCESSING.value,
-                        started_at=datetime.now(UTC),
-                        completed_at=None,
-                        failure_code=None,
-                    )
-                    .returning(
-                        Diagnosis.media_file_id,
-                        Diagnosis.input_context_snapshot,
-                    )
-                )
-            ).one_or_none()
+            if await self._lock_source(session, diagnosis_id) is None:
+                return None
+            row = await session.scalar(
+                select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
+            )
             if row is None:
                 return None
+            token = claim(
+                row,
+                lease_seconds=self._lease_seconds,
+                max_attempts=self._max_attempts,
+                failure_code="DIAGNOSIS_RETRY_EXHAUSTED",
+            )
+            if token is None:
+                return None
+            row.started_at = datetime.now(UTC)
             media = await session.get(MediaFile, row.media_file_id)
             if media is None:
                 await session.execute(
@@ -114,6 +154,7 @@ class SQLAlchemyDiagnosisRepository:
                 object_path=media.object_path,
                 content_type=media.content_type,
                 input_context=row.input_context_snapshot or {},
+                token=token,
             )
 
     async def complete(
@@ -122,13 +163,19 @@ class SQLAlchemyDiagnosisRepository:
         quality: DiagnosisImageQualityResult,
         result: DiagnosisProviderResult,
         recommended_care: list[str],
+        *,
+        token: UUID,
     ) -> None:
         async with self._database.session_context() as session:
+            plant = await self._lock_source(session, diagnosis_id)
+            if plant is None:
+                return
             diagnosis = await session.scalar(
                 select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
             )
-            if diagnosis is None or diagnosis.status != DiagnosisStatus.PROCESSING:
+            if not owns(diagnosis, token):
                 return
+            diagnosis.lease_token = diagnosis.lease_until = None
             diagnosis.status = DiagnosisStatus.COMPLETED.value
             diagnosis.overall_condition = result.overall_condition.value
             diagnosis.image_quality_result = quality.model_dump(mode="json")
@@ -149,7 +196,6 @@ class SQLAlchemyDiagnosisRepository:
             diagnosis.cost_currency = result.cost_currency
             diagnosis.completed_at = datetime.now(UTC)
 
-            plant = await session.get(Plant, diagnosis.plant_id)
             if plant is not None:
                 title, body = diagnosis_notification_copy(
                     plant.nickname,
@@ -180,16 +226,26 @@ class SQLAlchemyDiagnosisRepository:
         self,
         diagnosis_id: UUID,
         quality: DiagnosisImageQualityResult,
+        *,
+        token: UUID,
     ) -> None:
         async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
+            )
+            if not owns(row, token):
+                return
             await session.execute(
                 update(Diagnosis)
                 .where(
                     Diagnosis.id == diagnosis_id,
                     Diagnosis.status == DiagnosisStatus.PROCESSING,
+                    Diagnosis.lease_token == token,
                 )
                 .values(
                     status=DiagnosisStatus.NEEDS_RETAKE.value,
+                    lease_token=None,
+                    lease_until=None,
                     image_quality_result=quality.model_dump(mode="json"),
                     retake_reason_code=quality.retake_reason_code,
                     failure_code=None,
@@ -197,32 +253,50 @@ class SQLAlchemyDiagnosisRepository:
                 )
             )
 
-    async def release_for_retry(self, diagnosis_id: UUID, failure_code: str) -> None:
+    async def release_for_retry(
+        self, diagnosis_id: UUID, failure_code: str, *, token: UUID
+    ) -> None:
         async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
+            )
+            if not owns(row, token):
+                return
             await session.execute(
                 update(Diagnosis)
                 .where(
                     Diagnosis.id == diagnosis_id,
                     Diagnosis.status == DiagnosisStatus.PROCESSING,
+                    Diagnosis.lease_token == token,
                 )
                 .values(
                     status=DiagnosisStatus.PENDING.value,
+                    lease_token=None,
+                    lease_until=None,
                     failure_code=failure_code,
                 )
             )
 
-    async def fail(self, diagnosis_id: UUID, failure_code: str) -> None:
+    async def fail(self, diagnosis_id: UUID, failure_code: str, *, token: UUID) -> None:
         async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
+            )
+            if not owns(row, token):
+                return
             await session.execute(
                 update(Diagnosis)
                 .where(
                     Diagnosis.id == diagnosis_id,
+                    Diagnosis.lease_token == token,
                     Diagnosis.status.in_(
                         [DiagnosisStatus.PENDING.value, DiagnosisStatus.PROCESSING.value]
                     ),
                 )
                 .values(
                     status=DiagnosisStatus.FAILED.value,
+                    lease_token=None,
+                    lease_until=None,
                     failure_code=failure_code,
                     completed_at=datetime.now(UTC),
                 )
@@ -234,6 +308,12 @@ class SQLAlchemyDiagnosisRepository:
         fallback_failure_code: str,
     ) -> None:
         async with self._database.session_context() as session:
+            row = await session.scalar(
+                select(Diagnosis).where(Diagnosis.id == diagnosis_id).with_for_update()
+            )
+            if row is None:
+                return
+            defer_if_active(row)
             await session.execute(
                 update(Diagnosis)
                 .where(
@@ -244,6 +324,8 @@ class SQLAlchemyDiagnosisRepository:
                 )
                 .values(
                     status=DiagnosisStatus.FAILED.value,
+                    lease_token=None,
+                    lease_until=None,
                     failure_code=func.coalesce(
                         Diagnosis.failure_code,
                         fallback_failure_code,
@@ -254,6 +336,8 @@ class SQLAlchemyDiagnosisRepository:
 
 
 class DiagnosisHandler:
+    manages_attempts = True
+
     def __init__(
         self,
         repository: DiagnosisRepository,
@@ -288,7 +372,7 @@ class DiagnosisHandler:
                 timeout=self._external_call_timeout_seconds,
             )
             if not quality.acceptable:
-                await self._repository.needs_retake(job.resource_id, quality)
+                await self._repository.needs_retake(job.resource_id, quality, token=work.token)
                 return
 
             result = await asyncio.wait_for(
@@ -307,6 +391,7 @@ class DiagnosisHandler:
                 quality,
                 result,
                 recommended_care,
+                token=work.token,
             )
         except DiagnosisRetakeError as exc:
             await self._repository.needs_retake(
@@ -319,23 +404,24 @@ class DiagnosisHandler:
                     symptom_area_visible=False,
                     retake_reason_code=exc.reason_code,
                 ),
+                token=work.token,
             )
         except DiagnosisPermanentError as exc:
-            await self._repository.fail(job.resource_id, exc.failure_code)
+            await self._repository.fail(job.resource_id, exc.failure_code, token=work.token)
             raise PermanentTaskError(
                 exc.failure_code,
                 "식물 상태 진단을 완료할 수 없습니다.",
             ) from exc
         except AppError as exc:
             if exc.code == "MEDIA_UPLOAD_NOT_FOUND":
-                await self._repository.fail(job.resource_id, exc.code)
+                await self._repository.fail(job.resource_id, exc.code, token=work.token)
                 raise PermanentTaskError(exc.code, exc.message) from exc
             logger.warning(
                 "Diagnosis AppError will retry resource_id=%s failure_code=%s",
                 job.resource_id,
                 exc.code,
             )
-            await self._repository.release_for_retry(job.resource_id, exc.code)
+            await self._repository.release_for_retry(job.resource_id, exc.code, token=work.token)
             raise
         except DiagnosisTransientError as exc:
             failure_code = exc.failure_code
@@ -345,7 +431,9 @@ class DiagnosisHandler:
                 failure_code,
                 exc_info=True,
             )
-            await self._repository.release_for_retry(job.resource_id, failure_code)
+            await self._repository.release_for_retry(
+                job.resource_id, failure_code, token=work.token
+            )
             raise
         except TimeoutError:
             failure_code = "DIAGNOSIS_EXTERNAL_TIMEOUT"
@@ -355,7 +443,9 @@ class DiagnosisHandler:
                 failure_code,
                 exc_info=True,
             )
-            await self._repository.release_for_retry(job.resource_id, failure_code)
+            await self._repository.release_for_retry(
+                job.resource_id, failure_code, token=work.token
+            )
             raise
         except Exception as exc:
             failure_code = "DIAGNOSIS_UNEXPECTED_ERROR"
@@ -365,7 +455,9 @@ class DiagnosisHandler:
                 failure_code,
                 type(exc).__name__,
             )
-            await self._repository.release_for_retry(job.resource_id, failure_code)
+            await self._repository.release_for_retry(
+                job.resource_id, failure_code, token=work.token
+            )
             raise
 
     async def on_exhausted(self, job: QueueJob) -> None:

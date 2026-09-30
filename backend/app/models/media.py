@@ -77,6 +77,9 @@ class SpeciesIdentification(Base, UUIDPrimaryKeyMixin):
     )
     provider: Mapped[str | None] = mapped_column(String(100))
     candidates: Mapped[list | None] = mapped_column(JSONB)
+    lease_token: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     failure_code: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")

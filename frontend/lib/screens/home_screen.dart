@@ -20,6 +20,7 @@ import 'package:yeso_plant/services/notification_target.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
@@ -400,9 +401,14 @@ class _HomeScreenState extends State<HomeScreen>
         _homeError = null;
         // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
         // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
-        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무로 씬을
-        // 정하지 않고, 오늘 끝낼 물주기 일정이 있는지만 본다.
-        _scene = hasWateringRequest ? HomeScene.needsWater : HomeScene.idle;
+        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
+        // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
+        _scene = switch (room?.dialogueKey) {
+          _ when hasWateringRequest => HomeScene.needsWater,
+          'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
+          'LIGHT_LOW' => HomeScene.needsLight,
+          _ => HomeScene.idle,
+        };
       });
       unawaited(_refreshLetterBadge());
       return true;
@@ -453,6 +459,20 @@ class _HomeScreenState extends State<HomeScreen>
     } on LeafieApiException {
       // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
     }
+  }
+
+  /// 요청 말풍선에 넣을 서버 대사. 말풍선과 같은 상황의 대사만 쓴다.
+  /// 평소 대사(NORMAL)나 다른 상황의 대사를 넣으면 말풍선과 안 맞는 문장이
+  /// 뜨므로, 그때는 null을 돌려 시안 문구를 쓰게 한다.
+  String? get _requestDialogue {
+    final expectedKey = switch (_scene) {
+      HomeScene.needsWater => 'SOIL_MOISTURE_LOW',
+      HomeScene.needsLight => 'LIGHT_LOW',
+      _ => null,
+    };
+    return expectedKey != null && _serverDialogueKey == expectedKey
+        ? _serverDialogue
+        : null;
   }
 
   /// 방을 옮길 때 이전 식물에 걸던 돌보기 모션·토스트·말풍선을 지운다.
@@ -733,12 +753,7 @@ class _HomeScreenState extends State<HomeScreen>
                 if (plant != null && !_gaugesExpanded)
                   _HomeConversation(
                     scene: _scene,
-                    // 목마른 말풍선에는 흙이 마른 상황의 서버 대사만 쓴다.
-                    // 평소 대사(NORMAL)를 요청 말풍선에 넣으면 물을 달라는
-                    // 말이 아닌 문장이 뜬다.
-                    serverDialogue: _serverDialogueKey == 'SOIL_MOISTURE_LOW'
-                        ? _serverDialogue
-                        : null,
+                    serverDialogue: _requestDialogue,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -847,19 +862,25 @@ class _HomeScreenState extends State<HomeScreen>
                           animation: _wateringController,
                           builder: (context, child) {
                             final t = _wateringController.value;
-                            // 0~0.25 떠올라 이동+회전(easeOut), 0.25~0.75 붓는
-                            // 자세 유지, 0.75~1.0 원위치 복귀(easeIn). raise는
-                            // 목표 상태로의 진행도(0=원위치, 1=시안 붓는 위치).
+                            // 0~0.25 떠올라 이동+회전, 0.25~0.75 붓는 자세 유지,
+                            // 0.75~1.0 원위치 복귀. raise는 목표 상태로의
+                            // 진행도(0=원위치, 1=시안 붓는 위치).
+                            // 떠오를 때는 탭에 바로 반응하도록 빨리 출발하는
+                            // ease-out, 돌아올 때는 화면을 가로지르는 이동이라
+                            // ease-in-out으로 부드럽게 내려앉힌다. 예전
+                            // easeIn은 끝까지 가속해 제자리에 "쾅" 멈췄다.
                             final double raise;
                             if (t <= 0) {
                               raise = 0;
                             } else if (t < 0.25) {
-                              raise = Curves.easeOut.transform(t / 0.25);
+                              raise = AppMotion.easeOut.transform(t / 0.25);
                             } else if (t < 0.75) {
                               raise = 1;
                             } else {
                               raise = 1 -
-                                  Curves.easeIn.transform((t - 0.75) / 0.25);
+                                  AppMotion.easeInOut.transform(
+                                    (t - 0.75) / 0.25,
+                                  );
                             }
                             // 좌하단 원위치(위젯중심 x≈55.5 y≈529.9)에서 시안
                             // 몸통 중심(x≈262 y≈180=캐릭터 위 오른쪽)까지 대각선
@@ -1226,11 +1247,17 @@ class _HomeConversation extends StatelessWidget {
           ),
         ),
       ),
-      HomeScene.needsLight => const Positioned(
+      HomeScene.needsLight => Positioned(
         left: 0,
         right: 0,
         top: 209,
-        child: Center(child: PlantRequestBubble(message: '나 햇빛이 부족해..')),
+        child: Center(
+          child: PlantRequestBubble(
+            message: serverDialogue?.isNotEmpty == true
+                ? serverDialogue!
+                : '나 햇빛이 부족해..',
+          ),
+        ),
       ),
       HomeScene.cared => const Positioned(
         left: 0,

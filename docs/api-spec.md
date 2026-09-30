@@ -230,7 +230,8 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 
 ### `GET /plants/{plant_id}`
 
-등록 정보, 종 정보, 외형, 대표 사진과 식물 시작일을 반환합니다.
+등록 정보, 종 정보, 외형, 대표 사진과 식물 시작일을 반환합니다. 완료된 관리 이력에서
+가장 최근 `last_watered_on`, `last_repotted_on`을 계산하며 이력이 없으면 null입니다.
 
 ### `PATCH /plants/{plant_id}`
 
@@ -238,13 +239,18 @@ Storage 파일은 멱등 Worker가 삭제합니다.
 {
   "nickname": "새잎이",
   "place_name": "거실 창가",
-  "personality_type": "CHIC"
+  "personality_type": "CHIC",
+  "last_watered_on": "2026-09-20",
+  "last_repotted_on": "2026-08-01"
 }
 ```
 
 종과 시작일은 변경하지 않습니다. 성격은 6종 중 하나로 변경할 수 있으며, 실제 값이
 바뀐 경우에만 변경 이력을 저장합니다. 기존 편지 내용은 바꾸지 않고 이후 생성되는
-홈 대사·편지 등에는 새 성격을 사용합니다.
+홈 대사·편지 등에는 새 성격을 사용합니다. 관리 날짜는 생략하면 유지하고 null과 미래
+날짜는 거부합니다. 날짜를 보내면 가장 최근 완료 이력을 정정하고 반복 규칙과 현재 미완료
+일정의 다음 예정일을 함께 다시 계산합니다. 이전 완료 이력보다 과거로 최신 날짜를 내릴
+수는 없습니다. 새 관리 행동은 이 API가 아니라 관리 일정 완료 API로 기록합니다.
 
 ### `PATCH /plants/{plant_id}/appearance`
 
@@ -570,6 +576,25 @@ A 요청 후 B 요청으로 날짜를 변경한 뒤 A를 재전송해도 B의 �
 
 프론트는 기존 필드와 배열 타입을 그대로 사용합니다. 별도 건강 점수나 상세 증상
 추출 기능은 제공하지 않으며, 이 정책은 새로 처리되는 진단부터 적용합니다.
+
+#### 진단 수치 표시 정책 (#64, 2026-09-28 확정)
+
+- Kindwise의 건강 판정과 질병 후보, 관리 안내를 사용하며 별도 건강 점수나 권장 물양을
+  계산하거나 LLM으로 생성하지 않습니다. `condition_score`와 ml 단위 물양 필드는 추가하지 않습니다.
+- `is_healthy.probability`는 건강 여부의 판단 확률이지 건강 상태의 점수가 아닙니다.
+  현재 응답에는 노출하지 않으며 0~100 건강 점수로 변환하지 않습니다.
+- `possible_causes[].confidence`는 해당 원인 후보의 확률(0~1)입니다. 프론트에서
+  백분율로 표시할 경우 원인 후보 확률로만 표시하고, `null`은 0%로 대체하지 않습니다.
+- `recommended_care`는 관리 안내 문자열 목록입니다. 공급자의 예방·생물학적 처치
+  문구를 사용하며 건강 판정에는 위의 유지 관리 안내를 적용합니다. 정확한 ml 값은
+  공급자 표준 응답에 없으므로 문구에서 추정하거나 기본 물양을 삽입하지 않습니다.
+- 시안의 `34점`, `5ml`은 구현 요구사항에서 제외합니다. 화면은 `condition_label`,
+  `observations`, `possible_causes`, `recommended_care`로 구성하고 지원하지 않는 숫자는
+  표시하지 않습니다. 기존 정규화 계약을 유지하며 공급자 원본 JSON을 그대로 노출하지 않습니다.
+
+근거: [Kindwise 공식 OpenAPI](https://plant.id/api/v3/openapi.yaml),
+[공식 Handbook의 treatment/watering 설명](https://www.kindwise.com/handbook).
+plant.id의 `watering.min/max`도 건조·보통·습윤의 선호 범위(1~3)이며 물양(ml)이 아닙니다.
 
 진단 분리 구현(#43): 생성 요청은 `media_file_id`만 받습니다. 기존 `conversation_id`를
 계속 보내면 추가 필드 검증으로 거부합니다. 상세 응답에는 `related_conversation_id`가

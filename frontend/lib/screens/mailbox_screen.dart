@@ -8,6 +8,7 @@ import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
 Future<void> showPlantMailbox(
@@ -396,36 +397,59 @@ class _MailboxScreenState extends State<MailboxScreen> {
                     ),
                   ),
                 ),
-              if (_view == _MailView.list) ...[
-                const Positioned.fill(
-                  child: ColoredBox(color: Color(0x33000000)),
-                ),
-                Positioned(
-                  left: 26,
-                  top: 228,
-                  width: 349,
-                  height: 417.5718,
-                  child: _LetterList(
-                    letters: _letters,
-                    error: _error,
-                    onOpen: _open,
-                    onClose: () => setState(() => _view = _MailView.house),
-                    onRetry: widget.repository == null || widget.plantId == null
-                        ? null
-                        : _load,
-                    onDelete: _deleteLetter,
-                    registerPlant: widget.plantId == null
-                        ? () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const PlantRegisterNameScreen(),
-                              ),
-                            );
-                          }
-                        : null,
+              if (_view == _MailView.list)
+                // 목록은 크기 변화 없이 투명에서 불투명으로 "스르륵" 나타난다
+                // (디자이너 확인: 귀신처럼). 움직임이 없어 모션을 꺼도 같다.
+                Positioned.fill(
+                  child: TweenAnimationBuilder<double>(
+                    key: const ValueKey('mail-list-reveal'),
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 400),
+                    curve: AppMotion.ease,
+                    builder: (context, opacity, child) =>
+                        Opacity(opacity: opacity, child: child),
+                    // 투명도가 바뀌는 동안 목록을 매 프레임 다시 그리지 않게
+                    // 한 번 그린 층을 재사용한다.
+                    child: RepaintBoundary(
+                      child: Stack(
+                        children: [
+                          const Positioned.fill(
+                            child: ColoredBox(color: Color(0x33000000)),
+                          ),
+                          Positioned(
+                            left: 26,
+                            top: 228,
+                            width: 349,
+                            height: 417.5718,
+                            child: _LetterList(
+                              letters: _letters,
+                              error: _error,
+                              onOpen: _open,
+                              onClose: () =>
+                                  setState(() => _view = _MailView.house),
+                              onRetry:
+                                  widget.repository == null ||
+                                      widget.plantId == null
+                                  ? null
+                                  : _load,
+                              onDelete: _deleteLetter,
+                              registerPlant: widget.plantId == null
+                                  ? () {
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              const PlantRegisterNameScreen(),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ],
               if (_loadingDetail || _detailError != null)
                 Positioned.fill(
                   child: _DetailLoadOverlay(

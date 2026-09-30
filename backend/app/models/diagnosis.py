@@ -77,4 +77,7 @@ class Diagnosis(Base, UUIDPrimaryKeyMixin):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

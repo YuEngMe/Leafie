@@ -22,6 +22,30 @@ def test_diagnosis_openapi_has_no_conversation_contract() -> None:
     assert "related_conversation_id" not in schemas["DiagnosisDetailResponse"]["properties"]
 
 
+def test_diagnosis_openapi_uses_cause_probability_and_care_text_without_numeric_score() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    detail = schemas["DiagnosisDetailResponse"]["properties"]
+    assert set(detail) == {
+        "id",
+        "plant_id",
+        "status",
+        "diagnosed_at",
+        "photo_url",
+        "overall_condition",
+        "condition_label",
+        "observations",
+        "possible_causes",
+        "recommended_care",
+        "retake_reason_code",
+        "failure_code",
+    }
+    assert detail["recommended_care"]["type"] == "array"
+    assert detail["recommended_care"]["items"]["type"] == "string"
+    confidence = schemas["DiagnosisCauseResponse"]["properties"]["confidence"]
+    assert {"type": "number", "minimum": 0, "maximum": 1} in confidence["anyOf"]
+    assert {"type": "null"} in confidence["anyOf"]
+
+
 def test_diary_openapi_uses_weather_and_title_without_condition_statistics() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     request = schemas["DiaryUpsertRequest"]
@@ -69,10 +93,16 @@ def test_home_openapi_uses_room_and_unread_letter_contract() -> None:
     assert schemas["HomeBackgroundPhase"]["enum"] == ["DAY", "NIGHT"]
 
 
-def test_plant_update_openapi_accepts_personality() -> None:
+def test_plant_update_openapi_accepts_profile_and_care_dates() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     properties = schemas["PlantUpdateRequest"]["properties"]
-    assert set(properties) == {"nickname", "place_name", "personality_type"}
+    assert set(properties) == {
+        "nickname",
+        "place_name",
+        "personality_type",
+        "last_watered_on",
+        "last_repotted_on",
+    }
 
 
 def test_plant_hair_openapi_exposes_the_nine_supported_designs() -> None:
@@ -141,6 +171,8 @@ def test_plant_appearance_registration_and_update_http_contract(monkeypatch) -> 
                 flowering_period=None,
                 primary_photo_url=None,
                 started_on=date(2026, 3, 1),
+                last_watered_on=date(2026, 7, 30),
+                last_repotted_on=None,
                 place_name="학교",
                 personality_type="OUTGOING",
                 body_id="body_square",
