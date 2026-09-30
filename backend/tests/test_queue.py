@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from app.integrations.queue import ReceivedQueueMessage
 from app.schemas.queue import JobType, QueueJob
 from app.services.worker import QueueWorker
-from app.tasks.base import PermanentTaskError
+from app.tasks.base import PermanentTaskError, TaskDeferred
 from app.tasks.registry import TaskRegistry
 
 
@@ -135,6 +135,60 @@ def test_queue_job_contract_rejects_unknown_or_extra_fields() -> None:
         make_job(job_type="UNKNOWN")
     with pytest.raises(ValidationError):
         make_job(secret="must-not-enter-queue")
+
+
+async def test_live_lease_defers_even_after_queue_attempt_limit():
+    queue = FakeQueue([make_message(read_count=20)])
+    handler = RecordingHandler(error=TaskDeferred(120))
+    registry = TaskRegistry()
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
+    await make_worker(queue, registry).run_once()
+    assert queue.archived == []
+    assert queue.visibility_updates == [(1, 120)]
+    assert handler.exhausted_jobs == []
+
+
+async def test_ai_attempt_budget_is_not_consumed_by_queue_deferrals():
+    queue = FakeQueue([make_message(read_count=20)])
+    handler = RecordingHandler(error=RuntimeError("transient"))
+    handler.manages_attempts = True
+    registry = TaskRegistry()
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
+    await make_worker(queue, registry).run_once()
+    assert queue.archived == []
+    assert handler.exhausted_jobs == []
+
+
+async def test_handler_timeout_does_not_loop_in_heartbeat():
+    queue = FakeQueue([make_message()])
+    handler = RecordingHandler(error=TimeoutError())
+    registry = TaskRegistry()
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
+    await asyncio.wait_for(make_worker(queue, registry).run_once(), timeout=1)
+    assert queue.archived == []
+    assert queue.visibility_updates == [(1, 5)]
+
+
+async def test_worker_cancellation_cancels_handler_without_archiving():
+    entered, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def handler(job):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    queue = FakeQueue([make_message()])
+    registry = TaskRegistry()
+    registry.register(JobType.DIAGNOSIS_RUN, handler)
+    task = asyncio.create_task(make_worker(queue, registry).run_once())
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert cancelled.is_set()
+    assert queue.archived == []
 
 
 async def test_successful_task_is_archived() -> None:

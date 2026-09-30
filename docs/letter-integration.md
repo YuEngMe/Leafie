@@ -92,8 +92,9 @@ hard delete된 편지는 재삭제 시 404입니다. 읽음 해제 API는 현재
 
 ## 배포·검증
 
-- revision `f3a7c9d42e10`이 현재 단일 head이며 채팅 테이블과 CHAT 미디어 메타데이터를
-  제거합니다. 기존 Storage의 `chat/` 객체는 migration 전에 백업 또는 삭제해야 합니다.
+- 채팅 제거 revision은 `f3a7c9d42e10`이며 2026-09-28 기준 단일 head는
+  `b7e3a91d6f20`입니다. 기존 Storage의 `chat/` 객체는 전환 당시 별도로 백업/정리하는
+  대상이며 이 문서만으로 공유 객체를 다시 삭제하지 않습니다.
 - RLS 활성화, `anon`/`authenticated` 직접 테이블 권한 제거. 조회·변경은 JWT 검증 백엔드 API로만
   제공하며 DB 역할은 기존 백엔드 역할을 사용합니다. 스냅샷/실패코드/선점 정보는 API에 미노출입니다.
 - 구버전 API·Worker 중지 → Storage `chat/` 객체 백업·삭제 → 새 API·Worker 배포 →
@@ -104,4 +105,5 @@ hard delete된 편지는 재삭제 시 404입니다. 읽음 해제 API는 현재
 - 로컬은 별도 localhost `leafie_letter_test` DB의 URL을 `LETTER_TEST_DATABASE_URL`로 전달해
   `pytest tests/test_letter_workflow.py`를 실행합니다. 다른 DB 이름/외부 호스트는 실행 거부합니다.
 - 실제 OpenAI 편지 Provider는 2026-09-16에 `gpt-5-mini` 한 건으로 응답과 토큰 기록을
-  검증했습니다. 실제 센서 연결을 포함한 전체 편지 흐름과 APNs 수신은 별도 출시 검증입니다.
+  검증했습니다. 실제 센서 연결을 포함한 전체 편지 흐름은 아직 별도 검증 대상입니다.
+  FCM/APNs 실발송·수신 검증은 대회 범위에서 제외하며 인앱 알림은 유지합니다.

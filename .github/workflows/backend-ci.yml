@@ -32,6 +32,8 @@ jobs:
     env:
       LETTER_TEST_DATABASE_URL: postgresql+asyncpg://postgres:leafie-test-only@127.0.0.1:5432/leafie_letter_test
       CARE_TEST_DATABASE_URL: postgresql+asyncpg://postgres:leafie-test-only@127.0.0.1:5432/leafie_care_test
+      AI_TEST_DATABASE_URL: postgresql+asyncpg://postgres:leafie-test-only@127.0.0.1:5432/leafie_ai_test
+      SENSOR_TEST_DATABASE_URL: postgresql+asyncpg://postgres:leafie-test-only@127.0.0.1:5432/leafie_sensor_test
     defaults:
       run:
         working-directory: backend
@@ -51,9 +53,12 @@ jobs:
         run: test "$(alembic heads | wc -l | tr -d ' ')" = "1"
       - name: Lint
         run: ruff check .
-      - name: Prepare care test database
+      - name: Prepare integration test databases
         env:
           PGPASSWORD: leafie-test-only
-        run: psql -h 127.0.0.1 -U postgres -d postgres -c 'CREATE DATABASE leafie_care_test'
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -c 'CREATE DATABASE leafie_care_test'
+          psql -h 127.0.0.1 -U postgres -d postgres -c 'CREATE DATABASE leafie_ai_test'
+          psql -h 127.0.0.1 -U postgres -d postgres -c 'CREATE DATABASE leafie_sensor_test'
       - name: Test
         run: pytest

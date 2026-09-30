@@ -35,6 +35,7 @@ class FakeRepository:
             object_path="user/diagnosis/image.jpg",
             content_type="image/jpeg",
             input_context={"species_name": "바질"},
+            token=uuid4(),
         )
         self.completed: list[tuple] = []
         self.retake: list[tuple] = []
@@ -45,17 +46,21 @@ class FakeRepository:
     async def start(self, _diagnosis_id):
         return self.work
 
-    async def complete(self, diagnosis_id, quality, result, recommended_care):
+    async def complete(self, diagnosis_id, quality, result, recommended_care, *, token):
+        assert token == self.work.token
         self.completed.append((diagnosis_id, quality, result, recommended_care))
 
-    async def needs_retake(self, diagnosis_id, quality):
+    async def needs_retake(self, diagnosis_id, quality, *, token):
+        assert token == self.work.token
         self.retake.append((diagnosis_id, quality))
 
-    async def release_for_retry(self, diagnosis_id, failure_code):
+    async def release_for_retry(self, diagnosis_id, failure_code, *, token):
+        assert token == self.work.token
         self.released.append(diagnosis_id)
         self.last_retry_failure_code = failure_code
 
-    async def fail(self, diagnosis_id, failure_code):
+    async def fail(self, diagnosis_id, failure_code, *, token):
+        assert token == self.work.token
         self.failed.append((diagnosis_id, failure_code))
 
     async def fail_after_retries(self, diagnosis_id, fallback_failure_code):
@@ -164,11 +169,13 @@ async def test_diagnosis_handler_completes_normalized_result() -> None:
 
 
 async def test_repository_completes_without_chat_and_notifies_once() -> None:
+    token = uuid4()
     diagnosis = Diagnosis(
         id=uuid4(),
         plant_id=uuid4(),
         media_file_id=uuid4(),
         status=DiagnosisStatus.PROCESSING.value,
+        lease_token=token,
     )
     plant = Plant(
         id=diagnosis.plant_id,
@@ -195,9 +202,12 @@ async def test_repository_completes_without_chat_and_notifies_once() -> None:
     repository = SQLAlchemyDiagnosisRepository(
         SimpleNamespace(session_context=session_context), queue
     )
+    repository._lock_source = AsyncMock(return_value=plant)
     result = await FakeProvider().diagnose(b"image", "image/jpeg", {"species_name": "바질"})
     for _ in range(2):
-        await repository.complete(diagnosis.id, accepted_quality(), result, ["물을 주세요."])
+        await repository.complete(
+            diagnosis.id, accepted_quality(), result, ["물을 주세요."], token=token
+        )
     assert diagnosis.status == DiagnosisStatus.COMPLETED
     assert diagnosis.possible_causes == [{"name": "물 부족", "confidence": 0.76}]
     assert diagnosis.recommended_care == ["물을 주세요."]

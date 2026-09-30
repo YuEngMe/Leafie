@@ -202,7 +202,8 @@ erDiagram
 | `overall_condition`, `condition_label` | varchar/text | 완료 전 nullable |
 | `observations`, `possible_causes`, `recommended_care` | jsonb | 완료 전 nullable |
 | `diagnosis_provider`, `provider_response_id` | varchar | nullable |
-| `retry_count`, `failure_code` | integer/varchar | 재시도 정보 |
+| `attempt_count`, `failure_code` | integer/varchar | 실제 선점 횟수(기본 0)와 실패 코드 |
+| `lease_token`, `lease_until` | uuid, timestamptz | 실행 선점·중단 복구와 늦은 응답 차단 |
 | `created_at`, `started_at`, `completed_at` | timestamptz | 상태별 시각 |
 
 대화 연결 필드는 두지 않습니다. Provider 원본 전체를 영구 저장하지 않고 정규화 결과와
@@ -212,6 +213,7 @@ erDiagram
 
 - `media_files`: 소유자, Storage key, 용도, MIME, 크기, 완료·삭제 상태를 저장합니다.
 - `species_identifications`: 입력 사진, 비동기 상태, 순서가 있는 지원 종 후보를 저장합니다.
+  `lease_token`, `lease_until`, `attempt_count`로 진단과 동일하게 중단 복구를 제어합니다.
 - `notifications`: 사용자, 종류, 제목·본문, 대상 화면과 리소스 ID, `read_at`을 저장합니다.
 - `device_tokens`: 기존 푸시 설치 정보 테이블을 유지합니다. 센서 기기인 `sensor_devices`와
   무관합니다.

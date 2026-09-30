@@ -133,6 +133,8 @@ async def test_create_diagnosis_restarts_cancelled_photo() -> None:
     first, _ = await _service(repository).create(user_id, plant_id, request)
     diagnosis = repository.diagnoses[0]
     diagnosis.status = DiagnosisStatus.CANCELLED.value
+    diagnosis.attempt_count = 5
+    diagnosis.lease_token = uuid4()
     diagnosis.completed_at = datetime.now(UTC)
 
     restarted, created = await _service(repository).create(user_id, plant_id, request)
@@ -141,6 +143,8 @@ async def test_create_diagnosis_restarts_cancelled_photo() -> None:
     assert restarted.status == DiagnosisStatus.PENDING
     assert created is True
     assert diagnosis.completed_at is None
+    assert diagnosis.attempt_count == 0
+    assert diagnosis.lease_token is diagnosis.lease_until is None
 
 
 async def test_create_diagnosis_rejects_wrong_media_purpose() -> None:
@@ -182,6 +186,9 @@ async def test_retry_only_allows_retryable_failures() -> None:
         media_file_id=repository.media.id,
         status=DiagnosisStatus.FAILED.value,
         failure_code="DIAGNOSIS_PROVIDER_UNAVAILABLE",
+        attempt_count=5,
+        lease_token=uuid4(),
+        lease_until=datetime.now(UTC),
         created_at=datetime.now(UTC),
     )
     repository.diagnoses.append(diagnosis)
@@ -190,6 +197,8 @@ async def test_retry_only_allows_retryable_failures() -> None:
 
     assert response.status == DiagnosisStatus.PENDING
     assert diagnosis.failure_code is None
+    assert diagnosis.attempt_count == 0
+    assert diagnosis.lease_token is diagnosis.lease_until is None
 
 
 @pytest.mark.parametrize(

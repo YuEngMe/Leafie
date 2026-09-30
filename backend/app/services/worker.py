@@ -1,11 +1,12 @@
 import asyncio
 import logging
+from contextlib import suppress
 
 from pydantic import ValidationError
 
 from app.integrations.queue import JobQueue, ReceivedQueueMessage
 from app.schemas.queue import QueueJob
-from app.tasks.base import PermanentTaskError, TaskHandler
+from app.tasks.base import PermanentTaskError, TaskDeferred, TaskHandler
 from app.tasks.registry import TaskRegistry
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,10 @@ class QueueWorker:
 
         try:
             await self._run_with_heartbeat(received.message_id, handler, job)
+        except TaskDeferred as exc:
+            await self._queue.set_visibility_timeout(
+                received.message_id, visibility_timeout_seconds=exc.delay_seconds
+            )
         except PermanentTaskError as exc:
             logger.error(
                 "Task permanently failed message_id=%s job_type=%s resource_id=%s "
@@ -110,7 +115,7 @@ class QueueWorker:
             )
             await self._archive(received.message_id)
         except Exception:
-            if attempt >= self._max_attempts:
+            if attempt >= self._max_attempts and not getattr(handler, "manages_attempts", False):
                 logger.exception(
                     "Task exhausted retries message_id=%s job_type=%s resource_id=%s "
                     "trace_id=%s attempt=%s failure_code=MAX_ATTEMPTS_EXCEEDED",
@@ -193,30 +198,36 @@ class QueueWorker:
         task = asyncio.create_task(handler(job))
         heartbeat_seconds = max(self._visibility_timeout_seconds / 2, 0.01)
 
-        while True:
-            try:
-                await asyncio.wait_for(
-                    asyncio.shield(task),
-                    timeout=heartbeat_seconds,
-                )
-                return
-            except TimeoutError:
+        try:
+            while True:
                 try:
-                    renewed = await self._queue.set_visibility_timeout(
-                        message_id,
-                        visibility_timeout_seconds=self._visibility_timeout_seconds,
+                    await asyncio.wait_for(
+                        asyncio.shield(task),
+                        timeout=heartbeat_seconds,
                     )
-                except Exception:
-                    logger.exception(
-                        "Queue visibility renewal errored message_id=%s",
-                        message_id,
-                    )
-                    continue
-                if not renewed:
-                    logger.warning(
-                        "Queue visibility renewal failed message_id=%s",
-                        message_id,
-                    )
+                    return
+                except TimeoutError:
+                    # A handler's own timeout is a failure, not a heartbeat tick.
+                    if task.done():
+                        await task
+                        return
+                    try:
+                        renewed = await self._queue.set_visibility_timeout(
+                            message_id,
+                            visibility_timeout_seconds=self._visibility_timeout_seconds,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Queue visibility renewal errored message_id=%s", message_id
+                        )
+                        continue
+                    if not renewed:
+                        logger.warning("Queue visibility renewal failed message_id=%s", message_id)
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
     async def _archive(self, message_id: int) -> None:
         archived = await self._queue.archive(message_id)
