@@ -16,14 +16,20 @@ from app.api.v1 import plants as plants_api
 from app.core.errors import AppError
 from app.core.security import AuthenticatedUser
 from app.main import create_app
-from app.models.care import CareEvent
-from app.models.enums import CareEventSource, CareEventStatus, MediaStatus, PersonalityType
+from app.models.care import CareEvent, CareSchedule
+from app.models.enums import (
+    CareEventSource,
+    CareEventStatus,
+    CareEventType,
+    MediaStatus,
+    PersonalityType,
+)
 from app.models.media import MediaFile
 from app.models.plant import Plant, PlantPersonalityChange, SpeciesCareGuide
 from app.models.user import UserProfile
 from app.schemas.plant import HomeDialogueKey, PlantAppearanceUpdateRequest, PlantUpdateRequest
 from app.schemas.queue import JobType, QueueJob
-from app.services.plant import today_in_timezone
+from app.services.plant import next_recurring_due_date, today_in_timezone
 from app.services.plant_management import (
     HOME_DIALOGUES,
     DeletePlantResult,
@@ -62,6 +68,7 @@ class FakePlantRepository:
         self.plants = {plant.id: plant for plant in plants}
         self.media: dict[UUID, MediaFile] = {}
         self.events: list[CareEvent] = []
+        self.schedules: list[CareSchedule] = []
         self.unread_count = 0
         self.unread_letter_count = 0
         self.marked_media_for: list[UUID] = []
@@ -138,6 +145,63 @@ class FakePlantRepository:
             )
         ]
 
+    async def latest_completed_dates(self, plant_id: UUID) -> dict[str, date]:
+        latest: dict[str, date] = {}
+        for event in self.events:
+            if (
+                event.plant_id == plant_id
+                and event.status == CareEventStatus.COMPLETED.value
+                and event.performed_on is not None
+                and event.type in {
+                    CareEventType.WATERING.value,
+                    CareEventType.REPOTTING.value,
+                }
+            ):
+                latest[event.type] = max(
+                    latest.get(event.type, event.performed_on), event.performed_on
+                )
+        return latest
+
+    async def completed_events_for_update(
+        self, plant_id: UUID, care_type: CareEventType
+    ) -> list[CareEvent]:
+        return sorted(
+            (
+                event
+                for event in self.events
+                if event.plant_id == plant_id
+                and event.type == care_type.value
+                and event.status == CareEventStatus.COMPLETED.value
+            ),
+            key=lambda event: (event.performed_on, event.recorded_at, event.id),
+            reverse=True,
+        )[:2]
+
+    async def get_schedule(
+        self, plant_id: UUID, care_type: CareEventType, *, lock: bool = False
+    ) -> CareSchedule | None:
+        return next(
+            (
+                schedule
+                for schedule in self.schedules
+                if schedule.plant_id == plant_id and schedule.type == care_type.value
+            ),
+            None,
+        )
+
+    async def get_scheduled_event_for_update(
+        self, schedule_id: UUID
+    ) -> CareEvent | None:
+        return next(
+            (
+                event
+                for event in self.events
+                if event.schedule_id == schedule_id
+                and event.status == CareEventStatus.SCHEDULED.value
+            ),
+            None,
+        )
+
     async def count_unread_notifications(self, user_id: UUID) -> int:
         return self.unread_count if user_id == self.user_id else 0
 
@@ -168,6 +232,14 @@ class FakePlantRepository:
     def add_personality_change(self, change: PlantPersonalityChange) -> None:
         self.personality_changes.append(change)
 
+    async def add(self, instance: object) -> None:
+        if isinstance(instance, CareEvent):
+            self.events.append(instance)
+        elif isinstance(instance, CareSchedule):
+            self.schedules.append(instance)
+        else:
+            raise AssertionError(f"지원하지 않는 테스트 엔티티: {type(instance)}")
+
     async def flush(self) -> None:
         self.flush_count += 1
 
@@ -183,6 +255,10 @@ def make_guide() -> SpeciesCareGuide:
         care_profile={},
         diagnosis_profile={},
         source_references=[],
+        recommended_water_min_ml=150,
+        recommended_water_max_ml=250,
+        default_watering_interval_days=7,
+        default_repotting_interval_days=30,
         active=True,
         updated_at=datetime.now(UTC),
     )
@@ -210,17 +286,45 @@ def make_plant(user_id: UUID, *, created_at: datetime | None = None) -> Plant:
     )
 
 
-def make_event(plant_id: UUID, due_date: date, *, completed: bool = False) -> CareEvent:
+def make_event(
+    plant_id: UUID,
+    due_date: date,
+    *,
+    completed: bool = False,
+    care_type: CareEventType = CareEventType.WATERING,
+    schedule_id: UUID | None = None,
+) -> CareEvent:
     now = datetime.now(UTC)
     return CareEvent(
         id=uuid4(),
         plant_id=plant_id,
-        type="WATERING",
+        schedule_id=schedule_id,
+        type=care_type.value,
         status=(CareEventStatus.COMPLETED.value if completed else CareEventStatus.SCHEDULED.value),
         source=CareEventSource.AUTO_SCHEDULE.value,
         due_date=due_date,
         performed_on=due_date if completed else None,
         recorded_at=now if completed else None,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def make_schedule(
+    plant_id: UUID,
+    care_type: CareEventType,
+    next_due_date: date,
+    *,
+    interval_days: int,
+) -> CareSchedule:
+    now = datetime.now(UTC)
+    return CareSchedule(
+        id=uuid4(),
+        plant_id=plant_id,
+        type=care_type.value,
+        interval_days=interval_days,
+        next_due_date=next_due_date,
+        enabled=True,
         created_at=now,
         updated_at=now,
     )
@@ -250,6 +354,10 @@ def test_patch_schemas_require_nonblank_non_null_changes() -> None:
         PlantUpdateRequest.model_validate({"nickname": None})
     with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"personality_type": None})
+    with pytest.raises(ValidationError):
+        PlantUpdateRequest.model_validate({"last_watered_on": None})
+    with pytest.raises(ValidationError):
+        PlantUpdateRequest.model_validate({"last_repotted_on": None})
     with pytest.raises(ValidationError):
         PlantUpdateRequest.model_validate({"personality_type": "UNKNOWN"})
     with pytest.raises(ValidationError):
@@ -286,6 +394,8 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
 
     assert listed.items[0].started_on == plant.started_on
     assert detail.nickname == "초록이"
+    assert detail.last_watered_on is None
+    assert detail.last_repotted_on is None
     assert updated.nickname == "새이름"
     assert appearance.color_id == "color_yellow"
     assert appearance.hair_id == "hair_monstera"
@@ -295,6 +405,115 @@ async def test_list_detail_and_partial_updates_return_owned_active_plants() -> N
     with pytest.raises(AppError) as error:
         await service.get_plant(uuid4(), plant.id)
     assert error.value.code == "PLANT_NOT_FOUND"
+
+
+async def test_care_date_update_corrects_latest_history_and_reschedules() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+    today = today_in_timezone("Asia/Seoul")
+    schedule = make_schedule(
+        plant.id,
+        CareEventType.WATERING,
+        today + timedelta(days=2),
+        interval_days=7,
+    )
+    previous = make_event(
+        plant.id,
+        today - timedelta(days=12),
+        completed=True,
+        schedule_id=schedule.id,
+    )
+    latest = make_event(
+        plant.id,
+        today - timedelta(days=5),
+        completed=True,
+        schedule_id=schedule.id,
+    )
+    scheduled = make_event(
+        plant.id,
+        today + timedelta(days=2),
+        schedule_id=schedule.id,
+    )
+    repository.schedules = [schedule]
+    repository.events = [previous, latest, scheduled]
+    corrected_date = today - timedelta(days=3)
+
+    response = await service.update_plant(
+        user_id,
+        plant.id,
+        PlantUpdateRequest(last_watered_on=corrected_date),
+    )
+
+    expected_due_date = next_recurring_due_date(corrected_date, 7, today)
+    assert response.last_watered_on == corrected_date
+    assert response.last_repotted_on is None
+    assert latest.performed_on == corrected_date
+    assert previous.performed_on == today - timedelta(days=12)
+    assert schedule.next_due_date == expected_due_date
+    assert scheduled.due_date == expected_due_date
+
+
+async def test_care_date_update_creates_missing_repotting_history_and_schedule() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+    today = today_in_timezone("Asia/Seoul")
+    performed_on = today - timedelta(days=2)
+
+    response = await service.update_plant(
+        user_id,
+        plant.id,
+        PlantUpdateRequest(last_repotted_on=performed_on),
+    )
+
+    schedule = next(
+        item for item in repository.schedules if item.type == CareEventType.REPOTTING.value
+    )
+    completed = next(
+        event
+        for event in repository.events
+        if event.type == CareEventType.REPOTTING.value
+        and event.status == CareEventStatus.COMPLETED.value
+    )
+    scheduled = next(
+        event
+        for event in repository.events
+        if event.type == CareEventType.REPOTTING.value
+        and event.status == CareEventStatus.SCHEDULED.value
+    )
+    assert response.last_repotted_on == performed_on
+    assert completed.performed_on == performed_on
+    assert completed.schedule_id == schedule.id
+    assert scheduled.schedule_id == schedule.id
+    assert scheduled.due_date == next_recurring_due_date(performed_on, 30, today)
+
+
+async def test_care_date_update_rejects_future_and_preceding_history() -> None:
+    user_id = uuid4()
+    plant = make_plant(user_id)
+    service, repository, _storage, _ = build_service([plant])
+    today = today_in_timezone("Asia/Seoul")
+
+    with pytest.raises(AppError) as future:
+        await service.update_plant(
+            user_id,
+            plant.id,
+            PlantUpdateRequest(last_watered_on=today + timedelta(days=1)),
+        )
+    assert future.value.code == "FUTURE_DATE_NOT_ALLOWED"
+
+    repository.events = [
+        make_event(plant.id, today - timedelta(days=10), completed=True),
+        make_event(plant.id, today - timedelta(days=5), completed=True),
+    ]
+    with pytest.raises(AppError) as before_previous:
+        await service.update_plant(
+            user_id,
+            plant.id,
+            PlantUpdateRequest(last_watered_on=today - timedelta(days=11)),
+        )
+    assert before_previous.value.code == "CARE_DATE_BEFORE_PREVIOUS_EVENT"
 
 
 async def test_personality_update_records_only_real_changes() -> None:

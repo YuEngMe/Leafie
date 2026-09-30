@@ -2,7 +2,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import and_, func, or_, select, union_all, update
@@ -11,9 +11,17 @@ from sqlalchemy.sql import Select
 
 from app.core.errors import AppError
 from app.integrations.storage import StorageGateway
-from app.models.care import CareEvent
+from app.models.care import CareEvent, CareSchedule
 from app.models.diagnosis import Diagnosis
-from app.models.enums import CareEventStatus, CareViewStatus, MediaStatus, PersonalityType
+from app.models.enums import (
+    CareEventSource,
+    CareEventStatus,
+    CareEventType,
+    CareViewStatus,
+    MediaStatus,
+    PersonalityType,
+    WaterRecommendationSource,
+)
 from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
@@ -37,7 +45,7 @@ from app.schemas.plant import (
     PlantUpdateRequest,
 )
 from app.services.letter import visible_letters
-from app.services.plant import today_in_timezone
+from app.services.plant import next_recurring_due_date, today_in_timezone
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +189,20 @@ class PlantManagementRepository(Protocol):
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]: ...
 
+    async def latest_completed_dates(self, plant_id: UUID) -> dict[str, date]: ...
+
+    async def completed_events_for_update(
+        self, plant_id: UUID, care_type: CareEventType
+    ) -> list[CareEvent]: ...
+
+    async def get_schedule(
+        self, plant_id: UUID, care_type: CareEventType, *, lock: bool = False
+    ) -> CareSchedule | None: ...
+
+    async def get_scheduled_event_for_update(
+        self, schedule_id: UUID
+    ) -> CareEvent | None: ...
+
     async def count_unread_notifications(self, user_id: UUID) -> int: ...
 
     async def count_unread_letters(self, user_id: UUID) -> int: ...
@@ -192,6 +214,8 @@ class PlantManagementRepository(Protocol):
     async def mark_plant_media_deleted(self, plant_id: UUID, user_id: UUID) -> None: ...
 
     def add_personality_change(self, change: PlantPersonalityChange) -> None: ...
+
+    async def add(self, instance: object) -> None: ...
 
     async def flush(self) -> None: ...
 
@@ -309,6 +333,63 @@ class SQLAlchemyPlantManagementRepository:
         )
         return list(result)
 
+    async def latest_completed_dates(self, plant_id: UUID) -> dict[str, date]:
+        rows = await self._session.execute(
+            select(CareEvent.type, func.max(CareEvent.performed_on).label("performed_on"))
+            .where(
+                CareEvent.plant_id == plant_id,
+                CareEvent.status == CareEventStatus.COMPLETED.value,
+                CareEvent.type.in_(
+                    [CareEventType.WATERING.value, CareEventType.REPOTTING.value]
+                ),
+            )
+            .group_by(CareEvent.type)
+        )
+        return {row.type: row.performed_on for row in rows if row.performed_on is not None}
+
+    async def completed_events_for_update(
+        self, plant_id: UUID, care_type: CareEventType
+    ) -> list[CareEvent]:
+        result = await self._session.scalars(
+            select(CareEvent)
+            .where(
+                CareEvent.plant_id == plant_id,
+                CareEvent.type == care_type.value,
+                CareEvent.status == CareEventStatus.COMPLETED.value,
+            )
+            .order_by(
+                CareEvent.performed_on.desc(),
+                CareEvent.recorded_at.desc(),
+                CareEvent.id.desc(),
+            )
+            .limit(2)
+            .with_for_update()
+        )
+        return list(result)
+
+    async def get_schedule(
+        self, plant_id: UUID, care_type: CareEventType, *, lock: bool = False
+    ) -> CareSchedule | None:
+        statement = select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id,
+            CareSchedule.type == care_type.value,
+        )
+        if lock:
+            statement = statement.with_for_update()
+        return await self._session.scalar(statement)
+
+    async def get_scheduled_event_for_update(
+        self, schedule_id: UUID
+    ) -> CareEvent | None:
+        return await self._session.scalar(
+            select(CareEvent)
+            .where(
+                CareEvent.schedule_id == schedule_id,
+                CareEvent.status == CareEventStatus.SCHEDULED.value,
+            )
+            .with_for_update()
+        )
+
     async def count_unread_notifications(self, user_id: UUID) -> int:
         value = await self._session.scalar(
             select(func.count(Notification.id)).where(
@@ -350,6 +431,10 @@ class SQLAlchemyPlantManagementRepository:
 
     def add_personality_change(self, change: PlantPersonalityChange) -> None:
         self._session.add(change)
+
+    async def add(self, instance: object) -> None:
+        self._session.add(instance)
+        await self._session.flush()
 
     async def flush(self) -> None:
         await self._session.flush()
@@ -397,6 +482,10 @@ class PlantManagementService:
     ) -> PlantDetailResponse:
         context = await self._require_plant(user_id, plant_id, lock=True)
         values = request.model_dump(exclude_unset=True, exclude_none=True)
+        care_date_fields = {
+            CareEventType.WATERING: values.pop("last_watered_on", None),
+            CareEventType.REPOTTING: values.pop("last_repotted_on", None),
+        }
         requested_personality = values.get("personality_type")
         if requested_personality is not None:
             next_personality = requested_personality.value
@@ -410,7 +499,18 @@ class PlantManagementService:
                 )
         for field, value in values.items():
             setattr(context.plant, field, value.value if hasattr(value, "value") else value)
-        context.plant.updated_at = datetime.now(UTC)
+        now = datetime.now(UTC)
+        today = today_in_timezone(context.timezone)
+        for care_type, performed_on in care_date_fields.items():
+            if performed_on is not None:
+                await self._correct_latest_care_date(
+                    context,
+                    care_type,
+                    performed_on,
+                    today=today,
+                    now=now,
+                )
+        context.plant.updated_at = now
         await self._repository.flush()
         return await self._detail_response(user_id, context)
 
@@ -527,6 +627,7 @@ class PlantManagementService:
     async def _detail_response(self, user_id: UUID, context: PlantContext) -> PlantDetailResponse:
         plant = context.plant
         guide = context.guide
+        care_dates = await self._repository.latest_completed_dates(plant.id)
         return PlantDetailResponse(
             id=plant.id,
             nickname=plant.nickname,
@@ -538,6 +639,8 @@ class PlantManagementService:
             flowering_period=guide.flowering_period,
             primary_photo_url=await self._photo_url(user_id, plant),
             started_on=plant.started_on,
+            last_watered_on=care_dates.get(CareEventType.WATERING.value),
+            last_repotted_on=care_dates.get(CareEventType.REPOTTING.value),
             place_name=plant.place_name,
             personality_type=plant.personality_type,
             body_id=plant.body_id,
@@ -547,6 +650,127 @@ class PlantManagementService:
             created_at=plant.created_at,
             updated_at=plant.updated_at,
         )
+
+    async def _correct_latest_care_date(
+        self,
+        context: PlantContext,
+        care_type: CareEventType,
+        performed_on: date,
+        *,
+        today: date,
+        now: datetime,
+    ) -> None:
+        if performed_on > today:
+            raise AppError(
+                code="FUTURE_DATE_NOT_ALLOWED",
+                message="미래 날짜는 입력할 수 없습니다.",
+                status_code=400,
+            )
+
+        interval_days = (
+            context.guide.default_watering_interval_days
+            if care_type == CareEventType.WATERING
+            else context.guide.default_repotting_interval_days
+        )
+        schedule = await self._repository.get_schedule(context.plant.id, care_type)
+        scheduled_event = (
+            await self._repository.get_scheduled_event_for_update(schedule.id)
+            if schedule is not None
+            else None
+        )
+        if schedule is not None:
+            schedule = await self._repository.get_schedule(
+                context.plant.id, care_type, lock=True
+            )
+
+        completed_events = await self._repository.completed_events_for_update(
+            context.plant.id, care_type
+        )
+        previous_performed_on = (
+            completed_events[1].performed_on if len(completed_events) > 1 else None
+        )
+        if previous_performed_on is not None and performed_on < previous_performed_on:
+            raise AppError(
+                code="CARE_DATE_BEFORE_PREVIOUS_EVENT",
+                message="이전 완료 기록보다 과거 날짜로 변경할 수 없습니다.",
+                status_code=409,
+            )
+
+        if schedule is None and interval_days is not None:
+            schedule = CareSchedule(
+                id=uuid4(),
+                plant_id=context.plant.id,
+                type=care_type.value,
+                interval_days=interval_days,
+                next_due_date=next_recurring_due_date(performed_on, interval_days, today),
+                recommended_water_min_ml=(
+                    context.guide.recommended_water_min_ml
+                    if care_type == CareEventType.WATERING
+                    else None
+                ),
+                recommended_water_max_ml=(
+                    context.guide.recommended_water_max_ml
+                    if care_type == CareEventType.WATERING
+                    else None
+                ),
+                recommendation_source=(
+                    WaterRecommendationSource.SPECIES_GUIDE.value
+                    if care_type == CareEventType.WATERING
+                    and context.guide.recommended_water_min_ml is not None
+                    and context.guide.recommended_water_max_ml is not None
+                    else None
+                ),
+                enabled=True,
+                created_at=now,
+                updated_at=now,
+            )
+            await self._repository.add(schedule)
+
+        if completed_events:
+            completed_event = completed_events[0]
+            completed_event.performed_on = performed_on
+            completed_event.schedule_id = schedule.id if schedule is not None else None
+            completed_event.updated_at = now
+        else:
+            await self._repository.add(
+                CareEvent(
+                    id=uuid4(),
+                    plant_id=context.plant.id,
+                    schedule_id=schedule.id if schedule is not None else None,
+                    type=care_type.value,
+                    status=CareEventStatus.COMPLETED.value,
+                    source=CareEventSource.USER_CREATED.value,
+                    due_date=performed_on,
+                    performed_on=performed_on,
+                    recorded_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+        if schedule is None or interval_days is None:
+            return
+        next_due_date = next_recurring_due_date(performed_on, interval_days, today)
+        schedule.next_due_date = next_due_date
+        schedule.enabled = True
+        schedule.updated_at = now
+        if scheduled_event is None:
+            await self._repository.add(
+                CareEvent(
+                    id=uuid4(),
+                    plant_id=context.plant.id,
+                    schedule_id=schedule.id,
+                    type=care_type.value,
+                    status=CareEventStatus.SCHEDULED.value,
+                    source=CareEventSource.AUTO_SCHEDULE.value,
+                    due_date=next_due_date,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        else:
+            scheduled_event.due_date = next_due_date
+            scheduled_event.updated_at = now
 
     async def _photo_url(self, user_id: UUID, plant: Plant) -> str | None:
         if plant.primary_media_file_id is None:

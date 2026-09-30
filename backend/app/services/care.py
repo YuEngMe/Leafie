@@ -64,6 +64,8 @@ class CareRepository(Protocol):
         self, event_id: UUID, user_id: UUID
     ) -> CareEventContext | None: ...
 
+    async def lock_owned_plant_for_event(self, event_id: UUID, user_id: UUID) -> bool: ...
+
     async def get_schedule_for_update(self, schedule_id: UUID) -> CareSchedule | None: ...
 
     async def get_repotting_schedule_for_update(
@@ -144,6 +146,19 @@ class SQLAlchemyCareRepository:
         if row is None:
             return None
         return CareEventContext(event=row[0], timezone=row.timezone)
+
+    async def lock_owned_plant_for_event(self, event_id: UUID, user_id: UUID) -> bool:
+        plant_id = await self._session.scalar(
+            select(Plant.id)
+            .join(CareEvent, CareEvent.plant_id == Plant.id)
+            .where(
+                CareEvent.id == event_id,
+                Plant.user_id == user_id,
+                Plant.deleted_at.is_(None),
+            )
+            .with_for_update(of=Plant)
+        )
+        return plant_id is not None
 
     async def get_scheduled_repotting_for_update(
         self, plant_id: UUID
@@ -306,6 +321,12 @@ class CareService:
     async def complete_event(
         self, user_id: UUID, event_id: UUID, request: CareEventCompleteRequest
     ) -> CareEventCompleteResponse:
+        if not await self._repository.lock_owned_plant_for_event(event_id, user_id):
+            raise AppError(
+                code="CARE_EVENT_NOT_FOUND",
+                message="관리 일정을 찾을 수 없습니다.",
+                status_code=404,
+            )
         context = await self._repository.get_event_for_update(event_id, user_id)
         if context is None:
             raise AppError(
