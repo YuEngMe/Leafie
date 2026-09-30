@@ -22,6 +22,30 @@ def test_diagnosis_openapi_has_no_conversation_contract() -> None:
     assert "related_conversation_id" not in schemas["DiagnosisDetailResponse"]["properties"]
 
 
+def test_diagnosis_openapi_uses_cause_probability_and_care_text_without_numeric_score() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    detail = schemas["DiagnosisDetailResponse"]["properties"]
+    assert set(detail) == {
+        "id",
+        "plant_id",
+        "status",
+        "diagnosed_at",
+        "photo_url",
+        "overall_condition",
+        "condition_label",
+        "observations",
+        "possible_causes",
+        "recommended_care",
+        "retake_reason_code",
+        "failure_code",
+    }
+    assert detail["recommended_care"]["type"] == "array"
+    assert detail["recommended_care"]["items"]["type"] == "string"
+    confidence = schemas["DiagnosisCauseResponse"]["properties"]["confidence"]
+    assert {"type": "number", "minimum": 0, "maximum": 1} in confidence["anyOf"]
+    assert {"type": "null"} in confidence["anyOf"]
+
+
 def test_diary_openapi_uses_weather_and_title_without_condition_statistics() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     request = schemas["DiaryUpsertRequest"]

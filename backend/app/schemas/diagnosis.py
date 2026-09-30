@@ -20,7 +20,12 @@ class DiagnosisCreatedResponse(BaseModel):
 
 class DiagnosisCauseResponse(BaseModel):
     name: str
-    confidence: float | None = Field(default=None, ge=0, le=1)
+    confidence: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Probability of this possible cause, not a plant health score.",
+    )
 
 
 class DiagnosisListItem(BaseModel):
@@ -49,7 +54,9 @@ class DiagnosisDetailResponse(BaseModel):
     condition_label: str | None
     observations: list[str]
     possible_causes: list[DiagnosisCauseResponse]
-    recommended_care: list[str]
+    recommended_care: list[str] = Field(
+        description="Care guidance text; no calculated watering volume or default ml amount."
+    )
     retake_reason_code: str | None
     failure_code: str | None
 
