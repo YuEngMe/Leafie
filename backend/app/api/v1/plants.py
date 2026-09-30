@@ -28,10 +28,15 @@ from app.schemas.plant import (
     PlantUpdateRequest,
 )
 from app.schemas.queue import JobType, QueueJob
+from app.schemas.sensor import PlantSensorDeviceConnectRequest, PlantSensorDeviceResponse
 from app.services.plant import PlantRegistrationService, SQLAlchemyPlantRegistrationRepository
 from app.services.plant_management import (
     PlantManagementService,
     SQLAlchemyPlantManagementRepository,
+)
+from app.services.sensor_management import (
+    SensorDeviceManagementService,
+    SQLAlchemySensorDeviceManagementRepository,
 )
 
 router = APIRouter(prefix="/plants", tags=["plants"])
@@ -55,6 +60,10 @@ def build_management_service(
         storage,
         download_url_expires_seconds=settings.media_download_url_expires_seconds,
     )
+
+
+def build_sensor_management_service(session: AsyncSession) -> SensorDeviceManagementService:
+    return SensorDeviceManagementService(SQLAlchemySensorDeviceManagementRepository(session))
 
 
 @router.post("", response_model=PlantCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -159,6 +168,29 @@ async def delete_plant(
             session=session,
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{plant_id}/sensor-device", response_model=PlantSensorDeviceResponse)
+async def connect_plant_sensor_device(
+    plant_id: UUID,
+    request: PlantSensorDeviceConnectRequest,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> PlantSensorDeviceResponse:
+    return await build_sensor_management_service(session).connect_plant_device(
+        current_user.id, plant_id, request.device_id
+    )
+
+
+@router.delete("/{plant_id}/sensor-device", status_code=status.HTTP_204_NO_CONTENT)
+async def disconnect_plant_sensor_device(
+    plant_id: UUID,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> None:
+    await build_sensor_management_service(session).disconnect_plant_device(
+        current_user.id, plant_id
+    )
 
 
 @home_router.get("/home", response_model=HomeResponse)

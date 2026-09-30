@@ -10,6 +10,7 @@ from app.schemas.sensor import (
     SensorDeviceClaimCompleteResponse,
     SensorDeviceClaimCreateResponse,
     SensorDeviceClaimStatusResponse,
+    SensorDeviceListResponse,
     SensorDeviceRegisterRequest,
     SensorDeviceResponse,
 )
@@ -18,6 +19,10 @@ from app.services.sensor import (
     SensorDeviceService,
     SQLAlchemySensorDeviceClaimRepository,
     SQLAlchemySensorDeviceRepository,
+)
+from app.services.sensor_management import (
+    SensorDeviceManagementService,
+    SQLAlchemySensorDeviceManagementRepository,
 )
 
 router = APIRouter(prefix="/sensor-devices", tags=["sensor-devices"])
@@ -35,6 +40,10 @@ def build_claim_service(session: AsyncSession) -> SensorDeviceClaimService:
     return SensorDeviceClaimService(SQLAlchemySensorDeviceClaimRepository(session))
 
 
+def build_management_service(session: AsyncSession) -> SensorDeviceManagementService:
+    return SensorDeviceManagementService(SQLAlchemySensorDeviceManagementRepository(session))
+
+
 @router.post(
     "",
     response_model=SensorDeviceResponse,
@@ -49,6 +58,23 @@ async def register_sensor_device(
     result = await build_service(session).register_device(request.device_id)
     response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
     return result.response
+
+
+@router.get("", response_model=SensorDeviceListResponse)
+async def list_sensor_devices(
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> SensorDeviceListResponse:
+    return await build_management_service(session).list_devices(current_user.id)
+
+
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def release_sensor_device(
+    device_id: str,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> None:
+    await build_management_service(session).release_device(current_user.id, device_id)
 
 
 @router.post(
