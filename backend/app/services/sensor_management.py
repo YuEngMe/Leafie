@@ -17,6 +17,7 @@ from app.schemas.sensor import (
     SensorDeviceListItemResponse,
     SensorDeviceListResponse,
 )
+from app.services.sensor_status import soil_raw_to_percent
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +186,9 @@ class SensorDeviceManagementService:
                     last_seen_at=row.device.last_seen_at,
                     plant_id=row.plant_id,
                     lux=row.lux,
-                    soil_raw=row.soil_raw,
+                    soil_percent=(
+                        soil_raw_to_percent(row.soil_raw) if row.soil_raw is not None else None
+                    ),
                     measured_at=row.measured_at,
                 )
                 for row in rows

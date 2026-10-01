@@ -671,7 +671,7 @@ unique 충돌은 `200`으로 처리한다.
 
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 호출자가 소유한(`owner_user_id`가
 본인인) 기기 목록을 반환합니다. 기기당 연결된 식물(`plantId`, 없으면 `null`)과
-`sensor_readings`의 최신 1건(`lux`, `soilRaw`, `measuredAt`, 측정값이 없으면 모두
+`sensor_readings`의 최신 1건(`lux`, `soilPercent`, `measuredAt`, 측정값이 없으면 모두
 `null`)을 함께 반환합니다.
 
 ```json
@@ -683,7 +683,7 @@ unique 충돌은 `200`으로 처리한다.
       "lastSeenAt": "2026-07-01T00:00:00Z",
       "plantId": "uuid-or-null",
       "lux": 123.4,
-      "soilRaw": 2048,
+      "soilPercent": 64,
       "measuredAt": "2026-07-01T00:00:00Z"
     }
   ]
@@ -719,6 +719,38 @@ unique 충돌은 `200`으로 처리한다.
 
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다. 연결을 해제합니다. `plant_id`가
 호출자 소유가 아니면 `404`, 연결이 이미 없으면 오류 없이 `204`(멱등)입니다.
+
+### `GET /plants/{plant_id}/sensor/status`
+
+호출 주체는 모바일 앱(홈 화면)이고, 사용자 JWT가 필요합니다. 식물에 연결된 센서의 연결
+상태, 최근 측정값, 토양 수분(%), 오늘 누적 조도를 반환합니다. `plant_id`가 호출자 소유가
+아니면 `404`입니다.
+
+```json
+{
+  "plantId": "uuid",
+  "deviceId": "D40592E7D168",
+  "connection": "ACTIVE",
+  "latest": {
+    "lux": 123.4,
+    "soilPercent": 50,
+    "measuredAt": "2026-10-01T02:55:00Z",
+    "receivedAt": "2026-10-01T02:55:00Z"
+  },
+  "dailyLight": { "date": "2026-10-01", "luxHours": 1000.0 }
+}
+```
+
+- `connection`: `NO_DEVICE`(연결된 기기 없음), `NO_DATA`(연결은 있으나 측정값 없음),
+  `STALE`(마지막 수신이 30분 넘음), `ACTIVE`. `NO_DEVICE`는 `deviceId`를 포함한 나머지가
+  모두 `null`이고, `NO_DATA`는 `deviceId`만 채워집니다.
+- `latest`는 가장 최근 수신 1건입니다. 센서 읽기에 실패한 필드는 `null`입니다.
+- `soilPercent`(이 API와 `GET /sensor-devices` 공통)는 `soilRaw`를 건조·습윤 기준 raw로
+  선형 변환해 0~100으로 자른 정수입니다. 응답에 raw 값은 포함하지 않습니다. 기준값은
+  임시값이며 실측값 확정은 #118에서 다룹니다. 센서 기준 상대값이고 푸시 알림 임계값은
+  이 API가 정하지 않습니다.
+- `dailyLight.luxHours`는 사용자 시간대 기준 `date` 하루의 조도 합에 샘플 주기(10분)를
+  곱한 값입니다. 읽기 실패(`null`)한 샘플은 합에서 빠집니다.
 
 ### `POST /sensor-devices/{deviceId}/claims`
 
