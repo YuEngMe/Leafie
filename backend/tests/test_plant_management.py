@@ -21,6 +21,7 @@ from app.models.enums import (
     CareEventSource,
     CareEventStatus,
     CareEventType,
+    DiagnosisStatus,
     MediaStatus,
     PersonalityType,
 )
@@ -33,11 +34,14 @@ from app.services.plant import next_recurring_due_date, today_in_timezone
 from app.services.plant_management import (
     HOME_DIALOGUES,
     DeletePlantResult,
+    DiagnosisPromptState,
+    HomeDialogueEvent,
     PlantContext,
     PlantManagementService,
     days_together,
     home_background_phase,
     home_dialogue,
+    should_prompt_diagnosis,
 )
 from app.tasks.plant import PlantDeleteHandler
 
@@ -68,6 +72,12 @@ class FakePlantRepository:
         self.plants = {plant.id: plant for plant in plants}
         self.media: dict[UUID, MediaFile] = {}
         self.events: list[CareEvent] = []
+        self.dialogue_events: list[HomeDialogueEvent] = []
+        self.diary_dates: set[date] = set()
+        self.diagnosis_state = DiagnosisPromptState(
+            latest_status=None,
+            last_completed_at=None,
+        )
         self.schedules: list[CareSchedule] = []
         self.unread_count = 0
         self.unread_letter_count = 0
@@ -124,6 +134,19 @@ class FakePlantRepository:
             )
         ]
 
+    async def list_home_dialogue_events(
+        self, plant_id: UUID, started_at: datetime, ended_at: datetime
+    ) -> list[HomeDialogueEvent]:
+        return [
+            event for event in self.dialogue_events if started_at <= event.occurred_at < ended_at
+        ]
+
+    async def diary_exists_on(self, plant_id: UUID, diary_date: date) -> bool:
+        return diary_date in self.diary_dates
+
+    async def diagnosis_prompt_state(self, plant_id: UUID) -> DiagnosisPromptState:
+        return self.diagnosis_state
+
     async def list_calendar_events(
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]:
@@ -152,7 +175,8 @@ class FakePlantRepository:
                 event.plant_id == plant_id
                 and event.status == CareEventStatus.COMPLETED.value
                 and event.performed_on is not None
-                and event.type in {
+                and event.type
+                in {
                     CareEventType.WATERING.value,
                     CareEventType.REPOTTING.value,
                 }
@@ -189,9 +213,7 @@ class FakePlantRepository:
             None,
         )
 
-    async def get_scheduled_event_for_update(
-        self, schedule_id: UUID
-    ) -> CareEvent | None:
+    async def get_scheduled_event_for_update(self, schedule_id: UUID) -> CareEvent | None:
         return next(
             (
                 event
@@ -695,8 +717,108 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     assert home.room is not None
     assert home.room.dialogue_key.value == "NORMAL"
     assert home.room.dialogue == "오늘도 같이 놀자!"
+    assert home.room.dialogue_queue == []
     assert [event.view_status.value for event in home.today_events] == ["TODAY"]
     assert "daily_memo" not in home.model_dump()
+
+
+async def test_home_returns_all_transient_dialogues_in_priority_order() -> None:
+    user_id = uuid4()
+    now = datetime(2026, 10, 2, 3, 0, tzinfo=UTC)  # Asia/Seoul 12:00
+    plant = make_plant(user_id, created_at=now - timedelta(days=10))
+    service, repository, _storage, _ = build_service([plant])
+    water_id = uuid4()
+    older_water_id = uuid4()
+    diary_id = uuid4()
+    letter_id = uuid4()
+    repository.dialogue_events = [
+        HomeDialogueEvent(
+            event_id=letter_id,
+            dialogue_key=HomeDialogueKey.LETTER_SENT,
+            occurred_at=now - timedelta(minutes=1),
+        ),
+        HomeDialogueEvent(
+            event_id=diary_id,
+            dialogue_key=HomeDialogueKey.DIARY_RECEIVED,
+            occurred_at=now - timedelta(minutes=2),
+        ),
+        HomeDialogueEvent(
+            event_id=water_id,
+            dialogue_key=HomeDialogueKey.WATERING_COMPLETED,
+            occurred_at=now - timedelta(minutes=3),
+        ),
+        HomeDialogueEvent(
+            event_id=older_water_id,
+            dialogue_key=HomeDialogueKey.WATERING_COMPLETED,
+            occurred_at=now - timedelta(minutes=4),
+        ),
+    ]
+
+    response = await service.get_home(user_id, None, now=now)
+
+    assert response.room is not None
+    assert [item.dialogue_key for item in response.room.dialogue_queue] == [
+        HomeDialogueKey.WATERING_COMPLETED,
+        HomeDialogueKey.WATERING_COMPLETED,
+        HomeDialogueKey.DIARY_RECEIVED,
+        HomeDialogueKey.LETTER_SENT,
+    ]
+    assert [item.event_id for item in response.room.dialogue_queue] == [
+        str(water_id),
+        str(older_water_id),
+        str(diary_id),
+        str(letter_id),
+    ]
+    assert all(item.duration_seconds == 15 for item in response.room.dialogue_queue)
+    assert response.room.dialogue_key == HomeDialogueKey.DIAGNOSIS_PROMPT
+
+
+async def test_home_fallback_prefers_evening_diary_prompt_then_diagnosis() -> None:
+    user_id = uuid4()
+    now = datetime(2026, 10, 2, 10, 0, tzinfo=UTC)  # Asia/Seoul 19:00
+    plant = make_plant(user_id, created_at=now - timedelta(days=10))
+    service, repository, _storage, _ = build_service([plant])
+
+    without_diary = await service.get_home(user_id, None, now=now)
+    assert without_diary.room is not None
+    assert without_diary.room.dialogue_key == HomeDialogueKey.DIARY_PROMPT
+
+    repository.diary_dates.add(date(2026, 10, 2))
+    with_diary = await service.get_home(user_id, None, now=now)
+    assert with_diary.room is not None
+    assert with_diary.room.dialogue_key == HomeDialogueKey.DIAGNOSIS_PROMPT
+
+
+def test_diagnosis_prompt_rules_cover_retake_in_progress_and_fourteen_days() -> None:
+    now = datetime(2026, 10, 2, 3, 0, tzinfo=UTC)
+    plant = make_plant(uuid4(), created_at=now - timedelta(days=30))
+
+    assert should_prompt_diagnosis(
+        plant,
+        DiagnosisPromptState(DiagnosisStatus.NEEDS_RETAKE.value, now),
+        now,
+    )
+    assert not should_prompt_diagnosis(
+        plant,
+        DiagnosisPromptState(DiagnosisStatus.PROCESSING.value, None),
+        now,
+    )
+    assert should_prompt_diagnosis(
+        plant,
+        DiagnosisPromptState(
+            DiagnosisStatus.COMPLETED.value,
+            now - timedelta(days=14),
+        ),
+        now,
+    )
+    assert not should_prompt_diagnosis(
+        plant,
+        DiagnosisPromptState(
+            DiagnosisStatus.COMPLETED.value,
+            now - timedelta(days=13),
+        ),
+        now,
+    )
 
 
 async def test_home_uses_selected_or_explicit_plant_and_rejects_unknown_plant() -> None:
@@ -724,18 +846,14 @@ async def test_home_uses_selected_or_explicit_plant_and_rejects_unknown_plant() 
 def test_home_days_start_at_one_and_background_changes_at_six_and_eighteen() -> None:
     today = today_in_timezone("Asia/Seoul")
     assert days_together(today, "Asia/Seoul") == 1
-    assert home_background_phase(
-        "UTC", now=datetime(2026, 1, 1, 5, 59, tzinfo=UTC)
-    ).value == "NIGHT"
-    assert home_background_phase(
-        "UTC", now=datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
-    ).value == "DAY"
-    assert home_background_phase(
-        "UTC", now=datetime(2026, 1, 1, 17, 59, tzinfo=UTC)
-    ).value == "DAY"
-    assert home_background_phase(
-        "UTC", now=datetime(2026, 1, 1, 18, 0, tzinfo=UTC)
-    ).value == "NIGHT"
+    assert (
+        home_background_phase("UTC", now=datetime(2026, 1, 1, 5, 59, tzinfo=UTC)).value == "NIGHT"
+    )
+    assert home_background_phase("UTC", now=datetime(2026, 1, 1, 6, 0, tzinfo=UTC)).value == "DAY"
+    assert home_background_phase("UTC", now=datetime(2026, 1, 1, 17, 59, tzinfo=UTC)).value == "DAY"
+    assert (
+        home_background_phase("UTC", now=datetime(2026, 1, 1, 18, 0, tzinfo=UTC)).value == "NIGHT"
+    )
 
 
 def test_home_dialogues_cover_every_personality_and_situation() -> None:
@@ -793,6 +911,7 @@ def test_home_route_returns_v2_contract(monkeypatch: pytest.MonkeyPatch) -> None
     assert payload["plant"]["days_together"] == 11
     assert payload["room"]["dialogue_key"] == "NORMAL"
     assert payload["room"]["dialogue"] == "오늘도 같이 놀자!"
+    assert payload["room"]["dialogue_queue"] == []
     assert payload["today_events"][0]["care_type"] == "WATERING"
     assert payload["unread_letter_count"] == 3
 
