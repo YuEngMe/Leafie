@@ -330,8 +330,17 @@ hair_daisy
   },
   "room": {
     "background_phase": "DAY",
-    "dialogue_key": "NORMAL",
-    "dialogue": "와줬네… 사실 조금 기다렸어."
+    "dialogue_key": "DIAGNOSIS_PROMPT",
+    "dialogue": "저기… 내 모습 한 번만 살펴봐 줄래?",
+    "dialogue_queue": [
+      {
+        "event_id": "uuid",
+        "dialogue_key": "WATERING_COMPLETED",
+        "dialogue": "물 줘서 고마워… 이제 목 안 말라.",
+        "duration_seconds": 15,
+        "occurred_at": "2026-08-02T09:30:00Z"
+      }
+    ]
   },
   "today_events": [
     {
@@ -350,13 +359,24 @@ hair_daisy
 
 함께한 날짜는 시작 당일을 1일로 계산합니다. `background_phase`는 사용자 시간대 기준
 06:00~17:59에 `DAY`, 그 밖에는 `NIGHT`입니다. 홈 대사는 여섯 성격과 11개 상황별 고정
-문구를 사용합니다. 발동 조건·우선순위·유지 시간과 센서 연동이 확정되기 전에는
-`dialogue_key=NORMAL`과 해당 성격의 평소 대사를 반환합니다.
+문구를 사용합니다. `dialogue_queue`는 사용자 시간대 기준 당일 발생한 비센서 이벤트를
+`WATERING_COMPLETED`, `DIARY_RECEIVED`, `LETTER_SENT` 우선순위로 모두 반환하며, 같은
+우선순위에서는 최신 이벤트가 먼저입니다. 각 항목은 15초 노출을 권장합니다. 서버는 소비
+상태를 저장하지 않으므로 앱은 `event_id`를 로컬에 기록하여 같은 이벤트를 다시 표시하지
+않습니다. 큐 항목 수에는 서버 제한을 두지 않습니다.
+
+`dialogue_key`와 `dialogue`는 큐가 끝난 뒤 표시할 fallback입니다. 사용자 시간대 기준
+18:00~23:59에 당일 다이어리가 없으면 `DIARY_PROMPT`를 반환합니다. 그 외에는 식물 등록
+7일 후부터 완료 진단이 없거나 마지막 완료 진단 후 14일이 지나면 `DIAGNOSIS_PROMPT`를
+반환합니다. 최신 진단이 `NEEDS_RETAKE`이면 즉시 진단을 유도하고, `PENDING` 또는
+`PROCESSING`이면 유도하지 않습니다. 해당 조건이 없으면 `NORMAL`입니다. 앱은 진단 유도
+대사를 다른 큐 대사가 재생된 세션에서는 다시 표시하지 않고, 다음 홈 진입 때 서버 조건이
+여전히 유효하면 다시 표시할 수 있습니다.
 
 `today_events`는 선택 식물의 오늘 물주기·분갈이·비료 일정입니다. 해 아이콘 교감은 앱
 애니메이션이며 API 호출이 없습니다. 센서 장치·토양 수분·일별 누적 조도 게이지는 센서
 담당 API에서 별도로 조회하고 홈은 센서 원시값이나 임계값을 계산하지 않습니다. 센서 계약
-연결 전 가짜 상태를 반환하지 않습니다. 식물이 없으면 `plant`, `room`은 null이며
+연결 전에는 조도·토양 수분 대사를 큐에 넣지 않습니다. 식물이 없으면 `plant`, `room`은 null이며
 `today_events`는 빈 배열입니다. 읽지 않은 편지와 알림 개수는 선택 식물이 아니라 사용자의
 전체 식물을 기준으로 계산합니다.
 
