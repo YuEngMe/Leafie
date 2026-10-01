@@ -108,16 +108,27 @@ API Gateway REST API `leafie_telemetry`의 `POST /devices/{device_id}/telemetry`
 
 | 상황 | 응답 |
 |---|---|
-| `Authorization` 헤더 없음 | `401` (Authorizer를 호출하지 않음) |
-| 토큰 불일치, 기기가 `UNCLAIMED`이거나 없음 | `403` |
-| `x-api-key` 없음 | `401` |
-| DB 조회 실패 | `500` (결과가 캐시되지 않음) |
+| `Authorization` 헤더 없음 | `401 Unauthorized` (Identity source 누락, Authorizer를 호출하지 않음) |
+| 토큰 불일치, `Bearer`가 아닌 스킴, 다른 기기 경로 | `403` (Authorizer 거부) |
+| 기기가 `UNCLAIMED`이거나 없음 | `403` (Authorizer 거부, 로컬 단위 확인) |
+| 유효한 토큰 + `x-api-key` 없음 또는 틀림 | `403 Forbidden` (API Gateway 기본 `INVALID_API_KEY` 응답) |
+| 유효한 토큰 + 올바른 `x-api-key` | `200`, SQS를 거쳐 consumer가 저장 |
+| DB 조회 실패 | `500` (결과가 캐시되지 않음, 코드상 동작이며 실측하지 않음) |
+
+위 응답은 2026-10-02에 `main` 스테이지에서 실측했다. 테스트 기기(`CLAIMED`)와 임의 토큰을 DB에 직접 넣어 확인했다.
+
+- Authorizer는 API 키 검사보다 **먼저** 실행된다. 토큰이 틀리면 `x-api-key`가 없거나 틀려도 Authorizer의 `403`이
+  나오므로, API 키 누락 응답은 유효한 토큰으로만 구분된다.
+- `Authorization` 헤더가 없으면 `x-api-key` 유무와 관계없이 `401`이다. 이 `401`을 `x-api-key` 누락 응답으로
+  읽으면 안 된다.
+- Gateway Response는 기본값을 그대로 쓴다. 커스텀 설정은 없다.
 
 - Identity source는 `method.request.header.Authorization`과 `context.path`다. 경로 파라미터는 Identity
   source로 쓸 수 없어 요청 경로 전체(`context.path`)로 대신하며, 결과는 (토큰, 기기) 단위로 **60초** 캐시된다.
 - 재claim으로 이전 `deviceToken`이 무효화돼도 캐시 때문에 최대 60초 동안은 통과할 수 있다.
 - 반환하는 정책의 Resource는 이 요청의 메서드 ARN 하나다. 캐시된 결과가 다른 경로에 쓰이지 않는다.
-- 코드와 배포 스크립트는 센서 펌웨어 저장소의 `tools/authorizer/`에 있다.
+- 코드와 배포 스크립트는 센서 펌웨어 저장소 [`jdk829355/leafie_sensor`](https://github.com/jdk829355/leafie_sensor)의
+  [`tools/authorizer/`](https://github.com/jdk829355/leafie_sensor/tree/82dfad0/tools/authorizer)(commit `82dfad0`)에 있다.
 
 ## Authorizer 전용 DB 역할
 
@@ -149,6 +160,5 @@ ALTER ROLE sensor_authorizer PASSWORD '<새 비밀번호>';
 ## 이 문서가 정하지 않는 것
 
 - claim API 구현(`POST /api/v1/sensor-devices/{deviceId}/claims` 등). 계약은 [API 명세](api-spec.md) 14절
-- 유효한 `deviceToken`으로 Authorizer 허용과 저장까지 이어지는 흐름의 종단 검증. 거부 경로(`401`/`403`)만 확인했다
 - 일별 누적 조도, 물 요구, 급수 판정, 편지 요약 어댑터(`LetterSensorSummary`)
 - 홈 표정과 센서 알림
