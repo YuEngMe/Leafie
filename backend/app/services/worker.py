@@ -37,11 +37,23 @@ class QueueWorker:
     async def run(self, stop_event: asyncio.Event) -> None:
         logger.info("Queue worker started")
         while not stop_event.is_set():
+            polling_task = asyncio.create_task(self.run_once())
+            stop_task = asyncio.create_task(stop_event.wait())
             try:
-                processed = await self.run_once()
+                done, _ = await asyncio.wait(
+                    (polling_task, stop_task), return_when=asyncio.FIRST_COMPLETED
+                )
+                if stop_task in done:
+                    break
+                processed = await polling_task
             except Exception:
                 logger.exception("Queue polling failed")
                 processed = 0
+            finally:
+                for task in (polling_task, stop_task):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(polling_task, stop_task, return_exceptions=True)
 
             if processed == 0:
                 try:

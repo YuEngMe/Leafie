@@ -191,6 +191,36 @@ async def test_worker_cancellation_cancels_handler_without_archiving():
     assert queue.archived == []
 
 
+@pytest.mark.parametrize("blocked_stage", ["queue_read", "handler"])
+async def test_stop_signal_cancels_inflight_work_without_archiving(blocked_stage):
+    entered, cancelled, stop_event = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def block(*args, **kwargs):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    queue = FakeQueue([make_message()])
+    registry = TaskRegistry()
+    if blocked_stage == "queue_read":
+        queue.read = block
+    else:
+        registry.register(JobType.DIAGNOSIS_RUN, block)
+    task = asyncio.create_task(make_worker(queue, registry).run(stop_event))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        stop_event.set()
+        await asyncio.wait_for(task, timeout=1)
+        assert cancelled.is_set()
+        assert queue.archived == []
+        assert queue.visibility_updates == []
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
 async def test_successful_task_is_archived() -> None:
     message = make_message()
     queue = FakeQueue([message])
