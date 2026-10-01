@@ -89,6 +89,18 @@ ALTER ROLE sensor_ingest PASSWORD '<새 비밀번호>';
 접속은 직접 DB 주소(IPv6 전용)가 아니라 Supavisor 풀러 주소를 쓴다. 사용자명은
 `sensor_ingest.<프로젝트 ref>` 형식이다.
 
+## Authorizer 전용 DB 역할
+
+기기별 인증을 하는 API Gateway Lambda Authorizer는 `sensor_authorizer` 역할로만 접속한다.
+consumer 역할(`sensor_ingest`)과 분리해, consumer가 해시를 읽을 수 없게 한다.
+
+- `sensor_devices`의 `id`, `status`, `sensor_token_hash` 컬럼만 SELECT할 수 있다. 쓰기 권한은 없다.
+- 비밀번호 설정과 SSM 저장은 `sensor_ingest`와 같은 방식이다.
+
+```sql
+ALTER ROLE sensor_authorizer PASSWORD '<새 비밀번호>';
+```
+
 ## 배포 순서
 
 1. 이 브랜치 PR을 병합하고 `alembic upgrade head`로 migration을 공유 DB에 적용한다.
