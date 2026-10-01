@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import SensorDeviceClaimStatus, SensorDeviceStatus
+from app.models.enums import SensorConnection, SensorDeviceClaimStatus, SensorDeviceStatus
 
 DEVICE_ID_PATTERN = r"^[0-9A-F]{12}$"
 
@@ -53,7 +53,7 @@ class SensorDeviceListItemResponse(BaseModel):
     last_seen_at: datetime | None = Field(alias="lastSeenAt")
     plant_id: UUID | None = Field(alias="plantId")
     lux: float | None = None
-    soil_raw: int | None = Field(alias="soilRaw")
+    soil_percent: int | None = Field(alias="soilPercent")
     measured_at: datetime | None = Field(alias="measuredAt")
 
 
@@ -72,3 +72,29 @@ class PlantSensorDeviceResponse(BaseModel):
 
     plant_id: UUID = Field(alias="plantId")
     device_id: str = Field(alias="deviceId")
+
+
+class PlantSensorLatestReading(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    lux: float | None
+    soil_percent: int | None = Field(alias="soilPercent")
+    measured_at: datetime | None = Field(alias="measuredAt")
+    received_at: datetime = Field(alias="receivedAt")
+
+
+class PlantSensorDailyLight(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    date: date
+    lux_hours: float = Field(alias="luxHours")
+
+
+class PlantSensorStatusResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    plant_id: UUID = Field(alias="plantId")
+    device_id: str | None = Field(alias="deviceId")
+    connection: SensorConnection
+    latest: PlantSensorLatestReading | None
+    daily_light: PlantSensorDailyLight | None = Field(alias="dailyLight")

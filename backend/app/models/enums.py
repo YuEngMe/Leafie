@@ -157,6 +157,13 @@ class SensorDeviceStatus(StrEnum):
     CLAIMED = "CLAIMED"
 
 
+class SensorConnection(StrEnum):
+    NO_DEVICE = "NO_DEVICE"
+    NO_DATA = "NO_DATA"
+    STALE = "STALE"
+    ACTIVE = "ACTIVE"
+
+
 class SensorDeviceClaimStatus(StrEnum):
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
