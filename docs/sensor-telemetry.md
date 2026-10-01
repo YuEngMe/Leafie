@@ -110,7 +110,8 @@ API Gateway REST API `leafie_telemetry`의 `POST /devices/{device_id}/telemetry`
 |---|---|
 | `Authorization` 헤더 없음 | `401 Unauthorized` (Identity source 누락, Authorizer를 호출하지 않음) |
 | 토큰 불일치, `Bearer`가 아닌 스킴, 다른 기기 경로 | `403` (Authorizer 거부) |
-| 기기가 `UNCLAIMED`이거나 없음 | `403` (Authorizer 거부, 로컬 단위 확인) |
+| 등록되지 않은 기기 | `403` (Authorizer 거부) |
+| 기기가 `UNCLAIMED` | `403` (코드상 동작이며 실측하지 않음) |
 | 유효한 토큰 + `x-api-key` 없음 또는 틀림 | `403 Forbidden` (API Gateway 기본 `INVALID_API_KEY` 응답) |
 | 유효한 토큰 + 올바른 `x-api-key` | `200`, SQS를 거쳐 consumer가 저장 |
 | DB 조회 실패 | `500` (결과가 캐시되지 않음, 코드상 동작이며 실측하지 않음) |
