@@ -9,6 +9,9 @@
 - `LETTER_GENERATION_ENABLED=false`는 배포 기본값입니다. migration과 새 API/Worker 반영 후
   활성화합니다. `UnconfiguredLetterSensorSummary`는 미설정 회귀 테스트용이며 런타임에는 미사용입니다.
 - AI 채팅·Tool Calling API, Worker, 테이블과 전용 미디어 목적은 제거했습니다.
+- 2026-10-02 로컬/공유 개발 DB에서 실제 다이어리→gpt-6-luna→472초 공개→우편함·
+  인앱 알림·읽음·삭제를 검증했습니다. NO_DEVICE/UNKNOWN 경로이며 ESP 실측 검증과
+  구분합니다. 상세와 재실행 방법은 [실제 검증 기록](ai-backend-verification.md)을 따릅니다.
 
 ## 다이어리 저장 연결 (#42 → #45)
 
