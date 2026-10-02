@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
@@ -1224,6 +1225,57 @@ void main() {
 
       expect(find.text('물 고마워!'), findsNothing);
       expect(find.text('내 상태 좀 봐 줄래?'), findsNothing);
+    });
+
+    testWidgets('일기 권유 대사를 누르면 다이어리 탭으로 간다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIARY_PROMPT',
+        dialogue: '오늘 일기 써 줄래?',
+        events: const [],
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('home-dialogue-prompt-DIARY_PROMPT')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<AppBottomNav>(find.byType(AppBottomNav)).activeIcon,
+        FigmaNavIcon.diary,
+      );
+    });
+
+    testWidgets('진단 권유 대사를 누르면 진단 화면으로 간다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIAGNOSIS_PROMPT',
+        dialogue: '내 상태 좀 봐 줄래?',
+        events: const [],
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('home-dialogue-prompt-DIAGNOSIS_PROMPT')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiagnosisScreen), findsOneWidget);
+    });
+
+    testWidgets('평소 대사는 눌러도 화면을 옮기지 않는다', (tester) async {
+      await pumpQueueHome(tester, events: const []);
+
+      expect(find.byKey(const ValueKey('home-dialogue-fallback')), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'home-dialogue-prompt-',
+              ),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('게이지가 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다', (tester) async {

@@ -474,6 +474,27 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _openDiagnosis() {
+    final plant = _serverPlant ?? widget.plant;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            DiagnosisScreen(plantId: plant?.id, plantName: plant?.name),
+      ),
+    );
+  }
+
+  /// 권유 대사를 누르면 그 일을 할 화면으로 보낸다(디자이너 확인).
+  /// 일기 권유 → 다이어리 탭, 진단 권유 → 진단 화면.
+  void _openPrompt(String dialogueKey) {
+    switch (dialogueKey) {
+      case 'DIARY_PROMPT':
+        _tabShellKey.currentState?.select(FigmaNavIcon.diary);
+      case 'DIAGNOSIS_PROMPT':
+        _openDiagnosis();
+    }
+  }
+
   Future<void> _openMailbox(String? plantId) async {
     await showPlantMailbox(
       context,
@@ -860,14 +881,7 @@ class _HomeScreenState extends State<HomeScreen>
                   top: 113,
                   child: FigmaHomeViewSwitch(
                     onOverviewTap: () {},
-                    onDiagnosisTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DiagnosisScreen(
-                          plantId: plant?.id,
-                          plantName: plant?.name,
-                        ),
-                      ),
-                    ),
+                    onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
                 if (plant != null && !_gaugesExpanded)
@@ -875,6 +889,9 @@ class _HomeScreenState extends State<HomeScreen>
                     scene: _scene,
                     serverDialogue: _requestDialogue,
                     queueMessage: _playingDialogue?.dialogue,
+                    queueKey: _playingDialogue?.dialogueKey,
+                    fallbackKey: _serverDialogueKey,
+                    onPromptTap: _openPrompt,
                     // 상황 말풍선이 없을 때는 서버의 기본 대사(평소·일기·진단
                     // 권유·조도 적당 등)를 띄운다.
                     fallbackMessage:
@@ -1369,7 +1386,17 @@ class _HomeConversation extends StatelessWidget {
     required this.serverDialogue,
     this.queueMessage,
     this.fallbackMessage,
+    this.queueKey,
+    this.fallbackKey,
+    this.onPromptTap,
   });
+
+  /// 누르면 화면을 옮기는 권유 대사 키.
+  static const promptKeys = {'DIARY_PROMPT', 'DIAGNOSIS_PROMPT'};
+
+  final String? queueKey;
+  final String? fallbackKey;
+  final ValueChanged<String>? onPromptTap;
 
   final HomeScene scene;
   final String? serverDialogue;
@@ -1381,19 +1408,37 @@ class _HomeConversation extends StatelessWidget {
   final String? fallbackMessage;
 
   /// 디자이너 확인: 새 대사 말풍선은 기존 요청 말풍선 모양을 재사용한다.
-  Widget _serverBubble(Key key, String message) => Positioned(
-    left: 20,
-    right: 20,
-    top: 209,
-    child: Center(
-      child: PlantRequestBubble(key: key, message: message),
-    ),
-  );
+  /// 권유 대사면 누를 수 있게 감싼다.
+  Widget _serverBubble(Key key, String message, String? dialogueKey) {
+    Widget bubble = PlantRequestBubble(key: key, message: message);
+    final onTap = onPromptTap;
+    if (onTap != null && promptKeys.contains(dialogueKey)) {
+      bubble = Semantics(
+        button: true,
+        child: GestureDetector(
+          key: ValueKey('home-dialogue-prompt-$dialogueKey'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onTap(dialogueKey!),
+          child: bubble,
+        ),
+      );
+    }
+    return Positioned(
+      left: 20,
+      right: 20,
+      top: 209,
+      child: Center(child: bubble),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     if (queueMessage case final message? when message.isNotEmpty) {
-      return _serverBubble(const ValueKey('home-dialogue-queue'), message);
+      return _serverBubble(
+        const ValueKey('home-dialogue-queue'),
+        message,
+        queueKey,
+      );
     }
     return switch (scene) {
       HomeScene.needsWater => Positioned(
@@ -1474,6 +1519,7 @@ class _HomeConversation extends StatelessWidget {
         final message? when message.isNotEmpty => _serverBubble(
           const ValueKey('home-dialogue-fallback'),
           message,
+          fallbackKey,
         ),
         _ => const SizedBox.shrink(),
       },
