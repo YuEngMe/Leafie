@@ -78,6 +78,8 @@ async def test_generate_uses_personality_and_isolated_snapshot(personality) -> N
         assert len(body["safety_identifier"]) == 64
         assert body["safety_identifier"] != "private-user-id"
         assert PERSONALITY_INSTRUCTIONS[personality] in body["instructions"]
+        assert "그 글의 '너/네'는 식물을 가리킨다" in body["instructions"]
+        assert "잎·뿌리는 식물 자신의 것으로 말한다" in body["instructions"]
         assert diary not in body["instructions"]
         data = json.loads(body["input"][0]["content"])
         assert data["diary_content"] == diary
