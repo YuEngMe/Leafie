@@ -4,10 +4,10 @@
 
 - 구현: `letters` 모델·migration, 다이어리 최초 저장의 트랜잭션 예약, 생성·공개 Worker,
   OpenAI Provider, 우편함 5개 API, 편지 도착 알림·기존 FCM 연결.
-- 미연결: #52 실제 날짜별 센서 요약 조회. `LETTER_GENERATION_ENABLED=false`가 기본값이며
-  센서 어댑터와 새 Worker 배포 후에만 활성화합니다.
-- `UnconfiguredLetterSensorSummary`는 가짜 값을 반환하지 않습니다. 실수로 생성 작업이
-  들어오면 유료 LLM 호출 전에 `LETTER_SENSOR_NOT_CONFIGURED`로 실패합니다.
+- 연결: `SQLAlchemyLetterSensorSummary`가 실제 날짜별 센서 판정·급수 요청·완료 기록을 조회합니다.
+  기준은 [종별 센서 정책](species-sensor-thresholds.md)의 PROVISIONAL 초기값입니다.
+- `LETTER_GENERATION_ENABLED=false`는 배포 기본값입니다. migration과 새 API/Worker 반영 후
+  활성화합니다. `UnconfiguredLetterSensorSummary`는 미설정 회귀 테스트용이며 런타임에는 미사용입니다.
 - AI 채팅·Tool Calling API, Worker, 테이블과 전용 미디어 목적은 제거했습니다.
 
 ## 다이어리 저장 연결 (#42 → #45)
@@ -34,15 +34,17 @@
 `LetterGenerationHandler`는 제목·날씨를 입력 스냅샷에 포함합니다. 편지 Provider는
 날씨 코드를 사용자가 이해할 한국어 요약으로 변환합니다.
 
-## jdk829355: 센서 요약 연결 (#52 → #46)
+## 센서 요약 연결 (#52 → #46)
 
-`LetterSensorSummary.read(plant_id: UUID, diary_date: date) -> str`를 구현한 어댑터를
-Worker의 `UnconfiguredLetterSensorSummary()` 대신 주입합니다. 이 인터페이스는 내부
-소비 경계이며 센서 테이블·필드·API 명칭을 정하는 계약이 아닙니다.
+`LetterSensorSummary.read(plant_id: UUID, diary_date: date) -> str` 인터페이스에
+`SQLAlchemyLetterSensorSummary`를 주입했습니다. 공통 `SensorAssessmentService`를 재사용하고,
+영속 `plant_sensor_events`의 SOIL_LOW 및 WATERING 완료 기록을 조회합니다.
 
 - 해당 날짜의 누적 조도와 물 요구/급수 이력을 담당자 계약에 따라 요약합니다.
 - 일일 누적 조도를 순간 조도로 바꾸거나 급수 미확인을 급수 완료로 단정하지 않습니다.
-- 원시 센서 연산, 센서 누락 보정, 가짜 운영 데이터 생성은 편지 Worker가 하지 않습니다.
+- 판정은 공통 서비스가 담당합니다. 누락 샘플을 가짜 값으로 보간하지 않습니다.
+- 당일 광량은 부분 누적값·UNKNOWN 사유를 전달합니다. 급수 기록 시각은 실제 급수 시각이
+  아니므로 물 요구 후 실제 물을 줬다고 단정하지 않습니다. 요청 이력은 최근 10건과 총 건수로 제한합니다.
 - 문자열은 비어 있지 않은 최대 4000자입니다. 내부 입력 한도이지 센서 원시 데이터 한도가 아닙니다.
 - 일시 조회 장애는 예외를 발생시켜 재시도합니다. 설정 오류는 `LetterPermanentError`로
   실패시키며 센서 데이터의 원문을 예외 메시지에 포함하지 않습니다.
@@ -99,11 +101,13 @@ hard delete된 편지는 재삭제 시 404입니다. 읽음 해제 API는 현재
   제공하며 DB 역할은 기존 백엔드 역할을 사용합니다. 스냅샷/실패코드/선점 정보는 API에 미노출입니다.
 - 구버전 API·Worker 중지 → Storage `chat/` 객체 백업·삭제 → 새 API·Worker 배포 →
   새 Worker가 남은 CHAT Queue 작업을 무효 메시지로 archive한 것을 확인 → migration →
-  #52 센서 연결 → `LETTER_GENERATION_ENABLED=true` 순서입니다.
+  종별 센서 migration `b6e2d8a41f90` 적용 → 새 API/Worker → `LETTER_GENERATION_ENABLED=true`
+  순서입니다. 기준 보정과 실제 ESP 전체 검증은 별도입니다.
 - CI PostgreSQL 17에서 실제 트랜잭션·동시성·migration을 검증합니다. 테스트 전용 큐 테이블은
   `pgmq.send`의 동일 세션 원자성을 검증하기 위한 것으로 운영 migration에는 존재하지 않습니다.
 - 로컬은 별도 localhost `leafie_letter_test` DB의 URL을 `LETTER_TEST_DATABASE_URL`로 전달해
   `pytest tests/test_letter_workflow.py`를 실행합니다. 다른 DB 이름/외부 호스트는 실행 거부합니다.
 - 실제 OpenAI 편지 Provider는 2026-09-16에 `gpt-5-mini` 한 건으로 응답과 토큰 기록을
-  검증했습니다. 실제 센서 연결을 포함한 전체 편지 흐름은 아직 별도 검증 대상입니다.
+  검증했습니다. 현재 기본 모델은 `gpt-6-luna`이며 2026-10-02 격리 실제 호출도 성공했습니다.
+  PostgreSQL fixture의 센서→요약 연결을 검증하며 실제 ESP→편지 수신 전체 흐름은 별도 검증 대상입니다.
   FCM/APNs 실발송·수신 검증은 대회 범위에서 제외하며 인앱 알림은 유지합니다.

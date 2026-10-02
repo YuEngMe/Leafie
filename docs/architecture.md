@@ -89,7 +89,7 @@ FastAPI는 비밀번호를 받거나 저장하지 않습니다. 모든 보호 AP
 - 홈의 비센서 이벤트 대사는 물주기 완료, 다이어리 작성, 편지 공개 순으로 당일 큐를
   반환하고 앱이 항목별 15초 노출과 `event_id` 중복 방지를 담당합니다.
 - 큐 이후에는 저녁 다이어리 유도, 장기 미진단 유도, 성격별 평소 대사 순으로 선택합니다.
-  조도·토양 수분 대사는 센서 판정 계약을 연결하기 전까지 선택하지 않습니다.
+  조도·토양 수분 대사는 공통 판정의 활성 LOW/HIGH 및 당일 센서 이벤트를 사용합니다.
 - 오늘 예정된 물주기·분갈이·비료 일정은 홈에서도 표시합니다.
 - 우편함, 알림, 진단, 전체 식물 목록으로 이동할 수 있습니다.
 - AI 채팅, 오늘 메모, 홈 자유 할 일과 수동 컨디션은 제공하지 않습니다.
@@ -164,6 +164,7 @@ Worker 작업:
 - `ACCOUNT_DELETE`
 - `PLANT_DELETE`
 - `CARE_NOTIFICATION_COLLECT`
+- `SENSOR_NOTIFICATION_COLLECT`
 
 Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문, 사진과 API Key는
 넣지 않고 Worker가 처리 직전 DB의 최신 상태를 읽습니다. 리소스 ID를 멱등성 키로
@@ -174,7 +175,8 @@ Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문
 처리합니다. 완료된 편지는 재처리하지 않으며 중복 Queue 전달에도 편지는 한 통만
 유지합니다. 생성 완료와 공개는 분리하며, 공개 기록·도착 알림·푸시 enqueue를 원자적으로
 처리합니다. `LETTER_PUBLISH`가 공개를 담당합니다. 다이어리 생성 트리거까지 구현됐으며,
-실제 센서 어댑터가 연결되기 전에는 기능 플래그를 비활성화합니다.
+실제 센서 어댑터는 SQLAlchemyLetterSensorSummary로 연결했습니다. migration과 새 Worker
+반영 후 기능 플래그를 활성화하며 배포 기본값은 false입니다.
 [연동 가이드](letter-integration.md) 참고.
 
 ## 11. 알림과 iOS 푸시
@@ -203,8 +205,12 @@ Queue payload에는 `job_type`, `resource_id`, 추적 ID만 넣습니다. 원문
 - 홈 표정 표시용 상태
 - 공통 알림으로 전달할 센서 이벤트
 
-장치 등록, Wi-Fi 연결, 측정 주기, 원시 토양 수분·조도 저장, 하루 권장 조도 누적 계산,
-물 요구와 급수 완료 판정은 센서 담당 문서와 구현에서 정의합니다.
+장치 등록, Wi-Fi 연결, 측정 주기, 원시 토양 수분·조도 저장과 실측 보정은 센서 담당 영역입니다.
+JH-9568의 SensorAssessmentService가 종별 초기 정책을 비교하고 홈·알림·편지가 재사용합니다.
+10분 cron→pgmq→Worker가 SOIL_LOW/HIGH, LIGHT_LOW/HIGH를 영속 이벤트와 인앱 알림으로
+원자적으로 저장합니다. 식물·기기·평가일·유형별 중복을 방지하며 센서 알림은 푸시를 만들지 않습니다.
+물 요구는 SOIL_LOW이고 급수 완료는 사용자 WATERING 기록만 사용합니다. 자동 완료하지 않습니다.
+누락·오래된 측정은 UNKNOWN이며 추정 기준의 한계는 [종별 센서 정책](species-sensor-thresholds.md)에 둡니다.
 
 센서 기기 테이블은 [ERD](erd.md), claim API는 [API 명세](api-spec.md) 14절,
 telemetry 수신 경로(API Gateway → SQS → Lambda → DB)는

@@ -252,4 +252,5 @@ def test_plant_sensor_status_http_contract(monkeypatch) -> None:
             "receivedAt": "2026-10-01T02:55:00Z",
         },
         "dailyLight": {"date": "2026-10-01", "luxHours": 1000.0},
+        "assessment": None,
     }

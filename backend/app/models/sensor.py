@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -146,3 +148,27 @@ class SensorReading(Base):
     # 센서 읽기에 실패하면 null.
     lux: Mapped[Decimal | None] = mapped_column(Numeric(8, 1))
     soil_raw: Mapped[int | None] = mapped_column(SmallInteger)
+
+
+class PlantSensorEvent(Base, UUIDPrimaryKeyMixin):
+    __tablename__ = "plant_sensor_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "plant_id", "device_id", "evaluation_date", "type", name="uq_plant_sensor_events_daily"
+        ),
+        CheckConstraint(
+            "type IN ('SOIL_LOW', 'SOIL_HIGH', 'LIGHT_LOW', 'LIGHT_HIGH')", name="type"
+        ),
+        Index("ix_plant_sensor_events_plant_occurred", "plant_id", "occurred_at"),
+    )
+
+    plant_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="CASCADE"), nullable=False
+    )
+    # Keep historical requests after a device is detached or released.
+    device_id: Mapped[str] = mapped_column(String(12), nullable=False)
+    evaluation_date: Mapped[date] = mapped_column(Date, nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    threshold_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

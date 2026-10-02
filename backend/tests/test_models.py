@@ -16,6 +16,7 @@ EXPECTED_APP_TABLES = {
     "plant_diaries",
     "plant_personality_changes",
     "plant_sensor_devices",
+    "plant_sensor_events",
     "plants",
     "sensor_readings",
     "species_care_guides",

@@ -38,12 +38,12 @@ JPEG와 PNG만 인식 입력으로 사용합니다.
 키는 `.env`에만 넣고 커밋하지 않습니다.
 
 Provider, 편지 DB·예약 함수·다이어리 저장 연결, 생성/공개 Worker, 우편함 API와 도착
-알림을 구현했습니다. 실제 센서 요약(#52)은 아직 연결하지 않았으므로
-`LETTER_GENERATION_ENABLED=false`가 기본값입니다. 센서 어댑터 주입과 Worker 배포를
-마친 뒤에만 `true`로 전환합니다. 센서 미설정 작업은 유료 호출 전에 실패합니다.
+알림을 구현했습니다. 실제 센서 요약은 `SQLAlchemyLetterSensorSummary`로 연결했습니다.
+`LETTER_GENERATION_ENABLED=false`는 배포 기본값입니다. migration `b6e2d8a41f90`과 새
+API/Worker 반영 후 `true`로 전환합니다. 종별 정책은 PROVISIONAL이며 실기기 보정은 #118입니다.
 역할별 연결 방법과 배포 순서는 [편지 연동 가이드](../docs/letter-integration.md)를 따릅니다.
 `LetterInput.sensor_summary`는 내부 입력 문자열이며 센서 API/필드 계약이 아닙니다.
-센서 원시값을 계산하거나 운영용 가짜 값을 만들지 않습니다.
+공통 판정 서비스를 재사용하며 운영용 가짜 값을 만들지 않습니다.
 `OPENAI_LETTER_MODEL` 기본값은 `gpt-6-luna`, 출력 한도는 1200토큰입니다.
 Responses API의 추론 강도는 `low`를 사용합니다.
 성격은 기존 6개 enum을 사용합니다. 실제 OpenAI Provider 호출과 토큰 기록은 검증했으며,
@@ -66,7 +66,7 @@ python -m tools.smoke_live --allow-shared-dev
 python -m tools.smoke_live --allow-shared-dev --photo /absolute/path/plant.jpg --allow-paid
 ```
 
-편지 자동 생성은 센서 요약 연동 전까지 비활성 상태를 유지합니다. 이 도구는 센서,
+기본 smoke 도구 실행 시 편지 자동 생성은 비활성 상태여야 합니다. 이 도구는 센서,
 FCM/APNs 또는 실제 편지 도착 흐름을 검증했다고 표시하지 않습니다.
 
 앱 푸시는 Firebase Cloud Messaging HTTP v1을 사용합니다. Worker는 Application Default

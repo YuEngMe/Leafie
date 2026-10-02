@@ -14,6 +14,7 @@ from app.integrations.push import FirebasePushGateway
 from app.integrations.queue import PgmqQueue
 from app.integrations.storage import SupabaseStorageGateway
 from app.schemas.queue import JobType
+from app.services.sensor_assessment import SQLAlchemyLetterSensorSummary
 from app.services.worker import QueueWorker
 from app.tasks.account import AccountDeleteHandler, SQLAlchemyAccountCleanupRepository
 from app.tasks.care_notification import (
@@ -29,11 +30,11 @@ from app.tasks.letter import (
     LetterGenerationHandler,
     LetterPublishHandler,
     SQLAlchemyLetterRepository,
-    UnconfiguredLetterSensorSummary,
 )
 from app.tasks.plant import PlantDeleteHandler, SQLAlchemyPlantCleanupRepository
 from app.tasks.push import PushNotificationHandler, SQLAlchemyPushRepository
 from app.tasks.registry import TaskRegistry
+from app.tasks.sensor_notification import SensorNotificationCollectHandler
 from app.tasks.species import (
     SpeciesIdentificationHandler,
     SpeciesIdentificationRepository,
@@ -68,7 +69,7 @@ async def run_worker() -> None:
         LetterGenerationHandler(
             letter_repository,
             openai_letter,
-            UnconfiguredLetterSensorSummary(),
+            SQLAlchemyLetterSensorSummary(database),
             timeout_seconds=settings.openai_timeout_seconds + 15,
         ),
     )
@@ -133,6 +134,9 @@ async def run_worker() -> None:
     registry.register(
         JobType.PUSH_NOTIFICATION_SEND,
         PushNotificationHandler(SQLAlchemyPushRepository(database), push),
+    )
+    registry.register(
+        JobType.SENSOR_NOTIFICATION_COLLECT, SensorNotificationCollectHandler(database)
     )
     worker = QueueWorker(
         queue,
