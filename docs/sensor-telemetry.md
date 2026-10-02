@@ -7,6 +7,9 @@
 
 ```text
 ESP32-C3 --HTTPS--> API Gateway --> SQS(표준 큐) --> Lambda(consumer) --> Supabase PostgreSQL
+                         |    |
+                         |    +--(Authorizer 거부) 401/403, 큐에 들어가지 않음
+                         +--- Lambda Authorizer --> Supabase PostgreSQL (sensor_devices 읽기)
                                         |
                                         +--(5회 실패)--> DLQ
 ```
@@ -14,7 +17,8 @@ ESP32-C3 --HTTPS--> API Gateway --> SQS(표준 큐) --> Lambda(consumer) --> Sup
 - API Gateway와 Lambda는 FastAPI와 별개로 AWS에서 운영한다. FastAPI는 이 경로를 거치지 않는다.
 - 요청: `POST /devices/{device_id}/telemetry`. 호스트가 API Gateway라 FastAPI의 푸시용
   `POST /api/v1/devices`와 경로가 같아도 라우팅이 겹치지 않는다. 이 경로는 바꾸지 않는다.
-- 인증은 `x-api-key`(모든 기기 공통 키)다. 기기별 인증은 claim API 구현 후 교체한다.
+- 인증은 두 겹이다. `x-api-key`(모든 기기 공통 키)는 계속 요구하고, 그 위에 Lambda Authorizer가
+  `Authorization: Bearer <deviceToken>`을 기기별로 검증한다. 자세한 내용은 아래 [기기별 인증](#기기별-인증).
 
 ## 요청 본문
 
@@ -70,7 +74,8 @@ API Gateway 매핑 템플릿이 경로의 `device_id`를 본문과 합쳐 큐에
 - 표준 SQS는 같은 메시지를 두 번 줄 수 있어 `sqs_message_id`로 중복 저장을 막는다.
 - 등록되지 않은 `deviceId`는 FK 위반으로 저장되지 않고 DLQ로 간다.
 - 아직 claim되지 않은 기기(`UNCLAIMED`)의 측정값은 DB가 막지 않는다. 정상 흐름에서는 기기가
-  `deviceToken`을 받은 뒤에만 전송하며, 이를 강제하는 것은 기기별 인증(다음 단계)의 몫이다.
+  `deviceToken`을 받은 뒤에만 전송한다. 이를 강제하는 것은 Authorizer이며, `UNCLAIMED` 기기의 요청은
+  큐에 들어가기 전에 `403`이 된다.
 
 모든 센서 테이블은 RLS를 켜고 `anon`, `authenticated` 권한을 회수한다.
 
@@ -89,13 +94,52 @@ ALTER ROLE sensor_ingest PASSWORD '<새 비밀번호>';
 접속은 직접 DB 주소(IPv6 전용)가 아니라 Supavisor 풀러 주소를 쓴다. 사용자명은
 `sensor_ingest.<프로젝트 ref>` 형식이다.
 
+## 기기별 인증
+
+API Gateway REST API `leafie_telemetry`의 `POST /devices/{device_id}/telemetry`에 Lambda Authorizer
+`leafie-telemetry-authorizer`가 붙어 있다(유형 REQUEST).
+
+검증은 SQS에 넣기 전에 일어난다.
+
+1. `Authorization: Bearer <deviceToken>`에서 토큰을 꺼낸다.
+2. 경로의 `device_id` 기기를 `sensor_devices`에서 조회한다.
+3. `status = 'CLAIMED'`이고 `SHA-256(deviceToken)`(hex)이 `sensor_token_hash`와 같으면 허용한다.
+   해시 비교는 `hmac.compare_digest`로 한다.
+
+| 상황 | 응답 |
+|---|---|
+| `Authorization` 헤더 없음 | `401 Unauthorized` (Identity source 누락, Authorizer를 호출하지 않음) |
+| 토큰 불일치, `Bearer`가 아닌 스킴, 다른 기기 경로 | `403` (Authorizer 거부) |
+| 등록되지 않은 기기 | `403` (Authorizer 거부) |
+| 기기가 `UNCLAIMED` | `403` (코드상 동작이며 실측하지 않음) |
+| 유효한 토큰 + `x-api-key` 없음 또는 틀림 | `403 Forbidden` (API Gateway 기본 `INVALID_API_KEY` 응답) |
+| 유효한 토큰 + 올바른 `x-api-key` | `200`, SQS를 거쳐 consumer가 저장 |
+| DB 조회 실패 | `500` (결과가 캐시되지 않음, 코드상 동작이며 실측하지 않음) |
+
+위 응답은 2026-10-02에 `main` 스테이지에서 실측했다. 테스트 기기(`CLAIMED`)와 임의 토큰을 DB에 직접 넣어 확인했다.
+
+- Authorizer는 API 키 검사보다 **먼저** 실행된다. 토큰이 틀리면 `x-api-key`가 없거나 틀려도 Authorizer의 `403`이
+  나오므로, API 키 누락 응답은 유효한 토큰으로만 구분된다.
+- `Authorization` 헤더가 없으면 `x-api-key` 유무와 관계없이 `401`이다. 이 `401`을 `x-api-key` 누락 응답으로
+  읽으면 안 된다.
+- Gateway Response는 기본값을 그대로 쓴다. 커스텀 설정은 없다.
+
+- Identity source는 `method.request.header.Authorization`과 `context.path`다. 경로 파라미터는 Identity
+  source로 쓸 수 없어 요청 경로 전체(`context.path`)로 대신하며, 결과는 (토큰, 기기) 단위로 **60초** 캐시된다.
+- 재claim으로 이전 `deviceToken`이 무효화돼도 캐시 때문에 최대 60초 동안은 통과할 수 있다.
+- 반환하는 정책의 Resource는 이 요청의 메서드 ARN 하나다. 캐시된 결과가 다른 경로에 쓰이지 않는다.
+- 코드와 배포 스크립트는 센서 펌웨어 저장소 [`jdk829355/leafie_sensor`](https://github.com/jdk829355/leafie_sensor)의
+  [`tools/authorizer/`](https://github.com/jdk829355/leafie_sensor/tree/82dfad0/tools/authorizer)(commit `82dfad0`)에 있다.
+
 ## Authorizer 전용 DB 역할
 
 기기별 인증을 하는 API Gateway Lambda Authorizer는 `sensor_authorizer` 역할로만 접속한다.
 consumer 역할(`sensor_ingest`)과 분리해, consumer가 해시를 읽을 수 없게 한다.
 
 - `sensor_devices`의 `id`, `status`, `sensor_token_hash` 컬럼만 SELECT할 수 있다. 쓰기 권한은 없다.
-- 비밀번호 설정과 SSM 저장은 `sensor_ingest`와 같은 방식이다.
+- 비밀번호 설정과 SSM 저장은 `sensor_ingest`와 같은 방식이다. 접속 문자열은 SSM
+  `/leafie/telemetry/authorizer/database-url`(SecureString)에 두고, 사용자명은
+  `sensor_authorizer.<프로젝트 ref>`다. 비밀번호에 `@` 같은 문자가 있으면 URL 인코딩한다(`%40`).
 
 ```sql
 ALTER ROLE sensor_authorizer PASSWORD '<새 비밀번호>';
@@ -107,12 +151,15 @@ ALTER ROLE sensor_authorizer PASSWORD '<새 비밀번호>';
 2. `sensor_ingest` 비밀번호를 설정한다.
 3. 접속 문자열을 SSM Parameter Store(SecureString)에 저장한다.
 4. consumer Lambda를 배포한다. 2, 3번 전에 배포하면 모든 메시지가 DLQ로 이동한다.
-5. 기기를 등록하고 telemetry가 저장되는지 확인한다. claim API가 구현되기 전에는 `sensor_devices`에
+   Python 3.13 런타임은 Supabase 풀러가 보내는 중간 CA(key usage 확장 없음)를 엄격 검증(`VERIFY_X509_STRICT`)으로
+   거부한다. Lambda 코드는 CA·호스트명 검증은 유지하고 이 플래그만 끄도록 되어 있어야 한다.
+5. Authorizer Lambda(`leafie-telemetry-authorizer`)를 같은 순서로 배포한다(`sensor_authorizer` 비밀번호, SSM, 배포).
+   Authorizer를 API Gateway 메서드에 연결하면 유효한 `deviceToken`이 없는 기기는 `403`이 된다.
+6. 기기를 등록하고 telemetry가 저장되는지 확인한다. claim API가 구현되기 전에는 `sensor_devices`에
    `CLAIMED` 상태의 테스트 행(소유자, 64자 `sensor_token_hash`, `claimed_at`)을 직접 넣는다.
 
 ## 이 문서가 정하지 않는 것
 
 - claim API 구현(`POST /api/v1/sensor-devices/{deviceId}/claims` 등). 계약은 [API 명세](api-spec.md) 14절
-- 기기별 telemetry 인증. 지금은 공통 API 키만 확인한다
 - 일별 누적 조도, 물 요구, 급수 판정, 편지 요약 어댑터(`LetterSensorSummary`)
 - 홈 표정과 센서 알림
