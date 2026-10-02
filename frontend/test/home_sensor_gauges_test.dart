@@ -56,14 +56,14 @@ void main() {
       '바질',
     );
     expect(over.description, '바질은 하루 기준의 100% 이상 빛을 좋아해요');
-    expect(over.currentLabel, '현재조도 120%');
+    expect(over.currentLabel, '어제 120%', reason: '조도 판정은 어제 하루 기준');
     expect(over.currentRatio, 1);
 
     final under = lightGaugeContent(
       _metric(unit: 'lux_hours', value: 15000, lower: 60000),
       '바질',
     );
-    expect(under.currentLabel, '현재조도 25%');
+    expect(under.currentLabel, '어제 25%');
     expect(under.currentRatio, closeTo(0.25, 1e-9));
   });
 
@@ -79,5 +79,57 @@ void main() {
     );
     expect(light.currentLabel, '측정 중');
     expect(light.description, '새싹이는 좋아하는 빛의 양을 아직 몰라요');
+  });
+
+  test('판정이 UNKNOWN이면 값이 와도 숫자 대신 사유를 보여 준다', () {
+    final light = lightGaugeContent(
+      _metric(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+        value: 1000,
+        lower: 60000,
+      ),
+      '바질',
+    );
+    expect(light.currentLabel, '측정 중');
+    expect(light.currentRatio, 0);
+
+    final noThreshold = lightGaugeContent(
+      const SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+        value: 50000,
+        reason: 'THRESHOLDS_UNAVAILABLE',
+      ),
+      '튤립',
+    );
+    expect(noThreshold.currentLabel, '기준 준비 중');
+
+    // 토양은 기준만 없고 측정값은 믿을 수 있으면 값을 보여 준다.
+    final soil = soilGaugeContent(
+      const SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'relative_percent',
+        value: 55,
+        reason: 'THRESHOLDS_UNAVAILABLE',
+      ),
+      '튤립',
+    );
+    expect(soil.currentLabel, '현재습도 55%');
+  });
+
+  test('조도 상한이 있는 종은 범위로 안내한다', () {
+    final content = lightGaugeContent(
+      _metric(
+        state: SensorLevel.high,
+        unit: 'lux_hours',
+        value: 90000,
+        lower: 30000,
+        upper: 60000,
+      ),
+      '스킨답서스',
+    );
+    expect(content.description, '스킨답서스는 하루 기준의 100 - 200% 빛을 좋아해요');
+    expect(content.currentLabel, '어제 300%');
   });
 }

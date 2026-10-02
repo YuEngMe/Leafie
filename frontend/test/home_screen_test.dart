@@ -960,7 +960,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-light')), findsOneWidget);
     expect(find.text('새싹이는 40 - 90% 습도를 좋아해요'), findsOneWidget);
     expect(find.text('현재습도 20%'), findsOneWidget);
-    expect(find.text('현재조도 120%'), findsOneWidget);
+    expect(find.text('어제 120%'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
 
     await pumpWith(null);
@@ -1107,6 +1107,9 @@ void main() {
     Future<void> pumpQueueHome(
       WidgetTester tester, {
       bool gaugesExpanded = false,
+      String dialogueKey = 'NORMAL',
+      String dialogue = '오늘도 좋은 하루!',
+      List<HomeDialogueEvent> events = queue,
     }) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
@@ -1120,8 +1123,8 @@ void main() {
             plantRepository: _FakePlantManagementRepository([
               _managedPlant('plant-a', '새싹이', selected: true),
             ]),
-            loadHomeForPlant: (_) async => const HomeDashboardData(
-              plant: HomePlantData(
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
                 id: 'plant-a',
                 nickname: '새싹이',
                 personalityType: 'OUTGOING',
@@ -1133,11 +1136,11 @@ void main() {
               ),
               room: HomeRoomData(
                 backgroundPhase: 'DAY',
-                dialogueKey: 'NORMAL',
-                dialogue: '오늘도 좋은 하루!',
-                dialogueQueue: queue,
+                dialogueKey: dialogueKey,
+                dialogue: dialogue,
+                dialogueQueue: events,
               ),
-              todayEvents: [],
+              todayEvents: const [],
               unreadLetterCount: 0,
               unreadNotificationCount: 0,
             ),
@@ -1172,6 +1175,55 @@ void main() {
       expect(find.text('물 고마워!'), findsNothing);
       expect(find.text('편지 보냈어!'), findsNothing);
       expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
+    });
+
+    testWidgets('재생 중에 게이지를 펼치면 멈추고, 끝까지 못 본 대사는 다시 나온다', (
+      tester,
+    ) async {
+      await pumpQueueHome(tester);
+      expect(find.text('물 고마워!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+
+      await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 30));
+
+      await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+      await tester.pump();
+      expect(find.text('물 고마워!'), findsOneWidget, reason: '봤음으로 저장되지 않았다');
+    });
+
+    testWidgets('돌봄 반응 말풍선이 뜨면 큐 대사는 비켜 준다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'LIGHT_LOW',
+        dialogue: '빛이 모자라',
+      );
+      expect(find.text('물 고마워!'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-period-control')));
+      await tester.pump();
+      expect(find.text('아 따뜻해~고마워!'), findsOneWidget);
+      expect(find.text('물 고마워!'), findsNothing);
+
+      // 광선이 사라지면(3초 + 페이드) 멈춰 둔 큐 대사가 다시 나온다.
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('물 고마워!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('큐 대사를 보여 준 뒤에는 진단 유도 대사를 띄우지 않는다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIAGNOSIS_PROMPT',
+        dialogue: '내 상태 좀 봐 줄래?',
+        events: [queue.first],
+      );
+      await tester.pump(const Duration(seconds: 15));
+
+      expect(find.text('물 고마워!'), findsNothing);
+      expect(find.text('내 상태 좀 봐 줄래?'), findsNothing);
     });
 
     testWidgets('게이지가 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다', (tester) async {

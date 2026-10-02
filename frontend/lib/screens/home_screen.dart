@@ -180,6 +180,10 @@ class _HomeScreenState extends State<HomeScreen>
   final List<HomeDialogueEvent> _pendingDialogues = [];
   HomeDialogueEvent? _playingDialogue;
   Timer? _dialogueTimer;
+
+  /// 이 화면에서 큐 대사를 하나라도 끝까지 보여 줬는가. 그랬다면 진단 유도
+  /// 대사(DIAGNOSIS_PROMPT)는 다시 띄우지 않는다(api-spec 홈 §8).
+  bool _playedDialogue = false;
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
@@ -335,6 +339,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (oldWidget.initialGaugesExpanded != widget.initialGaugesExpanded) {
       _gaugesExpanded = widget.initialGaugesExpanded;
     }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _syncDialoguePlayback(),
+    );
   }
 
   void _startPlantRegistration(BuildContext context) {
@@ -357,6 +364,7 @@ class _HomeScreenState extends State<HomeScreen>
       _sunActive = true;
       if (_scene == HomeScene.needsLight) _scene = HomeScene.cared;
     });
+    _syncDialoguePlayback();
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     if (reduceMotion) {
       _raysController.value = 1;
@@ -369,10 +377,14 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
       if (reduceMotion) {
         setState(() => _sunActive = false);
+        _syncDialoguePlayback();
         return;
       }
       _raysController.reverse().whenComplete(() {
-        if (mounted) setState(() => _sunActive = false);
+        if (!mounted) return;
+        setState(() => _sunActive = false);
+        // 감사 반응이 끝나면 멈춰 둔 큐 대사를 이어서 보여 준다.
+        _syncDialoguePlayback();
       });
     });
   }
@@ -428,7 +440,9 @@ class _HomeScreenState extends State<HomeScreen>
         };
       });
       unawaited(_refreshLetterBadge());
-      unawaited(_enqueueDialogues(room?.dialogueQueue ?? const []));
+      unawaited(
+        _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
+      );
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -605,41 +619,72 @@ class _HomeScreenState extends State<HomeScreen>
     await _openNotificationTarget(selected);
   }
 
-  /// 아직 안 본 큐 대사를 뒤에 붙이고, 보일 수 있으면 재생을 시작한다.
-  Future<void> _enqueueDialogues(List<HomeDialogueEvent> events) async {
-    if (events.isEmpty) return;
+  /// 서버가 준 오늘의 큐로 대기열을 다시 만든다. 서버가 뺀 이벤트(해결된
+  /// 센서 이상 등)는 버리고, 상황 말풍선이 이미 같은 대사를 띄우는 키는 건너뛴다.
+  Future<void> _enqueueDialogues(
+    List<HomeDialogueEvent> events,
+    String? fallbackKey,
+  ) async {
+    final plantId = (_serverPlant ?? widget.plant)?.id;
     final seen = _seenDialogueIds ??= await _seenDialogues.load();
-    if (!mounted) return;
-    final queued = {
-      ..._pendingDialogues.map((event) => event.eventId),
-      ?_playingDialogue?.eventId,
-    };
-    _pendingDialogues.addAll(
-      events.where(
-        (event) =>
-            !seen.contains(event.eventId) && !queued.contains(event.eventId),
-      ),
-    );
-    _playNextDialogue();
+    // 본 목록을 읽는 사이 다른 식물로 넘어갔으면 이전 식물 대사를 붙이지 않는다.
+    if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
+    final playingId = _playingDialogue?.eventId;
+    _pendingDialogues
+      ..clear()
+      ..addAll(
+        events.where(
+          (event) =>
+              !seen.contains(event.eventId) &&
+              event.eventId != playingId &&
+              event.dialogueKey != fallbackKey,
+        ),
+      );
+    _syncDialoguePlayback();
   }
 
-  /// 게이지 패널이 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다.
-  /// 사용자가 보지 못한 대사를 본 것으로 처리하지 않기 위해서다.
+  /// 큐 대사가 실제로 보이는 상태인가. 게이지 패널이 펼쳐졌거나 돌봄 반응
+  /// 말풍선이 떠 있으면 가려진 것으로 본다. 해를 눌러 생긴 감사 반응
+  /// ("아 따뜻해~고마워!")은 광선이 떠 있는 동안(약 3초)만 큐를 비켜 준다.
+  bool get _dialogueVisible =>
+      !_gaugesExpanded &&
+      !(_scene == HomeScene.cared && _sunActive) &&
+      _scene != HomeScene.happy;
+
+  /// 보이면 이어서 재생하고, 가려지면 지금 대사를 멈춰 대기열 맨 앞으로
+  /// 되돌린다. 보이는 상태가 바뀌는 모든 곳에서 부른다.
+  void _syncDialoguePlayback() {
+    if (!mounted) return;
+    if (_dialogueVisible) {
+      _playNextDialogue();
+      return;
+    }
+    final playing = _playingDialogue;
+    if (playing == null) return;
+    _dialogueTimer?.cancel();
+    _pendingDialogues.insert(0, playing);
+    setState(() => _playingDialogue = null);
+  }
+
   void _playNextDialogue() {
     if (!mounted ||
         _playingDialogue != null ||
-        _gaugesExpanded ||
+        !_dialogueVisible ||
         _pendingDialogues.isEmpty) {
       return;
     }
     final next = _pendingDialogues.removeAt(0);
-    _seenDialogueIds?.add(next.eventId);
-    unawaited(_seenDialogues.markSeen(next.eventId));
     setState(() => _playingDialogue = next);
     _dialogueTimer?.cancel();
     _dialogueTimer = Timer(next.duration, () {
       if (!mounted) return;
-      setState(() => _playingDialogue = null);
+      // 끝까지 보여 준 대사만 본 것으로 남긴다. 중간에 가려지면 다시 나온다.
+      _seenDialogueIds?.add(next.eventId);
+      unawaited(_seenDialogues.markSeen(next.eventId));
+      setState(() {
+        _playingDialogue = null;
+        _playedDialogue = true;
+      });
       _playNextDialogue();
     });
   }
@@ -690,6 +735,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (!await _showPlant(plantId) || !mounted) return;
         _tabShellKey.currentState?.select(FigmaNavIcon.home);
         setState(() => _gaugesExpanded = true);
+        _syncDialoguePlayback();
       case null:
         break;
     }
@@ -831,7 +877,11 @@ class _HomeScreenState extends State<HomeScreen>
                     queueMessage: _playingDialogue?.dialogue,
                     // 상황 말풍선이 없을 때는 서버의 기본 대사(평소·일기·진단
                     // 권유·조도 적당 등)를 띄운다.
-                    fallbackMessage: _serverDialogue,
+                    fallbackMessage:
+                        _serverDialogueKey == 'DIAGNOSIS_PROMPT' &&
+                            _playedDialogue
+                        ? null
+                        : _serverDialogue,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -1156,12 +1206,15 @@ class _HomeScreenState extends State<HomeScreen>
                     plantName: plant.name,
                     onCollapse: () {
                       setState(() => _gaugesExpanded = false);
-                      _playNextDialogue();
+                      _syncDialoguePlayback();
                     },
                   )
                 else
                   _HomeStatusCard(
-                    onTap: () => setState(() => _gaugesExpanded = true),
+                    onTap: () {
+                      setState(() => _gaugesExpanded = true);
+                      _syncDialoguePlayback();
+                    },
                   ),
               ],
             ),
