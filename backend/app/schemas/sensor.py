@@ -1,4 +1,6 @@
-from datetime import date, datetime
+from datetime import date as Date
+from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -86,7 +88,7 @@ class PlantSensorLatestReading(BaseModel):
 class PlantSensorDailyLight(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    date: date
+    date: Date
     lux_hours: float = Field(alias="luxHours")
 
 
@@ -98,3 +100,35 @@ class PlantSensorStatusResponse(BaseModel):
     connection: SensorConnection
     latest: PlantSensorLatestReading | None
     daily_light: PlantSensorDailyLight | None = Field(alias="dailyLight")
+    assessment: "SensorAssessment | None" = None
+
+
+class SensorLevel(StrEnum):
+    UNKNOWN = "UNKNOWN"
+    LOW = "LOW"
+    OK = "OK"
+    HIGH = "HIGH"
+
+
+class SensorMetricAssessment(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    state: SensorLevel = SensorLevel.UNKNOWN
+    value: float | None = None
+    unit: str
+    lower: float | None = None
+    upper: float | None = None
+    reason: str | None = None
+    date: Date | None = None
+    sample_count: int = Field(default=0, alias="sampleCount")
+    coverage_ratio: float | None = Field(default=None, alias="coverageRatio")
+
+
+class SensorAssessment(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    connection: SensorConnection
+    threshold_version: str | None = Field(default=None, alias="thresholdVersion")
+    provisional: bool = True
+    soil: SensorMetricAssessment
+    light: SensorMetricAssessment

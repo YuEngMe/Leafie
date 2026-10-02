@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -18,6 +18,9 @@ from app.schemas.sensor import (
     PlantSensorLatestReading,
     PlantSensorStatusResponse,
 )
+
+if TYPE_CHECKING:
+    from app.services.sensor_assessment import SensorAssessmentService
 
 # TODO(#118): 임시 보정값. 하드웨어 실측(공기 중 / 물에 담근 raw)으로 교체한다.
 SOIL_RAW_DRY = 3200
@@ -112,8 +115,13 @@ class SQLAlchemySensorStatusRepository:
 
 
 class SensorStatusService:
-    def __init__(self, repository: SensorStatusRepository) -> None:
+    def __init__(
+        self,
+        repository: SensorStatusRepository,
+        assessments: "SensorAssessmentService | None" = None,
+    ) -> None:
         self._repository = repository
+        self._assessments = assessments
 
     async def get_owned_status(
         self, user_id: UUID, plant_id: UUID, *, now: datetime | None = None
@@ -123,7 +131,10 @@ class SensorStatusService:
             raise AppError(
                 code="PLANT_NOT_FOUND", message="식물을 찾을 수 없습니다.", status_code=404
             )
-        return await self.get_plant_status(plant_id, timezone, now=now)
+        response = await self.get_plant_status(plant_id, timezone, now=now)
+        if self._assessments is not None:
+            response.assessment = await self._assessments.read(plant_id, now=now)
+        return response
 
     async def get_plant_status(
         self,

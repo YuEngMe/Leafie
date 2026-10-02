@@ -359,24 +359,28 @@ hair_daisy
 
 함께한 날짜는 시작 당일을 1일로 계산합니다. `background_phase`는 사용자 시간대 기준
 06:00~17:59에 `DAY`, 그 밖에는 `NIGHT`입니다. 홈 대사는 여섯 성격과 11개 상황별 고정
-문구를 사용합니다. `dialogue_queue`는 사용자 시간대 기준 당일 발생한 비센서 이벤트를
-`WATERING_COMPLETED`, `DIARY_RECEIVED`, `LETTER_SENT` 우선순위로 모두 반환하며, 같은
+문구를 사용합니다. `dialogue_queue`는 사용자 시간대 기준 당일 이벤트를 물주기 완료,
+다이어리 수신, 토양 수분 이상, 편지 공개, 조도 이상의 우선순위로 반환하며, 같은
 우선순위에서는 최신 이벤트가 먼저입니다. 각 항목은 15초 노출을 권장합니다. 서버는 소비
 상태를 저장하지 않으므로 앱은 `event_id`를 로컬에 기록하여 같은 이벤트를 다시 표시하지
 않습니다. 큐 항목 수에는 서버 제한을 두지 않습니다.
 
 `dialogue_key`와 `dialogue`는 큐가 끝난 뒤 표시할 fallback입니다. 사용자 시간대 기준
+활성 센서 LOW/HIGH가 있으면 해당 성격별 센서 대사를 먼저 반환합니다. 그 외에
 18:00~23:59에 당일 다이어리가 없으면 `DIARY_PROMPT`를 반환합니다. 그 외에는 식물 등록
 7일 후부터 완료 진단이 없거나 마지막 완료 진단 후 14일이 지나면 `DIAGNOSIS_PROMPT`를
 반환합니다. 최신 진단이 `NEEDS_RETAKE`이면 즉시 진단을 유도하고, `PENDING` 또는
-`PROCESSING`이면 유도하지 않습니다. 해당 조건이 없으면 `NORMAL`입니다. 앱은 진단 유도
+`PROCESSING`이면 유도하지 않습니다. 해당 조건이 없고 조도가 OK면 `LIGHT_OPTIMAL`,
+그 외에는 `NORMAL`입니다. 앱은 진단 유도
 대사를 다른 큐 대사가 재생된 세션에서는 다시 표시하지 않고, 다음 홈 진입 때 서버 조건이
 여전히 유효하면 다시 표시할 수 있습니다.
 
 `today_events`는 선택 식물의 오늘 물주기·분갈이·비료 일정입니다. 해 아이콘 교감은 앱
 애니메이션이며 API 호출이 없습니다. 센서 장치·토양 수분·일별 누적 조도 게이지는 센서
-담당 API에서 별도로 조회하고 홈은 센서 원시값이나 임계값을 계산하지 않습니다. 센서 계약
-연결 전에는 조도·토양 수분 대사를 큐에 넣지 않습니다. 식물이 없으면 `plant`, `room`은 null이며
+API에서 별도로 조회합니다. 홈 `room.sensor`는 센서 상태 API의 `assessment`와 같은 구조이며
+공통 판정 서비스를 사용합니다. 해결되거나 UNKNOWN인 센서 큐 항목은 제외합니다. 홈 표정은
+LOW/HIGH가 있으면 `expression_sad`, 둘 다 OK면 `expression_happy`, 그 외 기본 표정입니다.
+식물이 없으면 `plant`, `room`은 null이며
 `today_events`는 빈 배열입니다. 읽지 않은 편지와 알림 개수는 선택 식물이 아니라 사용자의
 전체 식물을 기준으로 계산합니다.
 
@@ -772,6 +776,38 @@ unique 충돌은 `200`으로 처리한다.
 - `dailyLight.luxHours`는 사용자 시간대 기준 `date` 하루의 조도 합에 샘플 주기(10분)를
   곱한 값입니다. 읽기 실패(`null`)한 샘플은 합에서 빠집니다.
 
+`latest.lux`(순간 조도)와 `dailyLight.luxHours`(오늘 누적 조도)는 그대로 유지하며
+`assessment`를 추가합니다. 홈 `room.sensor`도 같은 구조입니다.
+
+```json
+{
+  "connection": "ACTIVE",
+  "thresholdVersion": "2026-10-02.app-v1",
+  "provisional": true,
+  "soil": {
+    "state": "LOW", "value": 20, "unit": "relative_percent",
+    "lower": 40, "upper": 90, "reason": null, "date": null,
+    "sampleCount": 3, "coverageRatio": null
+  },
+  "light": {
+    "state": "UNKNOWN", "value": 1000, "unit": "lux_hours",
+    "lower": 60000, "upper": null, "reason": "INSUFFICIENT_COVERAGE",
+    "date": "2026-10-01", "sampleCount": 10, "coverageRatio": 0.069
+  }
+}
+```
+
+지표 상태는 `UNKNOWN/LOW/OK/HIGH`; `reason`은 UNKNOWN 사유이며 정상 판정이면 null입니다.
+연결 상태는 판정의 유효성 기준이며 기존 raw 응답의 수신 상태와 다를 수 있습니다.
+조도 판정은 전일 완결 구간·80% 이상 커버리지가 필요합니다. 토양은 최근 30분의 서로 다른
+10분 버킷 3개 중앙값을 사용합니다. 기준은 앱 초기 추정값이며 [종별 센서 정책](species-sensor-thresholds.md)을
+따릅니다. 부족한 값/미연결/오래된 측정/비활성 기준을 OK로 대체하지 않습니다.
+`NO_DEVICE`, `NO_DATA`, `NO_RECENT_DATA`, `THRESHOLDS_UNAVAILABLE`, `INSUFFICIENT_SAMPLES`,
+`INSUFFICIENT_COVERAGE`, `DAY_IN_PROGRESS`가 UNKNOWN 사유입니다.
+센서 알림은 `source_type=SENSOR_EVENT`, `source_id=plant_sensor_events.id`,
+`type=SENSOR_SOIL_LOW|SENSOR_SOIL_HIGH|SENSOR_LIGHT_LOW|SENSOR_LIGHT_HIGH`입니다.
+인앱 알림만 생성하며 알림 삭제가 센서 이벤트 이력을 삭제하지 않습니다.
+
 ### `POST /sensor-devices/{deviceId}/claims`
 
 호출 주체는 모바일 앱이고, 사용자 JWT가 필요합니다.
@@ -836,6 +872,7 @@ STORAGE_OBJECT_DELETE
 ACCOUNT_DELETE
 PLANT_DELETE
 CARE_NOTIFICATION_COLLECT
+SENSOR_NOTIFICATION_COLLECT
 ```
 
 `LETTER_GENERATION_RUN` 규칙:
@@ -851,9 +888,10 @@ CARE_NOTIFICATION_COLLECT
    만들지 않습니다.
 
 생성/공개 Worker, 우편함과 다이어리 최초 저장 호출은 구현되어 있으며
-`LETTER_PUBLISH`가 공개를 담당합니다. 실제 센서 조회가 연결될 때까지
-`LETTER_GENERATION_ENABLED`는 비활성화합니다.
+`LETTER_PUBLISH`가 공개를 담당합니다. 실제 센서 조회는 SQLAlchemy 어댑터로 연결했습니다.
+배포 기본 `LETTER_GENERATION_ENABLED=false`는 migration·새 Worker 반영 후 활성화합니다.
 [편지 연동 가이드](letter-integration.md)의 연결·배포 순서를 따릅니다.
 
-센서 요약이 언제나 제공된다는 제품 전제를 따르되, 구체 데이터 형식과 산출 방식은 센서
-담당 계약에서 정의합니다.
+센서 요약은 실제 날짜별 판정과 물 요구·사용자 급수 기록을 사용합니다. 연결 없음·자료 부족은
+UNKNOWN 사유를 전달하고 사실을 만들지 않습니다. 측정·보정은 센서 담당, 공통 판정·소비는
+[종별 센서 정책](species-sensor-thresholds.md) 계약을 따릅니다.

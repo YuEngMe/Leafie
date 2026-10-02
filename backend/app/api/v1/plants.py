@@ -38,6 +38,7 @@ from app.services.plant_management import (
     PlantManagementService,
     SQLAlchemyPlantManagementRepository,
 )
+from app.services.sensor_assessment import SensorAssessmentService
 from app.services.sensor_management import (
     SensorDeviceManagementService,
     SQLAlchemySensorDeviceManagementRepository,
@@ -64,6 +65,7 @@ def build_management_service(
         SQLAlchemyPlantManagementRepository(session),
         storage,
         download_url_expires_seconds=settings.media_download_url_expires_seconds,
+        assessments=SensorAssessmentService(session),
     )
 
 
@@ -72,7 +74,9 @@ def build_sensor_management_service(session: AsyncSession) -> SensorDeviceManage
 
 
 def build_sensor_status_service(session: AsyncSession) -> SensorStatusService:
-    return SensorStatusService(SQLAlchemySensorStatusRepository(session))
+    return SensorStatusService(
+        SQLAlchemySensorStatusRepository(session), SensorAssessmentService(session)
+    )
 
 
 @router.post("", response_model=PlantCreateResponse, status_code=status.HTTP_201_CREATED)

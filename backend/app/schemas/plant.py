@@ -18,6 +18,7 @@ from app.models.enums import (
     PlantCategory,
     SpeciesSelectionMethod,
 )
+from app.schemas.sensor import SensorAssessment
 
 
 class PlantCreateRequest(BaseModel):
@@ -230,6 +231,7 @@ class HomeRoomResponse(BaseModel):
     dialogue_key: HomeDialogueKey
     dialogue: str
     dialogue_queue: list[HomeDialogueEventResponse] = Field(default_factory=list)
+    sensor: SensorAssessment | None = None
 
 
 class HomeResponse(BaseModel):

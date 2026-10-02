@@ -19,6 +19,7 @@ from app.models.enums import (
     CareEventType,
     CareViewStatus,
     DiagnosisStatus,
+    ExpressionType,
     MediaStatus,
     PersonalityType,
     WaterRecommendationSource,
@@ -27,6 +28,7 @@ from app.models.letter import Letter
 from app.models.media import MediaFile, SpeciesIdentification
 from app.models.notification import Notification
 from app.models.plant import Plant, PlantDiary, PlantPersonalityChange, SpeciesCareGuide
+from app.models.sensor import PlantSensorEvent
 from app.models.user import UserProfile
 from app.schemas.plant import (
     AgendaEventResponse,
@@ -46,8 +48,10 @@ from app.schemas.plant import (
     PlantListResponse,
     PlantUpdateRequest,
 )
+from app.schemas.sensor import SensorLevel
 from app.services.letter import visible_letters
 from app.services.plant import next_recurring_due_date, today_in_timezone
+from app.services.sensor_assessment import SensorAssessmentService
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,11 +384,23 @@ class SQLAlchemyPlantManagementRepository:
             Letter.published_at < ended_at,
             Letter.published_at <= func.now(),
         )
-        rows = (await self._session.execute(union_all(watering, diaries, letters))).all()
+        sensor_events = select(
+            PlantSensorEvent.id.label("event_id"),
+            PlantSensorEvent.type.label("dialogue_key"),
+            PlantSensorEvent.occurred_at.label("occurred_at"),
+        ).where(
+            PlantSensorEvent.plant_id == plant_id,
+            PlantSensorEvent.occurred_at >= started_at,
+            PlantSensorEvent.occurred_at < ended_at,
+        )
+        rows = (
+            await self._session.execute(union_all(watering, diaries, letters, sensor_events))
+        ).all()
+        sensor_keys = {"SOIL_LOW": "SOIL_MOISTURE_LOW", "SOIL_HIGH": "SOIL_MOISTURE_HIGH"}
         return [
             HomeDialogueEvent(
                 event_id=row.event_id,
-                dialogue_key=HomeDialogueKey(row.dialogue_key),
+                dialogue_key=HomeDialogueKey(sensor_keys.get(row.dialogue_key, row.dialogue_key)),
                 occurred_at=row.occurred_at,
             )
             for row in rows
@@ -561,10 +577,12 @@ class PlantManagementService:
         storage: StorageGateway,
         *,
         download_url_expires_seconds: int,
+        assessments: SensorAssessmentService | None = None,
     ) -> None:
         self._repository = repository
         self._storage = storage
         self._download_url_expires_seconds = download_url_expires_seconds
+        self._assessments = assessments
 
     async def list_plants(self, user_id: UUID) -> PlantListResponse:
         await self._require_profile(user_id)
@@ -707,6 +725,42 @@ class PlantManagementService:
         dialogue_events = await self._repository.list_home_dialogue_events(
             context.plant.id, day_started_at, day_ended_at
         )
+        sensor = (
+            await self._assessments.read(context.plant.id, now=local_now)
+            if self._assessments is not None
+            else None
+        )
+        active_sensor_keys = set()
+        if sensor is not None:
+            for state, mapping in (
+                (
+                    sensor.soil.state,
+                    {
+                        SensorLevel.LOW: HomeDialogueKey.SOIL_MOISTURE_LOW,
+                        SensorLevel.HIGH: HomeDialogueKey.SOIL_MOISTURE_HIGH,
+                    },
+                ),
+                (
+                    sensor.light.state,
+                    {
+                        SensorLevel.LOW: HomeDialogueKey.LIGHT_LOW,
+                        SensorLevel.HIGH: HomeDialogueKey.LIGHT_HIGH,
+                    },
+                ),
+            ):
+                if state in mapping:
+                    active_sensor_keys.add(mapping[state])
+            sensor_keys = {
+                HomeDialogueKey.SOIL_MOISTURE_LOW,
+                HomeDialogueKey.SOIL_MOISTURE_HIGH,
+                HomeDialogueKey.LIGHT_LOW,
+                HomeDialogueKey.LIGHT_HIGH,
+            }
+            dialogue_events = [
+                event
+                for event in dialogue_events
+                if event.dialogue_key not in sensor_keys or event.dialogue_key in active_sensor_keys
+            ]
         dialogue_events.sort(
             key=lambda item: (
                 HOME_DIALOGUE_PRIORITY[item.dialogue_key],
@@ -715,10 +769,14 @@ class PlantManagementService:
         )
         has_diary_today = await self._repository.diary_exists_on(context.plant.id, today)
         diagnosis_state = await self._repository.diagnosis_prompt_state(context.plant.id)
-        if local_now.hour >= 18 and not has_diary_today:
+        if active_sensor_keys:
+            dialogue_key = min(active_sensor_keys, key=HOME_DIALOGUE_PRIORITY.__getitem__)
+        elif local_now.hour >= 18 and not has_diary_today:
             dialogue_key = HomeDialogueKey.DIARY_PROMPT
         elif should_prompt_diagnosis(context.plant, diagnosis_state, local_now):
             dialogue_key = HomeDialogueKey.DIAGNOSIS_PROMPT
+        elif sensor is not None and sensor.light.state == SensorLevel.OK:
+            dialogue_key = HomeDialogueKey.LIGHT_OPTIMAL
         else:
             dialogue_key = HomeDialogueKey.NORMAL
         return HomeResponse(
@@ -731,10 +789,20 @@ class PlantManagementService:
                 body_id=context.plant.body_id,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
-                expression_id=context.plant.expression_id,
+                expression_id=(
+                    ExpressionType.SAD
+                    if active_sensor_keys
+                    else ExpressionType.HAPPY
+                    if sensor is not None
+                    and sensor.soil.state == sensor.light.state == SensorLevel.OK
+                    else ExpressionType.DEFAULT
+                    if sensor is not None
+                    else context.plant.expression_id
+                ),
                 primary_photo_url=await self._photo_url(user_id, context.plant),
             ),
             room=HomeRoomResponse(
+                sensor=sensor,
                 background_phase=home_background_phase(context.timezone, now=local_now),
                 dialogue_key=dialogue_key,
                 dialogue=home_dialogue(context.plant.personality_type, dialogue_key),

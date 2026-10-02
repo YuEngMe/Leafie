@@ -21,6 +21,7 @@ erDiagram
     SENSOR_DEVICES ||--o| PLANT_SENSOR_DEVICES : links
     PLANTS ||--o| PLANT_SENSOR_DEVICES : links
     SENSOR_DEVICES ||--o{ SENSOR_READINGS : reports
+    PLANTS ||--o{ PLANT_SENSOR_EVENTS : evaluates
     SPECIES_CARE_GUIDES ||--o{ PLANTS : classifies
     PLANTS ||--o{ CARE_SCHEDULES : schedules
     PLANTS ||--o{ CARE_EVENTS : records
@@ -269,6 +270,25 @@ claim 시도입니다. `user_id`는 claim을 요청한 사용자이고, `sensor_
 | `created_at` | timestamptz | 필수 |
 
 식물의 `user_id`와 기기의 `owner_user_id`가 같은지는 서비스 계층에서 검증합니다.
+
+### `plant_sensor_events`
+
+홈·인앱 알림·편지의 센서 요구 이력을 보존합니다. 알림 삭제와 독립적입니다.
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `id` | uuid PK | 식물·기기·평가일·유형에서 결정한 멱등 ID |
+| `plant_id` | uuid FK | plants, hard delete cascade |
+| `device_id` | varchar(12) | 발생 당시 기기 ID, 해제 이후 이력 보존을 위해 FK 없음 |
+| `evaluation_date` | date | 토양: 발생 당일, 광량: 평가한 완결 일자 |
+| `type` | varchar(16) | SOIL_LOW/HIGH, LIGHT_LOW/HIGH |
+| `value` | numeric(12,2) | 당시 상대 토양 % 또는 lux·h |
+| `threshold_version` | varchar(32) | 사용한 종별 기준 버전 |
+| `occurred_at` | timestamptz | 실제 판정 이벤트 생성 시각 |
+
+`(plant_id, device_id, evaluation_date, type)` unique, `(plant_id, occurred_at)` index.
+RLS 활성 및 anon/authenticated 직접 접근 회수. sensor_ingest에 권한을 추가하지 않습니다.
+정책은 새 종별 테이블이 아니라 species_care_guides.care_profile.sensor_thresholds에 둡니다.
 
 ### `sensor_readings`
 

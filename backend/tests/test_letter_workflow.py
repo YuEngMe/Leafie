@@ -155,6 +155,26 @@ class Sensors:
         return "테스트 요약: 일일 누적 조도 적정. 급수 요청 후 물주기 완료."
 
 
+async def test_generation_uses_actual_sensor_adapter_without_inventing_missing_data(db, queue):
+    import json
+
+    from app.services.sensor_assessment import SQLAlchemyLetterSensorSummary
+
+    _, _, _, letter_id = await seed(db, queue)
+    provider = Provider()
+    repository = SQLAlchemyLetterRepository(db, queue)
+    await LetterGenerationHandler(repository, provider, SQLAlchemyLetterSensorSummary(db))(
+        job(letter_id)
+    )
+    assert (await load(db, letter_id)).status == "COMPLETED"
+    summary = json.loads(provider.inputs[0].sensor_summary)
+    assert summary["sensor"]["connection"] == "NO_DEVICE"
+    assert summary["sensor"]["soil"]["state"] == "UNKNOWN"
+    assert summary["sensor"]["light"]["state"] == "UNKNOWN"
+    assert summary["waterRequests"] == []
+    assert summary["wateringRecordedCount"] == 0
+
+
 class Provider:
     def __init__(self, error=None):
         self.error = error
