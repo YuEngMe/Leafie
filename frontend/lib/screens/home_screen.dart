@@ -176,6 +176,9 @@ class _HomeScreenState extends State<HomeScreen>
   bool _switchingPlant = false;
   final _tabShellKey = GlobalKey<MainTabShellState>();
 
+  /// 내 캐릭터에서 돌아올 때마다 올려 캘린더 탭을 새로 만든다.
+  int _careDataVersion = 0;
+
   // 씬과 독립된 로컬 돌보기 모션 컨트롤러들(백엔드/씬 전환에 영향 없음).
   // late final 지연 초기화를 쓰면 build에서 한 번도 접근되지 않은 채 dispose가
   // 이들을 처음 만들며 vsync(=this)가 비활성 트리에서 MediaQuery를 조회해 터진다.
@@ -548,6 +551,10 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
     if (!mounted) return;
+    // 내 캐릭터에서 물 준 날·분갈이 날을 고치면 서버가 다음 예정일을 다시
+    // 계산한다(#116). 이미 열어 둔 캘린더 탭은 처음 만들 때만 일정을
+    // 불러오므로, 새로 만들어 다시 불러오게 한다.
+    setState(() => _careDataVersion++);
     await _loadHome(selectedPlantId);
     await _loadPlants();
   }
@@ -634,7 +641,7 @@ class _HomeScreenState extends State<HomeScreen>
         showBottomNav: false,
       ),
       calendarBuilder: (_) => CalendarScreen(
-        key: ValueKey(plant?.id),
+        key: ValueKey('${plant?.id}#$_careDataVersion'),
         plantId: plant?.id,
         plantName: plant?.name,
         showBottomNav: false,

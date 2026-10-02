@@ -146,6 +146,48 @@ void main() {
     expect(request.body, {'nickname': '변경이', 'place_name': '베란다'});
   });
 
+  test('상세 응답의 마지막 물 준 날·분갈이 날을 읽고, 바꾼 날짜만 보낸다', () async {
+    late LeafieHttpRequest request;
+    final api = PlantManagementApi(
+      client: _client((input) async {
+        request = input;
+        return LeafieHttpResponse(
+          statusCode: 200,
+          body: jsonEncode({
+            ..._plantJson(detail: true),
+            'last_watered_on': '2026-09-20',
+            'last_repotted_on': null,
+          }),
+        );
+      }),
+    );
+
+    final updated = await api.updatePlant(
+      'plant-1',
+      lastWateredOn: DateTime(2026, 9, 20, 18, 30),
+    );
+
+    expect(request.body, {'last_watered_on': '2026-09-20'});
+    expect(updated.lastWateredOn, DateTime(2026, 9, 20));
+    expect(updated.lastRepottedOn, isNull);
+  });
+
+  test('날짜 형식이 틀린 상세 응답은 거부한다', () async {
+    final api = PlantManagementApi(
+      client: _client(
+        (_) async => LeafieHttpResponse(
+          statusCode: 200,
+          body: jsonEncode({
+            ..._plantJson(detail: true),
+            'last_watered_on': '2026/09/20',
+          }),
+        ),
+      ),
+    );
+
+    await expectLater(api.getPlant('plant-1'), throwsA(anything));
+  });
+
   test('식물 PATCH는 빈 변경과 서버 길이 제한 초과를 요청 전에 거부한다', () async {
     var requestCount = 0;
     final api = PlantManagementApi(

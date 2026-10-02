@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
@@ -827,6 +828,66 @@ void main() {
       );
     });
   });
+
+  testWidgets('내 캐릭터에서 돌아오면 캘린더 탭을 새로 만들어 일정을 다시 불러온다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: null,
+            room: null,
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+          plantManagementBuilder: (routeContext, _, _, _) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(routeContext).pop(),
+              child: const Text('관리 닫기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Finder navIcon(FigmaNavIcon icon) => find.byWidgetPredicate(
+      (w) => w is FigmaBottomNavIcon && w.icon == icon,
+    );
+
+    await tester.tap(navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    final before = tester.widget<CalendarScreen>(find.byType(CalendarScreen)).key;
+
+    await tester.tap(navIcon(FigmaNavIcon.home));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-manage-plants')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('관리 닫기'));
+    await tester.pumpAndSettle();
+
+    // 홈 탭이 앞이라 캘린더는 가려진(offstage) 상태다.
+    final after = tester
+        .widget<CalendarScreen>(
+          find.byType(CalendarScreen, skipOffstage: false),
+        )
+        .key;
+    expect(after, isNot(before));
+  });
 }
 
 class _FakeNotificationRepository implements NotificationRepository {
@@ -921,5 +982,7 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   }) => throw UnimplementedError();
 }

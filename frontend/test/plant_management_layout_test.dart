@@ -46,6 +46,9 @@ ManagedPlant _plant({
 );
 
 class _FakeRepository implements PlantManagementRepository {
+  DateTime? sentWateredOn;
+  DateTime? sentRepottedOn;
+
   _FakeRepository(this.plants);
 
   List<ManagedPlant> plants;
@@ -75,9 +78,18 @@ class _FakeRepository implements PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   }) async {
     final plant = plants.firstWhere((item) => item.id == plantId);
-    final updated = plant.copyWith(nickname: nickname, placeName: placeName);
+    sentWateredOn = lastWateredOn;
+    sentRepottedOn = lastRepottedOn;
+    final updated = plant.copyWith(
+      nickname: nickname,
+      placeName: placeName,
+      lastWateredOn: lastWateredOn,
+      lastRepottedOn: lastRepottedOn,
+    );
     if (personalityType == null) return updated;
     return ManagedPlant(
       id: updated.id,
@@ -446,24 +458,82 @@ void main() {
         expect(rect.height, _closeTo1px(51), reason: key);
       }
 
-      // 서버가 수정 계약을 제공하는 장소만 입력할 수 있다.
       expect(find.text('예: 베란다'), findsOneWidget);
-      expect(find.text('수정 API 준비 중'), findsNWidgets(2));
+      // 관리 기록이 없는 식물은 날짜 칸이 비어 있고 고르도록 안내한다.
+      expect(find.text('선택하기'), findsNWidgets(2));
 
       // 2555:691 하단 버튼 x=34 w=334 h=51.
       final button = tester.getRect(find.text('수정하기'));
       expect(button.center.dx, _closeTo1px(201));
     });
 
-    testWidgets('서버가 수정 계약을 제공하지 않는 날짜 필드는 비활성화한다', (tester) async {
-      await pump(tester);
+    testWidgets('저장된 날짜를 보여 주고, 바꾼 날짜만 PATCH로 보낸다', (tester) async {
+      final plant = _plant().copyWith(
+        lastWateredOn: DateTime(2026, 9, 20),
+        lastRepottedOn: DateTime(2026, 3, 2),
+      );
+      final repository = _FakeRepository([plant]);
+      await _pumpScreen(
+        tester,
+        PlantEditInfoScreen(plant: plant, repository: repository),
+      );
+      expect(find.text('2026년 9월 20일'), findsOneWidget);
+      expect(find.text('2026년 3월 2일'), findsOneWidget);
+
+      // 분갈이 날 칸을 눌러 시트를 열고, 휠을 하루 위로 올려 3월 1일을 고른다.
+      await tester.tap(find.byKey(const ValueKey('plant_repotted_field')));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlantDatePickerSheet), findsOneWidget);
+      await tester.drag(
+        find.byKey(const ValueKey('date_day_wheel')),
+        // 드래그 인식 여유(kDragSlopDefault 20)만큼 더 끈다.
+        const Offset(0, PlantDatePickerSheet.rowHeight + kDragSlopDefault),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PlantDatePickerSheet),
+          matching: find.text('수정하기'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('2026년 3월 1일'), findsOneWidget);
+
+      await tester.tap(find.text('수정하기'));
+      await tester.pumpAndSettle();
+
+      // 바꾸지 않은 물 준 날은 보내지 않는다.
+      expect(repository.sentWateredOn, isNull);
+      expect(repository.sentRepottedOn, DateTime(2026, 3, 1));
+    });
+
+    testWidgets('기록이 없는 날짜도 시트에서 골라 저장한다', (tester) async {
+      final repository = _FakeRepository([_plant()]);
+      await _pumpScreen(
+        tester,
+        PlantEditInfoScreen(plant: _plant(), repository: repository),
+      );
 
       await tester.tap(find.byKey(const ValueKey('plant_watered_field')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('plant_repotted_field')));
+      // 기록이 없으면 오늘에서 시작한다. 그대로 확정한다.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PlantDatePickerSheet),
+          matching: find.text('수정하기'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('수정하기'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(PlantDatePickerSheet), findsNothing);
+      final today = DateTime.now();
+      final sent = repository.sentWateredOn!;
+      expect(
+        DateTime(sent.year, sent.month, sent.day),
+        DateTime(today.year, today.month, today.day),
+      );
+      expect(repository.sentRepottedOn, isNull);
     });
   });
 
