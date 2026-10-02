@@ -70,6 +70,8 @@ class _FakeRepository implements PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   }) async {
     renamedTo = nickname;
     placeNameTo = placeName;

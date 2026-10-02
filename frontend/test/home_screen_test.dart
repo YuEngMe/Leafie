@@ -3,14 +3,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 /// 홈 캐릭터는 circle 바디라 circle 얼굴을 쓴다.
 const _defaultFace = 'assets/images/character/face_circle_default.png';
@@ -574,7 +578,8 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('평소 대사만 오고 물주기 일정이 없으면 목마른 말풍선을 띄우지 않는다', (tester) async {
+    // 디자이너 확인(2026-10): 평소 대사도 기존 말풍선 모양으로 띄운다.
+    testWidgets('평소 대사는 목마른 말풍선이 아니라 기본 대사 말풍선으로 띄운다', (tester) async {
       await pumpHome(
         tester,
         (id) async => dashboard(id ?? 'plant-a', wateringRequest: false),
@@ -583,8 +588,12 @@ void main() {
         ]),
       );
 
-      expect(find.byType(PlantRequestBubble), findsNothing);
-      expect(find.text('오늘도 힘차게 자라 볼게!'), findsNothing);
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('home-dialogue-fallback')),
+        findsOneWidget,
+      );
+      expect(find.text('오늘도 힘차게 자라 볼게!'), findsOneWidget);
     });
 
     testWidgets('물주기 일정이 있으면 평소 대사가 아닌 목마른 문구를 띄운다', (tester) async {
@@ -657,7 +666,7 @@ void main() {
       expect(find.text('햇빛 좀 쬐고 싶어!'), findsNothing);
     });
 
-    testWidgets('목마른 식물에서 다른 식물로 넘어가면 말풍선이 사라진다', (tester) async {
+    testWidgets('목마른 식물에서 다른 식물로 넘어가면 목마른 말풍선이 사라진다', (tester) async {
       await pumpHome(
         tester,
         (id) async => dashboard(
@@ -669,13 +678,13 @@ void main() {
           _managedPlant('plant-b', '둘째'),
         ]),
       );
-      expect(find.byType(PlantRequestBubble), findsOneWidget);
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('home-next-plant')));
       await tester.pumpAndSettle();
 
       expect(find.text('둘째 방'), findsOneWidget);
-      expect(find.byType(PlantRequestBubble), findsNothing);
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsNothing);
     });
   });
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
@@ -827,6 +836,459 @@ void main() {
       );
     });
   });
+
+  testWidgets('내 캐릭터에서 돌아오면 캘린더 탭을 새로 만들어 일정을 다시 불러온다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: null,
+            room: null,
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+          plantManagementBuilder: (routeContext, _, _, _) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(routeContext).pop(),
+              child: const Text('관리 닫기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Finder navIcon(FigmaNavIcon icon) => find.byWidgetPredicate(
+      (w) => w is FigmaBottomNavIcon && w.icon == icon,
+    );
+
+    await tester.tap(navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    final before = tester.widget<CalendarScreen>(find.byType(CalendarScreen)).key;
+
+    await tester.tap(navIcon(FigmaNavIcon.home));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-manage-plants')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('관리 닫기'));
+    await tester.pumpAndSettle();
+
+    // 홈 탭이 앞이라 캘린더는 가려진(offstage) 상태다.
+    final after = tester
+        .widget<CalendarScreen>(
+          find.byType(CalendarScreen, skipOffstage: false),
+        )
+        .key;
+    expect(after, isNot(before));
+  });
+
+  testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<void> pumpWith(SensorAssessment? sensor) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            key: UniqueKey(),
+            period: HomeTimePeriod.day,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '새싹이', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
+                id: 'plant-a',
+                nickname: '새싹이',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: 'NORMAL',
+                dialogue: '평소 대사',
+                sensor: sensor,
+              ),
+              todayEvents: const [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpWith(
+      const SensorAssessment(
+        connection: SensorConnection.active,
+        soil: SensorMetricAssessment(
+          state: SensorLevel.low,
+          unit: 'relative_percent',
+          value: 20,
+          lower: 40,
+          upper: 90,
+        ),
+        light: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'lux_hours',
+          value: 72000,
+          lower: 60000,
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('home-gauge-humidity')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-gauge-light')), findsOneWidget);
+    expect(find.text('새싹이는 40 - 90% 습도를 좋아해요'), findsOneWidget);
+    expect(find.text('현재습도 20%'), findsOneWidget);
+    expect(find.text('어제 120%'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
+
+    await pumpWith(null);
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
+  });
+
+
+  testWidgets('평소 표정은 서버가 정한 표정을 따른다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '새싹이', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '새싹이',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              expressionId: 'expression_sad',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final faces = tester
+        .widgetList<PlantCharacterArt>(find.byType(PlantCharacterArt))
+        .map((art) => art.expression);
+    expect(faces, contains(PlantExpression.sad));
+  });
+
+
+  testWidgets('센서 알림을 누르면 그 식물의 방으로 옮겨 게이지를 펼친다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakePlantManagementRepository([
+      _managedPlant('plant-a', '첫째', selected: true),
+      _managedPlant('plant-b', '둘째'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          period: HomeTimePeriod.day,
+          initialGaugesExpanded: false,
+          plantRepository: repository,
+          loadHomeForPlant: (plantId) async => HomeDashboardData(
+            plant: HomePlantData(
+              id: plantId ?? 'plant-a',
+              nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: null,
+            todayEvents: const [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 1,
+          ),
+          notificationBuilder: (routeContext) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(routeContext).pop(
+                NotificationData(
+                  id: 'n-1',
+                  plantId: 'plant-b',
+                  type: 'SENSOR_SOIL_LOW',
+                  title: '둘째의 흙이 말랐어요',
+                  body: '물을 주세요.',
+                  sourceType: 'SENSOR_EVENT',
+                  sourceId: 'event-1',
+                  readAt: DateTime(2026, 10, 2),
+                  createdAt: DateTime(2026, 10, 2),
+                ),
+              ),
+              child: const Text('센서 알림'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기기연결이 필요합니다'), findsNothing, reason: '게이지는 접혀 있다');
+
+    await tester.tap(find.byKey(const ValueKey('home-notifications')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('센서 알림'));
+    await tester.pumpAndSettle();
+
+    expect(repository.selectedIds, ['plant-b']);
+    expect(find.text('둘째 방'), findsOneWidget);
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget, reason: '게이지가 펼쳐진다');
+    expect(
+      tester.widget<AppBottomNav>(find.byType(AppBottomNav)).activeIcon,
+      FigmaNavIcon.home,
+    );
+  });
+
+
+  group('홈 대사 큐', () {
+    const queue = [
+      HomeDialogueEvent(
+        eventId: 'e-water',
+        dialogueKey: 'WATERING_COMPLETED',
+        dialogue: '물 고마워!',
+        duration: Duration(seconds: 15),
+      ),
+      HomeDialogueEvent(
+        eventId: 'e-letter',
+        dialogueKey: 'LETTER_SENT',
+        dialogue: '편지 보냈어!',
+        duration: Duration(seconds: 10),
+      ),
+    ];
+
+    Future<void> pumpQueueHome(
+      WidgetTester tester, {
+      bool gaugesExpanded = false,
+      String dialogueKey = 'NORMAL',
+      String dialogue = '오늘도 좋은 하루!',
+      List<HomeDialogueEvent> events = queue,
+    }) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            key: UniqueKey(),
+            period: HomeTimePeriod.day,
+            initialGaugesExpanded: gaugesExpanded,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '새싹이', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
+                id: 'plant-a',
+                nickname: '새싹이',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: dialogueKey,
+                dialogue: dialogue,
+                dialogueQueue: events,
+              ),
+              todayEvents: const [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            ),
+          ),
+        ),
+      );
+      // 기기에 남긴 "본 대사" 목록을 읽는 비동기 작업을 끝낸다.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+    }
+
+    testWidgets('큐 대사를 순서대로 정해진 시간만큼 보여 주고, 끝나면 기본 대사로 돌아간다', (
+      tester,
+    ) async {
+      await pumpQueueHome(tester);
+      expect(find.text('물 고마워!'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 15));
+      expect(find.text('물 고마워!'), findsNothing);
+      expect(find.text('편지 보냈어!'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.text('편지 보냈어!'), findsNothing);
+      expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
+    });
+
+    testWidgets('한 번 보여 준 대사는 홈을 다시 열어도 다시 띄우지 않는다', (tester) async {
+      await pumpQueueHome(tester);
+      await tester.pump(const Duration(seconds: 25));
+
+      await pumpQueueHome(tester);
+      expect(find.text('물 고마워!'), findsNothing);
+      expect(find.text('편지 보냈어!'), findsNothing);
+      expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
+    });
+
+    testWidgets('재생 중에 게이지를 펼치면 멈추고, 끝까지 못 본 대사는 다시 나온다', (
+      tester,
+    ) async {
+      await pumpQueueHome(tester);
+      expect(find.text('물 고마워!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+
+      await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 30));
+
+      await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+      await tester.pump();
+      expect(find.text('물 고마워!'), findsOneWidget, reason: '봤음으로 저장되지 않았다');
+    });
+
+    testWidgets('돌봄 반응 말풍선이 뜨면 큐 대사는 비켜 준다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'LIGHT_LOW',
+        dialogue: '빛이 모자라',
+      );
+      expect(find.text('물 고마워!'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-period-control')));
+      await tester.pump();
+      expect(find.text('아 따뜻해~고마워!'), findsOneWidget);
+      expect(find.text('물 고마워!'), findsNothing);
+
+      // 광선이 사라지면(3초 + 페이드) 멈춰 둔 큐 대사가 다시 나온다.
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('물 고마워!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('큐 대사를 보여 준 뒤에는 진단 유도 대사를 띄우지 않는다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIAGNOSIS_PROMPT',
+        dialogue: '내 상태 좀 봐 줄래?',
+        events: [queue.first],
+      );
+      await tester.pump(const Duration(seconds: 15));
+
+      expect(find.text('물 고마워!'), findsNothing);
+      expect(find.text('내 상태 좀 봐 줄래?'), findsNothing);
+    });
+
+    testWidgets('일기 권유 대사를 누르면 다이어리 탭으로 간다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIARY_PROMPT',
+        dialogue: '오늘 일기 써 줄래?',
+        events: const [],
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('home-dialogue-prompt-DIARY_PROMPT')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<AppBottomNav>(find.byType(AppBottomNav)).activeIcon,
+        FigmaNavIcon.diary,
+      );
+    });
+
+    testWidgets('진단 권유 대사를 누르면 진단 화면으로 간다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'DIAGNOSIS_PROMPT',
+        dialogue: '내 상태 좀 봐 줄래?',
+        events: const [],
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('home-dialogue-prompt-DIAGNOSIS_PROMPT')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiagnosisScreen), findsOneWidget);
+    });
+
+    testWidgets('평소 대사는 눌러도 화면을 옮기지 않는다', (tester) async {
+      await pumpQueueHome(tester, events: const []);
+
+      expect(find.byKey(const ValueKey('home-dialogue-fallback')), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'home-dialogue-prompt-',
+              ),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('게이지가 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다', (tester) async {
+      await pumpQueueHome(tester, gaugesExpanded: true);
+      await tester.pump(const Duration(seconds: 30));
+
+      await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+      await tester.pump();
+      // 가려진 동안 시간이 지나도 소비되지 않고, 접은 뒤에야 첫 대사부터 나온다.
+      expect(find.text('물 고마워!'), findsOneWidget);
+    });
+  });
+
 }
 
 class _FakeNotificationRepository implements NotificationRepository {
@@ -921,5 +1383,7 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   }) => throw UnimplementedError();
 }

@@ -26,6 +26,9 @@ import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
+import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
+import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
 
 /// 홈 API가 반환한 등록 식물 정보.
 class HomePlant {
@@ -168,6 +171,19 @@ class _HomeScreenState extends State<HomeScreen>
   HomePlant? _serverPlant;
   String? _serverDialogue;
   String? _serverDialogueKey;
+  SensorAssessment? _serverSensor;
+
+  // 홈 대사 큐(#123). 서버가 준 오늘의 대사를 하나씩 정해진 시간만큼 보여
+  // 준다. 보여 준 대사는 기기에 남겨 다시 띄우지 않는다.
+  final _seenDialogues = const HomeDialogueSeenStore();
+  Set<String>? _seenDialogueIds;
+  final List<HomeDialogueEvent> _pendingDialogues = [];
+  HomeDialogueEvent? _playingDialogue;
+  Timer? _dialogueTimer;
+
+  /// 이 화면에서 큐 대사를 하나라도 끝까지 보여 줬는가. 그랬다면 진단 유도
+  /// 대사(DIAGNOSIS_PROMPT)는 다시 띄우지 않는다(api-spec 홈 §8).
+  bool _playedDialogue = false;
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
@@ -175,6 +191,9 @@ class _HomeScreenState extends State<HomeScreen>
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
   final _tabShellKey = GlobalKey<MainTabShellState>();
+
+  /// 내 캐릭터에서 돌아올 때마다 올려 캘린더 탭을 새로 만든다.
+  int _careDataVersion = 0;
 
   // 씬과 독립된 로컬 돌보기 모션 컨트롤러들(백엔드/씬 전환에 영향 없음).
   // late final 지연 초기화를 쓰면 build에서 한 번도 접근되지 않은 채 dispose가
@@ -238,6 +257,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _dialogueTimer?.cancel();
     _careToastTimer?.cancel();
     _sunHideTimer?.cancel();
     _wateringAfterglowTimer?.cancel();
@@ -319,6 +339,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (oldWidget.initialGaugesExpanded != widget.initialGaugesExpanded) {
       _gaugesExpanded = widget.initialGaugesExpanded;
     }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _syncDialoguePlayback(),
+    );
   }
 
   void _startPlantRegistration(BuildContext context) {
@@ -341,6 +364,7 @@ class _HomeScreenState extends State<HomeScreen>
       _sunActive = true;
       if (_scene == HomeScene.needsLight) _scene = HomeScene.cared;
     });
+    _syncDialoguePlayback();
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     if (reduceMotion) {
       _raysController.value = 1;
@@ -353,10 +377,14 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
       if (reduceMotion) {
         setState(() => _sunActive = false);
+        _syncDialoguePlayback();
         return;
       }
       _raysController.reverse().whenComplete(() {
-        if (mounted) setState(() => _sunActive = false);
+        if (!mounted) return;
+        setState(() => _sunActive = false);
+        // 감사 반응이 끝나면 멈춰 둔 큐 대사를 이어서 보여 준다.
+        _syncDialoguePlayback();
       });
     });
   }
@@ -396,6 +424,7 @@ class _HomeScreenState extends State<HomeScreen>
               );
         _serverDialogue = room?.dialogue?.trim();
         _serverDialogueKey = room?.dialogueKey;
+        _serverSensor = room?.sensor;
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;
@@ -411,6 +440,9 @@ class _HomeScreenState extends State<HomeScreen>
         };
       });
       unawaited(_refreshLetterBadge());
+      unawaited(
+        _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
+      );
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -439,6 +471,27 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (_) {
       // 배지는 부가 정보라 조회에 실패해도 홈을 막지 않고 배지만 숨긴다.
       if (mounted) setState(() => _unreadLetterCount = 0);
+    }
+  }
+
+  void _openDiagnosis() {
+    final plant = _serverPlant ?? widget.plant;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            DiagnosisScreen(plantId: plant?.id, plantName: plant?.name),
+      ),
+    );
+  }
+
+  /// 권유 대사를 누르면 그 일을 할 화면으로 보낸다(디자이너 확인).
+  /// 일기 권유 → 다이어리 탭, 진단 권유 → 진단 화면.
+  void _openPrompt(String dialogueKey) {
+    switch (dialogueKey) {
+      case 'DIARY_PROMPT':
+        _tabShellKey.currentState?.select(FigmaNavIcon.diary);
+      case 'DIAGNOSIS_PROMPT':
+        _openDiagnosis();
     }
   }
 
@@ -490,6 +543,10 @@ class _HomeScreenState extends State<HomeScreen>
     _careToastOpacity = 0;
     _serverDialogue = null;
     _serverDialogueKey = null;
+    _serverSensor = null;
+    _dialogueTimer?.cancel();
+    _pendingDialogues.clear();
+    _playingDialogue = null;
     _scene = HomeScene.idle;
   }
 
@@ -548,6 +605,10 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
     if (!mounted) return;
+    // 내 캐릭터에서 물 준 날·분갈이 날을 고치면 서버가 다음 예정일을 다시
+    // 계산한다(#116). 이미 열어 둔 캘린더 탭은 처음 만들 때만 일정을
+    // 불러오므로, 새로 만들어 다시 불러오게 한다.
+    setState(() => _careDataVersion++);
     await _loadHome(selectedPlantId);
     await _loadPlants();
   }
@@ -579,6 +640,102 @@ class _HomeScreenState extends State<HomeScreen>
     await _openNotificationTarget(selected);
   }
 
+  /// 서버가 준 오늘의 큐로 대기열을 다시 만든다. 서버가 뺀 이벤트(해결된
+  /// 센서 이상 등)는 버리고, 상황 말풍선이 이미 같은 대사를 띄우는 키는 건너뛴다.
+  Future<void> _enqueueDialogues(
+    List<HomeDialogueEvent> events,
+    String? fallbackKey,
+  ) async {
+    final plantId = (_serverPlant ?? widget.plant)?.id;
+    final seen = _seenDialogueIds ??= await _seenDialogues.load();
+    // 본 목록을 읽는 사이 다른 식물로 넘어갔으면 이전 식물 대사를 붙이지 않는다.
+    if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
+    final playingId = _playingDialogue?.eventId;
+    _pendingDialogues
+      ..clear()
+      ..addAll(
+        events.where(
+          (event) =>
+              !seen.contains(event.eventId) &&
+              event.eventId != playingId &&
+              event.dialogueKey != fallbackKey,
+        ),
+      );
+    _syncDialoguePlayback();
+  }
+
+  /// 큐 대사가 실제로 보이는 상태인가. 게이지 패널이 펼쳐졌거나 돌봄 반응
+  /// 말풍선이 떠 있으면 가려진 것으로 본다. 해를 눌러 생긴 감사 반응
+  /// ("아 따뜻해~고마워!")은 광선이 떠 있는 동안(약 3초)만 큐를 비켜 준다.
+  bool get _dialogueVisible =>
+      !_gaugesExpanded &&
+      !(_scene == HomeScene.cared && _sunActive) &&
+      _scene != HomeScene.happy;
+
+  /// 보이면 이어서 재생하고, 가려지면 지금 대사를 멈춰 대기열 맨 앞으로
+  /// 되돌린다. 보이는 상태가 바뀌는 모든 곳에서 부른다.
+  void _syncDialoguePlayback() {
+    if (!mounted) return;
+    if (_dialogueVisible) {
+      _playNextDialogue();
+      return;
+    }
+    final playing = _playingDialogue;
+    if (playing == null) return;
+    _dialogueTimer?.cancel();
+    _pendingDialogues.insert(0, playing);
+    setState(() => _playingDialogue = null);
+  }
+
+  void _playNextDialogue() {
+    if (!mounted ||
+        _playingDialogue != null ||
+        !_dialogueVisible ||
+        _pendingDialogues.isEmpty) {
+      return;
+    }
+    final next = _pendingDialogues.removeAt(0);
+    setState(() => _playingDialogue = next);
+    _dialogueTimer?.cancel();
+    _dialogueTimer = Timer(next.duration, () {
+      if (!mounted) return;
+      // 끝까지 보여 준 대사만 본 것으로 남긴다. 중간에 가려지면 다시 나온다.
+      _seenDialogueIds?.add(next.eventId);
+      unawaited(_seenDialogues.markSeen(next.eventId));
+      setState(() {
+        _playingDialogue = null;
+        _playedDialogue = true;
+      });
+      _playNextDialogue();
+    });
+  }
+
+  /// 알림이 가리키는 식물로 방을 옮긴다. 이미 그 식물이면 그대로 둔다.
+  /// 옮기지 못했으면(다른 전환 중, 실패) false.
+  Future<bool> _showPlant(String plantId) async {
+    if (plantId == (_serverPlant ?? widget.plant)?.id) return true;
+    if (_switchingPlant) return false;
+    setState(() {
+      _switchingPlant = true;
+      _resetRoomMotion();
+    });
+    var loaded = false;
+    try {
+      await _plantRepository.selectPlant(plantId);
+      loaded = await _loadHome(plantId);
+      await _loadPlants();
+    } on LeafieApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _switchingPlant = false);
+    }
+    return loaded;
+  }
+
   Future<void> _openNotificationTarget(NotificationData notification) async {
     switch (notificationTargetOf(notification)) {
       case MailboxTarget(:final plantId):
@@ -591,31 +748,15 @@ class _HomeScreenState extends State<HomeScreen>
         );
       case CalendarTarget(:final plantId):
         // 캘린더 탭은 지금 방의 식물을 보여 주므로 알림의 식물로 먼저 옮긴다.
-        if (plantId != (_serverPlant ?? widget.plant)?.id) {
-          if (_switchingPlant) return;
-          setState(() {
-            _switchingPlant = true;
-            _resetRoomMotion();
-          });
-          var loaded = false;
-          try {
-            await _plantRepository.selectPlant(plantId);
-            loaded = await _loadHome(plantId);
-            await _loadPlants();
-          } on LeafieApiException catch (error) {
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(error.message)));
-            }
-          } finally {
-            if (mounted) setState(() => _switchingPlant = false);
-          }
-          // 식물을 못 옮겼으면 엉뚱한 식물의 캘린더를 열지 않는다.
-          if (!loaded) return;
-        }
-        if (!mounted) return;
+        // 식물을 못 옮겼으면 엉뚱한 식물의 캘린더를 열지 않는다.
+        if (!await _showPlant(plantId) || !mounted) return;
         _tabShellKey.currentState?.select(FigmaNavIcon.calendar);
+      case PlantHomeTarget(:final plantId):
+        // 센서 알림은 그 식물의 방으로 옮겨 게이지를 펼쳐 보여 준다.
+        if (!await _showPlant(plantId) || !mounted) return;
+        _tabShellKey.currentState?.select(FigmaNavIcon.home);
+        setState(() => _gaugesExpanded = true);
+        _syncDialoguePlayback();
       case null:
         break;
     }
@@ -634,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen>
         showBottomNav: false,
       ),
       calendarBuilder: (_) => CalendarScreen(
-        key: ValueKey(plant?.id),
+        key: ValueKey('${plant?.id}#$_careDataVersion'),
         plantId: plant?.id,
         plantName: plant?.name,
         showBottomNav: false,
@@ -740,20 +881,24 @@ class _HomeScreenState extends State<HomeScreen>
                   top: 113,
                   child: FigmaHomeViewSwitch(
                     onOverviewTap: () {},
-                    onDiagnosisTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DiagnosisScreen(
-                          plantId: plant?.id,
-                          plantName: plant?.name,
-                        ),
-                      ),
-                    ),
+                    onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
                 if (plant != null && !_gaugesExpanded)
                   _HomeConversation(
                     scene: _scene,
                     serverDialogue: _requestDialogue,
+                    queueMessage: _playingDialogue?.dialogue,
+                    queueKey: _playingDialogue?.dialogueKey,
+                    fallbackKey: _serverDialogueKey,
+                    onPromptTap: _openPrompt,
+                    // 상황 말풍선이 없을 때는 서버의 기본 대사(평소·일기·진단
+                    // 권유·조도 적당 등)를 띄운다.
+                    fallbackMessage:
+                        _serverDialogueKey == 'DIAGNOSIS_PROMPT' &&
+                            _playedDialogue
+                        ? null
+                        : _serverDialogue,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -971,12 +1116,13 @@ class _HomeScreenState extends State<HomeScreen>
                                     .clamp(0.0, 1.0);
                             final bounce =
                                 math.sin(bouncePhase * math.pi) * 6;
-                            // 돌보기 중엔 기쁜 표정, 평소엔 기본 표정.
-                            // 얼굴 PNG는 캔버스가 같아 크로스페이드해도 위치가
-                            // 안 튄다.
+                            // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
+                            // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
+                            // 기쁨, 그 외 기본). 얼굴 PNG는 캔버스가 같아
+                            // 크로스페이드해도 위치가 안 튄다.
                             final expression = _isBeingCaredFor
                                 ? PlantExpression.happy
-                                : PlantExpression.defaultFace;
+                                : plantExpressionFromId(plant.expressionId);
                             return Transform.translate(
                               offset: Offset(0, -bounce),
                               child: Transform.rotate(
@@ -1073,11 +1219,19 @@ class _HomeScreenState extends State<HomeScreen>
                   )
                 else if (_gaugesExpanded)
                   _HomeEnvironmentPanel(
-                    onCollapse: () => setState(() => _gaugesExpanded = false),
+                    sensor: _serverSensor,
+                    plantName: plant.name,
+                    onCollapse: () {
+                      setState(() => _gaugesExpanded = false);
+                      _syncDialoguePlayback();
+                    },
                   )
                 else
                   _HomeStatusCard(
-                    onTap: () => setState(() => _gaugesExpanded = true),
+                    onTap: () {
+                      setState(() => _gaugesExpanded = true);
+                      _syncDialoguePlayback();
+                    },
                   ),
               ],
             ),
@@ -1227,13 +1381,65 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _HomeConversation extends StatelessWidget {
-  const _HomeConversation({required this.scene, required this.serverDialogue});
+  const _HomeConversation({
+    required this.scene,
+    required this.serverDialogue,
+    this.queueMessage,
+    this.fallbackMessage,
+    this.queueKey,
+    this.fallbackKey,
+    this.onPromptTap,
+  });
+
+  /// 누르면 화면을 옮기는 권유 대사 키.
+  static const promptKeys = {'DIARY_PROMPT', 'DIAGNOSIS_PROMPT'};
+
+  final String? queueKey;
+  final String? fallbackKey;
+  final ValueChanged<String>? onPromptTap;
 
   final HomeScene scene;
   final String? serverDialogue;
 
+  /// 지금 재생 중인 큐 대사. 있으면 상황 말풍선보다 먼저 보인다.
+  final String? queueMessage;
+
+  /// 상황 말풍선이 없을 때(idle) 띄울 서버 기본 대사.
+  final String? fallbackMessage;
+
+  /// 디자이너 확인: 새 대사 말풍선은 기존 요청 말풍선 모양을 재사용한다.
+  /// 권유 대사면 누를 수 있게 감싼다.
+  Widget _serverBubble(Key key, String message, String? dialogueKey) {
+    Widget bubble = PlantRequestBubble(key: key, message: message);
+    final onTap = onPromptTap;
+    if (onTap != null && promptKeys.contains(dialogueKey)) {
+      bubble = Semantics(
+        button: true,
+        child: GestureDetector(
+          key: ValueKey('home-dialogue-prompt-$dialogueKey'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onTap(dialogueKey!),
+          child: bubble,
+        ),
+      );
+    }
+    return Positioned(
+      left: 20,
+      right: 20,
+      top: 209,
+      child: Center(child: bubble),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (queueMessage case final message? when message.isNotEmpty) {
+      return _serverBubble(
+        const ValueKey('home-dialogue-queue'),
+        message,
+        queueKey,
+      );
+    }
     return switch (scene) {
       HomeScene.needsWater => Positioned(
         left: 0,
@@ -1309,7 +1515,14 @@ class _HomeConversation extends StatelessWidget {
           ],
         ),
       ),
-      HomeScene.idle => const SizedBox.shrink(),
+      HomeScene.idle => switch (fallbackMessage) {
+        final message? when message.isNotEmpty => _serverBubble(
+          const ValueKey('home-dialogue-fallback'),
+          message,
+          fallbackKey,
+        ),
+        _ => const SizedBox.shrink(),
+      },
     };
   }
 }
@@ -1363,8 +1576,14 @@ class _HomeStatusCard extends StatelessWidget {
 }
 
 class _HomeEnvironmentPanel extends StatelessWidget {
-  const _HomeEnvironmentPanel({required this.onCollapse});
+  const _HomeEnvironmentPanel({
+    required this.sensor,
+    required this.plantName,
+    required this.onCollapse,
+  });
 
+  final SensorAssessment? sensor;
+  final String plantName;
   final VoidCallback onCollapse;
 
   @override
@@ -1405,17 +1624,35 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 34,
-                  right: 34,
-                  // Figma 3822:601: y=683, relative to the panel at y=575.
-                  top: 108,
-                  child: Text(
-                    '기기연결이 필요합니다',
-                    textAlign: TextAlign.center,
-                    style: kTitleStyle.copyWith(color: const Color(0xFF434343)),
+                if (sensorPanelMessage(sensor) case final message?)
+                  Positioned(
+                    left: 34,
+                    right: 34,
+                    // Figma 3822:601: y=683, relative to the panel at y=575.
+                    top: 108,
+                    child: Text(
+                      message,
+                      key: const ValueKey('home-environment-message'),
+                      textAlign: TextAlign.center,
+                      style: kTitleStyle.copyWith(
+                        color: const Color(0xFF434343),
+                      ),
+                    ),
+                  )
+                else ...[
+                  // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+                  // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+                  _gauge(
+                    top: 606 - 575,
+                    kind: EnvironmentGaugeKind.humidity,
+                    content: soilGaugeContent(sensor!.soil, plantName),
                   ),
-                ),
+                  _gauge(
+                    top: 697 - 575,
+                    kind: EnvironmentGaugeKind.light,
+                    content: lightGaugeContent(sensor!.light, plantName),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1423,6 +1660,25 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       ),
     );
   }
+
+  Widget _gauge({
+    required double top,
+    required EnvironmentGaugeKind kind,
+    required SensorGaugeContent content,
+  }) => Positioned(
+    left: 33.8,
+    width: 335.5,
+    top: top,
+    child: EnvironmentGauge(
+      key: ValueKey('home-gauge-${kind.name}'),
+      kind: kind,
+      description: content.description,
+      currentRatio: content.currentRatio,
+      comfortRatio: content.comfortRatio,
+      currentLabel: content.currentLabel,
+      maxLabel: content.maxLabel,
+    ),
+  );
 }
 
 class _HomeMessageCard extends StatelessWidget {

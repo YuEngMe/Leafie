@@ -13,6 +13,8 @@ abstract interface class PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   });
 
   Future<ManagedPlant> updateAppearance(
@@ -83,6 +85,8 @@ class PlantManagementApi implements PlantManagementRepository {
     String? nickname,
     String? placeName,
     String? personalityType,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
   }) async {
     final normalizedNickname = nickname?.trim();
     final normalizedPlaceName = placeName?.trim();
@@ -106,6 +110,10 @@ class PlantManagementApi implements PlantManagementRepository {
       'nickname': ?normalizedNickname,
       'place_name': ?normalizedPlaceName,
       'personality_type': ?personalityType,
+      // 날짜는 바뀐 것만 보낸다. 서버는 빠진 필드는 그대로 두고, null은
+      // 거절한다(#116).
+      'last_watered_on': ?_dateOnly(lastWateredOn),
+      'last_repotted_on': ?_dateOnly(lastRepottedOn),
     };
     if (body.isEmpty) {
       throw const LeafieApiException(
@@ -202,6 +210,8 @@ class ManagedPlant {
     this.familyName,
     this.floweringPeriod,
     this.placeName,
+    this.lastWateredOn,
+    this.lastRepottedOn,
     this.createdAt,
     this.updatedAt,
     this.isSelected = false,
@@ -231,6 +241,11 @@ class ManagedPlant {
     final familyName = json['family_name'];
     final floweringPeriod = json['flowering_period'];
     final placeName = json['place_name'];
+    // 상세 응답에만 온다(#116). 관리 기록이 없으면 null이다.
+    final lastWateredOnRaw = json['last_watered_on'];
+    final lastRepottedOnRaw = json['last_repotted_on'];
+    final lastWateredOn = _date(lastWateredOnRaw);
+    final lastRepottedOn = _date(lastRepottedOnRaw);
     final createdAt = _dateTime(json['created_at']);
     final updatedAt = _dateTime(json['updated_at']);
     if (id is! String ||
@@ -257,6 +272,8 @@ class ManagedPlant {
                 (floweringPeriod != null && floweringPeriod is! String) ||
                 placeName is! String ||
                 placeName.isEmpty ||
+                (lastWateredOnRaw != null && lastWateredOn == null) ||
+                (lastRepottedOnRaw != null && lastRepottedOn == null) ||
                 createdAt == null ||
                 updatedAt == null))) {
       throw const FormatException('Invalid plant payload');
@@ -283,6 +300,8 @@ class ManagedPlant {
       familyName: requireDetail ? familyName as String? : null,
       floweringPeriod: requireDetail ? floweringPeriod as String? : null,
       placeName: requireDetail ? placeName as String : null,
+      lastWateredOn: requireDetail ? lastWateredOn : null,
+      lastRepottedOn: requireDetail ? lastRepottedOn : null,
       createdAt: requireDetail ? createdAt : null,
       updatedAt: requireDetail ? updatedAt : null,
     );
@@ -322,6 +341,11 @@ class ManagedPlant {
   final String? familyName;
   final String? floweringPeriod;
   final String? placeName;
+
+  /// 마지막 물 준 날·분갈이 한 날. 상세 응답에서만 채워지고, 기록이 없으면
+  /// null이다.
+  final DateTime? lastWateredOn;
+  final DateTime? lastRepottedOn;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isSelected;
@@ -343,6 +367,8 @@ class ManagedPlant {
     String? hairId,
     String? expressionId,
     String? placeName,
+    DateTime? lastWateredOn,
+    DateTime? lastRepottedOn,
     bool? isSelected,
   }) => ManagedPlant(
     id: id,
@@ -361,8 +387,16 @@ class ManagedPlant {
     familyName: familyName,
     floweringPeriod: floweringPeriod,
     placeName: placeName ?? this.placeName,
+    lastWateredOn: lastWateredOn ?? this.lastWateredOn,
+    lastRepottedOn: lastRepottedOn ?? this.lastRepottedOn,
     createdAt: createdAt,
     updatedAt: updatedAt,
     isSelected: isSelected ?? this.isSelected,
   );
 }
+
+String? _dateOnly(DateTime? date) => date == null
+    ? null
+    : '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';

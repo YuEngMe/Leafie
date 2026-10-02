@@ -84,7 +84,10 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         ),
       ),
     );
-    if (updated != null && mounted) setState(() => _plant = updated);
+    if (updated != null && mounted) {
+      // 수정 응답에는 선택 여부가 없어 지금 값을 이어 둔다.
+      setState(() => _plant = updated.copyWith(isSelected: _plant.isSelected));
+    }
   }
 
   Future<void> _openAppearance() async {
@@ -96,7 +99,10 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         ),
       ),
     );
-    if (updated != null && mounted) setState(() => _plant = updated);
+    if (updated != null && mounted) {
+      // 수정 응답에는 선택 여부가 없어 지금 값을 이어 둔다.
+      setState(() => _plant = updated.copyWith(isSelected: _plant.isSelected));
+    }
   }
 
   Future<void> _openPersonality() async {
@@ -110,7 +116,11 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         _plant.id,
         personalityType: selected,
       );
-      if (mounted) setState(() => _plant = updated);
+      if (mounted) {
+        setState(
+          () => _plant = updated.copyWith(isSelected: _plant.isSelected),
+        );
+      }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(

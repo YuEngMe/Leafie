@@ -927,7 +927,10 @@ List<PrescriptionCause> _prescriptionCauses(List<DiagnosisCauseData> causes) {
     for (var index = 0; index < causes.take(3).length; index++)
       PrescriptionCause(
         label: causes[index].name,
-        percent: ((causes[index].confidence ?? 0) * 100).round().clamp(0, 100),
+        percent: switch (causes[index].confidence) {
+          final confidence? => (confidence * 100).round().clamp(0, 100),
+          null => null,
+        },
         color: colors[index],
       ),
   ];

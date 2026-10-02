@@ -457,7 +457,9 @@ class PrescriptionCause {
   /// 과습·햇빛 부족·병충해 같은 원인 이름.
   final String label;
 
-  /// 0~100. 막대 폭과 표시 문구 모두 이 값에서 나온다.
-  final int percent;
+  /// 0~100. 서버가 확률을 주지 않으면(null) null로 둔다. 확률이 없는 원인을
+  /// 0%로 보여주지 않는다는 계약(#112)이라 0으로 바꾸지 않는다. 지금 화면은
+  /// 원인 이름만 문장으로 보여 준다.
+  final int? percent;
   final Color color;
 }

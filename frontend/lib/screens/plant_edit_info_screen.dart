@@ -30,13 +30,72 @@ class PlantEditInfoScreen extends StatefulWidget {
 class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
   late final _nickname = TextEditingController(text: widget.plant.nickname);
   late final _place = TextEditingController(text: widget.plant.placeName);
+  late DateTime? _wateredOn = widget.plant.lastWateredOn;
+  late DateTime? _repottedOn = widget.plant.lastRepottedOn;
+  late final _wateredText = TextEditingController(
+    text: _displayDate(widget.plant.lastWateredOn),
+  );
+  late final _repottedText = TextEditingController(
+    text: _displayDate(widget.plant.lastRepottedOn),
+  );
   bool _busy = false;
 
   @override
   void dispose() {
     _nickname.dispose();
     _place.dispose();
+    _wateredText.dispose();
+    _repottedText.dispose();
     super.dispose();
+  }
+
+  static String _displayDate(DateTime? date) =>
+      date == null ? '' : '${date.year}년 ${date.month}월 ${date.day}일';
+
+  /// 서버는 사용자 시간대(현재 Asia/Seoul 고정)로 "오늘"을 정한다.
+  /// 기기 시간대가 달라도 같은 기준으로 미래 날짜를 막는다.
+  static DateTime _todayInSeoul() {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static bool _sameDay(DateTime? a, DateTime? b) =>
+      a == null || b == null
+      ? a == b
+      : a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// 시안 2568:1639 "정보수정 2" 날짜 시트를 띄운다. 기록이 없으면 오늘에서
+  /// 시작한다. 서버가 미래 날짜를 받지 않으므로 여기서 먼저 막는다.
+  Future<void> _pickDate({required bool watered}) async {
+    final current = watered ? _wateredOn : _repottedOn;
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: kModalBarrier,
+      isScrollControlled: true,
+      useSafeArea: false,
+      builder: (_) => PlantDatePickerSheet(initialDate: current ?? _todayInSeoul()),
+    );
+    if (!mounted || picked == null) return;
+    if (DateTime(
+      picked.year,
+      picked.month,
+      picked.day,
+    ).isAfter(_todayInSeoul())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')),
+      );
+      return;
+    }
+    setState(() {
+      if (watered) {
+        _wateredOn = picked;
+        _wateredText.text = _displayDate(picked);
+      } else {
+        _repottedOn = picked;
+        _repottedText.text = _displayDate(picked);
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -56,7 +115,15 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
     }
     final nicknameChanged = nickname != widget.plant.nickname;
     final placeNameChanged = placeName != widget.plant.placeName;
-    if (!nicknameChanged && !placeNameChanged) {
+    final wateredChanged = !_sameDay(_wateredOn, widget.plant.lastWateredOn);
+    final repottedChanged = !_sameDay(
+      _repottedOn,
+      widget.plant.lastRepottedOn,
+    );
+    if (!nicknameChanged &&
+        !placeNameChanged &&
+        !wateredChanged &&
+        !repottedChanged) {
       Navigator.of(context).pop(widget.plant);
       return;
     }
@@ -66,6 +133,10 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
         widget.plant.id,
         nickname: nicknameChanged ? nickname : null,
         placeName: placeNameChanged ? placeName : null,
+        // 날짜를 바꾸면 서버가 다음 물주기·분갈이 예정일을 다시 계산한다.
+        // 이전 기록보다 앞선 날짜는 409로 거절되고 그 안내를 그대로 띄운다.
+        lastWateredOn: wateredChanged ? _wateredOn : null,
+        lastRepottedOn: repottedChanged ? _repottedOn : null,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on LeafieApiException catch (error) {
@@ -111,10 +182,11 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
             label: '마지막 물 준 날',
             child: RoundedInputField(
               key: const ValueKey('plant_watered_field'),
+              controller: _wateredText,
               readOnly: true,
-              enabled: false,
-              hintText: '수정 API 준비 중',
+              hintText: '선택하기',
               height: 51,
+              onTap: () => _pickDate(watered: true),
             ),
           ),
           // 2555:707/709. 라벨 top 475.
@@ -123,10 +195,11 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
             label: '분갈이 한 날',
             child: RoundedInputField(
               key: const ValueKey('plant_repotted_field'),
+              controller: _repottedText,
               readOnly: true,
-              enabled: false,
-              hintText: '수정 API 준비 중',
+              hintText: '선택하기',
               height: 51,
+              onTap: () => _pickDate(watered: false),
             ),
           ),
         ],
