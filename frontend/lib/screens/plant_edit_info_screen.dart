@@ -52,6 +52,13 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
   static String _displayDate(DateTime? date) =>
       date == null ? '' : '${date.year}년 ${date.month}월 ${date.day}일';
 
+  /// 서버는 사용자 시간대(현재 Asia/Seoul 고정)로 "오늘"을 정한다.
+  /// 기기 시간대가 달라도 같은 기준으로 미래 날짜를 막는다.
+  static DateTime _todayInSeoul() {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+    return DateTime(now.year, now.month, now.day);
+  }
+
   static bool _sameDay(DateTime? a, DateTime? b) =>
       a == null || b == null
       ? a == b
@@ -67,16 +74,14 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
       barrierColor: kModalBarrier,
       isScrollControlled: true,
       useSafeArea: false,
-      builder: (_) =>
-          PlantDatePickerSheet(initialDate: current ?? DateTime.now()),
+      builder: (_) => PlantDatePickerSheet(initialDate: current ?? _todayInSeoul()),
     );
     if (!mounted || picked == null) return;
-    final now = DateTime.now();
     if (DateTime(
       picked.year,
       picked.month,
       picked.day,
-    ).isAfter(DateTime(now.year, now.month, now.day))) {
+    ).isAfter(_todayInSeoul())) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')),
       );
