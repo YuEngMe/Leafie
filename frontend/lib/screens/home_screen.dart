@@ -26,6 +26,8 @@ import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
+import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
 
 /// 홈 API가 반환한 등록 식물 정보.
 class HomePlant {
@@ -168,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen>
   HomePlant? _serverPlant;
   String? _serverDialogue;
   String? _serverDialogueKey;
+  SensorAssessment? _serverSensor;
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
@@ -399,6 +402,7 @@ class _HomeScreenState extends State<HomeScreen>
               );
         _serverDialogue = room?.dialogue?.trim();
         _serverDialogueKey = room?.dialogueKey;
+        _serverSensor = room?.sensor;
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;
@@ -493,6 +497,7 @@ class _HomeScreenState extends State<HomeScreen>
     _careToastOpacity = 0;
     _serverDialogue = null;
     _serverDialogueKey = null;
+    _serverSensor = null;
     _scene = HomeScene.idle;
   }
 
@@ -1080,6 +1085,8 @@ class _HomeScreenState extends State<HomeScreen>
                   )
                 else if (_gaugesExpanded)
                   _HomeEnvironmentPanel(
+                    sensor: _serverSensor,
+                    plantName: plant.name,
                     onCollapse: () => setState(() => _gaugesExpanded = false),
                   )
                 else
@@ -1370,8 +1377,14 @@ class _HomeStatusCard extends StatelessWidget {
 }
 
 class _HomeEnvironmentPanel extends StatelessWidget {
-  const _HomeEnvironmentPanel({required this.onCollapse});
+  const _HomeEnvironmentPanel({
+    required this.sensor,
+    required this.plantName,
+    required this.onCollapse,
+  });
 
+  final SensorAssessment? sensor;
+  final String plantName;
   final VoidCallback onCollapse;
 
   @override
@@ -1412,17 +1425,35 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 34,
-                  right: 34,
-                  // Figma 3822:601: y=683, relative to the panel at y=575.
-                  top: 108,
-                  child: Text(
-                    '기기연결이 필요합니다',
-                    textAlign: TextAlign.center,
-                    style: kTitleStyle.copyWith(color: const Color(0xFF434343)),
+                if (sensorPanelMessage(sensor) case final message?)
+                  Positioned(
+                    left: 34,
+                    right: 34,
+                    // Figma 3822:601: y=683, relative to the panel at y=575.
+                    top: 108,
+                    child: Text(
+                      message,
+                      key: const ValueKey('home-environment-message'),
+                      textAlign: TextAlign.center,
+                      style: kTitleStyle.copyWith(
+                        color: const Color(0xFF434343),
+                      ),
+                    ),
+                  )
+                else ...[
+                  // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+                  // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+                  _gauge(
+                    top: 606 - 575,
+                    kind: EnvironmentGaugeKind.humidity,
+                    content: soilGaugeContent(sensor!.soil, plantName),
                   ),
-                ),
+                  _gauge(
+                    top: 697 - 575,
+                    kind: EnvironmentGaugeKind.light,
+                    content: lightGaugeContent(sensor!.light, plantName),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1430,6 +1461,25 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       ),
     );
   }
+
+  Widget _gauge({
+    required double top,
+    required EnvironmentGaugeKind kind,
+    required SensorGaugeContent content,
+  }) => Positioned(
+    left: 33.8,
+    width: 335.5,
+    top: top,
+    child: EnvironmentGauge(
+      key: ValueKey('home-gauge-${kind.name}'),
+      kind: kind,
+      description: content.description,
+      currentRatio: content.currentRatio,
+      comfortRatio: content.comfortRatio,
+      currentLabel: content.currentLabel,
+      maxLabel: content.maxLabel,
+    ),
+  );
 }
 
 class _HomeMessageCard extends StatelessWidget {

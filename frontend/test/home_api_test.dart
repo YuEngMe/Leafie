@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/services/home_api.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 
 void main() {
@@ -124,5 +125,48 @@ void main() {
     });
 
     expect(data.daysTogether, 0);
+  });
+
+  test('홈 방의 센서 판정을 읽고, 형식이 틀리면 판정만 버린다', () {
+    Map<String, dynamic> room(Object? sensor) => {
+      'background_phase': 'DAY',
+      'dialogue_key': 'NORMAL',
+      'dialogue': '안녕',
+      'sensor': sensor,
+    };
+    final parsed = HomeRoomData.fromJson(
+      room({
+        'connection': 'ACTIVE',
+        'thresholdVersion': '2026-10-02.app-v1',
+        'provisional': true,
+        'soil': {
+          'state': 'LOW',
+          'value': 20,
+          'unit': 'relative_percent',
+          'lower': 40,
+          'upper': 90,
+          'reason': null,
+        },
+        'light': {
+          'state': 'UNKNOWN',
+          'value': 1000,
+          'unit': 'lux_hours',
+          'lower': 60000,
+          'upper': null,
+          'reason': 'INSUFFICIENT_COVERAGE',
+        },
+      }),
+    );
+    expect(parsed.sensor!.connection, SensorConnection.active);
+    expect(parsed.sensor!.soil.state, SensorLevel.low);
+    expect(parsed.sensor!.soil.value, 20);
+    expect(parsed.sensor!.light.reason, 'INSUFFICIENT_COVERAGE');
+
+    expect(HomeRoomData.fromJson(room(null)).sensor, isNull);
+    expect(
+      HomeRoomData.fromJson(room({'connection': 'SOMETHING_NEW'})).sensor,
+      isNull,
+      reason: '센서 형식이 바뀌어도 홈 전체가 실패하지 않는다',
+    );
   });
 }

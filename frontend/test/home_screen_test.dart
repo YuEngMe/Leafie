@@ -9,6 +9,7 @@ import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
@@ -888,6 +889,79 @@ void main() {
         .key;
     expect(after, isNot(before));
   });
+
+  testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<void> pumpWith(SensorAssessment? sensor) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            key: UniqueKey(),
+            period: HomeTimePeriod.day,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '새싹이', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
+                id: 'plant-a',
+                nickname: '새싹이',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: 'NORMAL',
+                dialogue: '평소 대사',
+                sensor: sensor,
+              ),
+              todayEvents: const [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpWith(
+      const SensorAssessment(
+        connection: SensorConnection.active,
+        soil: SensorMetricAssessment(
+          state: SensorLevel.low,
+          unit: 'relative_percent',
+          value: 20,
+          lower: 40,
+          upper: 90,
+        ),
+        light: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'lux_hours',
+          value: 72000,
+          lower: 60000,
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('home-gauge-humidity')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-gauge-light')), findsOneWidget);
+    expect(find.text('새싹이는 40 - 90% 습도를 좋아해요'), findsOneWidget);
+    expect(find.text('현재습도 20%'), findsOneWidget);
+    expect(find.text('현재조도 120%'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
+
+    await pumpWith(null);
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
+  });
+
 }
 
 class _FakeNotificationRepository implements NotificationRepository {

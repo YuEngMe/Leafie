@@ -1,5 +1,6 @@
 import 'package:yeso_plant/models/plant_appearance_defaults.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
+import 'package:yeso_plant/services/sensor_api.dart';
 
 class HomeApi {
   HomeApi({LeafieApiClient? client}) : _client = client ?? LeafieApiClient();
@@ -145,6 +146,7 @@ class HomeRoomData {
     required this.backgroundPhase,
     required this.dialogueKey,
     required this.dialogue,
+    this.sensor,
   });
 
   factory HomeRoomData.fromJson(Map<String, dynamic> json) {
@@ -162,12 +164,27 @@ class HomeRoomData {
       backgroundPhase: backgroundPhase,
       dialogueKey: dialogueKey,
       dialogue: dialogue as String?,
+      sensor: _parseSensor(json['sensor']),
     );
+  }
+
+  /// 센서 판정 계약은 아직 자주 바뀐다. 형식이 맞지 않으면 홈 전체를
+  /// 실패시키지 않고 판정이 없는 것으로 본다(게이지가 "기기 연결 필요"로 남음).
+  static SensorAssessment? _parseSensor(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    try {
+      return SensorAssessment.fromJson(raw);
+    } on FormatException {
+      return null;
+    }
   }
 
   final String backgroundPhase;
   final String dialogueKey;
   final String? dialogue;
+
+  /// 홈 센서 판정(#124). 식물에 센서가 없거나 판정을 못 읽으면 null.
+  final SensorAssessment? sensor;
 }
 
 class HomeTodayEvent {

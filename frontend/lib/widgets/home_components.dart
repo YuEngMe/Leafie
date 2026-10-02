@@ -91,6 +91,10 @@ class EnvironmentGauge extends StatelessWidget {
 
   /// 막대 높이와 컴포넌트 높이(2435:16764).
   static const double barHeight = 11;
+
+  /// 마커 폭(71.6)과 오른쪽 끝 수치("100%")가 차지하는 폭.
+  static const double _markerWidth = 71.604;
+  static const double _maxLabelWidth = 32;
   static const double height = 75.215;
 
   final EnvironmentGaugeKind kind;
@@ -142,30 +146,44 @@ class EnvironmentGauge extends StatelessWidget {
               comfortRatio: comfortRatio,
             ),
           ),
-          Positioned(
-            right: 0,
-            top: 51,
-            child: Text(
-              maxLabel,
-              style: kCaptionStyle.copyWith(color: kBubbleGreen, height: 1),
-            ),
-          ),
-          // 마커는 현재값 끝에 매달린다. 폭 71.6의 절반만큼 왼쪽으로 당긴다.
+          // 마커는 현재값 끝에 가운데를 맞춘다. 값이 양 끝에 가까우면 막대
+          // 밖으로 나가지 않게 안쪽으로 붙이고, 오른쪽 끝 수치와 겹치면 그
+          // 수치는 숨긴다(예: 조도 120%).
           Positioned(
             left: 0,
             right: 0,
             top: 50.954,
             height: 24.261,
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: currentRatio,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Transform.translate(
-                  offset: const Offset(35.8, 0),
-                  child: _GaugeMarker(label: currentLabel),
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final left = (width * currentRatio - _markerWidth / 2).clamp(
+                  0.0,
+                  width - _markerWidth,
+                );
+                final hidesMax = left + _markerWidth > width - _maxLabelWidth;
+                return Stack(
+                  children: [
+                    if (!hidesMax)
+                      Positioned(
+                        right: 0,
+                        top: 51 - 50.954,
+                        child: Text(
+                          maxLabel,
+                          style: kCaptionStyle.copyWith(
+                            color: kBubbleGreen,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      left: left,
+                      top: 0,
+                      child: _GaugeMarker(label: currentLabel),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

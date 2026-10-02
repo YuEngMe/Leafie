@@ -38,6 +38,97 @@ enum SensorConnection implements _WireEnum {
   final String value;
 }
 
+/// 지표 판정(#124). 정보가 모자라면 UNKNOWN이고 [SensorMetricAssessment.reason]에
+/// 사유가 온다.
+enum SensorLevel implements _WireEnum {
+  unknown('UNKNOWN'),
+  low('LOW'),
+  ok('OK'),
+  high('HIGH');
+
+  const SensorLevel(this.value);
+  @override
+  final String value;
+}
+
+/// 토양 수분 또는 조도 한 지표의 판정. 토양은 상대 %(`relative_percent`),
+/// 조도는 하루 누적 lux·h(`lux_hours`)이고, [lower]·[upper]는 종별 기준이다.
+/// 기준값은 백엔드의 초기 추정치(provisional)다.
+class SensorMetricAssessment {
+  const SensorMetricAssessment({
+    required this.state,
+    required this.unit,
+    this.value,
+    this.lower,
+    this.upper,
+    this.reason,
+  });
+
+  factory SensorMetricAssessment.fromJson(Map<String, dynamic> json) {
+    final unit = json['unit'];
+    final value = json['value'];
+    final lower = json['lower'];
+    final upper = json['upper'];
+    final reason = json['reason'];
+    if (unit is! String ||
+        (value != null && value is! num) ||
+        (lower != null && lower is! num) ||
+        (upper != null && upper is! num) ||
+        (reason != null && reason is! String)) {
+      throw const FormatException('Invalid sensor assessment');
+    }
+    return SensorMetricAssessment(
+      state: _enumFrom(
+        SensorLevel.values,
+        json['state'],
+        'Invalid sensor assessment',
+      ),
+      unit: unit,
+      value: (value as num?)?.toDouble(),
+      lower: (lower as num?)?.toDouble(),
+      upper: (upper as num?)?.toDouble(),
+      reason: reason as String?,
+    );
+  }
+
+  final SensorLevel state;
+  final String unit;
+  final double? value;
+  final double? lower;
+  final double? upper;
+  final String? reason;
+}
+
+/// 홈 `room.sensor`와 센서 상태 API의 `assessment`(같은 구조).
+class SensorAssessment {
+  const SensorAssessment({
+    required this.connection,
+    required this.soil,
+    required this.light,
+  });
+
+  factory SensorAssessment.fromJson(Map<String, dynamic> json) {
+    final soil = json['soil'];
+    final light = json['light'];
+    if (soil is! Map<String, dynamic> || light is! Map<String, dynamic>) {
+      throw const FormatException('Invalid sensor assessment');
+    }
+    return SensorAssessment(
+      connection: _enumFrom(
+        SensorConnection.values,
+        json['connection'],
+        'Invalid sensor assessment',
+      ),
+      soil: SensorMetricAssessment.fromJson(soil),
+      light: SensorMetricAssessment.fromJson(light),
+    );
+  }
+
+  final SensorConnection connection;
+  final SensorMetricAssessment soil;
+  final SensorMetricAssessment light;
+}
+
 abstract interface class SensorRepository {
   /// 이미 등록된 기기는 200, 새 기기는 201이며 둘 다 같은 응답을 돌려준다.
   Future<SensorDeviceData> registerDevice(String deviceId);
