@@ -1007,6 +1007,81 @@ void main() {
     expect(faces, contains(PlantExpression.sad));
   });
 
+
+  testWidgets('센서 알림을 누르면 그 식물의 방으로 옮겨 게이지를 펼친다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakePlantManagementRepository([
+      _managedPlant('plant-a', '첫째', selected: true),
+      _managedPlant('plant-b', '둘째'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          period: HomeTimePeriod.day,
+          initialGaugesExpanded: false,
+          plantRepository: repository,
+          loadHomeForPlant: (plantId) async => HomeDashboardData(
+            plant: HomePlantData(
+              id: plantId ?? 'plant-a',
+              nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: null,
+            todayEvents: const [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 1,
+          ),
+          notificationBuilder: (routeContext) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(routeContext).pop(
+                NotificationData(
+                  id: 'n-1',
+                  plantId: 'plant-b',
+                  type: 'SENSOR_SOIL_LOW',
+                  title: '둘째의 흙이 말랐어요',
+                  body: '물을 주세요.',
+                  sourceType: 'SENSOR_EVENT',
+                  sourceId: 'event-1',
+                  readAt: DateTime(2026, 10, 2),
+                  createdAt: DateTime(2026, 10, 2),
+                ),
+              ),
+              child: const Text('센서 알림'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기기연결이 필요합니다'), findsNothing, reason: '게이지는 접혀 있다');
+
+    await tester.tap(find.byKey(const ValueKey('home-notifications')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('센서 알림'));
+    await tester.pumpAndSettle();
+
+    expect(repository.selectedIds, ['plant-b']);
+    expect(find.text('둘째 방'), findsOneWidget);
+    expect(find.text('기기연결이 필요합니다'), findsOneWidget, reason: '게이지가 펼쳐진다');
+    expect(
+      tester.widget<AppBottomNav>(find.byType(AppBottomNav)).activeIcon,
+      FigmaNavIcon.home,
+    );
+  });
+
 }
 
 class _FakeNotificationRepository implements NotificationRepository {

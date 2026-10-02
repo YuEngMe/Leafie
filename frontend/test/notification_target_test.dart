@@ -39,6 +39,14 @@ void main() {
     expect((target! as CalendarTarget).plantId, 'plant-1');
   });
 
+  test('센서 알림은 그 식물의 방으로 간다', () {
+    final target = notificationTargetOf(
+      _notification(sourceType: 'SENSOR_EVENT'),
+    );
+    expect(target, isA<PlantHomeTarget>());
+    expect((target! as PlantHomeTarget).plantId, 'plant-1');
+  });
+
   test('모르는 종류이거나 필요한 id가 없으면 이동하지 않는다', () {
     expect(notificationTargetOf(_notification(sourceType: null)), isNull);
     expect(notificationTargetOf(_notification(sourceType: 'UNKNOWN')), isNull);

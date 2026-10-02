@@ -591,6 +591,32 @@ class _HomeScreenState extends State<HomeScreen>
     await _openNotificationTarget(selected);
   }
 
+  /// 알림이 가리키는 식물로 방을 옮긴다. 이미 그 식물이면 그대로 둔다.
+  /// 옮기지 못했으면(다른 전환 중, 실패) false.
+  Future<bool> _showPlant(String plantId) async {
+    if (plantId == (_serverPlant ?? widget.plant)?.id) return true;
+    if (_switchingPlant) return false;
+    setState(() {
+      _switchingPlant = true;
+      _resetRoomMotion();
+    });
+    var loaded = false;
+    try {
+      await _plantRepository.selectPlant(plantId);
+      loaded = await _loadHome(plantId);
+      await _loadPlants();
+    } on LeafieApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _switchingPlant = false);
+    }
+    return loaded;
+  }
+
   Future<void> _openNotificationTarget(NotificationData notification) async {
     switch (notificationTargetOf(notification)) {
       case MailboxTarget(:final plantId):
@@ -603,31 +629,14 @@ class _HomeScreenState extends State<HomeScreen>
         );
       case CalendarTarget(:final plantId):
         // 캘린더 탭은 지금 방의 식물을 보여 주므로 알림의 식물로 먼저 옮긴다.
-        if (plantId != (_serverPlant ?? widget.plant)?.id) {
-          if (_switchingPlant) return;
-          setState(() {
-            _switchingPlant = true;
-            _resetRoomMotion();
-          });
-          var loaded = false;
-          try {
-            await _plantRepository.selectPlant(plantId);
-            loaded = await _loadHome(plantId);
-            await _loadPlants();
-          } on LeafieApiException catch (error) {
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(error.message)));
-            }
-          } finally {
-            if (mounted) setState(() => _switchingPlant = false);
-          }
-          // 식물을 못 옮겼으면 엉뚱한 식물의 캘린더를 열지 않는다.
-          if (!loaded) return;
-        }
-        if (!mounted) return;
+        // 식물을 못 옮겼으면 엉뚱한 식물의 캘린더를 열지 않는다.
+        if (!await _showPlant(plantId) || !mounted) return;
         _tabShellKey.currentState?.select(FigmaNavIcon.calendar);
+      case PlantHomeTarget(:final plantId):
+        // 센서 알림은 그 식물의 방으로 옮겨 게이지를 펼쳐 보여 준다.
+        if (!await _showPlant(plantId) || !mounted) return;
+        _tabShellKey.currentState?.select(FigmaNavIcon.home);
+        setState(() => _gaugesExpanded = true);
       case null:
         break;
     }
