@@ -766,8 +766,9 @@ unique 충돌은 `200`으로 처리한다.
 ```
 
 - `connection`: `NO_DEVICE`(연결된 기기 없음), `NO_DATA`(연결은 있으나 측정값 없음),
-  `STALE`(마지막 수신이 30분 넘음), `ACTIVE`. `NO_DEVICE`는 `deviceId`를 포함한 나머지가
-  모두 `null`이고, `NO_DATA`는 `deviceId`만 채워집니다.
+  `STALE`(마지막 수신이 30분 넘음), `ACTIVE`. `NO_DEVICE`는 기존 `deviceId`, `latest`,
+  `dailyLight`가 `null`이고, `NO_DATA`는 그중 `deviceId`만 채워집니다.
+  추가 `assessment` 객체는 이 경우에도 UNKNOWN 및 미연결/미측정 사유를 반환합니다.
 - `latest`는 가장 최근 수신 1건입니다. 센서 읽기에 실패한 필드는 `null`입니다.
 - `soilPercent`(이 API와 `GET /sensor-devices` 공통)는 `soilRaw`를 건조·습윤 기준 raw로
   선형 변환해 0~100으로 자른 정수입니다. 응답에 raw 값은 포함하지 않습니다. 기준값은
