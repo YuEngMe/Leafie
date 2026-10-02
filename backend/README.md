@@ -44,9 +44,30 @@ Provider, 편지 DB·예약 함수·다이어리 저장 연결, 생성/공개 Wo
 역할별 연결 방법과 배포 순서는 [편지 연동 가이드](../docs/letter-integration.md)를 따릅니다.
 `LetterInput.sensor_summary`는 내부 입력 문자열이며 센서 API/필드 계약이 아닙니다.
 센서 원시값을 계산하거나 운영용 가짜 값을 만들지 않습니다.
-`OPENAI_LETTER_MODEL` 기본값은 기존과 같은 `gpt-5-mini`, 출력 한도는 1200토큰입니다.
+`OPENAI_LETTER_MODEL` 기본값은 `gpt-6-luna`, 출력 한도는 1200토큰입니다.
+Responses API의 추론 강도는 `low`를 사용합니다.
 성격은 기존 6개 enum을 사용합니다. 실제 OpenAI Provider 호출과 토큰 기록은 검증했으며,
 성격별 어조 품질과 센서를 포함한 전체 흐름은 출시 전 별도로 검수합니다.
+
+### 실제 개발 환경 통합 점검
+
+API와 Worker를 같은 최신 코드로 실행한 뒤, backend 디렉터리에서 실행합니다.
+
+```bash
+python -m tools.smoke_live --allow-shared-dev
+```
+
+`APP_ENV=local`과 로컬 API만 허용합니다. `.env`의 실제 Supabase에 임시 계정 2개를
+만들어 JWT·Storage·등록·다이어리·홈·Queue/Worker 삭제를 확인하고 정리합니다.
+기존 계정·센서 데이터는 수정하지 않습니다. 기본 실행은 유료 AI를 호출하지 않습니다.
+진단·종인식까지 확인하려면 식물 사진과 별도 유료 호출 동의를 지정합니다.
+
+```bash
+python -m tools.smoke_live --allow-shared-dev --photo /absolute/path/plant.jpg --allow-paid
+```
+
+편지 자동 생성은 센서 요약 연동 전까지 비활성 상태를 유지합니다. 이 도구는 센서,
+FCM/APNs 또는 실제 편지 도착 흐름을 검증했다고 표시하지 않습니다.
 
 앱 푸시는 Firebase Cloud Messaging HTTP v1을 사용합니다. Worker는 Application Default
 Credentials를 우선 사용합니다. 비-GCP 환경에서는 Firebase 서비스 계정 JSON 전체를

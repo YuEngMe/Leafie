@@ -92,7 +92,7 @@ class OpenAILetterProvider:
                 model=self.model_name,
                 instructions=LETTER_INSTRUCTIONS + PERSONALITY_INSTRUCTIONS[snapshot.personality],
                 input=[{"role": "user", "content": snapshot.model_dump_json(exclude_none=True)}],
-                reasoning={"effort": "minimal"},
+                reasoning={"effort": "low"},
                 text={"verbosity": "low"},
                 max_output_tokens=self._max_output_tokens,
                 safety_identifier=hashlib.sha256(safety_user_id.encode()).hexdigest(),

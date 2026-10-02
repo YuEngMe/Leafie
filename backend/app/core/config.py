@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     kindwise_timeout_seconds: float = Field(default=45.0, gt=0)
 
     openai_api_key: str | None = None
-    openai_letter_model: str = "gpt-5-mini"
+    openai_letter_model: str = "gpt-6-luna"
     openai_letter_max_output_tokens: int = Field(default=1200, ge=100, le=4000)
     letter_generation_enabled: bool = False
     openai_timeout_seconds: float = Field(default=45.0, gt=0)

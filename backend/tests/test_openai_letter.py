@@ -36,7 +36,7 @@ def response_body(**changes) -> dict:
         "object": "response",
         "created_at": 1,
         "status": "completed",
-        "model": "gpt-5-mini",
+        "model": "gpt-6-luna",
         "output": [
             {
                 "id": "msg-letter",
@@ -69,7 +69,8 @@ async def test_generate_uses_personality_and_isolated_snapshot(personality) -> N
     def handler(request):
         body = json.loads(request.content)
         assert request.url.path == "/v1/responses"
-        assert body["model"] == "gpt-5-mini"
+        assert body["model"] == "gpt-6-luna"
+        assert body["reasoning"] == {"effort": "low"}
         assert body["max_output_tokens"] == 1200
         assert body["store"] is False
         assert "tools" not in body
@@ -92,7 +93,7 @@ async def test_generate_uses_personality_and_isolated_snapshot(personality) -> N
         )
         assert result.content == "곁에 있어 줘서 고마워."
         assert result.response_id == "resp-letter"
-        assert result.model_name == "gpt-5-mini"
+        assert result.model_name == "gpt-6-luna"
         assert (result.input_tokens, result.output_tokens) == (100, 30)
     finally:
         await instance.close()
