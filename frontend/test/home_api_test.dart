@@ -169,4 +169,34 @@ void main() {
       reason: '센서 형식이 바뀌어도 홈 전체가 실패하지 않는다',
     );
   });
+
+  test('홈 대사 큐를 읽고, 형식이 틀린 항목만 건너뛴다', () {
+    final room = HomeRoomData.fromJson({
+      'background_phase': 'DAY',
+      'dialogue_key': 'NORMAL',
+      'dialogue': '안녕',
+      'dialogue_queue': [
+        {
+          'event_id': 'e-1',
+          'dialogue_key': 'WATERING_COMPLETED',
+          'dialogue': ' 물 고마워! ',
+          'duration_seconds': 15,
+          'occurred_at': '2026-10-02T01:00:00Z',
+        },
+        {'event_id': 'e-2', 'dialogue_key': 'LETTER_SENT'},
+        {
+          'event_id': 'e-3',
+          'dialogue_key': 'DIARY_RECEIVED',
+          'dialogue': '일기 잘 받았어',
+          'duration_seconds': 9999,
+          'occurred_at': '2026-10-02T02:00:00Z',
+        },
+      ],
+    });
+
+    expect(room.dialogueQueue.map((e) => e.eventId), ['e-1', 'e-3']);
+    expect(room.dialogueQueue.first.dialogue, '물 고마워!');
+    expect(room.dialogueQueue.first.duration, const Duration(seconds: 15));
+    expect(room.dialogueQueue.last.duration, const Duration(seconds: 60));
+  });
 }

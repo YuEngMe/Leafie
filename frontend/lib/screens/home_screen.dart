@@ -28,6 +28,7 @@ import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
+import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
 
 /// 홈 API가 반환한 등록 식물 정보.
 class HomePlant {
@@ -171,6 +172,14 @@ class _HomeScreenState extends State<HomeScreen>
   String? _serverDialogue;
   String? _serverDialogueKey;
   SensorAssessment? _serverSensor;
+
+  // 홈 대사 큐(#123). 서버가 준 오늘의 대사를 하나씩 정해진 시간만큼 보여
+  // 준다. 보여 준 대사는 기기에 남겨 다시 띄우지 않는다.
+  final _seenDialogues = const HomeDialogueSeenStore();
+  Set<String>? _seenDialogueIds;
+  final List<HomeDialogueEvent> _pendingDialogues = [];
+  HomeDialogueEvent? _playingDialogue;
+  Timer? _dialogueTimer;
   bool _loadingHome = false;
   String? _homeError;
   int _unreadNotificationCount = 0;
@@ -244,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _dialogueTimer?.cancel();
     _careToastTimer?.cancel();
     _sunHideTimer?.cancel();
     _wateringAfterglowTimer?.cancel();
@@ -418,6 +428,7 @@ class _HomeScreenState extends State<HomeScreen>
         };
       });
       unawaited(_refreshLetterBadge());
+      unawaited(_enqueueDialogues(room?.dialogueQueue ?? const []));
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -498,6 +509,9 @@ class _HomeScreenState extends State<HomeScreen>
     _serverDialogue = null;
     _serverDialogueKey = null;
     _serverSensor = null;
+    _dialogueTimer?.cancel();
+    _pendingDialogues.clear();
+    _playingDialogue = null;
     _scene = HomeScene.idle;
   }
 
@@ -589,6 +603,45 @@ class _HomeScreenState extends State<HomeScreen>
     await _loadHome((_serverPlant ?? widget.plant)?.id);
     if (!mounted || selected == null) return;
     await _openNotificationTarget(selected);
+  }
+
+  /// 아직 안 본 큐 대사를 뒤에 붙이고, 보일 수 있으면 재생을 시작한다.
+  Future<void> _enqueueDialogues(List<HomeDialogueEvent> events) async {
+    if (events.isEmpty) return;
+    final seen = _seenDialogueIds ??= await _seenDialogues.load();
+    if (!mounted) return;
+    final queued = {
+      ..._pendingDialogues.map((event) => event.eventId),
+      ?_playingDialogue?.eventId,
+    };
+    _pendingDialogues.addAll(
+      events.where(
+        (event) =>
+            !seen.contains(event.eventId) && !queued.contains(event.eventId),
+      ),
+    );
+    _playNextDialogue();
+  }
+
+  /// 게이지 패널이 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다.
+  /// 사용자가 보지 못한 대사를 본 것으로 처리하지 않기 위해서다.
+  void _playNextDialogue() {
+    if (!mounted ||
+        _playingDialogue != null ||
+        _gaugesExpanded ||
+        _pendingDialogues.isEmpty) {
+      return;
+    }
+    final next = _pendingDialogues.removeAt(0);
+    _seenDialogueIds?.add(next.eventId);
+    unawaited(_seenDialogues.markSeen(next.eventId));
+    setState(() => _playingDialogue = next);
+    _dialogueTimer?.cancel();
+    _dialogueTimer = Timer(next.duration, () {
+      if (!mounted) return;
+      setState(() => _playingDialogue = null);
+      _playNextDialogue();
+    });
   }
 
   /// 알림이 가리키는 식물로 방을 옮긴다. 이미 그 식물이면 그대로 둔다.
@@ -775,6 +828,10 @@ class _HomeScreenState extends State<HomeScreen>
                   _HomeConversation(
                     scene: _scene,
                     serverDialogue: _requestDialogue,
+                    queueMessage: _playingDialogue?.dialogue,
+                    // 상황 말풍선이 없을 때는 서버의 기본 대사(평소·일기·진단
+                    // 권유·조도 적당 등)를 띄운다.
+                    fallbackMessage: _serverDialogue,
                   ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
@@ -1097,7 +1154,10 @@ class _HomeScreenState extends State<HomeScreen>
                   _HomeEnvironmentPanel(
                     sensor: _serverSensor,
                     plantName: plant.name,
-                    onCollapse: () => setState(() => _gaugesExpanded = false),
+                    onCollapse: () {
+                      setState(() => _gaugesExpanded = false);
+                      _playNextDialogue();
+                    },
                   )
                 else
                   _HomeStatusCard(
@@ -1251,13 +1311,37 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _HomeConversation extends StatelessWidget {
-  const _HomeConversation({required this.scene, required this.serverDialogue});
+  const _HomeConversation({
+    required this.scene,
+    required this.serverDialogue,
+    this.queueMessage,
+    this.fallbackMessage,
+  });
 
   final HomeScene scene;
   final String? serverDialogue;
 
+  /// 지금 재생 중인 큐 대사. 있으면 상황 말풍선보다 먼저 보인다.
+  final String? queueMessage;
+
+  /// 상황 말풍선이 없을 때(idle) 띄울 서버 기본 대사.
+  final String? fallbackMessage;
+
+  /// 디자이너 확인: 새 대사 말풍선은 기존 요청 말풍선 모양을 재사용한다.
+  Widget _serverBubble(Key key, String message) => Positioned(
+    left: 20,
+    right: 20,
+    top: 209,
+    child: Center(
+      child: PlantRequestBubble(key: key, message: message),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (queueMessage case final message? when message.isNotEmpty) {
+      return _serverBubble(const ValueKey('home-dialogue-queue'), message);
+    }
     return switch (scene) {
       HomeScene.needsWater => Positioned(
         left: 0,
@@ -1333,7 +1417,13 @@ class _HomeConversation extends StatelessWidget {
           ],
         ),
       ),
-      HomeScene.idle => const SizedBox.shrink(),
+      HomeScene.idle => switch (fallbackMessage) {
+        final message? when message.isNotEmpty => _serverBubble(
+          const ValueKey('home-dialogue-fallback'),
+          message,
+        ),
+        _ => const SizedBox.shrink(),
+      },
     };
   }
 }

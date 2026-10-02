@@ -39,12 +39,17 @@ class PlantRequestBubble extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          Text(
-            message,
-            style: kSmallStyle.copyWith(
-              fontSize: 14.758,
-              color: kBubbleGreen,
-              height: 1,
+          // 서버 대사는 성격마다 길이가 달라 화면을 넘으면 말줄임한다.
+          Flexible(
+            child: Text(
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: kSmallStyle.copyWith(
+                fontSize: 14.758,
+                color: kBubbleGreen,
+                height: 1,
+              ),
             ),
           ),
         ],

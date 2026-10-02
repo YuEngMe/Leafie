@@ -147,6 +147,7 @@ class HomeRoomData {
     required this.dialogueKey,
     required this.dialogue,
     this.sensor,
+    this.dialogueQueue = const [],
   });
 
   factory HomeRoomData.fromJson(Map<String, dynamic> json) {
@@ -165,7 +166,20 @@ class HomeRoomData {
       dialogueKey: dialogueKey,
       dialogue: dialogue as String?,
       sensor: _parseSensor(json['sensor']),
+      dialogueQueue: _parseQueue(json['dialogue_queue']),
     );
+  }
+
+  /// 형식이 틀린 항목만 건너뛴다. 대사 한 줄 때문에 홈 전체를 실패시키지 않는다.
+  static List<HomeDialogueEvent> _parseQueue(Object? raw) {
+    if (raw is! List) return const [];
+    final events = <HomeDialogueEvent>[];
+    for (final item in raw) {
+      if (item is! Map<String, dynamic>) continue;
+      final event = HomeDialogueEvent.tryParse(item);
+      if (event != null) events.add(event);
+    }
+    return List.unmodifiable(events);
   }
 
   /// 센서 판정 계약은 아직 자주 바뀐다. 형식이 맞지 않으면 홈 전체를
@@ -185,6 +199,47 @@ class HomeRoomData {
 
   /// 홈 센서 판정(#124). 식물에 센서가 없거나 판정을 못 읽으면 null.
   final SensorAssessment? sensor;
+
+  /// 오늘 일어난 일에 대한 대사(#123). 서버가 우선순위 순서로 준다.
+  final List<HomeDialogueEvent> dialogueQueue;
+}
+
+/// 홈 대사 큐 항목(#123). 물 준 뒤·일기 받은 뒤·편지 보낸 뒤·센서 이상 등.
+class HomeDialogueEvent {
+  const HomeDialogueEvent({
+    required this.eventId,
+    required this.dialogueKey,
+    required this.dialogue,
+    required this.duration,
+  });
+
+  static HomeDialogueEvent? tryParse(Map<String, dynamic> json) {
+    final eventId = json['event_id'];
+    final dialogueKey = json['dialogue_key'];
+    final dialogue = json['dialogue'];
+    final seconds = json['duration_seconds'];
+    if (eventId is! String ||
+        eventId.isEmpty ||
+        dialogueKey is! String ||
+        dialogue is! String ||
+        dialogue.trim().isEmpty) {
+      return null;
+    }
+    return HomeDialogueEvent(
+      eventId: eventId,
+      dialogueKey: dialogueKey,
+      dialogue: dialogue.trim(),
+      // 서버 기본값은 15초. 이상한 값이 와도 너무 짧거나 길지 않게 둔다.
+      duration: Duration(
+        seconds: seconds is int ? seconds.clamp(3, 60) : 15,
+      ),
+    );
+  }
+
+  final String eventId;
+  final String dialogueKey;
+  final String dialogue;
+  final Duration duration;
 }
 
 class HomeTodayEvent {
