@@ -983,12 +983,13 @@ class _HomeScreenState extends State<HomeScreen>
                                     .clamp(0.0, 1.0);
                             final bounce =
                                 math.sin(bouncePhase * math.pi) * 6;
-                            // 돌보기 중엔 기쁜 표정, 평소엔 기본 표정.
-                            // 얼굴 PNG는 캔버스가 같아 크로스페이드해도 위치가
-                            // 안 튄다.
+                            // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
+                            // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
+                            // 기쁨, 그 외 기본). 얼굴 PNG는 캔버스가 같아
+                            // 크로스페이드해도 위치가 안 튄다.
                             final expression = _isBeingCaredFor
                                 ? PlantExpression.happy
-                                : PlantExpression.defaultFace;
+                                : plantExpressionFromId(plant.expressionId);
                             return Transform.translate(
                               offset: Offset(0, -bounce),
                               child: Transform.rotate(

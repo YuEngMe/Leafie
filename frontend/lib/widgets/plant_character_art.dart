@@ -19,6 +19,15 @@ PlantBody plantBodyFromId(String? bodyId) => switch (bodyId) {
 /// [none]은 표정을 따로 정하지 않은 호출부용으로 기본 얼굴을 그린다.
 enum PlantExpression { none, defaultFace, happy, sad, blank }
 
+/// 서버 expression_id를 얼굴로 옮긴다. 모르는 값은 기본 얼굴.
+PlantExpression plantExpressionFromId(String? expressionId) =>
+    switch (expressionId) {
+      'expression_happy' => PlantExpression.happy,
+      'expression_sad' => PlantExpression.sad,
+      'expression_neutral' => PlantExpression.blank,
+      _ => PlantExpression.defaultFace,
+    };
+
 /// 몸통 PNG 경로. [colorId]('color_red' 등)가 카탈로그에 없거나 null이면
 /// 옐로 몸통을 쓴다.
 String plantBodyAssetFor(PlantBody body, String? colorId) {

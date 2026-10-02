@@ -13,6 +13,7 @@ import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 /// 홈 캐릭터는 circle 바디라 circle 얼굴을 쓴다.
 const _defaultFace = 'assets/images/character/face_circle_default.png';
@@ -960,6 +961,50 @@ void main() {
     await pumpWith(null);
     expect(find.text('기기연결이 필요합니다'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
+  });
+
+
+  testWidgets('평소 표정은 서버가 정한 표정을 따른다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '새싹이', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '새싹이',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              expressionId: 'expression_sad',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final faces = tester
+        .widgetList<PlantCharacterArt>(find.byType(PlantCharacterArt))
+        .map((art) => art.expression);
+    expect(faces, contains(PlantExpression.sad));
   });
 
 }
