@@ -32,7 +32,8 @@
 아직 검증하지 않은 것: 새 사진을 사용하는 실제 종인식·진단의 JWT/Storage/Queue/Worker 전체
 흐름, 센서 요약이 포함된 편지 생성·공개, 센서 알림·표정, FCM/APNs 수신입니다.
 `LETTER_GENERATION_ENABLED=false`와 `UnconfiguredLetterSensorSummary`를 유지합니다.
-홈 이벤트 대사의 발동 조건·우선순위·유지 시간도 현 API 계약에서 미확정이므로 임의 구현하지 않습니다.
+위 점검 이후 #123에서 홈 비센서 이벤트 큐·우선순위·15초 노출 계약과 다이어리/진단 유도
+fallback이 main에 병합됐습니다. 프론트의 순차 노출·event_id 중복 방지와 센서 대사는 별도입니다.
 
 ## 2026-09-28 기록
 

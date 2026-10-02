@@ -217,10 +217,19 @@ class HomeDialogueKey(StrEnum):
     DIARY_RECEIVED = "DIARY_RECEIVED"
 
 
+class HomeDialogueEventResponse(BaseModel):
+    event_id: str
+    dialogue_key: HomeDialogueKey
+    dialogue: str
+    duration_seconds: int = 15
+    occurred_at: datetime
+
+
 class HomeRoomResponse(BaseModel):
     background_phase: HomeBackgroundPhase
     dialogue_key: HomeDialogueKey
     dialogue: str
+    dialogue_queue: list[HomeDialogueEventResponse] = Field(default_factory=list)
 
 
 class HomeResponse(BaseModel):

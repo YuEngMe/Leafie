@@ -1,11 +1,11 @@
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Protocol
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import and_, func, or_, select, union_all, update
+from sqlalchemy import and_, func, literal, or_, select, union_all, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
@@ -18,6 +18,7 @@ from app.models.enums import (
     CareEventStatus,
     CareEventType,
     CareViewStatus,
+    DiagnosisStatus,
     MediaStatus,
     PersonalityType,
     WaterRecommendationSource,
@@ -34,6 +35,7 @@ from app.schemas.plant import (
     CalendarItemType,
     CalendarResponse,
     HomeBackgroundPhase,
+    HomeDialogueEventResponse,
     HomeDialogueKey,
     HomePlantResponse,
     HomeResponse,
@@ -58,6 +60,19 @@ class PlantContext:
 @dataclass(frozen=True, slots=True)
 class DeletePlantResult:
     enqueue_cleanup: bool
+
+
+@dataclass(frozen=True, slots=True)
+class HomeDialogueEvent:
+    event_id: UUID
+    dialogue_key: HomeDialogueKey
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosisPromptState:
+    latest_status: str | None
+    last_completed_at: datetime | None
 
 
 HOME_DIALOGUES: dict[HomeDialogueKey, dict[PersonalityType, str]] = {
@@ -156,6 +171,18 @@ def home_dialogue(personality_type: str, dialogue_key: HomeDialogueKey) -> str:
     return HOME_DIALOGUES[dialogue_key][PersonalityType(personality_type)]
 
 
+HOME_DIALOGUE_PRIORITY = {
+    HomeDialogueKey.WATERING_COMPLETED: 0,
+    HomeDialogueKey.DIARY_RECEIVED: 1,
+    HomeDialogueKey.SOIL_MOISTURE_LOW: 2,
+    HomeDialogueKey.SOIL_MOISTURE_HIGH: 2,
+    HomeDialogueKey.LETTER_SENT: 3,
+    HomeDialogueKey.LIGHT_LOW: 4,
+    HomeDialogueKey.LIGHT_HIGH: 4,
+    HomeDialogueKey.LIGHT_OPTIMAL: 4,
+}
+
+
 def plant_media_ids_query(plant_id: UUID) -> Select:
     media_ids = union_all(
         select(Plant.primary_media_file_id.label("media_id")).where(Plant.id == plant_id),
@@ -185,6 +212,14 @@ class PlantManagementRepository(Protocol):
 
     async def list_today_events(self, plant_id: UUID, today: date) -> list[CareEvent]: ...
 
+    async def list_home_dialogue_events(
+        self, plant_id: UUID, started_at: datetime, ended_at: datetime
+    ) -> list[HomeDialogueEvent]: ...
+
+    async def diary_exists_on(self, plant_id: UUID, diary_date: date) -> bool: ...
+
+    async def diagnosis_prompt_state(self, plant_id: UUID) -> DiagnosisPromptState: ...
+
     async def list_calendar_events(
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]: ...
@@ -199,9 +234,7 @@ class PlantManagementRepository(Protocol):
         self, plant_id: UUID, care_type: CareEventType, *, lock: bool = False
     ) -> CareSchedule | None: ...
 
-    async def get_scheduled_event_for_update(
-        self, schedule_id: UUID
-    ) -> CareEvent | None: ...
+    async def get_scheduled_event_for_update(self, schedule_id: UUID) -> CareEvent | None: ...
 
     async def count_unread_notifications(self, user_id: UUID) -> int: ...
 
@@ -312,6 +345,93 @@ class SQLAlchemyPlantManagementRepository:
         )
         return list(result)
 
+    async def list_home_dialogue_events(
+        self, plant_id: UUID, started_at: datetime, ended_at: datetime
+    ) -> list[HomeDialogueEvent]:
+        watering = select(
+            CareEvent.id.label("event_id"),
+            literal(HomeDialogueKey.WATERING_COMPLETED.value).label("dialogue_key"),
+            CareEvent.recorded_at.label("occurred_at"),
+        ).where(
+            CareEvent.plant_id == plant_id,
+            CareEvent.type == CareEventType.WATERING.value,
+            CareEvent.status == CareEventStatus.COMPLETED.value,
+            CareEvent.recorded_at >= started_at,
+            CareEvent.recorded_at < ended_at,
+        )
+        diaries = select(
+            PlantDiary.id.label("event_id"),
+            literal(HomeDialogueKey.DIARY_RECEIVED.value).label("dialogue_key"),
+            PlantDiary.created_at.label("occurred_at"),
+        ).where(
+            PlantDiary.plant_id == plant_id,
+            PlantDiary.created_at >= started_at,
+            PlantDiary.created_at < ended_at,
+        )
+        letters = select(
+            Letter.id.label("event_id"),
+            literal(HomeDialogueKey.LETTER_SENT.value).label("dialogue_key"),
+            Letter.published_at.label("occurred_at"),
+        ).where(
+            Letter.plant_id == plant_id,
+            Letter.status == "COMPLETED",
+            Letter.deleted_at.is_(None),
+            Letter.published_at >= started_at,
+            Letter.published_at < ended_at,
+            Letter.published_at <= func.now(),
+        )
+        rows = (await self._session.execute(union_all(watering, diaries, letters))).all()
+        return [
+            HomeDialogueEvent(
+                event_id=row.event_id,
+                dialogue_key=HomeDialogueKey(row.dialogue_key),
+                occurred_at=row.occurred_at,
+            )
+            for row in rows
+        ]
+
+    async def diary_exists_on(self, plant_id: UUID, diary_date: date) -> bool:
+        return (
+            await self._session.scalar(
+                select(PlantDiary.id)
+                .where(
+                    PlantDiary.plant_id == plant_id,
+                    PlantDiary.diary_date == diary_date,
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    async def diagnosis_prompt_state(self, plant_id: UUID) -> DiagnosisPromptState:
+        latest_status = (
+            select(Diagnosis.status)
+            .where(Diagnosis.plant_id == plant_id)
+            .order_by(Diagnosis.created_at.desc(), Diagnosis.id.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        last_completed_at = (
+            select(func.max(Diagnosis.completed_at))
+            .where(
+                Diagnosis.plant_id == plant_id,
+                Diagnosis.status == DiagnosisStatus.COMPLETED.value,
+            )
+            .scalar_subquery()
+        )
+        row = (
+            await self._session.execute(
+                select(
+                    latest_status.label("latest_status"),
+                    last_completed_at.label("last_completed_at"),
+                )
+            )
+        ).one()
+        return DiagnosisPromptState(
+            latest_status=row.latest_status,
+            last_completed_at=row.last_completed_at,
+        )
+
     async def list_calendar_events(
         self, plant_id: UUID, date_from: date, date_to: date, types: set[str]
     ) -> list[CareEvent]:
@@ -339,9 +459,7 @@ class SQLAlchemyPlantManagementRepository:
             .where(
                 CareEvent.plant_id == plant_id,
                 CareEvent.status == CareEventStatus.COMPLETED.value,
-                CareEvent.type.in_(
-                    [CareEventType.WATERING.value, CareEventType.REPOTTING.value]
-                ),
+                CareEvent.type.in_([CareEventType.WATERING.value, CareEventType.REPOTTING.value]),
             )
             .group_by(CareEvent.type)
         )
@@ -378,9 +496,7 @@ class SQLAlchemyPlantManagementRepository:
             statement = statement.with_for_update()
         return await self._session.scalar(statement)
 
-    async def get_scheduled_event_for_update(
-        self, schedule_id: UUID
-    ) -> CareEvent | None:
+    async def get_scheduled_event_for_update(self, schedule_id: UUID) -> CareEvent | None:
         return await self._session.scalar(
             select(CareEvent)
             .where(
@@ -401,9 +517,7 @@ class SQLAlchemyPlantManagementRepository:
 
     async def count_unread_letters(self, user_id: UUID) -> int:
         statement = visible_letters(user_id).where(Letter.read_at.is_(None))
-        value = await self._session.scalar(
-            select(func.count()).select_from(statement.subquery())
-        )
+        value = await self._session.scalar(select(func.count()).select_from(statement.subquery()))
         return int(value or 0)
 
     async def oldest_remaining_plant_id(
@@ -555,7 +669,13 @@ class PlantManagementService:
         items.sort(key=lambda item: item[:3])
         return CalendarResponse(items=[item[3] for item in items])
 
-    async def get_home(self, user_id: UUID, plant_id: UUID | None) -> HomeResponse:
+    async def get_home(
+        self,
+        user_id: UUID,
+        plant_id: UUID | None,
+        *,
+        now: datetime | None = None,
+    ) -> HomeResponse:
         profile = await self._require_profile(user_id)
         unread_notification_count = await self._repository.count_unread_notifications(user_id)
         unread_letter_count = await self._repository.count_unread_letters(user_id)
@@ -576,9 +696,31 @@ class PlantManagementService:
                 unread_notification_count=unread_notification_count,
             )
 
-        today = today_in_timezone(context.timezone)
+        timezone = resolve_timezone(context.timezone)
+        local_now = (now or datetime.now(UTC)).astimezone(timezone)
+        today = local_now.date()
+        day_started_at = datetime.combine(today, time.min, tzinfo=timezone).astimezone(UTC)
+        day_ended_at = datetime.combine(
+            today + timedelta(days=1), time.min, tzinfo=timezone
+        ).astimezone(UTC)
         today_events = await self._repository.list_today_events(context.plant.id, today)
-        dialogue_key = HomeDialogueKey.NORMAL
+        dialogue_events = await self._repository.list_home_dialogue_events(
+            context.plant.id, day_started_at, day_ended_at
+        )
+        dialogue_events.sort(
+            key=lambda item: (
+                HOME_DIALOGUE_PRIORITY[item.dialogue_key],
+                -item.occurred_at.timestamp(),
+            )
+        )
+        has_diary_today = await self._repository.diary_exists_on(context.plant.id, today)
+        diagnosis_state = await self._repository.diagnosis_prompt_state(context.plant.id)
+        if local_now.hour >= 18 and not has_diary_today:
+            dialogue_key = HomeDialogueKey.DIARY_PROMPT
+        elif should_prompt_diagnosis(context.plant, diagnosis_state, local_now):
+            dialogue_key = HomeDialogueKey.DIAGNOSIS_PROMPT
+        else:
+            dialogue_key = HomeDialogueKey.NORMAL
         return HomeResponse(
             plant=HomePlantResponse(
                 id=context.plant.id,
@@ -593,9 +735,18 @@ class PlantManagementService:
                 primary_photo_url=await self._photo_url(user_id, context.plant),
             ),
             room=HomeRoomResponse(
-                background_phase=home_background_phase(context.timezone),
+                background_phase=home_background_phase(context.timezone, now=local_now),
                 dialogue_key=dialogue_key,
                 dialogue=home_dialogue(context.plant.personality_type, dialogue_key),
+                dialogue_queue=[
+                    HomeDialogueEventResponse(
+                        event_id=str(event.event_id),
+                        dialogue_key=event.dialogue_key,
+                        dialogue=home_dialogue(context.plant.personality_type, event.dialogue_key),
+                        occurred_at=event.occurred_at,
+                    )
+                    for event in dialogue_events
+                ],
             ),
             today_events=[agenda_event_response(event, today) for event in today_events],
             unread_letter_count=unread_letter_count,
@@ -679,9 +830,7 @@ class PlantManagementService:
             else None
         )
         if schedule is not None:
-            schedule = await self._repository.get_schedule(
-                context.plant.id, care_type, lock=True
-            )
+            schedule = await self._repository.get_schedule(context.plant.id, care_type, lock=True)
 
         completed_events = await self._repository.completed_events_for_update(
             context.plant.id, care_type
@@ -813,16 +962,43 @@ def days_together(started_on: date, timezone: str) -> int:
 def home_background_phase(
     timezone_name: str, *, now: datetime | None = None
 ) -> HomeBackgroundPhase:
-    try:
-        timezone = ZoneInfo(timezone_name)
-    except (ZoneInfoNotFoundError, ValueError):
-        timezone = ZoneInfo("Asia/Seoul")
+    timezone = resolve_timezone(timezone_name)
     local_time = (now or datetime.now(UTC)).astimezone(timezone).time()
-    return (
-        HomeBackgroundPhase.DAY
-        if 6 <= local_time.hour < 18
-        else HomeBackgroundPhase.NIGHT
-    )
+    return HomeBackgroundPhase.DAY if 6 <= local_time.hour < 18 else HomeBackgroundPhase.NIGHT
+
+
+def resolve_timezone(timezone_name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("Asia/Seoul")
+
+
+def should_prompt_diagnosis(
+    plant: Plant,
+    state: DiagnosisPromptState,
+    local_now: datetime,
+) -> bool:
+    if state.latest_status == DiagnosisStatus.NEEDS_RETAKE.value:
+        return True
+    if state.latest_status in {
+        DiagnosisStatus.PENDING.value,
+        DiagnosisStatus.PROCESSING.value,
+    }:
+        return False
+
+    created_at = plant.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    if (local_now.date() - created_at.astimezone(local_now.tzinfo).date()).days < 7:
+        return False
+
+    completed_at = state.last_completed_at
+    if completed_at is None:
+        return True
+    if completed_at.tzinfo is None:
+        completed_at = completed_at.replace(tzinfo=UTC)
+    return local_now - completed_at.astimezone(local_now.tzinfo) >= timedelta(days=14)
 
 
 def care_view_status(event: CareEvent, today: date) -> CareViewStatus:
