@@ -25,6 +25,12 @@ const _userDescriptionUuid = '00002901-0000-1000-8000-00805f9b34fb';
 class EspSensorBle implements SensorBle {
   EspSensorBleSession? _active;
 
+  /// connect를 한 번에 하나씩 돌린다. 핸드셰이크가 겹치면 전역 AES 상태가 섞인다.
+  Future<void> _connectQueue = Future.value();
+
+  /// 플랫폼 스캔은 하나뿐이다. 마지막 구독이 끝날 때만 멈춰야 다른 검색을 끊지 않는다.
+  int _scanUsers = 0;
+
   @override
   Future<SensorBleAvailability> availability() async {
     final state = await UniversalBle.getBluetoothAvailabilityState();
@@ -44,11 +50,15 @@ class EspSensorBle implements SensorBle {
     StreamSubscription<BleDevice>? subscription;
     Timer? timer;
     final found = <String, SensorBleDevice>{};
+    var stopped = false;
 
     Future<void> stop() async {
+      if (stopped) return;
+      stopped = true;
       timer?.cancel();
       await subscription?.cancel();
       subscription = null;
+      if (--_scanUsers > 0) return;
       try {
         await UniversalBle.stopScan();
       } catch (_) {
@@ -58,6 +68,7 @@ class EspSensorBle implements SensorBle {
 
     controller = StreamController<List<SensorBleDevice>>(
       onListen: () async {
+        _scanUsers++;
         subscription = UniversalBle.scanStream.listen((device) {
           final deviceId = sensorDeviceIdFromBleName(device.name);
           if (deviceId == null) return;
@@ -73,9 +84,13 @@ class EspSensorBle implements SensorBle {
           await controller.close();
         });
         try {
-          await UniversalBle.startScan(
-            scanFilter: ScanFilter(withNamePrefix: [sensorBleNamePrefix]),
-          );
+          if (_scanUsers == 1) {
+            await UniversalBle.startScan(
+              scanFilter: ScanFilter(withNamePrefix: [sensorBleNamePrefix]),
+            );
+          }
+          // startScan을 기다리는 사이 구독이 취소됐으면 방금 켠 스캔을 끈다.
+          if (stopped && _scanUsers == 0) await UniversalBle.stopScan();
         } catch (e) {
           await stop();
           controller.addError(
@@ -93,7 +108,16 @@ class EspSensorBle implements SensorBle {
   Future<SensorBleSession> connect(
     SensorBleDevice device, {
     required String pin,
-  }) async {
+  }) {
+    final previous = _connectQueue;
+    final done = Completer<void>();
+    _connectQueue = done.future;
+    return previous
+        .then((_) => _connect(device, pin))
+        .whenComplete(done.complete);
+  }
+
+  Future<SensorBleSession> _connect(SensorBleDevice device, String pin) async {
     await _active?.close();
     _active = null;
     try {
@@ -125,11 +149,15 @@ class EspSensorBle implements SensorBle {
         case EstablishSessionStatus.disconnected:
           throw const SensorBleException(SensorBleError.disconnected);
       }
-      final session = EspSensorBleSession(
+      late final EspSensorBleSession session;
+      session = EspSensorBleSession(
         deviceId: device.deviceId,
         bleId: bleId,
         prov: prov,
-        onClose: () => _disconnect(bleId),
+        // 이미 다음 연결로 넘어간 세션이면 그 연결을 끊지 않는다.
+        onClose: () async {
+          if (identical(_active, session)) await _disconnect(bleId);
+        },
       );
       _active = session;
       return session;
