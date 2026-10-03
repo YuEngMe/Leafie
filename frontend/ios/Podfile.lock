@@ -1,14 +1,20 @@
 PODS:
+  - esp_provisioning_ble (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
 
 DEPENDENCIES:
+  - esp_provisioning_ble (from `.symlinks/plugins/esp_provisioning_ble/ios`)
   - Flutter (from `Flutter`)
 
 EXTERNAL SOURCES:
+  esp_provisioning_ble:
+    :path: ".symlinks/plugins/esp_provisioning_ble/ios"
   Flutter:
     :path: Flutter
 
 SPEC CHECKSUMS:
+  esp_provisioning_ble: 0de62bf354b5651c24912a427964d761352bc744
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
