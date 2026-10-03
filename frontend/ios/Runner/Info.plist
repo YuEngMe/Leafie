@@ -80,6 +80,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>식물 센서를 찾아 Wi-Fi를 설정하고 내 계정에 연결해요.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>식물 사진을 찍어 어떤 식물인지 찾아드려요.</string>
 	<key>NSAppTransportSecurity</key>
