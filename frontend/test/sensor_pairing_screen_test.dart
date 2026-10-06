@@ -68,9 +68,10 @@ class _Ble implements SensorBle {
   int scans = 0;
   Set<int> visibleScans = {0, 1};
 
+  SensorBleAvailability available = SensorBleAvailability.ready;
+
   @override
-  Future<SensorBleAvailability> availability() async =>
-      SensorBleAvailability.ready;
+  Future<SensorBleAvailability> availability() async => available;
 
   @override
   Stream<List<SensorBleDevice>> scan({
@@ -179,12 +180,14 @@ void main() {
   late _Sensors sensors;
   late SensorPairing pairing;
   bool? popped;
+  late int settingsOpened;
 
   setUp(() {
     ble = _Ble();
     sensors = _Sensors();
     pairing = SensorPairing(ble: ble, repository: sensors, timings: _timings);
     popped = null;
+    settingsOpened = 0;
   });
 
   tearDown(() => pairing.dispose());
@@ -204,6 +207,7 @@ void main() {
                     sensorRepository: sensors,
                     plantRepository: _Plants(),
                     registeredHold: Duration.zero,
+                    openSettings: () async => settingsOpened++,
                   ),
                 ),
               );
@@ -358,5 +362,27 @@ void main() {
     await run(tester, 10);
     expect(find.text('이미 등록된 기기예요'), findsOneWidget);
     expect(find.text('기존 사용자가 앱에서 기기를 삭제해야 해요.'), findsOneWidget);
+  });
+
+  testWidgets('블루투스 권한을 거절했으면 설정을 열게 한다', (tester) async {
+    ble.available = SensorBleAvailability.unauthorized;
+    await open(tester);
+    expect(find.text('블루투스 권한이 필요해요'), findsOneWidget);
+    expect(find.text('다시 시도'), findsNothing);
+    await tester.tap(find.text('설정 열기'));
+    expect(settingsOpened, 1);
+  });
+
+  testWidgets('블루투스를 켜고 앱으로 돌아오면 다시 확인해 검색한다', (tester) async {
+    ble.available = SensorBleAvailability.poweredOff;
+    await open(tester);
+    expect(find.text('블루투스를 켜주세요'), findsOneWidget);
+
+    ble.available = SensorBleAvailability.ready;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await run(tester, 5);
+    expect(find.text('주변 기기를 찾고 있어요'), findsOneWidget);
+    await run(tester, 15);
   });
 }

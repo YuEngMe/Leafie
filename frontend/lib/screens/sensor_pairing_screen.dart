@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:yeso_plant/services/esp_sensor_ble.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
@@ -31,6 +32,7 @@ class SensorPairingScreen extends StatefulWidget {
     this.sensorRepository,
     this.plantRepository,
     this.registeredHold = const Duration(milliseconds: 1200),
+    this.openSettings = _openAppSettings,
   });
 
   /// 테스트에서 페이크 BLE로 만든 흐름을 넣는다. 넣으면 화면이 dispose하지 않는다.
@@ -41,13 +43,22 @@ class SensorPairingScreen extends StatefulWidget {
   /// 서버 등록이 끝난 진행 목록(14)을 완료 화면(15) 전에 보여 주는 시간.
   final Duration registeredHold;
 
+  /// 블루투스 권한을 거절했을 때 iOS 설정의 앱 화면을 연다. iOS는 한 번
+  /// 거절한 권한을 다시 묻지 않아 '다시 시도'로는 풀리지 않는다.
+  final Future<void> Function() openSettings;
+
+  static Future<void> _openAppSettings() async {
+    await launchUrl(Uri.parse('app-settings:'));
+  }
+
   @override
   State<SensorPairingScreen> createState() => _SensorPairingScreenState();
 }
 
 enum _Page { flow, registered, done, choosePlant }
 
-class _SensorPairingScreenState extends State<SensorPairingScreen> {
+class _SensorPairingScreenState extends State<SensorPairingScreen>
+    with WidgetsBindingObserver {
   late final SensorRepository _sensors = widget.sensorRepository ?? SensorApi();
   late final SensorPairing _pairing =
       widget.pairing ??
@@ -80,6 +91,7 @@ class _SensorPairingScreenState extends State<SensorPairingScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pairing.addListener(_onPairingChanged);
     _pin.addListener(_rebuild);
     _ssid.addListener(_rebuild);
@@ -88,6 +100,7 @@ class _SensorPairingScreenState extends State<SensorPairingScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _registeredTimer?.cancel();
     _pairing.removeListener(_onPairingChanged);
     if (widget.pairing == null) _pairing.dispose();
@@ -95,6 +108,15 @@ class _SensorPairingScreenState extends State<SensorPairingScreen> {
     _ssid.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  /// 설정이나 제어센터에서 블루투스를 켜고 돌아오면 다시 확인한다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _pairing.state is SensorPairingBluetoothUnavailable) {
+      _pairing.start();
+    }
   }
 
   void _rebuild() {
@@ -313,7 +335,9 @@ class _SensorPairingScreenState extends State<SensorPairingScreen> {
           SensorTipBox(tips: [tip]),
         ],
       ),
-      bottom: _primary('다시 시도', _pairing.start),
+      bottom: availability == SensorBleAvailability.unauthorized
+          ? _primary('설정 열기', widget.openSettings)
+          : _primary('다시 시도', _pairing.start),
     );
   }
 
