@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -41,6 +42,8 @@ class RoundedInputField extends StatefulWidget {
     this.showShadow = true,
     this.alwaysShowEye = false,
     this.labelIndent = AppLayout.inputLabelIndent,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   final String? label;
@@ -80,6 +83,10 @@ class RoundedInputField extends StatefulWidget {
   /// 시안은 모든 화면에서 라벨을 입력칸(x34)보다 11px 들여쓴다(x45).
   /// 회원가입(2307:891)·재설정(2307:1502)·등록·마이페이지 전부 같다.
   final double labelIndent;
+
+  /// 센서 PIN처럼 숫자만 받는 칸에서 넘긴다.
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<RoundedInputField> createState() => _RoundedInputFieldState();
@@ -196,6 +203,8 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       textInputAction: widget.textInputAction,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
       textAlign: align,
       // 입력칸은 높이가 고정이라 글자는 항상 세로 중앙에 온다.
       textAlignVertical: TextAlignVertical.center,

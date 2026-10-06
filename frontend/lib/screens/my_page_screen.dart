@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
+import 'package:yeso_plant/screens/sensor_pairing_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/user_api.dart';
@@ -140,15 +141,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
   }
 
-  // 시안(4534:3044)엔 '센서 기기 등록' 메뉴가 있으나 등록 플로우·백엔드는
-  // 센서 담당(#52)이 아직 확정하지 않았다. 메뉴만 노출하고 등록 액션은 막아 둔다.
-  // TODO(design): #52 계약이 나오면 센서 등록 화면으로 연결한다.
+  // 시안 4534:3044의 '센서 기기 등록' → 기기연결(5732:849) 흐름.
   void _registerSensor() {
-    showLeafieToast(
+    Navigator.of(
       context,
-      text: '센서 기기 등록은 곧 제공돼요!',
-      top: MediaQuery.paddingOf(context).top + (744 - 46),
-    );
+    ).push(MaterialPageRoute<bool>(builder: (_) => const SensorPairingScreen()));
   }
 
   Future<void> _confirmSignOut() async {
