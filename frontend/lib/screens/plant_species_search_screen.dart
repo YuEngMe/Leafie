@@ -289,7 +289,8 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
               label: '식물 명칭',
               labelColor: kOrangeAccent, // 2315:2583
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              // 라벨 top 237 → 칸 top 261(4534:1007). 라벨 상자 23 + 1.
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '예: 바질',
               controller: _queryController,

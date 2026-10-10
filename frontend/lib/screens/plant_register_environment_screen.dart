@@ -131,7 +131,8 @@ class _PlantRegisterEnvironmentScreenState
             RoundedInputField(
               label: '장소(별명)',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              // 라벨 top 214 → 칸 top 238(4534:85). 라벨 상자가 23이라 1만 띄운다.
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '예: 베란다',
               controller: _placeNameController,
@@ -141,7 +142,7 @@ class _PlantRegisterEnvironmentScreenState
             RoundedInputField(
               label: '마지막 물 준 날',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '선택하기',
               controller: _lastWateredController,
@@ -152,7 +153,7 @@ class _PlantRegisterEnvironmentScreenState
             RoundedInputField(
               label: '분갈이 한 날',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '선택하기',
               controller: _lastRepottedController,

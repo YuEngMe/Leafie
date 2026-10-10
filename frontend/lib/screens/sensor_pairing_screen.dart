@@ -12,6 +12,7 @@ import 'package:yeso_plant/services/sensor_pairing.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
@@ -364,8 +365,9 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
               controller: _pin,
               hintText: '기기 라벨의 숫자 8자리를 입력하세요.',
               obscureText: true,
-              obscuringCharacter: '●',
-              textStyle: _kMaskedStyle,
+              // 가림 문자(5728:5760)는 입력칸 기본값(12 Regular 연회색 ●)과
+              // 같다. 눈은 기기연결 시안 그룹(5728:5761, x282)을 쓴다.
+              eyeVariant: FigmaEyeVariant.sensor,
               height: 51,
               errorText: wrongPin ? 'PIN이 맞지 않아요. 라벨을 다시 확인해주세요.' : null,
               textInputAction: TextInputAction.done,
@@ -435,8 +437,9 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
               controller: _password,
               hintText: '비밀번호를 입력하세요',
               obscureText: true,
-              obscuringCharacter: '●',
-              textStyle: _kMaskedStyle,
+              // 가림 문자(5728:5760)는 입력칸 기본값(12 Regular 연회색 ●)과
+              // 같다. 눈은 기기연결 시안 그룹(5728:5761, x282)을 쓴다.
+              eyeVariant: FigmaEyeVariant.sensor,
               height: 51,
               textInputAction: TextInputAction.done,
             ),
@@ -815,14 +818,6 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
     );
   }
 }
-
-/// 가려진 PIN·비밀번호(5728:5760): 연한 텍스트 12 Regular 점.
-const TextStyle _kMaskedStyle = TextStyle(
-  fontFamily: 'Paperlogy',
-  fontSize: 12,
-  fontWeight: FontWeight.w400,
-  color: kTextLight,
-);
 
 /// 12의 안내 두 줄(top 427·453, 연한 텍스트 14 Medium, "i"는 Bold).
 class _WifiNotice extends StatelessWidget {

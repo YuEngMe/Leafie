@@ -134,7 +134,8 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
             RoundedInputField(
               label: '애칭',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              // 라벨 top 493 → 칸 top 517(4534:954). 라벨 상자가 23이라 1만 띄운다.
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '예: 쑥쑥이',
               controller: _nicknameController,

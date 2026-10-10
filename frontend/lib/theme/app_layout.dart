@@ -78,9 +78,10 @@ abstract final class AppLayout {
   /// 화면들과 같은 규칙이다.
   static const double registrationLabelIndent = inputLabelIndent;
 
-  /// 입력칸 바닥에서 다음 라벨까지. 라벨 사이가 110이 되어야 하는데
-  /// 라벨+칸 묶음이 79로 렌더돼 시안의 35 대신 31을 준다(2318:2981).
-  static const double registrationFieldGap = 31;
+  /// 입력칸 바닥에서 다음 라벨까지(4534:85: 칸 바닥 289 → 라벨 324).
+  /// 라벨+칸 묶음이 라벨 상자 23 + 간격 1 + 칸 51 = 75로 렌더돼 시안
+  /// 값 35를 그대로 쓰면 라벨 사이가 110이 된다.
+  static const double registrationFieldGap = 35;
 
   /// 물결이 그려지는 바닥(113.21)에서 헤드라인 top(140)까지.
   static const double registrationHeaderGap = 26.79;

@@ -33,6 +33,18 @@ void _expectAt(
   if (y != null) expect(rect.top, closeTo(y, 1), reason: '$label y');
 }
 
+/// index번째 RoundedInputField의 흰 칸 상자(라벨 제외).
+Rect _fieldBox(WidgetTester tester, int index) => tester.getRect(
+  find
+      .descendant(
+        of: find.byType(RoundedInputField).at(index),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration is BoxDecoration,
+        ),
+      )
+      .first,
+);
+
 PlantRegistrationDraft _draft() => PlantRegistrationDraft(
   name: '씩씩이',
   species: const PlantSpeciesCandidate(
@@ -57,6 +69,11 @@ void main() {
       _expectAt(tester, '헤드라인', find.text('리피의 이름을 지어주세요!'), 45, 140);
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
+
+      // 4534:954: 애칭 라벨 top 493 → 칸 top 517. 라벨 자리는 따로 어긋나
+      // 있어(AUTH-ISS-005) 라벨과 칸 사이만 잠근다.
+      final label = tester.getRect(find.text('애칭'));
+      expect(_fieldBox(tester, 0).top - label.top, closeTo(24, 0.5));
 
       final button = tester.getRect(find.byType(PrimaryButton));
       expect(button.width, closeTo(334, 1));
@@ -84,6 +101,8 @@ void main() {
 
       _expectAt(tester, '헤드라인', find.text('내 식물을 찾아주세요!'), 45, 140);
       _expectAt(tester, '식물 명칭 라벨', find.text('식물 명칭'), 45, 237);
+      // 4534:1007: 칸 top 261(라벨 top + 24).
+      expect(_fieldBox(tester, 0).top, closeTo(261, 1));
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
     });
 
@@ -117,6 +136,10 @@ void main() {
       _expectAt(tester, '라벨1', find.text('장소(별명)'), 45, 214);
       _expectAt(tester, '라벨2', find.text('마지막 물 준 날'), 45, 324);
       _expectAt(tester, '라벨3', find.text('분갈이 한 날'), 45, 434);
+      // 4534:85: 칸 top 238·348·458(라벨 top + 24). 예전엔 4px 아래였다.
+      expect(_fieldBox(tester, 0).top, closeTo(238, 1));
+      expect(_fieldBox(tester, 1).top, closeTo(348, 1));
+      expect(_fieldBox(tester, 2).top, closeTo(458, 1));
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
     });
 

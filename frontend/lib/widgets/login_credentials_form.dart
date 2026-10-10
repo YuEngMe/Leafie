@@ -149,8 +149,9 @@ class LoginPasswordField extends StatelessWidget {
             // 답이 "값 있을 때만"이면 이 줄만 지우면 된다.
             alwaysShowEye: true,
             hintStyle: kLoginHintStyle,
-            textStyle: isError ? kLoginPasswordValueStyle : null,
-            obscuringCharacter: isError ? '●' : '•',
+            // 가림 문자는 오류 여부와 관계없이 14 SemiBold 연회색 ●다
+            // (4534:1342 일반 · 4534:2394 오류).
+            obscuredTextStyle: kLoginPasswordValueStyle,
             showShadow: !isError,
           ),
           Positioned(
