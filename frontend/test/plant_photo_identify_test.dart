@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
@@ -78,6 +79,57 @@ void main() {
     pending.complete(_mockResult);
     await tester.pumpAndSettle();
     expect(find.text('내 식물 등록하기'), findsOneWidget);
+  });
+
+  testWidgets('분석을 기다리는 동안 캐릭터가 왼쪽부터 차례로 뛴다', (tester) async {
+    _setUpView(tester);
+    final pending = Completer<PlantIdentification>();
+    double bodyTop(String name) => tester
+        .getRect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SvgPicture &&
+                widget.toString().contains('identify_analyzing_body_$name'),
+          ),
+        )
+        .top;
+
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+    // 첫 프레임은 시안 자리(4889:447 둥근 몸통 y=363.48).
+    final roundRest = bodyTop('round');
+    final ghostRest = bodyTop('ghost');
+    expect(roundRest, closeTo(363.48, 0.5));
+
+    // 150ms: 둥근 몸통은 뛰는 중, 유령은 아직 출발 전(180ms 뒤 출발).
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(bodyTop('round'), lessThan(roundRest - 4));
+    expect(bodyTop('ghost'), closeTo(ghostRest, 0.01));
+
+    pending.complete(_mockResult);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('동작 줄이기 설정이면 분석 중 캐릭터가 뛰지 않는다', (tester) async {
+    _setUpView(tester);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final pending = Completer<PlantIdentification>();
+    final round = find.byWidgetPredicate(
+      (widget) =>
+          widget is SvgPicture &&
+          widget.toString().contains('identify_analyzing_body_round'),
+    );
+
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+    final rest = tester.getRect(round).top;
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(tester.getRect(round).top, closeTo(rest, 0.01));
+
+    pending.complete(_mockResult);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('결과 화면이 시안 좌표에 앉는다', (tester) async {
