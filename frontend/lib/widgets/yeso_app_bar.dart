@@ -54,11 +54,15 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () => Navigator.maybePop(context),
             )
           : null,
-      title: Text(
-        title,
-        style: titleColor == null
-            ? kBodyStyle
-            : kBodyStyle.copyWith(color: titleColor),
+      // 시안 제목 상자는 y60·h19(회원가입 4534:1713)로, 46 띠 가운데보다
+      // 0.5 아래다. 앱바 기본 줄 높이(1.27)로 가운데 두면 글자가 1.25px
+      // 위로 뜨므로 상자를 19로 맞추고 1 내린다.
+      title: Padding(
+        padding: const EdgeInsets.only(top: 1),
+        child: Text(
+          title,
+          style: kBodyStyle.copyWith(color: titleColor, height: 19 / 16),
+        ),
       ),
       actions: actions,
     );

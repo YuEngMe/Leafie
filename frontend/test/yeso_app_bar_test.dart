@@ -29,6 +29,25 @@ void main() {
     expect(chevron.height, closeTo(FigmaBackChevron.figmaSize.height, 0.01));
   });
 
+  testWidgets('제목 글자 상자가 시안 자리(y60·h19)에 앉는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(appBar: YesoAppBar(title: '회원가입')),
+      ),
+    );
+
+    // 회원가입 제목 4534:1713은 y60·h19다. 앱바 기본 줄 높이(1.27)로 두면
+    // 상자가 59~79라 글자가 시안보다 1.25px 위였다(12개 화면 공통).
+    const statusBar = 46.0;
+    final title = tester.getRect(find.text('회원가입'));
+    expect(title.top + statusBar, 60);
+    expect(title.height, 19);
+  });
+
   testWidgets('Material 기본 뒤로가기 아이콘을 쓰지 않는다', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
