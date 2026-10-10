@@ -6,6 +6,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -130,11 +131,11 @@ class _NoticeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: kBackgroundWhite,
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
-      ),
+    // 4534:2998: 흰 바탕에 inset 0 0 4 0 rgba(0,0,0,0.2). 바깥 그림자로
+    // 그리면 상자 밖이 어두워져 시안과 반대가 된다.
+    return InsetShadowBox(
+      color: kBackgroundWhite,
+      shadows: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
       child: Padding(
         padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
         child: Column(

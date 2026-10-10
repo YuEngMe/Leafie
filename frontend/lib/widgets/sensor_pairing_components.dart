@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/services/sensor_ble.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -230,47 +231,45 @@ class SensorTipBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 45),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
-        decoration: BoxDecoration(
-          color: kBackgroundWhite,
-          border: Border.all(color: const Color(0x14000000)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x33000000), blurRadius: 4),
-            BoxShadow(color: kBackgroundWhite, spreadRadius: -1, blurRadius: 3),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (index, tip) in tips.indexed)
-              Padding(
-                padding: EdgeInsets.only(top: index == 0 ? 0 : 5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      child: Text(
-                        '•',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          height: 23 / 16,
-                          color: kOnboardingSubtitle,
+      // 4534:21065: 흰 바탕, 테두리 없이 inset 0 0 4 0 rgba(0,0,0,0.2).
+      // 바깥 그림자로 그리면 상자 밖이 어두워져 시안과 반대가 된다.
+      child: InsetShadowBox(
+        color: kBackgroundWhite,
+        shadows: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (index, tip) in tips.indexed)
+                Padding(
+                  padding: EdgeInsets.only(top: index == 0 ? 0 : 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        child: Text(
+                          '•',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 23 / 16,
+                            color: kOnboardingSubtitle,
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tip,
-                        style: kSensorHintStyle.copyWith(height: 23 / 14),
+                      Expanded(
+                        child: Text(
+                          tip,
+                          style: kSensorHintStyle.copyWith(height: 23 / 14),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

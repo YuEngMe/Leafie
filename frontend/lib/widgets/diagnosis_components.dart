@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/onboarding_copy.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
@@ -115,19 +116,19 @@ class PrescriptionCard extends StatelessWidget {
             top: 47.38,
             width: cardSize.width,
             height: 595.621,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFDB86),
-                borderRadius: BorderRadius.circular(20.733),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x40765E3C),
-                    blurRadius: 1,
-                    offset: Offset(-3, -3),
-                    blurStyle: BlurStyle.inner,
-                  ),
-                ],
-              ),
+            // 4534:19735: inset -3 -3 1 0 rgba(118,94,60,0.25). 안쪽 그림자라
+            // 카드 안 오른쪽·아래 가장자리가 어두워진다. BlurStyle.inner는
+            // 카드 밖 왼쪽·위로 그려져 시안과 반대였다.
+            child: InsetShadowBox(
+              color: const Color(0xFFFFDB86),
+              borderRadius: BorderRadius.circular(20.733),
+              shadows: const [
+                BoxShadow(
+                  color: Color(0x40765E3C),
+                  blurRadius: 1,
+                  offset: Offset(-3, -3),
+                ),
+              ],
             ),
           ),
           Positioned(
