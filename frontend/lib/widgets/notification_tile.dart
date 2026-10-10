@@ -19,6 +19,11 @@ const double kNotificationHeaderRenderHeight = 23;
 /// 헤더 잉크 top 140 → 첫 타일 top 169.
 const double kNotificationHeaderToTile = 29 - kNotificationHeaderRenderHeight;
 
+/// 시안 텍스트 박스(19)와 Flutter 렌더 상자(23)의 글자 자리 차이. 박스 top을
+/// 시안 값에 두면 보이는 글자가 2px 아래(시안 4534:19877 '오늘의 알림' 글자
+/// 143 → 145, '지난 알림' 416 → 419)라 헤더만 그만큼 올리고 타일 자리는 둔다.
+const double kNotificationHeaderLift = 2;
+
 /// 타일 top 242.196 − 이전 타일 바닥(169 + 58.196).
 const double kNotificationTileGap = 15;
 

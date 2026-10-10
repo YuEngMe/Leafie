@@ -89,7 +89,9 @@ void main() {
     // 절 헤더.
     final todayHeader = tester.getRect(find.text('오늘의 알림'));
     expect(todayHeader.left, closeTo(34, 1));
-    expect(todayHeader.top, closeTo(140, 1));
+    // 글자 상자는 시안 박스(140)보다 2 위다. Flutter 상자가 커서 그래야
+    // 보이는 글자가 시안 자리(143)에 온다.
+    expect(todayHeader.top, closeTo(140 - kNotificationHeaderLift, 1));
     final headerStyle = tester.widget<Text>(find.text('오늘의 알림')).style!;
     expect(headerStyle.fontSize, 16);
     expect(headerStyle.fontWeight, FontWeight.w600);
@@ -110,11 +112,17 @@ void main() {
     // 마지막 오늘 타일 바닥(300.392)에서 40 아래를 확인한다.
     final pastHeader = tester.getRect(find.text('지난 알림'));
     expect(pastHeader.left, closeTo(34, 1));
-    expect(pastHeader.top, closeTo(second.bottom + 40, 1));
+    expect(
+      pastHeader.top,
+      closeTo(second.bottom + 40 - kNotificationHeaderLift, 1),
+    );
 
-    // 지난 절 첫 타일은 헤더 잉크에서 29 아래.
+    // 지난 절 첫 타일은 시안 헤더 박스에서 29 아래.
     final third = tester.getRect(find.byKey(const Key('notification-c')));
-    expect(third.top, closeTo(pastHeader.top + 29, 1));
+    expect(
+      third.top,
+      closeTo(pastHeader.top + kNotificationHeaderLift + 29, 1),
+    );
   });
 
   testWidgets('타일 제목·점·모양이 시안값과 같다', (tester) async {
