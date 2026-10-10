@@ -230,9 +230,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
             height: AppLayout.referenceViewport.height,
             child: Stack(
               children: [
+                // 시안(4534:4708 홈 배경_기본)은 홈 배경을 흰 바탕에 70%로
+                // 옅게 깐다. 다이어리 배경 PNG가 바로 그 합성본이라(픽셀
+                // 255−0.7×(255−홈) 일치) 같은 에셋을 쓴다.
                 Positioned.fill(
                   child: Image.asset(
-                    'assets/images/home_bg_default.png',
+                    'assets/images/diary_background.png',
                     fit: BoxFit.fill,
                   ),
                 ),
@@ -611,8 +614,14 @@ class _DayCell extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: value == null ? null : () => onSelect(value),
       child: DecoratedBox(
+        // 시안 칸(4534:5069~)은 1px 선을 칸 경계 가운데에 긋는다. 이웃 칸
+        // 선이 같은 자리에 겹쳐 격자선이 1px로 보인다. 안쪽 선이면 2px가 된다.
         decoration: BoxDecoration(
-          border: Border.all(color: kBrightOrange, width: 1),
+          border: Border.all(
+            color: kBrightOrange,
+            width: 1,
+            strokeAlign: BorderSide.strokeAlignCenter,
+          ),
         ),
         child: value == null
             ? const SizedBox.expand()

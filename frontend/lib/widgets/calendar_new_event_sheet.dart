@@ -270,11 +270,15 @@ class _CalendarNewEventSheetState extends State<CalendarNewEventSheet> {
         key: ValueKey('calendar-type-$value'),
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _type = value),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            // 3429:1707 흰 원(미선택) / 3429:1715 연노랑 원(선택).
-            color: selected ? kPaleYellow : Colors.white,
-            shape: BoxShape.circle,
+        // 4534:6068 흰 원(미선택) / 4534:6076 연노랑 원(선택). 시안 렌더는 두
+        // 원 모두 가장자리 안쪽이 옅게 어둡다(바깥 1px 239·다음 1px 250).
+        // 내보낸 SVG엔 그 효과가 빠져 있어, 렌더 픽셀에 맞춘 안쪽 그림자
+        // (흐림 σ 1.25, 검정 20%)로 그린다. 흰 카드 위에서 원 경계가 보인다.
+        child: CustomPaint(
+          painter: _InnerShadowPainter(
+            radius: 24.5,
+            sigma: 1.25,
+            fill: selected ? kPaleYellow : Colors.white,
           ),
           child: Center(
             child: SizedBox(
@@ -311,15 +315,24 @@ class _CalendarNewEventSheetState extends State<CalendarNewEventSheet> {
   }
 }
 
-/// 3429:1596의 `inset 0 0 5px rgba(0,0,0,0.2)`. Flutter에 안쪽 그림자가 없어 직접 그린다.
+/// `inset 0 0 <2σ>px rgba(0,0,0,0.2)`. Flutter에 안쪽 그림자가 없어 직접 그린다.
+/// 기본값은 카드 3429:1596(`inset 0 0 5px`), 종류 원도 같은 방식으로 쓴다.
 class _InnerShadowPainter extends CustomPainter {
-  const _InnerShadowPainter();
+  const _InnerShadowPainter({
+    this.radius = 30,
+    this.sigma = 2.5,
+    this.fill = Colors.white,
+  });
+
+  final double radius;
+  final double sigma;
+  final Color fill;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(30));
-    canvas.drawRRect(rrect, Paint()..color = Colors.white);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    canvas.drawRRect(rrect, Paint()..color = fill);
     canvas.saveLayer(rect, Paint());
     canvas.drawRRect(rrect, Paint()..color = const Color(0x33000000));
     canvas.drawRRect(
@@ -327,11 +340,14 @@ class _InnerShadowPainter extends CustomPainter {
       Paint()
         ..blendMode = BlendMode.dstOut
         ..color = Colors.black
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_InnerShadowPainter oldDelegate) => false;
+  bool shouldRepaint(_InnerShadowPainter oldDelegate) =>
+      radius != oldDelegate.radius ||
+      sigma != oldDelegate.sigma ||
+      fill != oldDelegate.fill;
 }

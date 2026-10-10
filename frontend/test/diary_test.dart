@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/services/diary_api.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 
@@ -161,6 +162,34 @@ void main() {
       expect(find.text('1'), findsOneWidget);
       expect(find.text('31'), findsOneWidget);
       expect(find.text('32'), findsNothing);
+    });
+
+    testWidgets('고른 날은 찐 오렌지, 격자선은 칸 경계 가운데 한 줄', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: DiaryScreen(today: DateTime(2026, 7, 15))),
+      );
+      await tester.pumpAndSettle();
+
+      // 4534:4176 고른 날(15) #FF8834, 나머지 #444.
+      expect(tester.widget<Text>(find.text('15')).style!.color, kBrightOrange);
+      expect(tester.widget<Text>(find.text('16')).style!.color, kTextDark);
+
+      // 4534:4142~ border 0.769를 경계 가운데에 그어 이웃 칸 선이 겹친다.
+      final cells = find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).border?.top.color ==
+                kDiaryGridLine,
+      );
+      expect(cells, findsNWidgets(35));
+      final side =
+          (tester.widget<DecoratedBox>(cells.first).decoration as BoxDecoration)
+              .border!
+              .top;
+      expect(side.width, 0.769);
+      expect(side.strokeAlign, BorderSide.strokeAlignCenter);
     });
 
     testWidgets('달 넘김 버튼이 월을 바꾼다', (tester) async {
@@ -338,6 +367,34 @@ void main() {
 
       expect(find.text('사진 추가하기'), findsOneWidget);
       expect(find.text('다이어리를 기록하세요'), findsOneWidget);
+    });
+
+    testWidgets('사진칸 테두리는 사진 위에 그린다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SizedBox(
+            width: 310,
+            height: 260,
+            child: DiaryPhotoBox(
+              photoPath: null,
+              photoUrl: 'https://example.com/photo.jpg',
+            ),
+          ),
+        ),
+      );
+
+      // 4534:4244 사진 위로 주황 테두리가 보인다. 뒤에 그리면 사진이 덮는다.
+      final box = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byType(DiaryPhotoBox),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect(box.position, DecorationPosition.foreground);
+      expect((box.decoration as BoxDecoration).border!.top.color, kOrangeMain);
     });
 
     testWidgets('날씨를 고르면 표시가 바뀐다', (tester) async {

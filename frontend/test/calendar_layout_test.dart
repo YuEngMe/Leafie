@@ -86,6 +86,9 @@ void main() {
               .border!;
       expect(border.top.width, 1);
       expect(border.top.color, kBrightOrange);
+      // 4534:5069~ 선은 칸 경계 가운데에 긋는다. 안쪽 선이면 이웃 칸 선이
+      // 나란히 붙어 격자선이 2px로 굵어진다.
+      expect(border.top.strokeAlign, BorderSide.strokeAlignCenter);
 
       // 3341:419 날짜 숫자 16 SemiBold, 미선택도 w600.
       final day1 = _style(tester, '1');
@@ -122,6 +125,19 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('배경은 홈 배경을 70%로 옅게 깐 것', (tester) async {
+      await _pumpMonth(tester);
+
+      // 4534:4708 홈 배경_기본은 흰 바탕 위 70% — 다이어리 배경 PNG와 같은 합성본.
+      final assets = tester
+          .widgetList<Image>(find.byType(Image))
+          .map((image) => image.image)
+          .whereType<AssetImage>()
+          .map((image) => image.assetName);
+      expect(assets, contains('assets/images/diary_background.png'));
+      expect(assets, isNot(contains('assets/images/home_bg_default.png')));
     });
 
     testWidgets('종이에 구겨진 질감을 깐다', (tester) async {
@@ -464,6 +480,20 @@ void main() {
       );
       expect(fertilize.left, closeTo(301, 1));
       expect(fertilize.top, closeTo(685.09, 1));
+
+      // 4534:6068 / 4534:6076 두 원 모두 가장자리 안쪽 그림자로 테두리가 보인다.
+      // 흰 원도 흰 카드 위에서 경계가 사라지지 않게 칠하는 CustomPaint가 있다.
+      for (final type in ['REPOTTING', 'FERTILIZING']) {
+        final paint = find.descendant(
+          of: find.byKey(ValueKey('calendar-type-$type')),
+          matching: find.byType(CustomPaint),
+        );
+        expect(
+          tester.widgetList<CustomPaint>(paint).where((p) => p.painter != null),
+          hasLength(1),
+          reason: type,
+        );
+      }
 
       // 시안에 없는 것들은 사라졌다.
       expect(find.text('일정 추가'), findsNothing);
