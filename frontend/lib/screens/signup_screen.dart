@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/screens/signup_complete_screen.dart';
+import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -205,9 +206,13 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authErrorMessage(e, fallback: '가입하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);

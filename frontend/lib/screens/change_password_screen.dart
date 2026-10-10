@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -162,7 +163,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         _startCountdown();
       }
     } on AuthException catch (e) {
-      if (mounted) setState(() => _emailError = e.message);
+      if (mounted) {
+        setState(
+          () => _emailError = authErrorMessage(
+            e,
+            fallback: '메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -200,7 +208,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         MaterialPageRoute(builder: (_) => const ChangePasswordDoneScreen()),
       );
     } on AuthException catch (e) {
-      if (mounted) setState(() => _confirmError = e.message);
+      if (mounted) {
+        setState(
+          () => _confirmError = authErrorMessage(
+            e,
+            fallback: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
