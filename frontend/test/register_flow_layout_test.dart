@@ -59,7 +59,7 @@ PlantRegistrationDraft _draft() => PlantRegistrationDraft(
 );
 
 void main() {
-  group('1단계 이름 (2315:2189)', () {
+  group('1단계 이름 (4534:954)', () {
     testWidgets('좌표를 지킨다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
@@ -73,10 +73,19 @@ void main() {
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
 
-      // 4534:954: 애칭 라벨 top 493 → 칸 top 517. 라벨 자리는 따로 어긋나
-      // 있어(AUTH-ISS-005) 라벨과 칸 사이만 잠근다.
+      // 4534:954: 애칭 라벨 top 493 → 칸 top 517. 옛 시안(2315:2189)
+      // 배치라 라벨·칸이 13px 아래에 있었다(AUTH-ISS-005).
       final label = tester.getRect(find.text('애칭'));
+      expect(label.top, closeTo(493, 1));
+      expect(_fieldBox(tester, 0).top, closeTo(517, 1));
       expect(_fieldBox(tester, 0).top - label.top, closeTo(24, 0.5));
+
+      // 4534:954 캐릭터(5038:6564): 몸통 155.23x142.99, top 289 → 바닥
+      // 431.99. 옛 시안 값으로 그려 12px 위에 있었다.
+      final art = tester.getRect(find.byType(PlantCharacterArt));
+      expect(art.width * 0.897, closeTo(155.23, 0.5));
+      expect(art.center.dx, closeTo(201, 1));
+      expect(art.bottom - art.width * 37 / 698, closeTo(431.99, 1));
 
       final button = tester.getRect(find.byType(PrimaryButton));
       expect(button.width, closeTo(334, 1));

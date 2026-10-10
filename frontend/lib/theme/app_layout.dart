@@ -90,14 +90,18 @@ abstract final class AppLayout {
   /// 반올림 범위라 붙여 둔다.
   static const double registrationProgressTopGap = 0;
 
-  /// 부제 바닥(195)에서 캐릭터 top(267)까지.
-  static const double registrationNameCharacterTopGap = 72;
+  /// 시안 4534:954 캐릭터(5038:6564 동글표정)는 몸통 155.23x142.99,
+  /// top 289 → 몸통 바닥 431.99. 옛 시안(2315:2244 175x150)으로 그려
+  /// 몸통이 12px 위에 있었다. 폭은 circle 몸통이 155.23으로 보이는 값.
+  static const double registrationNameCharacterWidth = 155.23 / 0.897;
 
-  /// 시안 2315:2244는 175x150.
-  static const double registrationNameCharacterWidth = 175;
+  /// 부제 글자 상자 바닥(Flutter 195.2)에서 캐릭터 박스 top(280.26)까지.
+  /// 박스 top = 몸통 바닥 431.99 − 폭 × 612/698(박스 위→몸통 바닥).
+  static const double registrationNameCharacterTopGap = 85.06;
 
-  /// 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
-  static const double registrationNameFieldsGap = 76;
+  /// 캐릭터 박스 바닥(441.17)에서 애칭 라벨 상자 top(493)까지. 라벨+칸
+  /// 묶음은 라벨 상자 top 493 → 칸 top 517로 그려진다(4534:986).
+  static const double registrationNameFieldsGap = 51.83;
   // 성격 화면 요소는 PageView의 Stack(top=0)을 기준으로 놓인다. 그 top=0의
   // 절대 y는 상태바 46 + 앱바 46 + 진행바 21.425 + 간격 12 = 125.425다.
   // 아래 상수는 시안 4534:195의 절대 y에서 이 125.425를 뺀 값이다.
