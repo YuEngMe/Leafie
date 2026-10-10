@@ -252,4 +252,27 @@ void main() {
     expect(request.method, 'DELETE');
     expect(request.uri.path, '/api/v1/plants/plant-1');
   });
+
+  test('함께한 일수는 홈과 같이 등록한 날을 1일차로 센다', () {
+    ManagedPlant startedDaysAgo(int days) => ManagedPlant(
+      id: 'plant-1',
+      nickname: '새싹이',
+      speciesReferenceId: 'species-1',
+      speciesDisplayName: '몬스테라',
+      primaryPhotoUrl: null,
+      personalityType: 'OUTGOING',
+      colorId: 'color_green',
+      hairId: 'hair_sprout',
+      startedOn: DateTime.now()
+          .toUtc()
+          .add(const Duration(hours: 9))
+          .subtract(Duration(days: days)),
+      isSelected: true,
+    );
+
+    // 서버 days_together = max(날짜 차 + 1, 1)과 같아야 홈 D+N과 맞는다.
+    expect(startedDaysAgo(0).daysTogether, 1);
+    expect(startedDaysAgo(127).daysTogether, 128);
+    expect(startedDaysAgo(-1).daysTogether, 1);
+  });
 }

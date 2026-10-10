@@ -350,14 +350,17 @@ class ManagedPlant {
   final DateTime? updatedAt;
   final bool isSelected;
 
+  /// 등록한 날이 1일차다(2026-08-04 팀 확인). 홈 D+N은 서버
+  /// `days_together`(`max(날짜 차 + 1, 1)`)를 쓰는데 상세 응답에는 이 값이
+  /// 없어 여기서 같은 식으로 센다. 예전엔 +1이 빠져 홈 D+128, 상세 127일이었다.
   int get daysTogether {
     // User profiles are currently created with the backend's fixed
     // Asia/Seoul timezone, so mirror its date boundary instead of the device's.
     final nowInSeoul = DateTime.now().toUtc().add(const Duration(hours: 9));
     final today = DateTime(nowInSeoul.year, nowInSeoul.month, nowInSeoul.day);
     final startDate = DateTime(startedOn.year, startedOn.month, startedOn.day);
-    final days = today.difference(startDate).inDays;
-    return days < 0 ? 0 : days;
+    final days = today.difference(startDate).inDays + 1;
+    return days < 1 ? 1 : days;
   }
 
   ManagedPlant copyWith({

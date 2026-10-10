@@ -41,7 +41,8 @@ ManagedPlant _plant({
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))
-      .subtract(Duration(days: daysTogether)),
+      // 등록한 날이 1일차라 N일째가 되려면 N-1일 전에 시작한다.
+      .subtract(Duration(days: daysTogether - 1)),
   placeName: '거실',
   isSelected: selected,
 );
