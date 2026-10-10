@@ -6,7 +6,7 @@ import 'package:yeso_plant/screens/plant_edit_info_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
 import 'package:yeso_plant/widgets/date_wheel_column.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
@@ -670,7 +670,7 @@ void main() {
     });
   });
 
-  group('2568:1764 / 2568:1814 꾸미기', () {
+  group('5038:6460 꾸미기', () {
     Future<void> pump(WidgetTester tester) => _pumpScreen(
       tester,
       PlantEditAppearanceScreen(
@@ -679,10 +679,10 @@ void main() {
       ),
     );
 
-    testWidgets('앱바·바디 스위처·체크 원 좌표', (tester) async {
+    testWidgets('앱바·바디 스위처·컬러 휠·체크 배지 좌표', (tester) async {
       await pump(tester);
 
-      // 2568:1786 앱바.
+      // 5038:6523 앱바.
       expect(find.text('캐릭터 꾸미기'), findsOneWidget);
       // 5038:6460 시안: 헤드라인 자리에 바디 스위처가 온다(헤드라인 없음).
       expect(find.text('식물을 꾸며주세요!'), findsNothing);
@@ -697,19 +697,36 @@ void main() {
       // 3개 실루엣이 중앙 대칭: circle(왼)·square(오) 중심이 201 기준 대칭.
       expect((bodyRow.center.dx + square.center.dx) / 2, _closeTo1px(201));
 
-      // 컬러 선택은 등록 화면과 같은 드르륵 카루셀로 통일했다. 절대좌표
-      // 탭 라벨('컬러')은 없앴고, 헤어 탭도 없다.
-      expect(find.text('컬러'), findsNothing);
+      // 컬러 휠 5038:6533은 등록 꾸미기(4534:507)와 같은 위젯이다. 휠
+      // 위에 '컬러' 라벨(5038:6551)이 있고, 헤어 탭은 없다.
+      expect(find.byType(ColorWheelPicker), findsOneWidget);
       expect(find.text('헤어'), findsNothing);
-      expect(find.byType(ArcAppearancePicker), findsOneWidget);
+      // 라벨 글자 상자는 x 189..211, 가운데 y 601.
+      final label = tester.getRect(find.text('컬러'));
+      expect(label.center.dx, _closeTo1px(200));
+      expect(label.center.dy, _closeTo1px(601));
 
-      // 2568:1811 체크 원. 프레임 38x38의 중심이 (201, 779)이고, SVG는
-      // 그림자까지 46x46으로 그려진다.
+      // 초기 색(green)이 꼭대기 칸(원 중심 200, 655, 지름 60)에 있다.
+      final top = tester.getRect(
+        find.byKey(const ValueKey('appearance_color_green')),
+      );
+      expect(top.center.dx, _closeTo1px(200));
+      expect(top.center.dy, _closeTo1px(655));
+      expect(top.width, _closeTo1px(60));
+      // 시계 방향 옆 칸(5038:6395 Ellipse 453): 중심 (288, 679).
+      final next = tester.getRect(
+        find.byKey(const ValueKey('appearance_color_sky')),
+      );
+      expect(next.center.dx, _closeTo1px(288));
+      expect(next.center.dy, _closeTo1px(679));
+
+      // 5038:6557 체크 배지. 원 38x38이 x=181 y=777(중심 200, 796)이고,
+      // SVG는 그림자까지 46x46으로 그려진다. 옛 시안(2568:1811)은 y=760이었다.
       final check = tester.getRect(
         find.byKey(const ValueKey('appearance_confirm')),
       );
-      expect(check.center.dx, _closeTo1px(182 + 19));
-      expect(check.center.dy, _closeTo1px(760 + 19));
+      expect(check.center.dx, _closeTo1px(181 + 19));
+      expect(check.center.dy, _closeTo1px(777 + 19));
       expect(check.width, _closeTo1px(46));
 
       // 앱에만 있던 요소는 사라졌다.
@@ -717,28 +734,25 @@ void main() {
       expect(find.text('헤어와 액세서리는 디자인 확정 후 추가돼요.'), findsNothing);
     });
 
-    testWidgets('카루셀은 공용 10색 목록을 그리고 초기 선택이 보인다', (tester) async {
+    testWidgets('휠은 공용 10색 목록을 그리고 초기 선택이 꼭대기에 있다', (tester) async {
       await pump(tester);
 
-      // PageView.builder는 화면에 보이는 스와치만 렌더한다. 목록 길이는
-      // 위젯 파라미터(labels)로 검증한다 — 디자이너 확정 10색(2026-09-20).
-      final picker = tester.widget<ArcAppearancePicker>(
-        find.byType(ArcAppearancePicker),
+      // 휠은 10색을 모두 둘레에 그린다 — 디자이너 확정 10색(2026-09-20).
+      final picker = tester.widget<ColorWheelPicker>(
+        find.byType(ColorWheelPicker),
       );
-      expect(picker.labels.length, 10);
-      expect(
-        picker.labels,
-        containsAll(const ['레드', '오렌지', '옐로', '라이트 그린', '그린']),
-      );
-      expect(
-        picker.labels,
-        containsAll(const ['스카이', '블루', '퍼플', '핑크', '화이트']),
-      );
+      final labels = [for (final c in picker.colors) c.label];
+      expect(labels.length, 10);
+      expect(labels, containsAll(const ['레드', '오렌지', '옐로', '라이트 그린', '그린']));
+      expect(labels, containsAll(const ['스카이', '블루', '퍼플', '핑크', '화이트']));
 
-      // 초기 선택(green)은 카루셀 중앙에 렌더돼 보인다.
+      // 초기 선택(green)이 선택 링(5038:6548, 74x74 y=618) 안에 있다.
       expect(
-        find.byKey(const ValueKey('appearance_color_green')),
-        findsOneWidget,
+        tester
+            .getRect(find.byKey(const ValueKey('appearance_color_green')))
+            .center
+            .dy,
+        _closeTo1px(618 + 37),
       );
     });
 
@@ -749,11 +763,11 @@ void main() {
         PlantEditAppearanceScreen(plant: _plant(), repository: repository),
       );
 
-      // 초기 선택은 green(index 4). 무한 순환이라 오른쪽 방향(음의 드래그)으로
-      // 페이지를 밀면 목록 끝을 지나 다시 orange(index 1)까지 감긴다.
-      final pageView = find.byType(PageView);
+      // 초기 선택은 green(index 4). 휠은 끝없이 돌아서 왼쪽으로(음의 드래그)
+      // 한 칸(88px)씩 밀면 목록 끝을 지나 다시 orange(index 1)까지 감긴다.
+      final wheel = find.byType(ColorWheelPicker);
       for (var i = 0; i < 7; i++) {
-        await tester.drag(pageView, const Offset(-120, 0));
+        await tester.drag(wheel, const Offset(-88, 0));
         await tester.pumpAndSettle();
       }
       expect(
@@ -770,27 +784,27 @@ void main() {
       expect(repository.appearanceColor, 'color_orange');
     });
 
-    testWidgets('카루셀은 양방향 무한 순환 — 초기 색에서 왼쪽으로 밀면 앞쪽 색(오렌지)이 온다', (
-      tester,
-    ) async {
+    testWidgets('휠은 양방향으로 돈다 — 초기 색에서 오른쪽으로 밀면 앞쪽 색(오렌지)이 온다', (tester) async {
       final repository = _FakeRepository([_plant()]);
       await _pumpScreen(
         tester,
         PlantEditAppearanceScreen(plant: _plant(), repository: repository),
       );
 
-      // 초기 선택은 green(index 4). 오른쪽으로 드래그하면 앞쪽 페이지로
-      // 이동해 orange(index 1)에 닿는다(4→3→2→1). 스냅이 애매하지 않도록
-      // 페이지 하나씩 민다.
-      final pageView = find.byType(PageView);
+      // 초기 선택은 green(index 4). 오른쪽으로 한 칸씩 밀면 앞쪽 색이
+      // 꼭대기로 와 orange(index 1)에 닿는다(4→3→2→1).
+      final wheel = find.byType(ColorWheelPicker);
       for (var i = 0; i < 3; i++) {
-        await tester.drag(pageView, const Offset(120, 0));
+        await tester.drag(wheel, const Offset(88, 0));
         await tester.pumpAndSettle();
       }
-      // 무한 순환 PageView가 앞쪽으로 감기며 orange가 중앙 근처에 렌더된다.
+      // orange가 꼭대기 칸(중심 y 655)에 와 있다.
       expect(
-        find.byKey(const ValueKey('appearance_color_orange')),
-        findsOneWidget,
+        tester
+            .getRect(find.byKey(const ValueKey('appearance_color_orange')))
+            .center
+            .dy,
+        _closeTo1px(655),
       );
       await tester.tap(
         find.byKey(const ValueKey('appearance_color_orange')),

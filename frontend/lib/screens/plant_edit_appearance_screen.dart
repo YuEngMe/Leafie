@@ -1,28 +1,22 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
 import 'package:yeso_plant/widgets/body_glyph.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-/// 시안 2568:1764 "캐릭터 상세_꾸미기"(컬러 탭만 쓴다).
+/// 시안 5038:6460 "캐릭터 꾸미기"(편집).
 ///
-/// 컬러 선택은 등록 화면(plant_register_appearance_screen)과 같은 드르륵
-/// 가로 스크롤 카루셀(`ArcAppearancePicker`)로 통일했다. 색 목록도
-/// `kPlantAppearanceColors`를 두 화면이 공유한다. 아래 주황 체크 원
-/// (2568:1811, x=182 y=760 38x38)이 적용 버튼을 겸한다.
+/// 컬러 선택은 등록 화면(plant_register_appearance_screen)과 같은 컬러 휠
+/// (`ColorWheelPicker`)이다. 색 목록도 `kPlantAppearanceColors`를 두 화면이
+/// 공유한다. 휠의 주황 체크 배지(x=181 y=777 38x38)가 적용 버튼을 겸한다.
 /// 헤어는 종으로 자동 결정되므로 이 화면에서는 고를 수 없고, 현재 값을
 /// 미리보기에 얹어 보여주기만 한다.
-
-const double _kPaletteLeft = -25;
-const double _kPaletteTop = 576;
-const double _kPaletteSize = 443;
 
 class PlantEditAppearanceScreen extends StatefulWidget {
   const PlantEditAppearanceScreen({
@@ -149,85 +143,26 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
               ),
             ),
           ),
-          // 팔레트 큰 원 2568:1796.
+          // 컬러 휠 5038:6533. 등록 꾸미기(4534:507)와 같은 묶음이라 같은
+          // 위젯을 쓴다: 지름 443 원판, '컬러' 라벨·주황 호, 둘레 색 원,
+          // 꼭대기 회색 선택 링, 체크 배지(y=777)가 적용 버튼이다.
           Positioned(
-            left: _kPaletteLeft,
-            top: _kPaletteTop - PlantDetailBody.appBarBand,
-            width: _kPaletteSize,
-            height: _kPaletteSize,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: kBackgroundWhite,
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE8E8E8)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 5,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // 컬러 카루셀 2568:1797. 절대좌표 스와치 대신 등록 화면과 같은
-          // 드르륵 가로 스냅 카루셀을 팔레트 원 위 영역에 앉힌다.
-          PlantDetailPositioned(
-            top: 630,
-            height: 130,
-            child: ArcAppearancePicker(
-              // 색 원들이 뒤 팔레트 원(지름 443, 반지름 ≈ 221)의 호를 따라
-              // 돌도록 R을 그 원 반지름에 맞춘다(디자이너 피드백: 돌아가는
-              // 축이 배경 원과 맞아야 자연스럽다).
-              arcRadius: _kPaletteSize / 2,
+            left: 0,
+            right: 0,
+            top: ColorWheelPicker.top - PlantDetailBody.appBarBand,
+            height: ColorWheelPicker.height,
+            child: ColorWheelPicker(
               initialIndex: math.max(
                 0,
                 kPlantAppearanceColors.indexWhere(
                   (c) => c.id == _selectedColorId,
                 ),
               ),
-              labels: [for (final c in kPlantAppearanceColors) c.label],
               onSelected: (index) => setState(() {
                 _selectedColorId = kPlantAppearanceColors[index].id;
               }),
-              itemBuilder: (context, index) {
-                final option = kPlantAppearanceColors[index];
-                return DecoratedBox(
-                  // 테스트가 이 이름으로 스와치를 찾는다(appearance_color_<id>).
-                  // 등록 화면도 같은 규칙을 쓴다.
-                  key: ValueKey('appearance_${option.id}'),
-                  decoration: BoxDecoration(
-                    color: option.color,
-                    shape: BoxShape.circle,
-                    // 2568:1799 선택 링은 검정 15%, 굵기 4.
-                    border: _selectedColorId == option.id
-                        ? Border.all(color: const Color(0x26000000), width: 4)
-                        : null,
-                  ),
-                );
-              },
-            ),
-          ),
-          // 체크 원 2568:1811. 프레임 x=182 y=760 38x38이지만 SVG는 그림자
-          // 때문에 46x46으로 그려진다(원 지름 38, 중심이 프레임 중심).
-          Positioned(
-            left: 182 - 4,
-            top: 760 - 4 - PlantDetailBody.appBarBand,
-            width: 46,
-            height: 46,
-            child: GestureDetector(
-              key: const ValueKey('appearance_confirm'),
-              behavior: HitTestBehavior.opaque,
-              onTap: _busy ? null : _apply,
-              child: Semantics(
-                button: true,
-                label: '적용하기',
-                child: SvgPicture.asset(
-                  'assets/images/plants_appearance_check.svg',
-                  width: 46,
-                  height: 46,
-                ),
-              ),
+              confirmLabel: '적용하기',
+              onConfirm: _busy ? null : _apply,
             ),
           ),
         ],
