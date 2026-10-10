@@ -146,21 +146,11 @@ class SensorPillRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 34),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(kButtonRadius),
-          child: Ink(
-            height: height,
-            decoration: BoxDecoration(
-              color: kBackgroundWhite,
-              borderRadius: BorderRadius.circular(kButtonRadius),
-              boxShadow: kSensorFieldShadow,
-            ),
-            child: child,
-          ),
-        ),
+      child: SensorShadowTapPill(
+        height: height,
+        shadow: kSensorFieldShadow,
+        onTap: onTap,
+        child: child,
       ),
     );
   }
@@ -468,58 +458,88 @@ class SensorPlantRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: SensorShadowTapPill(
+        height: 58.196,
+        // 4904:24 shadow 0 0 4 0 rgba(0,0,0,0.18).
+        shadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
+        onTap: onTap,
+        child: Row(
+          children: [
+            const SizedBox(width: 6),
+            SizedBox.square(
+              dimension: 48,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/sensor_avatar_circle.svg',
+                    width: 48,
+                    height: 48,
+                  ),
+                  // 4904:170: 몸통 폭 약 22에 바닥이 원 바닥에서 3 위다.
+                  Positioned(bottom: 3, child: character),
+                ],
+              ),
+            ),
+            const SizedBox(width: 33),
+            SizedBox(
+              width: 105,
+              child: Text(
+                nickname,
+                style: kBodyStyle,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                connectedLabel ?? '',
+                style: kCaptionStyle.copyWith(color: kTextDark),
+              ),
+            ),
+            SensorRadio(selected: selected),
+            const SizedBox(width: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 그림자가 있는 흰 알약 버튼 바탕(반경 [kButtonRadius]).
+///
+/// Material 안의 Ink로 그림자를 그리면 Material이 잉크를 자기 크기로
+/// 잘라(_RenderInkFeatures가 clipRect) 바깥으로 번지는 그림자가 통째로
+/// 사라진다. 그래서 그림자·흰 바탕은 Material 밖의 DecoratedBox가 그리고,
+/// 그 위의 투명 Material은 눌림 물결만 맡는다.
+class SensorShadowTapPill extends StatelessWidget {
+  const SensorShadowTapPill({
+    super.key,
+    required this.height,
+    required this.shadow,
+    required this.child,
+    this.onTap,
+  });
+
+  final double height;
+  final List<BoxShadow> shadow;
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(kButtonRadius);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: kBackgroundWhite,
+        borderRadius: radius,
+        boxShadow: shadow,
+      ),
       child: Material(
-        color: Colors.transparent,
+        type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(kButtonRadius),
-          child: Ink(
-            height: 58.196,
-            decoration: BoxDecoration(
-              color: kBackgroundWhite,
-              borderRadius: BorderRadius.circular(kButtonRadius),
-              boxShadow: const [
-                BoxShadow(color: Color(0x2E000000), blurRadius: 4),
-              ],
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 6),
-                SizedBox.square(
-                  dimension: 48,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/images/sensor_avatar_circle.svg',
-                        width: 48,
-                        height: 48,
-                      ),
-                      // 4904:170: 몸통 폭 약 22에 바닥이 원 바닥에서 3 위다.
-                      Positioned(bottom: 3, child: character),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 33),
-                SizedBox(
-                  width: 105,
-                  child: Text(
-                    nickname,
-                    style: kBodyStyle,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    connectedLabel ?? '',
-                    style: kCaptionStyle.copyWith(color: kTextDark),
-                  ),
-                ),
-                SensorRadio(selected: selected),
-                const SizedBox(width: 20),
-              ],
-            ),
-          ),
+          borderRadius: radius,
+          child: SizedBox(height: height, child: child),
         ),
       ),
     );
