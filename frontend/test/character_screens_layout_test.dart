@@ -6,6 +6,7 @@ import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// 캐릭터 등록 화면 3개의 캐릭터 배치를 시안(402×874) 좌표로 고정한다.
 /// 헤어는 박스 위로 솟으므로 몸통 박스 바닥으로 위치를 잰다.
@@ -67,9 +68,25 @@ void main() {
     expect((circle.center.dx + square.center.dx) / 2, _near(201));
   });
 
-  testWidgets('완료: 제목 y=188, 몸통 바닥 597', (tester) async {
+  testWidgets('완료: 앱바 없음, 제목 y=188, 몸통 바닥 597', (tester) async {
     await _pump(tester, PlantRegisterCompleteScreen(draft: _draft()));
-    expect(tester.getRect(find.text('당신의 리피가 완성되었어요!')).top, _near(188));
+    // 시안 4534:812에는 앱바(뒤로가기·'캐릭터 만들기')가 없다(AUTH-ISS-011).
+    expect(find.byType(YesoAppBar), findsNothing);
+    expect(find.text('캐릭터 만들기'), findsNothing);
+    // 시안 글자 상자 188, 보이는 글자 꼭대기 192. Flutter 상자는 글자 위
+    // 여백이 6이라 상자를 186에 둔다.
+    expect(tester.getRect(find.text('당신의 리피가 완성되었어요!')).top, closeTo(186, 0.5));
+    // 광원 4534:832: 408 원, top 251.
+    final glow = tester.getRect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Container &&
+            w.decoration is BoxDecoration &&
+            (w.decoration! as BoxDecoration).gradient is RadialGradient,
+      ),
+    );
+    expect(glow.top, closeTo(251, 0.5));
+    expect(glow.width, closeTo(408, 0.5));
     final art = tester.getRect(find.byType(PlantCharacterArt));
     expect(art.center.dx, _near(201));
     expect(_bodyBottom(art), _near(596.9));

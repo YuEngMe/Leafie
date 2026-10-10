@@ -8,7 +8,8 @@ const Color kBrightOrange = Color(0xFFFF8834); // 밝은 오렌지, 달력 격�
 const Color kOrangeAccent = Color(0xFFFFA13E); // 종 검색 라벨(2315:2583)·꾸미기 활성 탭(2318:3594)
 // 성격 태그 칩(2318:3966)의 Figma 변수 `메인컬러_주황`.
 const Color kTagOrange = Color(0xFFFF9F6D);
-// 성격 타이틀(2318:3964)만 쓰는 raw hex. kTextDark보다 진하다.
+// 성격 타이틀(2318:3964)·등록 완성 제목(4534:833) 등이 쓰는 raw hex.
+// kTextDark보다 진하다.
 const Color kPersonalityTitle = Color(0xFF2E2E2E);
 const Color kAppleGreen = Color(0xFFC1E25F); // 애플 그린, 홈 포인트
 // 습도·조도 게이지(2435:16798)의 트랙과 선호 범위 시작색.

@@ -120,15 +120,18 @@ abstract final class AppLayout {
   static const double appearancePaletteTop = 399;
   static const double appearanceTabTopOffset = -26;
   static const double appearanceSwatchesTopOffset = 17;
-  // 시안 4534:812 (본문 시작 y=92 기준). 몸통(square) 폭 156 → 모든 바디가
-  // 같은 크기로 보이도록 circle 기준 폭 182.4(= 163.6 / 0.897)로 그린다.
-  static const double completionTopGap = 96; // 제목 y=188
-  static const double completionGlowTop = 63; // 광원 원 y=251
+  // 시안 4534:812 (앱바 없음, 본문 시작 y=46 기준). 몸통(square) 폭 156 →
+  // 모든 바디가 같은 크기로 보이도록 circle 기준 폭 182.4(= 163.6 / 0.897)로
+  // 그린다. 아래 top 값은 제목 글자 상자 top(186)에서 잰 상대값이다.
+  // 제목: 시안 글자 상자 188(높이 24)에 보이는 글자 꼭대기가 192인데,
+  // Flutter 상자는 글자 위 여백이 6이라 상자를 186에 둬야 192에 찍힌다.
+  static const double completionTopGap = 140; // 제목 상자 y=186
+  static const double completionGlowTop = 65; // 광원 원 y=251
   static const double completionGlowSize = 408;
   static const double completionCharacterWidth = 182.4;
-  // 몸통 바닥 y=596.9 → 박스 위 = 596.9 + 9.7 − 169.6 − 188.
-  static const double completionCharacterTop = 249;
-  static const double completionStageHeight = 471; // 광원 원 바닥 y=659
+  // 몸통 바닥 y=596.9 → 박스 위 = 596.9 + 9.7 − 169.6 − 186.
+  static const double completionCharacterTop = 251;
+  static const double completionStageHeight = 473; // 광원 원 바닥 y=659
   static const double homeTopBarHeight = 68;
   static const double homeHumidityCardHeight = 54;
 
