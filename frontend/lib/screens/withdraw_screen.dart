@@ -228,11 +228,13 @@ class WithdrawCompleteScreen extends StatelessWidget {
             const Positioned(
               left: 0,
               right: 0,
-              top: 341,
+              // 시안 4534:2906 글자 상자 y=387(상태바 빼면 341). 줄 간격 25로
+              // 줄이며 첫 줄 글자가 올라간 2.4px을 내려 첫 줄 자리를 지킨다.
+              top: 343.4,
               child: Text(
                 '회원 탈퇴가\n완료되었습니다',
                 textAlign: TextAlign.center,
-                style: kTitleStyle,
+                style: kTitleTwoLineStyle,
               ),
             ),
             Positioned(

@@ -13,6 +13,19 @@ const TextStyle kTitleStyle = TextStyle(
   color: kTextDark,
 );
 
+// 두 줄 제목(비밀번호 변경 완료 4534:2883, 회원 탈퇴 완료 4534:2906 등)은
+// 시안 줄 간격이 25다. kTitleStyle은 높이가 없어 Material 3 기본 본문
+// 높이(1.43)를 물려받아 한 줄이 30이 되므로 둘째 줄이 5px 내려간다.
+// 한 줄 제목들의 자리를 흔들지 않도록 kTitleStyle은 두고 두 줄 제목에만 쓴다.
+// 줄 상자가 30→25로 줄며 첫 줄 글자가 2.4px 올라가니 쓰는 쪽에서 top을 보정한다.
+const TextStyle kTitleTwoLineStyle = TextStyle(
+  fontFamily: kFontFamily,
+  fontSize: 21,
+  fontWeight: FontWeight.w600,
+  height: 25 / 21,
+  color: kTextDark,
+);
+
 const TextStyle kBodyStyle = TextStyle(
   fontFamily: kFontFamily,
   fontSize: 16,

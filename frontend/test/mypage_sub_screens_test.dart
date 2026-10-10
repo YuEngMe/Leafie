@@ -4,14 +4,18 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/services/user_api.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+
+import 'support/device_view.dart';
 
 /// 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
 const double _statusBar = 46;
@@ -284,6 +288,61 @@ void main() {
       await tester.tap(find.text('확인'));
       await tester.pumpAndSettle();
       expect(signOutCount, 1);
+    });
+  });
+
+  // 두 줄 제목은 시안 줄 간격 25(4534:2883·4534:2906). kTitleStyle은 높이가
+  // 없어 Material 기본 본문 높이를 물려받아 30이 됐다. 첫 줄 글자는 고치기
+  // 전 자리(기준선 410.15)에 그대로 둔다.
+  group('완료 화면 두 줄 제목', () {
+    Future<void> expectTwoLineTitle(
+      WidgetTester tester,
+      Widget screen,
+      String text,
+    ) async {
+      useDeviceView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(fontFamily: kFontFamily),
+          home: screen,
+        ),
+      );
+
+      final title = find.text(text);
+      final paragraph = tester.renderObject<RenderParagraph>(title);
+      // 화면에 깔린 글자와 같은 스타일(DefaultTextStyle 병합 결과)로 잰다.
+      final painter = TextPainter(
+        text: paragraph.text,
+        textDirection: TextDirection.ltr,
+        textHeightBehavior: paragraph.textHeightBehavior,
+      )..layout(maxWidth: paragraph.size.width);
+      addTearDown(painter.dispose);
+      final lines = painter.computeLineMetrics();
+      final top = tester.getTopLeft(title).dy;
+
+      expect(lines, hasLength(2));
+      expect(top + lines[0].baseline, closeTo(410.15, 0.5), reason: '첫 줄 기준선');
+      expect(
+        lines[1].baseline - lines[0].baseline,
+        closeTo(25, 0.01),
+        reason: '줄 간격',
+      );
+    }
+
+    testWidgets('비밀번호 변경 완료', (tester) async {
+      await expectTwoLineTitle(
+        tester,
+        const ChangePasswordDoneScreen(),
+        '비밀번호 변경이\n완료되었습니다',
+      );
+    });
+
+    testWidgets('회원 탈퇴 완료', (tester) async {
+      await expectTwoLineTitle(
+        tester,
+        WithdrawCompleteScreen(signOut: () async {}),
+        '회원 탈퇴가\n완료되었습니다',
+      );
     });
   });
 

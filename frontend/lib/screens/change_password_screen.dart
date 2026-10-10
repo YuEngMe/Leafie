@@ -308,13 +308,15 @@ class ChangePasswordDoneScreen extends StatelessWidget {
             const Positioned(
               left: 0,
               right: 0,
-              // 시안 2346:2795는 y=387, 상태바를 빼면 341.
-              top: 341,
+              // 시안 4534:2883 글자 상자 y=387, 상태바를 빼면 341. 줄 상자가
+              // 30→25로 줄며 첫 줄 글자가 2.4px 올라가므로 그만큼 내려
+              // 첫 줄 기준선(410.15)을 그대로 둔다.
+              top: 343.4,
               child: Text(
                 // 2346:2795. 로그인 전 재설정(2307:1813)은 '설정이'로 다르다.
                 '비밀번호 변경이\n완료되었습니다',
                 textAlign: TextAlign.center,
-                style: kTitleStyle,
+                style: kTitleTwoLineStyle,
               ),
             ),
             Positioned(
