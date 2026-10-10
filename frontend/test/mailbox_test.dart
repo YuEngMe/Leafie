@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/mailbox_screen.dart';
@@ -312,6 +313,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.reads, ['one']);
     expect(find.text('TO. 테스트 사용자'), findsOneWidget);
+    // 시안 4534:16842 본문 상자 y=406~464(중심 435). 예전에는 8px 아래였다.
+    expect(
+      tester.getCenter(find.text('나에게 물을 줘서 고마워!\n덕분에 정말 상쾌한 아침이야~')).dy,
+      closeTo(435, 1),
+    );
     await expectMailboxGolden(tester, 'goldens/mail_opened_402.png');
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
@@ -343,6 +349,27 @@ void main() {
     expect(
       tester.getRect(find.byKey(const ValueKey('mail-date-one'))).width,
       lessThanOrEqualTo(90.147),
+    );
+    // 시안 우체통_4: 장면과 바깥 X는 ×0.55로 어둡고, 홈(barrier 아래)은 더
+    // 어두워지지 않는다. 화면 전체 덮개 대신 우체통 그림·X에만 곱한다.
+    for (final asset in ['mailbox_house_v2.png', 'mail_close.svg']) {
+      final filters = tester.widgetList<ColorFiltered>(
+        find.ancestor(
+          of: find.byWidgetPredicate(_isAsset(asset)).first,
+          matching: find.byType(ColorFiltered),
+        ),
+      );
+      expect(
+        filters.map((f) => f.colorFilter),
+        contains(const ColorFilter.mode(Color(0xFF8C8C8C), BlendMode.modulate)),
+        reason: asset,
+      );
+    }
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == const Color(0x33000000),
+      ),
+      findsNothing,
     );
     await expectMailboxGolden(tester, 'goldens/mail_list_402.png');
     await tester.tap(find.byKey(const ValueKey('mail-one')));
@@ -388,6 +415,19 @@ void main() {
     await tester.tap(find.byTooltip('닫기').first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('mail-house-envelope')), findsOneWidget);
+    // 시안 4534:13239 닫기 원 37(중심 355.5, 71.5). SVG는 그림자 여백
+    // 3.917을 품은 44.83이라 그 크기로 그려야 원이 37이 된다.
+    expect(
+      tester.getRect(find.byWidgetPredicate(_isAsset('mail_close.svg')).last),
+      rectMoreOrLessEquals(
+        Rect.fromCenter(
+          center: const Offset(355.5, 71.5),
+          width: 44.8333,
+          height: 44.8333,
+        ),
+        epsilon: .01,
+      ),
+    );
     await expectMailboxGolden(tester, 'goldens/mail_house_402.png');
     await tester.tap(find.byKey(const ValueKey('mail-house-envelope')));
     // 목록은 크기 변화 없이 투명에서 불투명으로 스르륵 나타난다.
@@ -484,6 +524,18 @@ void main() {
     expect(trash.left, closeTo(309, .01));
     expect(trash.top, closeTo(333.286, .01));
     expect(trash.size, const Size.square(46));
+    // 시안 우체통_5(4534:14261): 삭제 옵션이 열린 행은 날짜만 남는다.
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.ancestor(
+              of: find.text('물을 줘서 고마워!'),
+              matching: find.byType(AnimatedOpacity),
+            ),
+          )
+          .opacity,
+      0,
+    );
     expect(repository.deletes, isEmpty);
     await expectMailboxGolden(tester, 'goldens/mail_delete_revealed_402.png');
     await tester.tap(find.byKey(const ValueKey('mail-delete-one')));
@@ -679,3 +731,15 @@ void main() {
     expect(opened, 1);
   });
 }
+
+/// [asset] 파일을 그리는 Image·SvgPicture를 찾는다.
+WidgetPredicate _isAsset(String asset) => (widget) {
+  if (widget is Image && widget.image is AssetImage) {
+    return (widget.image as AssetImage).assetName == 'assets/images/$asset';
+  }
+  if (widget is SvgPicture && widget.bytesLoader is SvgAssetLoader) {
+    return (widget.bytesLoader as SvgAssetLoader).assetName ==
+        'assets/images/$asset';
+  }
+  return false;
+};

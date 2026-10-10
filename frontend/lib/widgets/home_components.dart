@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 /// Figma node 2346:2370. 물주기 같은 돌봄을 요청하는 홈 말풍선.
 ///
@@ -92,6 +94,7 @@ class EnvironmentGauge extends StatelessWidget {
     required this.comfortRatio,
     required this.currentLabel,
     required this.maxLabel,
+    this.alert = false,
   });
 
   /// 막대 높이와 컴포넌트 높이(2435:16764).
@@ -116,6 +119,9 @@ class EnvironmentGauge extends StatelessWidget {
   /// 마커 안 문구와 우측 끝 수치.
   final String currentLabel;
   final String maxLabel;
+
+  /// 현재값이 부족하면 마커 글자 앞에 빨간 점을 찍는다.
+  final bool alert;
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +190,7 @@ class EnvironmentGauge extends StatelessWidget {
                     Positioned(
                       left: left,
                       top: 0,
-                      child: _GaugeMarker(label: currentLabel),
+                      child: _GaugeMarker(label: currentLabel, alert: alert),
                     ),
                   ],
                 );
@@ -245,29 +251,84 @@ class _GaugeBar extends StatelessWidget {
   }
 }
 
+/// 시안 4534:7933 / 4534:7947. 위로 꼬리가 난 흰 알약(SVG, 그림자 여백
+/// 5.895 포함)에 현재값을 적는다. 알약은 노드 71.6×24.26의 아래쪽 18.94
+/// (y 5.32~24.26)이고 꼬리 끝이 노드 위 가운데에 닿는다.
 class _GaugeMarker extends StatelessWidget {
-  const _GaugeMarker({required this.label});
+  const _GaugeMarker({required this.label, this.alert = false});
+
+  /// SVG 그림자 여백(stdDeviation 2.9475 × 2).
+  static const double _shadowInset = 5.895;
+  static const double _pillTop = 5.324;
+
+  /// 빨간 점(4534:7952) 지름과 점·글자 사이 간격.
+  static const double _dotSize = 5.1145;
+  static const double _dotGap = 3.07;
 
   final String label;
+  final bool alert;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 71.604,
-      height: 24.261,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: kBackgroundWhite,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 3)],
+    final text = Text(
+      label,
+      style: kCaptionStyle.copyWith(
+        fontSize: 7.412,
+        color: kBubbleGreen,
+        height: 1,
       ),
-      child: Text(
-        label,
-        style: kCaptionStyle.copyWith(
-          fontSize: 7.412,
-          color: kBubbleGreen,
-          height: 1,
-        ),
+    );
+    return SizedBox(
+      width: EnvironmentGauge._markerWidth,
+      height: 24.261,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -_shadowInset,
+            top: -_shadowInset,
+            width: EnvironmentGauge._markerWidth + _shadowInset * 2,
+            height: 24.261 + _shadowInset * 2,
+            child: SvgDropShadow(
+              stdDeviation: 2.9475,
+              opacity: 0.18,
+              child: SvgPicture.asset(
+                'assets/images/home_gauge_marker.svg',
+                fit: BoxFit.fill,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: _pillTop,
+            bottom: 0,
+            child: Center(
+              // 점이 붙어도 글자는 알약 가운데에 둔다(시안 습도·조도 마커
+              // 모두 글자 왼쪽 x=13.3). 점 폭만큼 오른쪽에 빈칸을 둬 맞춘다.
+              child: alert
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox.square(
+                          key: ValueKey('gauge-marker-alert'),
+                          dimension: _dotSize,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFFF5E5E),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: _dotGap),
+                        text,
+                        const SizedBox(width: _dotSize + _dotGap),
+                      ],
+                    )
+                  : text,
+            ),
+          ),
+        ],
       ),
     );
   }

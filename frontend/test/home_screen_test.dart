@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
@@ -249,6 +250,119 @@ void main() {
       const Rect.fromLTWH(305, 456, 84.0994, 130.0006),
       'mailbox',
     );
+  });
+
+  // 시안 4534:16876(happy)·4534:9272(편지 배지)·4534:7570(게이지) 기준.
+  testWidgets('홈 헤더·말풍선·편지 배지·물뿌리개·게이지 판이 시안대로 그려진다', (
+    tester,
+  ) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          initialScene: HomeScene.happy,
+          // 게이지를 펼치면 말풍선을 숨기므로 접어 둔다.
+          initialGaugesExpanded: false,
+          letterRepository: _UnreadLetters(),
+          plant: const HomePlant(
+            id: 'plant',
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // D+ 글자 x=33(예전 43). 방 이름은 Medium(500).
+    expect(tester.getTopLeft(find.text('D+ 1')), const Offset(33, 61));
+    expect(
+      tester.widget<Text>(find.text('실제식물 방')).style?.fontWeight,
+      FontWeight.w500,
+    );
+    // 벨 노드 (341,55) 28×31. 탭 영역 56×48 가운데라 세로는 0.5 어긋난다.
+    final bell = tester.getRect(
+      find.byWidgetPredicate(
+        (w) => w is FigmaHomeAssetIcon && w.icon == FigmaHomeIcon.notification,
+      ),
+    );
+    expect(bell.left, moreOrLessEquals(341, epsilon: 0.01));
+    expect(bell.top, moreOrLessEquals(55.5, epsilon: 0.01));
+
+    // '히히'만 말풍선 전체가 60%, 나머지 둘은 불투명.
+    double? bubbleOpacity(String label) => tester
+        .widgetList<Opacity>(
+          find.ancestor(of: find.text(label), matching: find.byType(Opacity)),
+        )
+        .map((o) => o.opacity)
+        .where((o) => o < 1)
+        .firstOrNull;
+    expect(bubbleOpacity('히히'), 0.6);
+    expect(bubbleOpacity('신난다'), isNull);
+    expect(bubbleOpacity('좋은 하루야!'), isNull);
+
+    Rect assetRect(String asset) => tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == asset,
+      ),
+    );
+    void expectRect(Rect actual, Rect expected) {
+      expect(actual.left, moreOrLessEquals(expected.left, epsilon: 0.01));
+      expect(actual.top, moreOrLessEquals(expected.top, epsilon: 0.01));
+      expect(actual.width, moreOrLessEquals(expected.width, epsilon: 0.01));
+      expect(actual.height, moreOrLessEquals(expected.height, epsilon: 0.01));
+    }
+
+    // 편지 배지 노드 (319,390) 55×62.188, PNG는 사방 4 그림자 여백 바깥.
+    expectRect(
+      assetRect('assets/images/home_letter_badge.png'),
+      const Rect.fromLTWH(315, 386, 63, 70.188),
+    );
+    // 물뿌리개 노드 (13.479,496) 83.98×67.751, PNG는 그림자 여백(왼 0.65,
+    // 오른 1.52, 위아래 1.52)만큼 바깥.
+    expectRect(
+      assetRect('assets/images/home_watering_can.png'),
+      const Rect.fromLTWH(13.479 - 0.6467, 496 - 1.5176, 86.1467, 70.7862),
+    );
+
+    // 붓는 자세(LF-078 4534:11397): 1.355배로 키워 34.48° 기울인 물뿌리개
+    // 몸통 중심이 (262,193)에 온다. 예전에는 크기 그대로 y≈180이었다.
+    await tester.tap(find.byKey(const ValueKey('home-watering-can')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1500));
+    final pouring = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/home_watering_can.png',
+    );
+    final center = tester.getCenter(pouring);
+    expect(center.dx, moreOrLessEquals(262, epsilon: 1));
+    expect(center.dy, moreOrLessEquals(193, epsilon: 1));
+    final scale = tester
+        .widgetList<Transform>(
+          find.ancestor(of: pouring, matching: find.byType(Transform)),
+        )
+        .map((t) => t.transform.getMaxScaleOnAxis())
+        .reduce((a, b) => a * b);
+    expect(scale, moreOrLessEquals(113.804 / 83.98, epsilon: 0.001));
+    await tester.pumpAndSettle();
+
+    // 게이지 판(4534:7922)은 흰 30%뿐이고 배경 흐림이 없다.
+    await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('home-environment-collapse')), findsOne);
+    final blurTops = [
+      for (final element in find.byType(BackdropFilter).evaluate())
+        tester.getRect(find.byWidget(element.widget)).top,
+    ];
+    expect(blurTops, isNot(contains(575)));
   });
 
   testWidgets('센서 API 전에는 조도 습도 예시 수치를 표시하지 않는다', (tester) async {
@@ -1079,6 +1193,13 @@ void main() {
     expect(find.text('현재습도 20%'), findsOneWidget);
     expect(find.text('어제 120%'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
+    // 시안 4534:7952: 부족(LOW)한 값의 마커만 글자 앞에 빨간 점을 찍는다.
+    Finder alertIn(String gauge) => find.descendant(
+      of: find.byKey(ValueKey('home-gauge-$gauge')),
+      matching: find.byKey(const ValueKey('gauge-marker-alert')),
+    );
+    expect(alertIn('humidity'), findsOneWidget);
+    expect(alertIn('light'), findsNothing);
 
     await pumpWith(null);
     expect(find.text('기기연결이 필요합니다'), findsOneWidget);
@@ -1457,6 +1578,14 @@ ManagedPlant _managedPlant(
   placeName: '거실',
   isSelected: selected,
 );
+
+class _UnreadLetters implements PlantLetterRepository {
+  @override
+  Future<int> unreadCount(String plantId) async => 1;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _FakePlantManagementRepository implements PlantManagementRepository {
   _FakePlantManagementRepository(this.plants);

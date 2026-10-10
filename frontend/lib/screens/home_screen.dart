@@ -1044,11 +1044,13 @@ class _HomeScreenState extends State<HomeScreen>
                                   );
                             }
                             // 좌하단 원위치(위젯중심 x≈55.5 y≈529.9)에서 시안
-                            // 몸통 중심(x≈262 y≈180=캐릭터 위 오른쪽)까지 대각선
+                            // 몸통 중심(x≈262 y≈193=캐릭터 위 오른쪽)까지 대각선
                             // 이동. dx/dy는 위젯 중심 기준 이동량이라 center 회전과
-                            // 결합해도 몸통 중심이 목표에 머문다.
+                            // 결합해도 몸통 중심이 목표에 머문다. 목표는 시안
+                            // LF-078 이미지에 1.355배·34.48° 물뿌리개를 맞대어
+                            // 찾은 자리다.
                             const dx = 206.5;
-                            const dy = -349.9;
+                            const dy = -336.9;
                             // 붓는 자세 유지 구간(t 0.25~0.75)에 손목으로 물을
                             // 따르듯 주둥이를 위아래로 "까딱"거린다. 붓는 구간
                             // 진행도(0~1)에 2.5주기 sin을 곱해 2~3회 왕복시키고,
@@ -1064,29 +1066,53 @@ class _HomeScreenState extends State<HomeScreen>
                               offset: Offset(dx * raise, dy * raise),
                               child: Transform.rotate(
                                 // 손잡이 위·주둥이(왼쪽)가 캐릭터 정수리를
-                                // 향하도록 반시계로 최대 -0.5rad(≈-30deg) 기운다.
+                                // 향하도록 반시계로 기운다. 시안 붓는 프레임
+                                // (4534:11397)은 34.48°(≈0.602rad)다.
                                 alignment: Alignment.center,
-                                angle: -0.5 * raise + nod,
-                                child: child,
+                                angle: -_kWateringPourAngle * raise + nod,
+                                child: Transform.scale(
+                                  // 붓는 물뿌리개는 113.804×91.812로, 평소
+                                  // 83.98×67.751보다 1.355배 크다.
+                                  scale: 1 + (_kWateringPourScale - 1) * raise,
+                                  child: child,
+                                ),
                               ),
                             );
                           },
-                          child: Image.asset(
-                            'assets/images/home_watering_can.png',
-                            fit: BoxFit.contain,
-                            semanticLabel: '물뿌리개',
+                          // PNG에는 그림자 여백(시안 inset 위아래 −2.24%,
+                          // 오른쪽 −1.81%, 왼쪽 −0.77%)이 들어 있어 노드
+                          // 상자 밖으로 넘쳐 그린다. 회전·확대 중심은 노드
+                          // 상자 가운데 그대로다.
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                left: -0.6467,
+                                top: -1.5176,
+                                width: 83.98 + 0.6467 + 1.52,
+                                height: 67.751 + 1.5176 * 2,
+                                child: Image.asset(
+                                  'assets/images/home_watering_can.png',
+                                  fit: BoxFit.fill,
+                                  semanticLabel: '물뿌리개',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
                 if (plant != null && _unreadLetterCount > 0)
-                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. x=319 y=390 55x62.
+                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. 노드는 x=319
+                  // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
+                  // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
+                  // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
                   Positioned(
-                    left: 319,
-                    top: 390,
-                    width: 55,
-                    height: 62.188,
+                    left: 319 - 4,
+                    top: 390 - 4,
+                    width: 55 + 8,
+                    height: 62.188 + 8,
                     child: Image.asset(
                       'assets/images/home_letter_badge.png',
                       fit: BoxFit.contain,
@@ -1292,9 +1318,11 @@ class _HomeHeader extends StatelessWidget {
     return Stack(
       children: [
         if (dayCount != null)
+          // 시안 4534:17295 D+ 글자 x=33 y=60. Flutter 글자 상자가 시안보다
+          // 커서 보이는 글자 윗변(시안 63)이 맞도록 top을 61로 둔다.
           Positioned(
-            left: 43,
-            top: 63,
+            left: 33,
+            top: 61,
             child: Text(
               'D+ $dayCount',
               style: kCaptionStyle.copyWith(color: counterColor, height: 1),
@@ -1322,9 +1350,13 @@ class _HomeHeader extends StatelessWidget {
                 GestureDetector(
                   key: const ValueKey('home-manage-plants'),
                   onTap: onManagePlants,
+                  // 시안 4534:17207 방 이름: Paperlogy 5 Medium(500) 16.
                   child: Text(
                     roomName == null ? '내 식물' : '$roomName 방',
-                    style: kItemStyle.copyWith(color: titleColor),
+                    style: kItemStyle.copyWith(
+                      color: titleColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 3),
@@ -1341,8 +1373,10 @@ class _HomeHeader extends StatelessWidget {
             ),
           ),
         ),
+        // 시안 4534:17221 벨 노드 (341,55) 28×31을 56×48 탭 영역 가운데에
+        // 둔다(402 − 341 − 28 − 14 = 19).
         Positioned(
-          right: 22,
+          right: 19,
           top: 47,
           width: 56,
           height: 48,
@@ -1496,7 +1530,8 @@ class _HomeConversation extends StatelessWidget {
           ),
         ),
       ),
-      // 2346:594 / 592 / 590 — 102×38, 흰 60%.
+      // 시안 4534:17213 / 17219 / 17211 — 102×38 흰 말풍선. '히히'만
+      // 말풍선 전체(글자·그림자 포함)가 투명도 60%이고 나머지 둘은 불투명이다.
       HomeScene.happy => const Positioned.fill(
         child: Stack(
           children: [
@@ -1513,22 +1548,12 @@ class _HomeConversation extends StatelessWidget {
             Positioned(
               left: 169,
               top: 184,
-              child: _RoomBubble(
-                label: '신난다',
-                width: 102,
-                height: 38,
-                opacity: 0.6,
-              ),
+              child: _RoomBubble(label: '신난다', width: 102, height: 38),
             ),
             Positioned(
               left: 145,
               top: 251,
-              child: _RoomBubble(
-                label: '좋은 하루야!',
-                width: 102,
-                height: 38,
-                opacity: 0.6,
-              ),
+              child: _RoomBubble(label: '좋은 하루야!', width: 102, height: 38),
             ),
           ],
         ),
@@ -1611,69 +1636,62 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       right: 0,
       top: 575,
       height: 220,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.3),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(35),
-              ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 1,
-                  height: 18,
-                  child: GestureDetector(
-                    key: const ValueKey('home-environment-collapse'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onCollapse,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 71.6,
-                        height: 2,
-                        child: ColoredBox(color: Colors.white),
-                      ),
-                    ),
+      // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
+      // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
+      // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.3),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 1,
+              height: 18,
+              child: GestureDetector(
+                key: const ValueKey('home-environment-collapse'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onCollapse,
+                child: const Center(
+                  child: SizedBox(
+                    width: 71.6,
+                    height: 2,
+                    child: ColoredBox(color: Colors.white),
                   ),
                 ),
-                if (sensorPanelMessage(sensor) case final message?)
-                  Positioned(
-                    left: 34,
-                    right: 34,
-                    // Figma 3822:601: y=683, relative to the panel at y=575.
-                    top: 108,
-                    child: Text(
-                      message,
-                      key: const ValueKey('home-environment-message'),
-                      textAlign: TextAlign.center,
-                      style: kTitleStyle.copyWith(
-                        color: const Color(0xFF434343),
-                      ),
-                    ),
-                  )
-                else ...[
-                  // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
-                  // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
-                  _gauge(
-                    top: 606 - 575,
-                    kind: EnvironmentGaugeKind.humidity,
-                    content: soilGaugeContent(sensor!.soil, plantName),
-                  ),
-                  _gauge(
-                    top: 697 - 575,
-                    kind: EnvironmentGaugeKind.light,
-                    content: lightGaugeContent(sensor!.light, plantName),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
+            if (sensorPanelMessage(sensor) case final message?)
+              Positioned(
+                left: 34,
+                right: 34,
+                // Figma 3822:601: y=683, relative to the panel at y=575.
+                top: 108,
+                child: Text(
+                  message,
+                  key: const ValueKey('home-environment-message'),
+                  textAlign: TextAlign.center,
+                  style: kTitleStyle.copyWith(color: const Color(0xFF434343)),
+                ),
+              )
+            else ...[
+              // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+              // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+              _gauge(
+                top: 606 - 575,
+                kind: EnvironmentGaugeKind.humidity,
+                content: soilGaugeContent(sensor!.soil, plantName),
+              ),
+              _gauge(
+                top: 697 - 575,
+                kind: EnvironmentGaugeKind.light,
+                content: lightGaugeContent(sensor!.light, plantName),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1695,6 +1713,7 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       comfortRatio: content.comfortRatio,
       currentLabel: content.currentLabel,
       maxLabel: content.maxLabel,
+      alert: content.alert,
     ),
   );
 }
@@ -1743,12 +1762,12 @@ class _RoomBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bubble = Container(
       width: width,
       height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: kBackgroundWhite.withValues(alpha: opacity),
+        color: kBackgroundWhite,
         borderRadius: BorderRadius.circular(AppLayout.controlRadius),
         boxShadow: const [
           BoxShadow(color: Color(0x2E000000), blurRadius: 3.338),
@@ -1759,11 +1778,15 @@ class _RoomBubble extends StatelessWidget {
         style: kSmallStyle.copyWith(fontSize: 13.353, color: color),
       ),
     );
+    // 시안은 노드 투명도라 배경만이 아니라 글자·그림자까지 함께 옅어진다.
+    // 배경 알파만 낮추면 그림자가 비쳐 회색 말풍선처럼 보였다.
+    return opacity == 1 ? bubble : Opacity(opacity: opacity, child: bubble);
   }
 }
 
 /// 돌봄 토스트(시안 4534:9220 "햇빛을 줬어요!" / 4534:11479 "물을 줬어요!").
-/// 흰 pill(높이 27, radius 26, 그림자) + 왼쪽 오렌지 원·흰 체크 + 라벨.
+/// 흰 pill(높이 27, radius 26.245, 그림자 0 0 2.5 10%) + 왼쪽 오렌지 원
+/// (x11 지름 13.83)·흰 V 표시 + 라벨(x29.83).
 class _CareToast extends StatelessWidget {
   const _CareToast({required this.label});
 
@@ -1773,35 +1796,43 @@ class _CareToast extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 27,
-      padding: const EdgeInsets.only(left: 6, right: 14),
+      padding: const EdgeInsets.only(left: 11, right: 12),
       decoration: BoxDecoration(
         color: kBackgroundWhite,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
-          BoxShadow(color: Color(0x26000000), blurRadius: 6, offset: Offset(0, 2)),
-        ],
+        borderRadius: BorderRadius.circular(26.245),
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 2.5)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // toast_check.svg는 오렌지 원만 있어 흰 체크를 그 위에 얹는다.
-          SizedBox(
-            width: 16,
-            height: 16,
+          // toast_check.svg는 오렌지 원만 있어 시안 V 표시(4534:11486,
+          // toast_check_mark.svg)를 그 위에 얹는다. V는 선 굵기만큼 바깥
+          // 여백이 있는 SVG라 원 기준 (3.178, 4.578)에 7.446×5.250으로 놓는다.
+          SizedBox.square(
+            dimension: 13.8276,
             child: Stack(
-              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 SvgPicture.asset(
                   'assets/images/toast_check.svg',
-                  width: 16,
-                  height: 16,
+                  width: 13.8276,
+                  height: 13.8276,
                   fit: BoxFit.fill,
                 ),
-                const Icon(Icons.check_rounded, size: 11, color: kBackgroundWhite),
+                Positioned(
+                  left: 3.178,
+                  top: 4.578,
+                  width: 7.44571,
+                  height: 5.24973,
+                  child: SvgPicture.asset(
+                    'assets/images/toast_check_mark.svg',
+                    fit: BoxFit.fill,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             label,
             style: const TextStyle(
@@ -1817,6 +1848,11 @@ class _CareToast extends StatelessWidget {
     );
   }
 }
+
+/// 시안 붓는 프레임(4534:11397) 물뿌리개의 기울기(34.48°)와 확대 배율
+/// (113.804 / 83.98). 돌려 감싼 상자 145.79×140.11에서 역산했다.
+const double _kWateringPourAngle = 34.48 * math.pi / 180;
+const double _kWateringPourScale = 113.804 / 83.98;
 
 /// 시안 물줄기 본체 SVG(home_water_stream_vec.svg)의 viewBox 크기.
 /// 오버레이 페인터가 같은 좌표계를 쓰도록 위젯 박스도 이 값으로 맞춘다.

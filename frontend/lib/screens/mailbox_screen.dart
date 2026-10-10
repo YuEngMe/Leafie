@@ -10,6 +10,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 Future<void> showPlantMailbox(
   BuildContext context, {
@@ -342,9 +343,17 @@ class _MailboxScreenState extends State<MailboxScreen> {
                   top: 165,
                   width: 390.69,
                   height: 709,
-                  child: const _MailboxIllustration(),
+                  child: _ListDim(
+                    active: _view == _MailView.list,
+                    child: const _MailboxIllustration(),
+                  ),
                 ),
-                const Positioned.fill(child: _MailboxForeground()),
+                Positioned.fill(
+                  child: _ListDim(
+                    active: _view == _MailView.list,
+                    child: const _MailboxForeground(),
+                  ),
+                ),
               ],
               if (_view == _MailView.loading)
                 const Center(
@@ -413,9 +422,6 @@ class _MailboxScreenState extends State<MailboxScreen> {
                     child: RepaintBoundary(
                       child: Stack(
                         children: [
-                          const Positioned.fill(
-                            child: ColoredBox(color: Color(0x33000000)),
-                          ),
                           Positioned(
                             left: 26,
                             top: 228,
@@ -485,21 +491,24 @@ class _MailboxScreenState extends State<MailboxScreen> {
                 top: 47,
                 width: 49,
                 height: 49,
-                child: _MailClose(
-                  onPressed: () {
-                    if (_loadingDetail || _detailError != null) {
-                      setState(_cancelDetailRequest);
-                      return;
-                    }
-                    if (_view == _MailView.opening) {
-                      setState(() {
-                        _view = _MailView.list;
-                        _error = null;
-                      });
-                    } else {
-                      Navigator.of(context).pop();
-                    }
-                  },
+                child: _ListDim(
+                  active: _view == _MailView.list,
+                  child: _MailClose(
+                    onPressed: () {
+                      if (_loadingDetail || _detailError != null) {
+                        setState(_cancelDetailRequest);
+                        return;
+                      }
+                      if (_view == _MailView.opening) {
+                        setState(() {
+                          _view = _MailView.list;
+                          _error = null;
+                        });
+                      } else {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
                 ),
               ),
               if (_isPreview)
@@ -545,18 +554,59 @@ class _MailboxScreenState extends State<MailboxScreen> {
   );
 }
 
+/// 목록 단계에서 우체통 장면과 바깥 닫기 X를 어둡게 덮는다.
+///
+/// 시안 우체통_4·5(4534:12427 / 13357)는 장면 위에 검정 45%
+/// (4534:13326)를 깔고 그 위에 목록을 올린다. 홈은 이미 모달 barrier(검정
+/// 45%)로 같은 밝기라 시안에서 더 어두워지지 않는다. 그래서 화면 전체를 덮지
+/// 않고 우체통 그림·X에만 ×0.55(0xFF8C8C8C 곱하기)를 건다. 예전에는 화면 전체를
+/// 검정 20%로 덮어 장면은 ×0.8로 덜 어둡고, X는 덮개 위에 그려 밝게 남았다.
+/// 목록처럼 400ms 동안 스르륵 어두워지고, 목록을 닫으면 바로 걷힌다.
+class _ListDim extends StatelessWidget {
+  const _ListDim({required this.active, required this.child});
+  final bool active;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 400),
+      curve: AppMotion.ease,
+      builder: (context, t, child) => ColorFiltered(
+        colorFilter: ColorFilter.mode(
+          Color.lerp(Colors.white, const Color(0xFF8C8C8C), t)!,
+          BlendMode.modulate,
+        ),
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// 시안 4534:13239 닫기: 흰 원 지름 37(중심 355.5, 71.5). SVG는 그림자
+/// 여백 3.917을 사방에 포함한 44.83이라 그 크기로 그려야 원이 37이 된다.
+/// 예전에는 SVG 전체를 37에 넣어 원이 30.5로 작았다. flutter_svg가 그리지
+/// 않는 그림자(stdDeviation 1.958, 20%)는 [SvgDropShadow]로 다시 그린다.
 class _MailClose extends StatelessWidget {
   const _MailClose({required this.onPressed});
+  static const double _svgSize = 44.8333;
   final VoidCallback onPressed;
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: '닫기',
     onPressed: onPressed,
-    padding: const EdgeInsets.all(6),
-    icon: SvgPicture.asset(
-      'assets/images/mail_close.svg',
-      width: 37,
-      height: 37,
+    padding: const EdgeInsets.all((49 - _svgSize) / 2),
+    icon: SvgDropShadow(
+      stdDeviation: 1.95833,
+      opacity: 0.2,
+      child: SvgPicture.asset(
+        'assets/images/mail_close.svg',
+        width: _svgSize,
+        height: _svgSize,
+      ),
     ),
   );
 }
@@ -884,15 +934,24 @@ class _LetterListState extends State<_LetterList> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                letter.preview.replaceAll('\n', ' '),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: kFontFamily,
-                                  fontSize: 14.462,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.black,
+                              // 시안 우체통_5(4534:14261)는 삭제 옵션이 열린
+                              // 행에 미리보기 글자가 없고 날짜만 남는다. 줄어든
+                              // 행에서 잘린 글자가 왼쪽 흐림 밖으로 비치지
+                              // 않게 행이 밀리는 동안 함께 사라지게 한다.
+                              child: AnimatedOpacity(
+                                opacity: revealed ? 0 : 1,
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOutCubic,
+                                child: Text(
+                                  letter.preview.replaceAll('\n', ' '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: kFontFamily,
+                                    fontSize: 14.462,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1420,10 +1479,13 @@ class _LetterPaper extends StatelessWidget {
             style: kBodyStyle.copyWith(fontSize: 15.467, color: Colors.black),
           ),
         ),
+        // 시안 4534:16842 본문 상자 y=95~153(종이 기준). 세로 가운데 정렬
+        // 영역의 중심을 124 근처(54~193)에 둔다. top 70이던 때는 두 줄
+        // 본문이 시안보다 8px 아래였다.
         Positioned(
           left: 40,
           right: 40,
-          top: 70,
+          top: 54,
           bottom: 60,
           child: Center(
             child: SingleChildScrollView(

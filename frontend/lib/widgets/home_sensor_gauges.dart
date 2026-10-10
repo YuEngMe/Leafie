@@ -8,6 +8,7 @@ class SensorGaugeContent {
     required this.comfortRatio,
     required this.currentLabel,
     required this.maxLabel,
+    this.alert = false,
   });
 
   final String description;
@@ -15,6 +16,9 @@ class SensorGaugeContent {
   final double comfortRatio;
   final String currentLabel;
   final String maxLabel;
+
+  /// 판정이 부족(LOW)이면 마커 글자 앞에 빨간 점을 찍는다(시안 4534:7952).
+  final bool alert;
 }
 
 /// 판정이 없거나 기기가 없으면 게이지 대신 띄울 안내. 게이지를 그리면 null.
@@ -65,6 +69,7 @@ SensorGaugeContent soilGaugeContent(
         ? _unknownLabel(soil.reason)
         : '현재습도 ${_number(value)}%',
     maxLabel: '${_number(upper ?? 100)}%',
+    alert: value != null && soil.state == SensorLevel.low,
   );
 }
 
@@ -97,6 +102,7 @@ SensorGaugeContent lightGaugeContent(
         ? _unknownLabel(light.reason)
         : '어제 $percent%',
     maxLabel: '100%',
+    alert: percent != null && light.state == SensorLevel.low,
   );
 }
 
