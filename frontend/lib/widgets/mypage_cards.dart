@@ -47,20 +47,32 @@ class ProfileSummaryCard extends StatelessWidget {
             ),
             child: const SizedBox.expand(),
           ),
-          // 2353:691 x=23 y=14.238.
+          // 2353:691 x=23 y=14.238, 2353:693 y=23. 시안은 가입 일수를 닉네임
+          // 바로 뒤에 붙인다(4534:3101 '김윤지님' 끝 130.5, 일수 131). 고정
+          // x에 두면 긴 닉네임이 일수를 덮으므로 닉네임 폭을 따라가고, 칸이
+          // 모자라면 닉네임을 줄인다. 간격 5는 '김윤지님'에서 시안 x=102가 되는 값.
           Positioned(
             left: 23,
+            right: 23,
             top: 14.238,
-            child: Text(
-              nickname,
-              style: kTitleStyle.copyWith(fontWeight: FontWeight.w500),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  child: Text(
+                    nickname,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: kTitleStyle.copyWith(fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Padding(
+                  padding: const EdgeInsets.only(top: 23 - 14.238),
+                  child: Text(tenureLabel, style: kCaptionStyle),
+                ),
+              ],
             ),
-          ),
-          // 2353:693 x=102 y=23.
-          Positioned(
-            left: 102,
-            top: 23,
-            child: Text(tenureLabel, style: kCaptionStyle),
           ),
           // 2353:692 x=23 y=47.096.
           Positioned(

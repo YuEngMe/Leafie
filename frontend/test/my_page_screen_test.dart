@@ -178,4 +178,26 @@ void main() {
     expect(find.text('식집사님'), findsOneWidget);
     expect(find.text('plain@example.com'), findsOneWidget);
   });
+
+  testWidgets('닉네임이 길어도 가입 일수를 덮지 않고 카드 안에 둔다', (tester) async {
+    for (final nickname in ['감사새싹님', 'auditnick님', '아주아주아주긴닉네임을쓰는식집사님']) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: ProfileSummaryCard(
+              nickname: nickname,
+              email: 'leafie@example.com',
+              tenureLabel: '식집사가 된 지 128일째',
+            ),
+          ),
+        ),
+      );
+
+      final card = tester.getRect(find.byType(ProfileSummaryCard));
+      final name = tester.getRect(find.text(nickname));
+      final tenure = tester.getRect(find.text('식집사가 된 지 128일째'));
+      expect(name.right, lessThanOrEqualTo(tenure.left), reason: nickname);
+      expect(tenure.right, lessThanOrEqualTo(card.right), reason: nickname);
+    }
+  });
 }
