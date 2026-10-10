@@ -150,10 +150,10 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _confirmExit() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
+    final shouldExit = await showConfirmDialog(
+      context,
       barrierColor: kModalBarrier,
-      builder: (_) => const SignupAbortDialog(),
+      dialog: const SignupAbortDialog(),
     );
     if (shouldExit != true || !mounted) return;
     setState(() => _allowPop = true);

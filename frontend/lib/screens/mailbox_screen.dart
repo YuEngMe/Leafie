@@ -614,12 +614,11 @@ class _LetterListState extends State<_LetterList> {
   Future<void> _confirmDelete(String id) async {
     if (_confirming || _deletingId != null) return;
     _confirming = true;
-    final confirmed = await showDialog<bool>(
-      context: context,
+    final confirmed = await showConfirmDialog(
+      context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (_) =>
-          const ConfirmDialog(message: '삭제하시겠습니까?', subtitle: '우편함에서 사라져요'),
+      dialog: const ConfirmDialog(message: '삭제하시겠습니까?', subtitle: '우편함에서 사라져요'),
     );
     _confirming = false;
     if (!mounted || confirmed != true) {

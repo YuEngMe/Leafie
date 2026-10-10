@@ -57,10 +57,10 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
 
   /// 2395:37. 소셜 가입 도중 뒤로 나가면 회원가입 화면과 같은 모달을 띄운다.
   Future<void> _confirmExit() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
+    final shouldExit = await showConfirmDialog(
+      context,
       barrierColor: kModalBarrier,
-      builder: (_) => const SignupAbortDialog(),
+      dialog: const SignupAbortDialog(),
     );
     if (shouldExit != true || !mounted) return;
     setState(() => _allowPop = true);

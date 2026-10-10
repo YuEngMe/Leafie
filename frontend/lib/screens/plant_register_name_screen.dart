@@ -39,10 +39,10 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
   Future<void> _offerResume() async {
     final saved = await widget.draftStore.load();
     if (saved == null || !mounted) return;
-    final resume = await showDialog<bool>(
-      context: context,
+    final resume = await showConfirmDialog(
+      context,
       barrierDismissible: false,
-      builder: (_) => const ConfirmDialog(
+      dialog: const ConfirmDialog(
         message: '작성하던 식물 등록이 있어요',
         subtitle: '이어서 할까요?',
         confirmLabel: '이어서 하기',

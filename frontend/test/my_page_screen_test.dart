@@ -85,6 +85,40 @@ void main() {
     expect(barrier.color, kModalBarrier);
   });
 
+  testWidgets('로그아웃 확인 모달은 안전영역이 아니라 화면 정중앙에 뜬다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
+
+    await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+
+    // 4534:3261(LF-061) 모달은 402x874 프레임의 (47, 358) 308x158.83이다.
+    // 안전영역(상단 46·하단 34) 안에서 가운데를 잡으면 363.59로 6 내려간다.
+    final modal = tester.getRect(
+      find.descendant(
+        of: find.byType(SignOutConfirmDialog),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is SizedBox &&
+              widget.width == 308 &&
+              widget.height == 158.829,
+        ),
+      ),
+    );
+    expect(modal.left, closeTo(47, .01));
+    expect(modal.top, closeTo(357.5855, .01));
+
+    // 4534:3264 '네'는 검정 SemiBold, 4534:3265 '아니오'는 연한 텍스트.
+    final yes = tester.widget<Text>(find.text('네')).style!;
+    expect(yes.color, Colors.black);
+    expect(yes.fontWeight, FontWeight.w600);
+    expect(tester.widget<Text>(find.text('아니오')).style!.color, kTextLight);
+
+    // 시안 버튼 글자 윗변(y=481)에 맞춘 글자 상자 위치. Paperlogy 16의
+    // 글자 상자(23)는 위로 5.4 여백을 둔다.
+    expect(tester.getRect(find.text('네')).top, closeTo(475.6, .5));
+  });
+
   testWidgets('모달에서 아니오를 고르면 로그아웃하지 않고 화면에 머문다', (tester) async {
     await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 

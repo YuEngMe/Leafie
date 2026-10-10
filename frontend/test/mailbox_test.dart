@@ -500,7 +500,10 @@ void main() {
       ),
     );
     expect(confirmation.left, closeTo(47, .01));
-    expect(confirmation.top, closeTo(363.5855, .01));
+    // 4534:15227(LF-082) 모달은 402x874 프레임의 y=358이다. 화면 정중앙
+    // (874 / 2 - 158.829 / 2 = 357.59)에 놓는다. 예전 363.59는 안전영역
+    // (상단 46·하단 34) 안에서 가운데를 잡던 실기기 값이라 시안보다 6 아래였다.
+    expect(confirmation.top, closeTo(357.5855, .01));
     expect(confirmation.width, closeTo(308, .01));
     expect(confirmation.height, closeTo(158.829, .01));
     await expectMailboxGolden(tester, 'goldens/mail_delete_confirm_402.png');

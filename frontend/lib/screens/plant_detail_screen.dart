@@ -36,11 +36,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
 
   Future<void> _delete() async {
     // 2568:1926. ConfirmDialog(2353:1045 계열)이 좌표까지 같아 그대로 쓴다.
-    final confirmed = await showDialog<bool>(
-      context: context,
+    final confirmed = await showConfirmDialog(
+      context,
       barrierColor: kModalBarrier,
-      builder: (_) =>
-          CharacterDeleteDialog(tenureLabel: '함께한지 ${_plant.daysTogether}일이에요'),
+      dialog: CharacterDeleteDialog(
+        tenureLabel: '함께한지 ${_plant.daysTogether}일이에요',
+      ),
     );
     if (confirmed != true || !mounted) return;
 
