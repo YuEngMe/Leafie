@@ -124,7 +124,12 @@ class NotificationTile extends StatelessWidget {
                   Positioned(
                     // 3448:28 제목 x=109.293.
                     left: 109.29314422607422 - kNotificationTileLeft,
-                    right: 374 - 355 + 8.187793731689453,
+                    // 점(타일 안 x=341) 앞 8에서 끝낸다. 예전 식은 화면 x 355를
+                    // 타일 안 좌표처럼 빼 제목 칸이 점 위로 5.8 넘어갔다.
+                    right:
+                        kNotificationTileWidth -
+                        (355 - kNotificationTileLeft) +
+                        8,
                     top: 0,
                     bottom: 0,
                     child: Align(

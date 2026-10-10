@@ -200,4 +200,15 @@ void main() {
     expect(find.text('전체 읽음'), findsNothing);
     expect(find.byKey(const Key('notification-read-all')), findsNothing);
   });
+
+  testWidgets('긴 제목은 읽음 점 앞에서 줄이고 점과 겹치지 않는다', (tester) async {
+    const title = '이름이아주아주긴식물친구는물이필요하고햇빛도필요해요';
+    await _pump(tester, [
+      _item(id: 'long', title: title, createdAt: DateTime.now()),
+    ]);
+
+    final text = tester.getRect(find.text(title));
+    final dot = tester.getRect(find.byKey(const Key('notification-dot-long')));
+    expect(text.right, lessThanOrEqualTo(dot.left - 8));
+  });
 }
