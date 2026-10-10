@@ -520,15 +520,22 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                     onTap: _pickPhoto,
                   ),
                 ),
-                // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851).
+                // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851). '12월 30일
+                // 수요일'처럼 긴 날짜는 구분선(212.63)에 닿으므로, 선 앞 4를
+                // 남기고 칸이 모자랄 때만 글자를 줄인다.
                 Positioned(
                   left: 54,
                   top: 149,
-                  child: Text(
-                    _dateLabel,
-                    style: kSmallStyle.copyWith(
-                      height: 23 / 14,
-                      color: kTextDark,
+                  width: 212.63 - 54 - 4,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _dateLabel,
+                      style: kSmallStyle.copyWith(
+                        height: 23 / 14,
+                        color: kTextDark,
+                      ),
                     ),
                   ),
                 ),

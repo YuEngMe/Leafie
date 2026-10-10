@@ -272,6 +272,26 @@ void main() {
       expect(glyph.top, closeTo(52, 1));
     });
 
+    testWidgets('가장 긴 날짜도 세로 구분선을 넘지 않는다', (tester) async {
+      _setUpView(tester);
+      // 기기 글꼴이 3% 넓게 측정되는 경우까지 본다.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.03)),
+            child: DiaryEntryScreen(
+              entry: DiaryEntry(date: DateTime(2026, 12, 30)),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final date = tester.getRect(find.text('2026년 12월 30일 수요일'));
+      expect(date.left, closeTo(54, 1));
+      expect(date.right, lessThanOrEqualTo(212.63 - 4 + 0.01));
+    });
+
     testWidgets('글이 있으면 저장하기(3631:2600)가 본문칸 오른쪽 아래에 뜬다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
