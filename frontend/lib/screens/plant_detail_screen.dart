@@ -9,6 +9,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// 시안 2564:947 "전체보기_캐릭터 상세 1".
@@ -265,9 +266,24 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 }
 
-/// 시안 2568:1714 "캐릭터 상세_성격". 진입 시 현재 성격을 선택 상태로
-/// 시작하고, 좌우로 넘겨 6종 중 하나를 고른 뒤 "수정하기"로 반환한다.
+/// 시안 4889:2219 "캐릭터 성격"(편집 맥락). 진입 시 현재 성격을 선택
+/// 상태로 시작하고, 좌우로 넘겨 6종 중 하나를 고른 뒤 "선택"으로 반환한다.
 /// 이름·태그·대사는 등록 흐름(2318:3129~3430)의 글자를 그대로 쓴다.
+/// 예전 기준 2568:1714는 옛 시안이라 요소가 20~33px 위에 있었다.
+/// 성격 PageView 슬롯의 절대 top. 제목 글자 상자(151)보다 조금 위다.
+const double _kSlotTop = 140;
+
+/// 몸통 폭 139(4889:2271) = 155 × 0.897.
+const double _kCharacterWidth = 155;
+const double _kCharacterTop = 488.85 - _kCharacterWidth * 612 / 698;
+
+/// 말풍선 SVG(그림자 여백 포함) 크기와 위치(4889:2260 top 504.68 − 4.126).
+const Size _kBubbleSvgSize = Size(261.253, 55.3058);
+const double _kBubbleSvgTop = 500.55;
+
+/// 대사 글자 상자 top. 글자 가운데를 시안 532.23에 맞춘다.
+const double _kBubbleTextTop = 520.73;
+
 class PlantPersonalityScreen extends StatefulWidget {
   const PlantPersonalityScreen({super.key, required this.plant});
 
@@ -309,14 +325,15 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
       appBar: const YesoAppBar(title: '캐릭터 성격'),
       body: PlantDetailBody(
         children: [
-          // 이름(top132)+태그(top170)+캐릭터(top287)+대사(top475,
-          // height47.053, 즉 끝 522.053)를 한 PageView 페이지로 묶어
-          // 손가락 따라 통째로 슬라이드되게 한다. 각 요소는 페이지 내부
-          // Stack에서 이 슬롯의 top(132)을 뺀 상대좌표로 앉혀 시안의
-          // 절대 top 값을 그대로 지킨다.
+          // 이름(152)+태그(190)+캐릭터(294)+말풍선(꼬리 포함 504.68,
+          // 그림자 포함 SVG 끝 555.86)을 한 PageView 페이지로 묶어 손가락
+          // 따라 통째로 슬라이드되게 한다. 각 요소는 페이지 내부 Stack에서
+          // 이 슬롯의 top을 뺀 상대좌표로 앉혀 시안의 절대 y를 그대로
+          // 지킨다. PageView가 슬롯 밖을 잘라 내므로 슬롯은 제목 글자 상자와
+          // 말풍선 그림자까지 넉넉히 덮는다.
           PlantDetailPositioned(
-            top: 132,
-            height: 522.053 - 132,
+            top: _kSlotTop,
+            height: 560 - _kSlotTop,
             child: PageView.builder(
               controller: _pageController,
               itemCount: kPlantPersonalityOrder.length,
@@ -326,11 +343,13 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                 final personality = kPlantPersonalities[type];
                 return Stack(
                   children: [
-                    // 성격 이름 2568:1757. top 132 -> 상대 0.
+                    // 성격 이름 4889:2258. 시안 글자 상자 152(높이 24)인데
+                    // Flutter 상자는 글자 위 여백이 1px 더 커서, 보이는 글자
+                    // 꼭대기(시안 156)를 맞추려고 상자를 151에 둔다.
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 0,
+                      top: 151 - _kSlotTop,
                       height: 25,
                       child: Center(
                         child: Text(
@@ -341,11 +360,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ),
                       ),
                     ),
-                    // 태그 칩 2568:1753/1755. top 170 -> 상대 38.
+                    // 태그 칩 4889:2254/2256. top 190.
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 170 - 132,
+                      top: 190 - _kSlotTop,
                       height: 20.667,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -360,21 +379,20 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ],
                       ),
                     ),
-                    // 캐릭터. 원래 시안(2568:1714)이 사라져 등록 성격 화면
-                    // (5460:721) 비율을 쓴다. 몸통 바닥을 말풍선 위 12(y=463)에
-                    // 두고, 가장 긴 헤어(산세베리아)가 태그 아래에서 시작하도록
-                    // 몸통 폭을 134(= 149.4 × 0.897)로 맞췄다. 박스 위 y=332.
+                    // 캐릭터 4889:2267. 몸통(4889:2271) 폭 139, 바닥 488.85.
+                    // 헤어는 박스 위로 솟으므로 몸통 바닥으로 박스를 놓는다.
+                    // 박스 위 = 488.85 − 몸통 바닥까지 거리(폭 × 612/698).
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 332 - 132,
-                      height: 149.4 * 649 / 698,
+                      top: _kCharacterTop - _kSlotTop,
+                      height: _kCharacterWidth * 649 / 698,
                       child: Center(
                         child: OverflowBox(
                           maxWidth: double.infinity,
                           maxHeight: double.infinity,
                           child: PlantCharacterArt(
-                            width: 149.4,
+                            width: _kCharacterWidth,
                             body: plantBodyFromId(widget.plant.bodyId),
                             colorId: widget.plant.colorId,
                             hairId: widget.plant.hairId,
@@ -382,34 +400,48 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ),
                       ),
                     ),
-                    // 말풍선 2568:1759. top 475 -> 상대 343.
+                    // 말풍선 4889:2259. 위로 꼬리가 난 Union(253x47.05,
+                    // top 504.68)을 시안 SVG 그대로 그린다. SVG는 그림자
+                    // 여백(사방 4.126)을 포함해 261.25x55.31이라 위가
+                    // 500.55다. 그림자(filter0_d: 흐림 2.063, 18%)는
+                    // flutter_svg가 그리지 않아 SvgDropShadow로 다시 깐다.
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 475 - 132,
-                      height: 47.053,
+                      top: _kBubbleSvgTop - _kSlotTop,
+                      height: _kBubbleSvgSize.height,
                       child: Center(
-                        child: Container(
-                          width: 253,
-                          height: 47.053,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: kBackgroundWhite,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x1F000000),
-                                blurRadius: 5,
+                        child: SizedBox.fromSize(
+                          size: _kBubbleSvgSize,
+                          child: Stack(
+                            children: [
+                              SvgDropShadow(
+                                stdDeviation: 2.06324,
+                                opacity: 0.18,
+                                child: SvgPicture.asset(
+                                  'assets/images/personality_bubble.svg',
+                                  width: _kBubbleSvgSize.width,
+                                  height: _kBubbleSvgSize.height,
+                                ),
+                              ),
+                              // 4889:2263 글자 가운데 y=532.23. 꼬리를 뺀
+                              // 몸통 칸(SVG 9.6~51.18)에 세로 가운데로 둔다.
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                top: _kBubbleTextTop - _kBubbleSvgTop,
+                                child: Text(
+                                  personality?.dialogue ?? '',
+                                  textAlign: TextAlign.center,
+                                  // 4889:2263은 16.506이지만 반올림해
+                                  // 본문 크기를 쓴다.
+                                  style: kBodyStyle.copyWith(
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
                             ],
-                          ),
-                          // 2568:1762는 16.506이지만 반올림해 본문 크기를 쓴다.
-                          child: Text(
-                            personality?.dialogue ?? '',
-                            style: kBodyStyle.copyWith(
-                              fontWeight: FontWeight.w400,
-                              color: Colors.black,
-                            ),
                           ),
                         ),
                       ),
@@ -419,10 +451,10 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
               },
             ),
           ),
-          // 페이지 도트 2568:1744. x=152 y=561 98x8. 성격 6개 중 선택된
+          // 페이지 도트 4889:2246. x=152 y=590.73 98x8. 성격 6개 중 선택된
           // 것을 켜고, 탭해서도 넘길 수 있게 한다.
           PlantDetailPositioned(
-            top: 561.05,
+            top: 590.73,
             height: 8,
             child: Center(
               child: _PersonalityDots(
@@ -433,10 +465,10 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
           ),
         ],
       ),
-      // 하단 버튼 2568:1735. x=34 y=790 334x51. 선택한 성격을 상위로
-      // 반환한다.
+      // 하단 버튼 4889:2265. x=34 y=790 334x51, 문구 "선택". 선택한 성격을
+      // 상위로 반환하고 저장은 상세 화면이 한다(동작은 그대로).
       bottomNavigationBar: PlantDetailBottomAction(
-        label: '수정하기',
+        label: '선택',
         onPressed: () => Navigator.of(context).pop(selectedType),
       ),
     );

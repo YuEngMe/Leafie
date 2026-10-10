@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/plant_detail_screen.dart';
 import 'package:yeso_plant/screens/plant_edit_appearance_screen.dart';
@@ -21,7 +22,7 @@ import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 /// - 2316:5103 전체보기_내 캐릭터
 /// - 2564:947  캐릭터 상세 1
 /// - 2568:1926 삭제 모달
-/// - 2568:1714 캐릭터 상세_성격
+/// - 4889:2219 캐릭터 성격(편집, 옛 기준 2568:1714)
 /// - 2555:661 / 2568:1639 정보수정 1·2
 /// - 2568:1764 / 2568:1814 꾸미기 컬러·헤어
 
@@ -385,38 +386,68 @@ void main() {
     });
   });
 
-  group('2568:1714 캐릭터 상세_성격', () {
-    testWidgets('이름·태그·대사·도트 좌표', (tester) async {
+  group('4889:2219 캐릭터 성격(편집)', () {
+    testWidgets('이름·태그·캐릭터·말풍선·도트 좌표', (tester) async {
       await _pumpScreen(
         tester,
         PlantPersonalityScreen(plant: _plant(personalityType: 'OUTGOING')),
       );
 
-      // 2568:1737 앱바 "캐릭터 성격".
+      // 4889:2239 앱바 "캐릭터 성격".
       expect(find.text('캐릭터 성격'), findsOneWidget);
 
-      // 2568:1757 성격 이름 top 132.
+      // 옛 시안(2568:1714)으로 그려 요소가 20~33px 위에 있었다.
+      // 4889:2258 성격 이름: 보이는 글자 꼭대기 156 → Flutter 상자 151.
       final label = tester.getRect(find.text('활발한 성격'));
-      expect(label.top, _closeTo1px(132));
+      expect(label.top, _closeTo1px(151));
       expect(label.center.dx, _closeTo1px(201));
 
-      // 2568:1753/1755 칩 y=170, 58.69x20.67.
+      // 4889:2254/2256 칩 y=190, 58.69x20.67.
       final firstTag = tester.getRect(find.text('#긍정적'));
-      expect(firstTag.center.dy, _closeTo1px(170 + 20.667 / 2));
+      expect(firstTag.center.dy, _closeTo1px(190 + 20.667 / 2));
       expect(find.text('#에너지'), findsOneWidget);
 
-      // 2568:1762 말풍선 문구.
-      expect(find.text('자 이제 물 줄 시간이야!'), findsOneWidget);
+      // 4889:2267 캐릭터: 몸통(4889:2271) 폭 139, 바닥 488.85.
+      final art = tester.getRect(find.byType(PlantCharacterArt).first);
+      expect(art.width * 0.897, closeTo(139, 0.5));
+      expect(art.center.dx, _closeTo1px(201));
+      expect(art.bottom - art.width * 37 / 698, _closeTo1px(488.85));
 
-      // 2568:1735 하단 버튼. 이제 선택한 성격을 반환하는 활성 버튼이다.
-      expect(find.text('수정하기'), findsOneWidget);
+      // 4889:2260 꼬리 달린 말풍선: 그림자 여백 포함 SVG 261.25x55.31,
+      // top 500.55. 글자 가운데 y=532.23.
+      final bubble = tester.getRect(
+        find
+            .byWidgetPredicate(
+              (w) =>
+                  w is SvgPicture &&
+                  w.bytesLoader is SvgAssetLoader &&
+                  (w.bytesLoader as SvgAssetLoader).assetName ==
+                      'assets/images/personality_bubble.svg',
+            )
+            .first,
+      );
+      expect(bubble.top, _closeTo1px(500.55));
+      expect(bubble.width, _closeTo1px(261.25));
+      expect(bubble.center.dx, _closeTo1px(201));
+      final dialogue = tester.getRect(find.text('자 이제 물 줄 시간이야!'));
+      expect(dialogue.center.dy, _closeTo1px(532.23));
+
+      // 4889:2246 도트 y=590.73.
+      final dotsFinder = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString() == '_PersonalityDots',
+      );
+      expect(tester.getRect(dotsFinder).top, _closeTo1px(590.73));
+
+      // 4889:2265 하단 버튼 문구 "선택". 선택한 성격을 반환하는 활성 버튼이다.
+      expect(find.text('선택'), findsOneWidget);
+      expect(find.text('수정하기'), findsNothing);
       final button = tester.widget<PlantDetailBottomAction>(
         find.byType(PlantDetailBottomAction),
       );
       expect(button.onPressed, isNotNull);
     });
 
-    testWidgets('도트를 탭하면 다음 성격으로 넘어가고 수정하기가 그 값을 반환한다', (tester) async {
+    testWidgets('도트를 탭하면 다음 성격으로 넘어가고 선택이 그 값을 반환한다', (tester) async {
       await _pumpScreen(
         tester,
         PlantPersonalityScreen(plant: _plant(personalityType: 'OUTGOING')),
@@ -436,7 +467,7 @@ void main() {
       expect(find.text('시크한 성격'), findsOneWidget);
       expect(find.text('뭘 봐? 물이나 줘.'), findsOneWidget);
 
-      await tester.tap(find.text('수정하기'));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
     });
   });

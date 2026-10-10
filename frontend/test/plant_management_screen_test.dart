@@ -325,7 +325,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('소심한 성격'), findsOneWidget);
 
-    await tester.tap(find.text('수정하기'));
+    await tester.tap(find.text('선택'));
     await tester.pumpAndSettle();
 
     expect(repository.personalityTypeTo, 'INTROVERTED');
