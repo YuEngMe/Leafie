@@ -403,6 +403,52 @@ void main() {
       expect(dimmed.color, kTextLight);
     });
 
+    testWidgets('4534:5637 휠 열 x와 고른 줄 위아래 간격', (tester) async {
+      await _openSheet(tester);
+
+      // 카드(590~770) 안에 보이는 줄만 위에서부터 고른다.
+      List<Rect> rows(String wheelKey) {
+        final rects = find
+            .descendant(
+              of: find.byKey(ValueKey(wheelKey)),
+              matching: find.byType(Text),
+            )
+            .evaluate()
+            .map((element) => tester.getRect(find.byWidget(element.widget)))
+            .where((rect) => rect.center.dy > 590 && rect.center.dy < 770)
+            .toList();
+        return rects..sort((a, b) => a.top.compareTo(b.top));
+      }
+
+      // 4534:6090~6101 글자 중심 y 625.26 / 678.91 / 729.65. 고른 줄 위
+      // 간격(53.65)이 아래(50.74)보다 넓다.
+      const centers = [625.26, 678.91, 729.65];
+      for (final key in [
+        'calendar-year-wheel',
+        'calendar-month-wheel',
+        'calendar-day-wheel',
+      ]) {
+        final visible = rows(key);
+        expect(visible.length, 3, reason: key);
+        for (var i = 0; i < 3; i++) {
+          expect(visible[i].center.dy, closeTo(centers[i], 1), reason: key);
+        }
+      }
+
+      // 연도는 왼쪽 정렬: 고른 줄 x=68.33, 나머지 x=73.
+      final years = rows('calendar-year-wheel');
+      expect(years[0].left, closeTo(73, 1));
+      expect(years[1].left, closeTo(68.33, 1));
+      expect(years[2].left, closeTo(73, 1));
+      // 월·일은 가운데 정렬로 중심 183.34 / 245.48.
+      for (final rect in rows('calendar-month-wheel')) {
+        expect(rect.center.dx, closeTo(183.34, 1));
+      }
+      for (final rect in rows('calendar-day-wheel')) {
+        expect(rect.center.dx, closeTo(245.48, 1));
+      }
+    });
+
     testWidgets('일정 종류는 우측 세로 아이콘 2개 (분갈이·비료)', (tester) async {
       await _openSheet(tester);
 
