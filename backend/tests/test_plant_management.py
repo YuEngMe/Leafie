@@ -702,6 +702,7 @@ async def test_home_returns_empty_context_or_today_data() -> None:
     repository.plants[plant.id] = plant
     repository.profile.selected_plant_id = plant.id
     today = today_in_timezone("Asia/Seoul")
+    repository.diary_dates.add(today)
     repository.events = [
         make_event(plant.id, today - timedelta(days=1)),
         make_event(plant.id, today),
@@ -876,6 +877,7 @@ def test_home_route_returns_v2_contract(monkeypatch: pytest.MonkeyPatch) -> None
     service, repository, storage, _ = build_service([plant])
     repository.unread_count = 2
     repository.unread_letter_count = 3
+    repository.diary_dates.add(today_in_timezone("Asia/Seoul"))
     repository.events = [make_event(plant.id, today_in_timezone("Asia/Seoul"))]
 
     def fake_session() -> Iterator[object]:

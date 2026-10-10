@@ -140,6 +140,11 @@ class SpeciesIdentificationRepository:
             ).all()
         matches: dict[str, SpeciesCareGuide] = {}
         for guide in guides:
+            # An unresolved trade hybrid must not match a different taxon by common name.
+            if (guide.care_profile or {}).get("taxonomy", {}).get(
+                "photo_matching_enabled"
+            ) is False:
+                continue
             if guide.gbif_id is not None:
                 matches[f"gbif:{guide.gbif_id}"] = guide
             if guide.scientific_name is not None:
