@@ -125,8 +125,11 @@ class CalendarEventCard extends StatelessWidget {
   }
 }
 
-/// 완료 표식(3429:1450 미완료 / 3429:1463+3429:1465 완료).
-/// 완료는 오렌지 원 + 흰 꺾쇠(V), 체크(✓)가 아니다.
+/// 완료 표식(4534:5158 미완료 / 4534:5178 완료). 지름 26 원에, 완료는
+/// 오렌지 원 + 흰 꺾쇠(V)다. 체크(✓)가 아니다.
+///
+/// 예전 PNG는 시안 캡처 배경(회색 119)까지 불투명하게 찍혀 카드마다 회색
+/// 사각형이 보였다. 원은 코드로 그리고 꺾쇠만 시안 SVG를 그대로 쓴다.
 class CalendarCompleteMark extends StatelessWidget {
   const CalendarCompleteMark({super.key, required this.completed});
 
@@ -137,13 +140,27 @@ class CalendarCompleteMark extends StatelessWidget {
     return SizedBox(
       width: 26,
       height: 26,
-      child: Image.asset(
-        completed
-            ? 'assets/images/calendar_complete_checked.png'
-            : 'assets/images/calendar_complete_unchecked.png',
-        width: 26,
-        height: 26,
-        fit: BoxFit.fill,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: completed ? kOrangeMain : kBackgroundWhite,
+          shape: BoxShape.circle,
+        ),
+        child: completed
+            ? Stack(
+                children: [
+                  // 4534:5182 꺾쇠 12x8 @ (6.97, 9.61). SVG는 선 두께 2의
+                  // 절반씩 사방으로 1 넓다.
+                  Positioned(
+                    left: 6.97 - 1,
+                    top: 9.61 - 1,
+                    child: SvgPicture.asset(
+                      'assets/images/calendar_complete_check.svg',
+                      excludeFromSemantics: true,
+                    ),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
   }

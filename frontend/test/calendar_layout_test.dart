@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/services/calendar_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -312,19 +313,36 @@ void main() {
       final done = tester.widget<CalendarCompleteMark>(marks.at(1));
       expect(done.completed, isTrue);
 
-      // 최신 Figma 에셋(4534:6595 / 4534:6650)을 26x26 그대로 쓴다.
-      final unchecked = find.descendant(
-        of: marks.at(0),
-        matching: _assetImage('calendar_complete_unchecked.png'),
+      // 4534:5158 / 4534:5178: 지름 26 원(흰색 / #FFB52A). 원 밖은 비워
+      // 둔다(예전 PNG는 네 모서리가 회색으로 찍혀 있었다).
+      BoxDecoration circle(Finder mark) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: mark,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(circle(marks.at(0)).shape, BoxShape.circle);
+      expect(circle(marks.at(0)).color, kBackgroundWhite);
+      expect(circle(marks.at(1)).shape, BoxShape.circle);
+      expect(circle(marks.at(1)).color, kOrangeMain);
+      expect(tester.getSize(marks.at(0)), const Size.square(26));
+      expect(tester.getSize(marks.at(1)), const Size.square(26));
+      expect(
+        find.descendant(of: marks.at(0), matching: find.byType(SvgPicture)),
+        findsNothing,
       );
-      final checked = find.descendant(
-        of: marks.at(1),
-        matching: _assetImage('calendar_complete_checked.png'),
+      final chevron = tester.getRect(
+        find.descendant(of: marks.at(1), matching: find.byType(SvgPicture)),
       );
-      expect(unchecked, findsOneWidget);
-      expect(checked, findsOneWidget);
-      expect(tester.getSize(unchecked), const Size.square(26));
-      expect(tester.getSize(checked), const Size.square(26));
+      final doneRect = tester.getRect(marks.at(1));
+      expect(chevron.left - doneRect.left, closeTo(5.97, .01));
+      expect(chevron.top - doneRect.top, closeTo(8.61, .01));
+      expect(chevron.width, closeTo(14, .01));
+      expect(chevron.height, closeTo(9.87, .01));
     });
   });
 
@@ -470,13 +488,6 @@ Finder _svg(String assetName) => find.byWidgetPredicate(
   (widget) =>
       widget.runtimeType.toString() == 'SvgPicture' &&
       widget.toString().contains(assetName),
-);
-
-Finder _assetImage(String assetName) => find.byWidgetPredicate(
-  (widget) =>
-      widget is Image &&
-      widget.image is AssetImage &&
-      (widget.image as AssetImage).assetName.endsWith(assetName),
 );
 
 /// 요일 머리글만 고른다. '월'·'주'는 토글에도 있어 글자만으로는 안 갈린다.
