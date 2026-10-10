@@ -1,4 +1,4 @@
-// 사진 인식 흐름(2318:2815 분석 중, 2318:2890 결과). 좌표와 함께,
+// 사진 인식 흐름(4889:421 분석 중, 2318:2890 결과). 좌표와 함께,
 // '맞아요'가 인식한 종을 draft로 넘기는지 확인한다.
 
 import 'dart:async';
@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 
 /// 시안이 보여주는 인식 결과.
@@ -51,14 +52,32 @@ void main() {
     await tester.pumpWidget(_screen(identifier: (_) => pending.future));
     await tester.pump();
 
+    // 시안 4889:421. 옛 시안(2318:2815)의 문구 y=205·진행 막대·앱바 제목은
+    // 최신 시안에서 빠지고, 캐릭터 셋 아래 화면 가운데쯤으로 문구가 내려왔다.
     final headline = tester.getRect(find.text('AI가 식물을 분석하고 있어요'));
-    expect(headline.top, closeTo(205, 1));
+    // 4889:442 x=80. 글자 상자 top 456이면 보이는 글자가 시안 렌더(461)에 앉는다.
+    expect(headline.left, closeTo(80, 1));
+    expect(headline.top, closeTo(456, 1));
+    // 4889:443 중심 x=202.5.
     final subtitle = tester.getRect(find.text('잠시만 기다려주세요..'));
-    expect(subtitle.top, closeTo(241, 1));
+    expect(subtitle.center.dx, closeTo(202.5, 1));
+    expect(subtitle.top, closeTo(492, 1));
+    // 4889:445 캐릭터 묶음 x=129 y=363, 144x42.4.
+    final characters = tester.getRect(
+      find.byKey(const ValueKey('analyzing-characters')),
+    );
+    expect(characters.left, closeTo(129, 0.5));
+    expect(characters.top, closeTo(363, 0.5));
+    expect(characters.width, closeTo(144, 0.5));
+    expect(characters.height, closeTo(42.4, 0.5));
+    // 앱바는 꺾쇠만 있고 제목이 없다.
+    expect(find.text('내 식물 등록하기'), findsNothing);
+    expect(find.byType(FigmaBackChevron), findsOneWidget);
 
-    // 애니메이션이 도는 채로 테스트를 끝내지 않는다.
+    // 결과가 오면 제목이 있는 결과 화면으로 바뀐다.
     pending.complete(_mockResult);
     await tester.pumpAndSettle();
+    expect(find.text('내 식물 등록하기'), findsOneWidget);
   });
 
   testWidgets('결과 화면이 시안 좌표에 앉는다', (tester) async {

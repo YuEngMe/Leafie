@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
+import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
@@ -94,6 +98,31 @@ void main() {
     await expectLater(
       find.byType(SignupScreen),
       matchesGoldenFile('goldens/signup.png'),
+    );
+  });
+
+  testWidgets('등록6_분석 중 화면 스냅샷', (tester) async {
+    useDeviceView(tester);
+    // 완료되지 않는 Future로 분석 중 상태(4889:421)를 붙잡는다.
+    final pending = Completer<PlantIdentification>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: PlantPhotoIdentifyScreen(
+          photo: File('unused.png'),
+          name: '씩씩이',
+          identifier: (_) => pending.future,
+        ),
+      ),
+    );
+    // 캐릭터 SVG는 비동기로 읽혀 실제 시간을 흘려야 그려진다.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await expectLater(
+      find.byType(PlantPhotoIdentifyScreen),
+      matchesGoldenFile('goldens/register_identify_analyzing.png'),
     );
   });
 }
