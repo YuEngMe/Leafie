@@ -5,7 +5,8 @@ import 'package:yeso_plant/theme/app_colors.dart';
 ///
 /// 켜짐 `2353:574`, 꺼짐 `2353:573`. 시안은 켜짐일 때 노브가 왼쪽으로 가 있으나
 /// 디자이너 실수로 확인돼(2026-08-31) 통상대로 켜짐을 오른쪽에 둔다.
-/// 트랙 크기·색·노브 지름·좌우 여백은 시안 값 그대로다.
+/// 트랙 크기·색·노브 지름·좌우 여백은 시안 값 그대로다. 꺼짐 트랙은 최신
+/// 시안(4534:3044 알림 해제 화면)이 #CCCBCB로 그린다.
 class FigmaToggleSwitch extends StatelessWidget {
   const FigmaToggleSwitch({
     super.key,
@@ -44,7 +45,7 @@ class FigmaToggleSwitch extends StatelessWidget {
                 children: [
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: value ? kOrangeMain : kTextLight,
+                      color: value ? kOrangeMain : kGrayLightest,
                       borderRadius: BorderRadius.circular(trackSize.height / 2),
                     ),
                     child: const SizedBox.expand(),

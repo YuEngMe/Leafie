@@ -10,6 +10,7 @@ import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/services/user_api.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -172,7 +173,7 @@ void main() {
   });
 
   group('회원 탈퇴', () {
-    testWidgets('시안 2570:1994 좌표를 지킨다', (tester) async {
+    testWidgets('시안 4534:2969 좌표를 지킨다', (tester) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -180,8 +181,10 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: WithdrawScreen()));
       await tester.pumpAndSettle();
 
-      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 140);
-      _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 175);
+      // 글자 상자 크기가 시안과 달라, 보이는 글자가 시안(140·175)과 맞도록
+      // 헤드라인 상자는 2 올리고 부제 상자(height 1)는 1 내렸다.
+      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 138);
+      _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 176);
       _expectAt(
         tester,
         '안내 첫 줄',
@@ -234,6 +237,13 @@ void main() {
           tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant;
 
       expect(variant(), PrimaryButtonVariant.disabled);
+      // 4534:3008 미동의 버튼은 다른 화면 비활성(#CCCBCB)보다 진한 #A1A1A1.
+      expect(
+        tester
+            .widget<PrimaryButton>(find.byType(PrimaryButton))
+            .disabledBackground,
+        kTextLight,
+      );
       expect(
         tester
             .widget<FigmaConsentCheckbox>(find.byType(FigmaConsentCheckbox))

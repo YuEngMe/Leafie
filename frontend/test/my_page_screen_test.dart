@@ -154,12 +154,20 @@ void main() {
     expectAt('가입 기간', find.text('식집사가 된 지 128일째'), 131, 142);
     expectAt('이메일', find.text('akdrotorl@naver.com'), 52, 166.1);
     expectAt('메뉴 카드', find.byType(ProfileMenuCard), 29, 211);
-    expectAt('프로필 관리', find.text('프로필 관리'), 52, 227);
-    expectAt('내 정보 수정', find.text('내 정보 수정'), 52, 264.76);
-    expectAt('비밀번호 변경', find.text('비밀번호 변경'), 52, 313.76);
-    expectAt('센서 기기 등록', find.text('센서 기기 등록'), 52, 362.76);
-    expectAt('앱 알림', find.text('앱 알림'), 52, 411.76);
-    expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 460.76);
+    // 4534:3101. Flutter 글자 상자가 시안보다 커서, 보이는 글자를 시안에
+    // 맞추면 상자 top은 시안 y보다 위에 온다(12px 1, 16px 2).
+    expectAt('프로필 관리', find.text('프로필 관리'), 52, 227 - 1);
+    expectAt('내 정보 수정', find.text('내 정보 수정'), 52, 264.76 - 2);
+    expectAt('비밀번호 변경', find.text('비밀번호 변경'), 52, 313.76 - 2);
+    expectAt('센서 기기 등록', find.text('센서 기기 등록'), 52, 362.76 - 2);
+    expectAt('앱 알림', find.text('앱 알림'), 52, 411.76 - 2);
+    // 회원 탈퇴만 앞 행과 49가 아니라 52.93 간격이다.
+    expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 464.69 - 2);
+    expect(
+      tester.getSize(find.byType(ProfileMenuCard)).height,
+      closeTo(295, .01),
+    );
+    expect(tester.widget<Text>(find.text('프로필 관리')).style!.color, kTextDark);
 
     // 카드는 폭 344인데 버튼만 334다(2319:23). 세로 위치는 하단 SafeArea가
     // 정하므로 여기(상태바 없는 조건)서는 보지 않는다 —

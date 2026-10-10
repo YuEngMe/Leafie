@@ -68,14 +68,18 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         child: Stack(
           children: [
             // 시안이 각 요소를 절대 위치로 잡아 좌표를 그대로 옮긴다.
+            // Flutter 글자 상자가 시안보다 커서, 상자 top을 시안(4534:2991
+            // y=140)에 두면 보이는 글자가 2px 내려간다. 그만큼 올린다.
             const Positioned(
               left: 45,
-              top: AppLayout.withdrawTopGap,
+              top: AppLayout.withdrawTopGap - 2,
               child: Text('리피 탈퇴 전 확인하세요', style: kTitleStyle),
             ),
+            // height 1로 상자를 시안(leading normal)보다 줄여 글자가 1px 뜬다.
+            // 4534:2992 y=175(앱바 아래 83)에서 1 내린다.
             Positioned(
               left: 45,
-              top: 83,
+              top: 84,
               child: Text(
                 '정말 탈퇴하시나요? 너무 아쉬워요..',
                 style: kSmallStyle.copyWith(
@@ -115,6 +119,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     ? PrimaryButtonVariant.enabled
                     : PrimaryButtonVariant.disabled,
                 textStyle: kLoginButtonStyle,
+                // 4534:3008 미동의 버튼은 다른 화면의 비활성 회색(#CCCBCB)보다
+                // 진한 연한 텍스트(#A1A1A1)다.
+                disabledBackground: kTextLight,
                 onPressed: canSubmit ? _withdraw : null,
               ),
             ),
@@ -145,17 +152,22 @@ class _NoticeBox extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 시안은 글머리 기호를 16px 문자로 찍는다.
+                  // 시안(4534:3001)은 16px list-disc 글머리라 가운뎃점(·)보다
+                  // 크고 진한 '•'(지름 약 2.7)이다. 점 중심이 시안 x=57.5에
+                  // 오도록 왼쪽 4를 비우고 가운데 정렬한다.
                   const SizedBox(
                     width: 20,
-                    child: Text(
-                      '·',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: kFontFamily,
-                        fontSize: 16,
-                        height: 23 / 16,
-                        color: kOnboardingSubtitle,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        '•',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 16,
+                          height: 23 / 16,
+                          color: kOnboardingSubtitle,
+                        ),
                       ),
                     ),
                   ),

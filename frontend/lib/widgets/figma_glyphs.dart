@@ -155,12 +155,20 @@ class FigmaCheckMark extends StatelessWidget {
 
 /// Figma node 2315:2495의 오른쪽 꺾쇠.
 class FigmaChevronRight extends StatelessWidget {
-  const FigmaChevronRight({super.key, this.color = kGrayLightest});
+  const FigmaChevronRight({
+    super.key,
+    this.color = kGrayLightest,
+    this.strokeWidth = 2,
+  });
 
   /// node 2315:2495 원본 좌표(8.00638 x 14.346).
   static const Size figmaSize = Size(8.00638, 14.346);
 
   final Color color;
+
+  /// 2315:2495의 획은 2. 마이페이지처럼 폰트 글리프 꺾쇠를 대신하는 자리는
+  /// 그 글리프 굵기에 맞춰 넘긴다.
+  final double strokeWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +181,7 @@ class FigmaChevronRight extends StatelessWidget {
         ],
         viewBox: figmaSize,
         color: color,
-        strokeWidth: 2,
+        strokeWidth: strokeWidth,
       ),
       size: figmaSize,
     );
