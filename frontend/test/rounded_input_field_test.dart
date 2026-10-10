@@ -183,4 +183,42 @@ void main() {
     final hint = tester.widget<Text>(find.text('이메일을 입력하세요.'));
     expect(hint.style?.letterSpacing, kLoginHintStyle.letterSpacing);
   });
+
+  testWidgets('라벨 글자 상자는 시안 h19이고 칸 자리는 라벨 top + 24 그대로다', (tester) async {
+    await _pump(
+      tester,
+      const RoundedInputField(
+        label: '닉네임',
+        labelGap: 1,
+        hintText: '닉네임을 입력하세요.',
+        height: AppLayout.onboardingControlHeight,
+      ),
+    );
+
+    // 회원가입 4534:1700은 라벨 y145·h19, 칸 4534:1701은 y169다. 라벨을
+    // 기본 줄 높이(23)로 그리면 글자가 1.75px 아래로 내려갔다.
+    final label = tester.getRect(find.text('닉네임'));
+    expect(label.height, 19);
+    expect(_fieldBox(tester).top - label.top, 24);
+  });
+
+  testWidgets('힌트는 입력 글자 baseline보다 2px 위에 그린다', (tester) async {
+    Future<double> hintTop(double lift) async {
+      await _pump(
+        tester,
+        RoundedInputField(
+          hintText: '예: 베란다',
+          hintLift: lift,
+          height: AppLayout.onboardingControlHeight,
+        ),
+      );
+      return tester.getRect(find.text('예: 베란다')).top - _fieldBox(tester).top;
+    }
+
+    // 12pt 힌트가 14pt 입력 글자와 같은 baseline에 앉아 시안(4534:1702 등)
+    // 보다 2px 아래였다. 로그인처럼 0을 넘긴 칸만 원래 자리에 둔다.
+    final lifted = await hintTop(2);
+    final original = await hintTop(0);
+    expect(original - lifted, 2);
+  });
 }

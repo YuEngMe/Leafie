@@ -99,6 +99,8 @@ class LoginEmailField extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(16, 14, 16, 21)
           : const EdgeInsets.fromLTRB(16, 16, 16, 19),
       hintStyle: kLoginHintStyle,
+      // 위 세로 여백으로 힌트 자리를 시안(4534:1342)에 맞춰 두었다.
+      hintLift: 0,
       textStyle: isFilled ? kLoginEmailValueStyle : null,
     );
   }
@@ -149,6 +151,8 @@ class LoginPasswordField extends StatelessWidget {
             // 답이 "값 있을 때만"이면 이 줄만 지우면 된다.
             alwaysShowEye: true,
             hintStyle: kLoginHintStyle,
+            // 위 세로 여백으로 힌트 자리를 시안(4534:1342)에 맞춰 두었다.
+            hintLift: 0,
             // 가림 문자는 오류 여부와 관계없이 14 SemiBold 연회색 ●다
             // (4534:1342 일반 · 4534:2394 오류).
             obscuredTextStyle: kLoginPasswordValueStyle,

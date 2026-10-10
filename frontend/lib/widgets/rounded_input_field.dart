@@ -11,6 +11,15 @@ import 'package:yeso_plant/widgets/figma_glyphs.dart';
 /// 오류 문구 한 줄이 차지하는 높이(top 6 + 12px 글자).
 const double _errorRowHeight = 18;
 
+/// 시안 라벨 글자 상자 높이. 16pt 라벨은 h19다(회원가입 4534:1700·1695 등.
+/// 캐릭터 정보 수정은 같은 값을 화면에서 직접 쓴다).
+const double _labelLineHeight = 19;
+
+/// 라벨 자리 높이. 예전에는 라벨을 Flutter 기본 줄 높이(Paperlogy 16 → 23)로
+/// 그렸고, 화면마다 labelGap을 이 높이에 맞춰 잡아 두었다(23 + 1 = 칸 top
+/// 24). 글자 상자만 시안 19로 줄이고 남는 4는 아래에 비워 칸 자리를 지킨다.
+const double _labelSlotHeight = 23;
+
 class RoundedInputField extends StatefulWidget {
   const RoundedInputField({
     super.key,
@@ -44,6 +53,7 @@ class RoundedInputField extends StatefulWidget {
     this.showShadow = true,
     this.alwaysShowEye = false,
     this.labelIndent = AppLayout.inputLabelIndent,
+    this.hintLift = 2,
     this.keyboardType,
     this.inputFormatters,
   });
@@ -93,6 +103,13 @@ class RoundedInputField extends StatefulWidget {
   /// 시안은 모든 화면에서 라벨을 입력칸(x34)보다 11px 들여쓴다(x45).
   /// 회원가입(2307:891)·재설정(2307:1502)·등록·마이페이지 전부 같다.
   final double labelIndent;
+
+  /// 힌트 글자를 위로 올리는 양. Material 입력칸은 힌트를 입력 글자(14pt)와
+  /// 같은 baseline에 앉혀서, 12pt 힌트는 시안보다 2px 아래로 내려간다(회원가입
+  /// 4534:1673·내 정보 수정 4534:2909·키우는 장소 4534:85·캐릭터 정보 수정
+  /// 4534:20068 모두 1.9~2.0). 입력 글자는 시안과 맞으므로 힌트만 그린 자리에서
+  /// 올린다. 세로 contentPadding으로 글자 자리를 직접 잡은 로그인은 0을 넘긴다.
+  final double hintLift;
 
   /// 센서 PIN처럼 숫자만 받는 칸에서 넘긴다.
   final TextInputType? keyboardType;
@@ -147,10 +164,17 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
             padding: EdgeInsets.only(left: widget.labelIndent),
             child: Text(
               widget.label!,
-              style: kItemStyle.copyWith(color: widget.labelColor),
+              // 기본 23 상자로 그리면 글자가 시안보다 1.75px 아래였다. 줄
+              // 높이를 시안 상자(19)에 맞추면 2px 올라가 0.3px 안으로 맞는다.
+              style: kItemStyle.copyWith(
+                color: widget.labelColor,
+                height: _labelLineHeight / 16,
+              ),
             ),
           ),
-          SizedBox(height: widget.labelGap),
+          SizedBox(
+            height: _labelSlotHeight - _labelLineHeight + widget.labelGap,
+          ),
         ],
         _OverflowRow(
           errorText: widget.errorText,
@@ -242,8 +266,24 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
         // isDense로 InputDecoration의 기본 최소 높이를 걷어낸다. 이게 없으면
         // 바깥에서 아무리 정렬해도 글자가 아래로 붙는다.
         isDense: true,
-        hintText: widget.hintText,
-        hintStyle: _withDesignSpacing(widget.hintStyle),
+        // hintText 대신 hint 위젯을 넘겨야 그린 자리만 옮길 수 있다. 입력칸은
+        // 힌트를 baseline으로 배치하므로 Transform은 배치(입력 글자 자리)를
+        // 건드리지 않는다. Text가 그대로 트리에 있어 읽어 주기도 같다.
+        hint: widget.hintText == null
+            ? null
+            : Transform.translate(
+                offset: Offset(0, -widget.hintLift),
+                child: Text(
+                  widget.hintText!,
+                  // hintText로 그릴 때처럼 bodyLarge 위에 얹는다. 줄 높이 등
+                  // 나머지 값이 달라지면 힌트 상자 크기가 바뀌어, 칸이 낮은
+                  // 로그인에서 입력 글자까지 1px 밀린다.
+                  style: Theme.of(context).textTheme.bodyLarge!.merge(
+                    _withDesignSpacing(widget.hintStyle),
+                  ),
+                  textAlign: align,
+                ),
+              ),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
