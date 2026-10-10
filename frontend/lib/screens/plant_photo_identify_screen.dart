@@ -164,10 +164,7 @@ class _Analyzing extends StatelessWidget {
         Positioned(
           left: 80,
           top: 364,
-          child: Text(
-            'AI가 식물을 분석하고 있어요',
-            style: kTitleStyle.copyWith(fontSize: 20),
-          ),
+          child: Text('AI가 식물을 분석하고 있어요', style: kTitleStyle),
         ),
         // 4889:443 중심 x=202.5 y=501. left 3이면 가운데가 202.5가 된다.
         // 보이는 글자 top 495(시안 렌더와 같음).
@@ -326,12 +323,12 @@ class _IdentifyResult extends StatelessWidget {
           top: 0,
           child: Center(child: RegisterProgressBar(step: 2)),
         ),
-        // 2318:2928 중심 y=179.5.
+        // 4534:1184 글자 상자 y=167, 보이는 글자 top 171. Flutter 20px 글자는
+        // 상자 위에서 5 아래 찍히므로 상자를 166(앱바 아래 92 기준 74)에 둔다.
         Positioned(
           left: 0,
           right: 0,
-          // 2318:2928 중심 y=179.5, 글자 상자 top 169. 앱바 아래(92) 기준.
-          top: 77,
+          top: 74,
           child: _RevealIn(
             child: Text(
               '이 식물은 ${result.candidate.displayName}이군요?',

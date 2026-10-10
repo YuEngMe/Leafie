@@ -137,7 +137,8 @@ void main() {
     await tester.pumpWidget(_screen());
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(find.text('이 식물은 바위채송화이군요?')).top, closeTo(169, 1));
+    // 4534:1184 상자 y=167(보이는 글자 171). Flutter 20px 상자는 166.
+    expect(tester.getRect(find.text('이 식물은 바위채송화이군요?')).top, closeTo(166, 1));
     expect(
       tester.getRect(find.byType(PlantResultCard)).top,
       closeTo(238.62, 1),
