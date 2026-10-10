@@ -135,6 +135,122 @@ void main() {
     });
   });
 
+  // 아이콘 PNG에는 그림자 여백이 들어 있다. 예전에는 PNG 전체를 노드 크기
+  // 상자에 넣어 그림이 작아지거나(전체보기·진단 25~30%) 여백만큼 밀렸다
+  // (해 6px 오른쪽·4px 아래). 보이는 그림이 시안 노드 자리에 오는지 잰다.
+  testWidgets('홈 아이콘이 그림자 여백을 빼고 시안 노드 자리에 그려진다', (tester) async {
+    useDeviceView(tester);
+
+    Rect assetRect(String asset) => tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == asset,
+      ),
+    );
+    void expectRect(Rect actual, Rect expected, String reason) {
+      expect(
+        actual.left,
+        moreOrLessEquals(expected.left, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.top,
+        moreOrLessEquals(expected.top, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.width,
+        moreOrLessEquals(expected.width, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.height,
+        moreOrLessEquals(expected.height, epsilon: 0.01),
+        reason: reason,
+      );
+    }
+
+    // PNG 좌상단은 시안 이미지(LF-086·087·088)에 PNG를 맞대어 찾은 자리다.
+    const phasePng = {
+      HomeTimePeriod.day: Offset(26.43, 110.65),
+      HomeTimePeriod.afternoon: Offset(29, 115),
+      HomeTimePeriod.evening: Offset(33, 114),
+    };
+    for (final entry in phasePng.entries) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            key: ValueKey(entry.key),
+            period: entry.key,
+            plant: const HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final icon = entry.key.phaseIcon;
+      final png = assetRect(icon.asset);
+      expect(
+        png.left,
+        moreOrLessEquals(entry.value.dx, epsilon: 0.01),
+        reason: icon.name,
+      );
+      expect(
+        png.top,
+        moreOrLessEquals(entry.value.dy, epsilon: 0.01),
+        reason: icon.name,
+      );
+    }
+
+    // 해 노드 4534:9603 (28,113) 80×80.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expectRect(
+      tester.getRect(
+        find.byWidgetPredicate(
+          (w) => w is FigmaHomeAssetIcon && w.icon == FigmaHomeIcon.sun,
+        ),
+      ),
+      const Rect.fromLTWH(28, 113, 79.9966, 79.9966),
+      'sun node',
+    );
+    // 시안 4534:9620: 전체보기 29.256×28.775, 진단 22×32 노드에 사방 5·4.4
+    // 그림자 여백. 알약은 일부러 높이 96으로 줄여 둔 상태라 세로 자리는
+    // 상하 여백 14 기준이다(커밋 7c0ab64).
+    expectRect(
+      assetRect(FigmaHomeIcon.viewAll.asset),
+      const Rect.fromLTWH(333 + 7.87 - 5, 113 + 14 - 5, 39.256, 38.775),
+      'view all',
+    );
+    expectRect(
+      assetRect(FigmaHomeIcon.viewDiagnosis.asset),
+      const Rect.fromLTWH(333 + 11.5 - 4.4, 113 + 50 - 4.4, 30.8, 40.8),
+      'diagnosis',
+    );
+    // 우체통 노드 4534:9607 (310,461) 74.1×120, PNG는 사방 5 바깥.
+    expectRect(
+      assetRect(FigmaHomeIcon.mailbox.asset),
+      const Rect.fromLTWH(305, 456, 84.0994, 130.0006),
+      'mailbox',
+    );
+  });
+
   testWidgets('센서 API 전에는 조도 습도 예시 수치를 표시하지 않는다', (tester) async {
     useDeviceView(tester);
 

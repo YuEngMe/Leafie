@@ -75,24 +75,40 @@ class HomePlant {
 
 /// Figma 3441:2에 있는 시간대별 홈 배경 상태.
 enum HomeTimePeriod {
-  day(asset: 'assets/images/home_bg_default.png', phaseIcon: FigmaHomeIcon.sun),
+  day(
+    asset: 'assets/images/home_bg_default.png',
+    phaseIcon: FigmaHomeIcon.sun,
+    phaseIconOrigin: Offset(28, 113),
+  ),
   afternoon(
     asset: 'assets/images/home_bg_afternoon.png',
     phaseIcon: FigmaHomeIcon.afternoon,
+    phaseIconOrigin: Offset(34, 120),
   ),
   evening(
     asset: 'assets/images/home_bg_evening.png',
     phaseIcon: FigmaHomeIcon.moon,
+    phaseIconOrigin: Offset(38, 119),
   ),
   lateEvening(
     asset: 'assets/images/home_bg_late_evening.png',
     phaseIcon: FigmaHomeIcon.moon,
+    phaseIconOrigin: Offset(38, 119),
   );
 
-  const HomeTimePeriod({required this.asset, required this.phaseIcon});
+  const HomeTimePeriod({
+    required this.asset,
+    required this.phaseIcon,
+    required this.phaseIconOrigin,
+  });
 
   final String asset;
   final FigmaHomeIcon phaseIcon;
+
+  /// 시간대 아이콘 노드의 화면 좌상단. 해(4534:9603)·오후 해(4534:17769)·
+  /// 달은 크기가 달라 시안에서도 자리가 조금씩 다르다. 달은 노드를 받지 않고
+  /// 저녁 시안 이미지(LF-088·090)에 PNG를 맞대어 찾은 자리다.
+  final Offset phaseIconOrigin;
 
   /// 00~03 오후2, 03~06 오후, 06~15 기본, 15~18 오후,
   /// 18~19 오후2, 19~24 늦저녁 순서로 전환한다.
@@ -823,12 +839,11 @@ class _HomeScreenState extends State<HomeScreen>
                   //
                   // 광선 시작점(꼭짓점)이 해 아이콘 중심에서 뻗어나오도록 맞춘다.
                   // SVG path 정점은 로컬 좌표 (≈32,15)에서 아래로 부채꼴로 퍼진다.
-                  // 해 아이콘은 Positioned(29,111)+Padding(4)라 그림 좌상단이
-                  // (33,115), sun 83.13×82.35라 중심이 (≈74.6,156.2). 정점을
-                  // 해 중심에 맞추려면 left=74.6-32≈43, top=156.2-15≈141.
+                  // 해 노드(4534:9603)는 (28,113)에 80×80이라 중심이 (68,153).
+                  // 정점을 해 중심에 맞추려면 left=68-32=36, top=153-15=138.
                   Positioned(
-                    left: 43,
-                    top: 141,
+                    left: 36,
+                    top: 138,
                     width: 277.172,
                     height: 421.502,
                     child: IgnorePointer(
@@ -863,9 +878,10 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                   ),
+                // 누르기 쉽게 사방 4px을 더 받으므로 노드 좌상단에서 4를 뺀다.
                 Positioned(
-                  left: 29,
-                  top: 111,
+                  left: period.phaseIconOrigin.dx - 4,
+                  top: period.phaseIconOrigin.dy - 4,
                   child: GestureDetector(
                     key: const ValueKey('home-period-control'),
                     behavior: HitTestBehavior.opaque,
@@ -1149,9 +1165,11 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 if (plant != null)
+                  // 우체통 노드(4534:9607) 좌상단. 그림자 여백은 아이콘이
+                  // 바깥으로 넘쳐 그린다.
                   Positioned(
-                    left: 304,
-                    top: 453,
+                    left: 310,
+                    top: 461,
                     child: Semantics(
                       button: true,
                       label: '우편함 열기',

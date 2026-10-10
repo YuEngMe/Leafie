@@ -22,23 +22,108 @@ class _AssetIcon extends StatelessWidget {
 /// Figma section 3436:4296의 홈 전용 아이콘.
 ///
 /// 그림자 필터까지 보존되도록 Figma SVG 원본을 투명 PNG로 렌더링해 사용한다.
+/// 그래서 PNG에는 그림자가 번지는 여백(대개 사방 5px)이 들어 있다.
+/// [figmaSize]는 시안 노드의 크기(보이는 그림)이고, [shadowInset]만큼
+/// 바깥으로 PNG를 넘쳐 그린다. 예전에는 PNG 전체를 노드 크기 상자에 넣어
+/// 그림이 25~30% 작아지거나, 여백만큼 오른쪽·아래로 밀렸다.
+/// 여백 값은 시안 SVG의 inset(예: 전체보기 -17.09%·-17.38%)과
+/// PNG 알파 경계를 재서 맞췄다(시안 4534:9272·4534:17431).
 enum FigmaHomeIcon {
-  notification('assets/images/icon_home_notification.png', Size(28, 31), '알림'),
-  mailbox('assets/images/icon_home_mailbox.png', Size(84.0994, 130), '우체통'),
-  sun('assets/images/icon_home_sun.png', Size(83.1301, 82.3485), '해'),
-  afternoon('assets/images/icon_home_afternoon.png', Size(76, 76), '오후 해'),
-  moon('assets/images/icon_home_moon.png', Size(65.0887, 79), '달'),
+  notification(
+    'assets/images/icon_home_notification.png',
+    Size(28, 31),
+    EdgeInsets.zero,
+    '알림',
+  ),
+  mailbox(
+    'assets/images/icon_home_mailbox.png',
+    Size(74.0988, 120),
+    EdgeInsets.all(5.0003),
+    '우체통',
+  ),
+  // 시안 SVG inset이 위 -2.94%·좌우 -1.96%·아래 0이라 위쪽에만 여백이 더 크다.
+  sun(
+    'assets/images/icon_home_sun.png',
+    Size(79.9966, 79.9966),
+    EdgeInsets.fromLTRB(1.5668, 2.3519, 1.5668, 0),
+    '해',
+  ),
+  afternoon(
+    'assets/images/icon_home_afternoon.png',
+    Size(66, 66),
+    EdgeInsets.all(5),
+    '오후 해',
+  ),
+  // 저녁 노드 크기는 받지 않았다. PNG 알파 경계가 사방 5px이라 그만큼 뺐다.
+  moon(
+    'assets/images/icon_home_moon.png',
+    Size(55.0887, 69),
+    EdgeInsets.all(5),
+    '달',
+  ),
   environmentCheck(
     'assets/images/icon_home_check.png',
     Size(35, 35),
+    EdgeInsets.zero,
     '조도 습도 확인',
+  ),
+  viewAll(
+    'assets/images/icon_home_view_all.png',
+    Size(29.256, 28.775),
+    EdgeInsets.all(5),
+    '전체보기',
+  ),
+  viewDiagnosis(
+    'assets/images/icon_home_view_diagnosis.png',
+    Size(22, 32),
+    EdgeInsets.all(4.4),
+    '진단',
   );
 
-  const FigmaHomeIcon(this.asset, this.figmaSize, this.label);
+  const FigmaHomeIcon(this.asset, this.figmaSize, this.shadowInset, this.label);
 
   final String asset;
+
+  /// 시안 노드 크기. 레이아웃은 이 크기로 잡는다.
   final Size figmaSize;
+
+  /// PNG에 들어 있는 그림자 여백. 이만큼 상자 밖으로 넘쳐 그린다.
+  final EdgeInsets shadowInset;
   final String label;
+}
+
+/// 그림자 여백이 든 PNG를 노드 크기 상자에 놓고, 여백은 상자 밖으로
+/// 넘쳐 그린다. Figma의 drop shadow가 레이아웃 크기에 들어가지 않는 것과 같다.
+class _HomeIconImage extends StatelessWidget {
+  const _HomeIconImage(this.icon, {this.color});
+
+  final FigmaHomeIcon icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = icon.shadowInset;
+    return SizedBox.fromSize(
+      size: icon.figmaSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -inset.left,
+            top: -inset.top,
+            width: icon.figmaSize.width + inset.horizontal,
+            height: icon.figmaSize.height + inset.vertical,
+            child: Image.asset(
+              icon.asset,
+              fit: BoxFit.fill,
+              color: color,
+              colorBlendMode: color == null ? null : BlendMode.srcIn,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class FigmaHomeAssetIcon extends StatelessWidget {
@@ -51,14 +136,7 @@ class FigmaHomeAssetIcon extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: icon.label,
     image: true,
-    child: Image.asset(
-      icon.asset,
-      width: icon.figmaSize.width,
-      height: icon.figmaSize.height,
-      fit: BoxFit.contain,
-      color: color,
-      colorBlendMode: color == null ? null : BlendMode.srcIn,
-    ),
+    child: _HomeIconImage(icon, color: color),
   );
 }
 
@@ -90,23 +168,17 @@ class FigmaHomeViewSwitch extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            Positioned(
+            // 두 아이콘은 시안(4534:9620) 노드 크기로 그리고 PNG의 그림자
+            // 여백은 바깥으로 넘친다. top 14·50은 높이 96 알약의 상하 여백 14다.
+            const Positioned(
               left: 7.87,
               top: 14,
-              child: Image.asset(
-                'assets/images/icon_home_view_all.png',
-                width: 29.256,
-                height: 28.775,
-              ),
+              child: _HomeIconImage(FigmaHomeIcon.viewAll),
             ),
-            Positioned(
+            const Positioned(
               left: 11.5,
               top: 50,
-              child: Image.asset(
-                'assets/images/icon_home_view_diagnosis.png',
-                width: 22,
-                height: 32,
-              ),
+              child: _HomeIconImage(FigmaHomeIcon.viewDiagnosis),
             ),
             Positioned(
               left: 0,
