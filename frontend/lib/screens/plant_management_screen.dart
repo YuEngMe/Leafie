@@ -6,6 +6,7 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 /// 시안 2316:5103 "전체보기_내 캐릭터".
@@ -268,10 +269,15 @@ class _PlantShelfHouse extends StatelessWidget {
                 child: Semantics(
                   button: true,
                   label: '식물 등록',
-                  child: SvgPicture.asset(
-                    'assets/images/plants_add_plus.svg',
-                    width: _kPlusDrawnSize,
-                    height: _kPlusDrawnSize,
+                  // 흰 원 그림자 filter0_d_0_4: 흐림 1.262, 20%.
+                  child: SvgDropShadow(
+                    stdDeviation: 1.26204,
+                    opacity: 0.2,
+                    child: SvgPicture.asset(
+                      'assets/images/plants_add_plus.svg',
+                      width: _kPlusDrawnSize,
+                      height: _kPlusDrawnSize,
+                    ),
                   ),
                 ),
               ),

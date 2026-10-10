@@ -4,6 +4,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/onboarding_copy.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 /// Figma node 2346:2466. 진단 기록이 하나도 없을 때의 안내.
 class DiagnosisEmptyState extends StatelessWidget {
@@ -397,7 +398,7 @@ class PrescriptionCard extends StatelessWidget {
               top: 470 + index * 51.05,
               width: 44,
               height: 44,
-              child: SvgPicture.asset(_careIconAssets[index]),
+              child: _CareIcon(index: index),
             ),
             Positioned(
               left: 78.57,
@@ -433,6 +434,39 @@ const List<String> _careIconAssets = [
   'assets/images/diagnosis_care_light.svg',
   'assets/images/diagnosis_care_recheck.svg',
 ];
+
+/// 추천관리 아이콘. 흰 원(r 18)에 흐림 2·25% 그림자가 있다.
+///
+/// 재확인 아이콘은 원 위의 종이(+집게)에도 흐림 1.375·20% 그림자가 따로
+/// 있다. 그림자가 원과 종이 사이에 그려져야 해서 SVG를 원과 종이 두 장으로
+/// 나눴다(diagnosis_care_recheck_paper.svg).
+class _CareIcon extends StatelessWidget {
+  const _CareIcon({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final circle = SvgDropShadow(
+      stdDeviation: 2,
+      opacity: 0.25,
+      child: SvgPicture.asset(_careIconAssets[index]),
+    );
+    if (index != 2) return circle;
+    return Stack(
+      children: [
+        circle,
+        SvgDropShadow(
+          stdDeviation: 1.3754,
+          opacity: 0.2,
+          child: SvgPicture.asset(
+            'assets/images/diagnosis_care_recheck_paper.svg',
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 String _causeSummary(
   String statusLabel,

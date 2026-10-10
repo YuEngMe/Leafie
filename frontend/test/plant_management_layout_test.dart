@@ -10,6 +10,7 @@ import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 /// 내 캐릭터(식물 관리) 흐름 8프레임의 좌표·색·문구를 시안과 맞춘다.
 ///
@@ -211,6 +212,16 @@ void main() {
       final plus = tester.getRect(find.byKey(const ValueKey('add_plant')));
       expect(plus.center.dx, _closeTo1px(200.5));
       expect(plus.width, _closeTo1px(34.048));
+      // flutter_svg는 SVG filter를 그리지 않아 흰 원이 배경에 묻힌다.
+      // 시안 filter0_d_0_4 값으로 그림자를 따로 깐다.
+      final shadow = tester.widget<SvgDropShadow>(
+        find.descendant(
+          of: find.byKey(const ValueKey('add_plant')),
+          matching: find.byType(SvgDropShadow),
+        ),
+      );
+      expect(shadow.stdDeviation, 1.26204);
+      expect(shadow.opacity, 0.2);
     });
 
     testWidgets('하단 잔디가 화면 바닥에 붙는다 (4694:1454)', (tester) async {
