@@ -11,6 +11,8 @@ import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
+import 'support/device_view.dart';
+
 /// 시안(2319:2)이 그린 값 그대로의 가짜 세션. 화면이 세션에서 값을 읽으므로
 /// 좌표·문구 검증에는 고정된 사용자가 필요하다.
 User _mockUser() => User(
@@ -26,9 +28,7 @@ User _mockUser() => User(
 
 void main() {
   testWidgets('마이페이지 402x874 스냅샷', (tester) async {
-    tester.view.physicalSize = const Size(402, 874);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDeviceView(tester);
 
     await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
     await tester.pumpAndSettle();

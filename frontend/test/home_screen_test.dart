@@ -16,6 +16,8 @@ import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 
+import 'support/device_view.dart';
+
 /// 홈 캐릭터는 circle 바디라 circle 얼굴을 쓴다.
 const _defaultFace = 'assets/images/character/face_circle_default.png';
 const _happyFace = 'assets/images/character/face_circle_happy.png';
@@ -134,9 +136,7 @@ void main() {
   });
 
   testWidgets('센서 API 전에는 조도 습도 예시 수치를 표시하지 않는다', (tester) async {
-    tester.view.physicalSize = const Size(402, 874);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDeviceView(tester);
 
     await tester.pumpWidget(
       const MaterialApp(

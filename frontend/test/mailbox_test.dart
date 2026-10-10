@@ -6,6 +6,8 @@ import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/mailbox_screen.dart';
 
+import 'support/device_view.dart';
+
 PlantLetter letter({
   bool read = false,
   String id = 'one',
@@ -131,9 +133,7 @@ Future<void> launch(
   bool reduced = false,
   bool settleMailbox = true,
 }) async {
-  tester.view.physicalSize = const Size(402, 874);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  useDeviceView(tester);
   await tester.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -500,7 +500,7 @@ void main() {
       ),
     );
     expect(confirmation.left, closeTo(47, .01));
-    expect(confirmation.top, closeTo(357.5855, .01));
+    expect(confirmation.top, closeTo(363.5855, .01));
     expect(confirmation.width, closeTo(308, .01));
     expect(confirmation.height, closeTo(158.829, .01));
     await expectMailboxGolden(tester, 'goldens/mail_delete_confirm_402.png');

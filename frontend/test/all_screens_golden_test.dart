@@ -14,8 +14,9 @@ import 'package:yeso_plant/screens/plant_species_search_screen.dart';
 import 'package:yeso_plant/screens/signup_complete_screen.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+
+import 'support/device_view.dart';
 
 /// 골든은 값이 고정돼야 하므로 시안 그대로의 식물을 넘긴다.
 final _goldenPlant = HomePlant(
@@ -47,9 +48,7 @@ void main() {
   );
 
   Future<void> pumpGolden(WidgetTester tester, Widget screen) async {
-    tester.view.physicalSize = AppLayout.referenceViewport;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDeviceView(tester);
     await tester.pumpWidget(MaterialApp(theme: theme, home: screen));
     await tester.runAsync(() async {
       final context = tester.element(find.byType(MaterialApp));
