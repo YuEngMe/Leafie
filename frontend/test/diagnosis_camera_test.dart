@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/diagnosis_camera_screen.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 void _setUpView(WidgetTester tester) {
   tester.view.physicalSize = const Size(402, 874);
@@ -29,6 +30,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('쓸 수 있는 카메라가 없어요.'), findsOneWidget);
+    // 가운데 초점 십자가 문구를 가려서(HG-ISS-019) 오류일 땐 가이드를 숨긴다.
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader is SvgAssetLoader &&
+            (widget.bytesLoader as SvgAssetLoader).assetName ==
+                'assets/images/icon_camera_focus.svg',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('뒤로 꺾쇠와 꺼진 플래시는 시안(4534:20001) 값이다', (tester) async {
+    _setUpView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisCameraScreen(
+          openCameras: () async => const <CameraDescription>[],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 4534:20042 꺾쇠 x21.52 y60. 예전엔 6px 오른쪽, 3px 아래였다.
+    final back = tester.getRect(find.byType(FigmaBackChevron));
+    expect(back.left, closeTo(21.52, 0.5));
+    expect(back.top, closeTo(60, 0.5));
+    // 꺼진 상태도 시안처럼 흰 아이콘 그대로다(흐리게 덮지 않는다).
+    expect(
+      find.ancestor(
+        of: find.bySemanticsLabel('플래시 켜기'),
+        matching: find.byType(Opacity),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('앨범에서 고르면 그 사진을 돌려준다', (tester) async {

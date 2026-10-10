@@ -16,6 +16,12 @@ const double _kFocusBleed = 9;
 /// 이만큼 빼야 같은 자리에 앉는다.
 const double _kStatusBar = 46;
 
+/// 뒤로가기 IconButton(기본 48×48)이 꺾쇠 둘레에 두는 여백.
+final Offset _kBackPad = Offset(
+  (kMinInteractiveDimension - FigmaBackChevron.figmaSize.width) / 2,
+  (kMinInteractiveDimension - FigmaBackChevron.figmaSize.height) / 2,
+);
+
 /// 카메라를 열어 주는 함수. 테스트가 갈아끼운다.
 typedef CameraOpener = Future<List<CameraDescription>> Function();
 
@@ -171,26 +177,31 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
           // 4534:20026 초점 가이드 x66 y303 269.96×268.05. 미리보기와 같은
           // 절대 좌표계에 둬야 해서 SafeArea 밖에 얹는다. 내보낸 SVG
           // 캔버스(288×287)는 스트로크가 사방 9px씩 넘쳐 그만큼 보정한다.
-          Positioned(
-            left: 66 - _kFocusBleed,
-            top: 303 - _kFocusBleed,
-            width: 269.961 + _kFocusBleed * 2,
-            height: 268.052 + _kFocusBleed * 2,
-            child: IgnorePointer(
-              child: SvgPicture.asset(
-                'assets/images/icon_camera_focus.svg',
-                fit: BoxFit.fill,
+          // 카메라를 못 열었을 때(시안에 없는 상태)는 가운데 십자가 오류
+          // 문구를 가려서 가이드를 숨긴다(HG-ISS-019).
+          if (_error == null)
+            Positioned(
+              left: 66 - _kFocusBleed,
+              top: 303 - _kFocusBleed,
+              width: 269.961 + _kFocusBleed * 2,
+              height: 268.052 + _kFocusBleed * 2,
+              child: IgnorePointer(
+                child: SvgPicture.asset(
+                  'assets/images/icon_camera_focus.svg',
+                  fit: BoxFit.fill,
+                ),
               ),
             ),
-          ),
           // 시안은 상태바 위까지 미리보기가 찬다. 조작은 SafeArea 안에 둔다.
           SafeArea(
             child: Stack(
               children: [
-                // 4534:20042 뒤로가기 x21.5 y60 → 앱바 밴드(46) 기준 14.
+                // 4534:20042 뒤로가기 x21.52 y60 → 앱바 밴드(46) 기준 14.
+                // IconButton(48)이 꺾쇠를 가운데에 두므로 남는 여백만큼 당긴다.
+                // 예전엔 12씩만 빼 꺾쇠가 6px 오른쪽, 3px 아래에 앉았다.
                 Positioned(
-                  left: 21.5 - 12,
-                  top: 60 - _kStatusBar - 12,
+                  left: 21.52 - _kBackPad.dx,
+                  top: 60 - _kStatusBar - _kBackPad.dy,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const FigmaBackChevron(color: Colors.white),
@@ -292,18 +303,17 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
               ),
             ),
           ),
+          // 시안(꺼진 기본 상태)은 흰 아이콘 그대로다. 예전엔 꺼졌을 때
+          // 60%로 흐려 회색으로 보였다. 켠 상태는 시안이 없어 따로 꾸미지
+          // 않는다(손전등 불빛과 읽어 주는 이름으로 구분된다).
           Positioned(
             left: 325 - _IconButton.padFor(24.822),
             top: 774 - 761.234 - _IconButton.padFor(42.102),
-            child: Opacity(
-              // 켜져 있을 때만 또렷하게 둔다. 시안엔 켠 상태가 없다.
-              opacity: _flashOn ? 1 : 0.6,
-              child: _IconButton(
-                asset: 'assets/images/icon_camera_flash.svg',
-                size: const Size(24.822, 42.102),
-                label: _flashOn ? '플래시 끄기' : '플래시 켜기',
-                onTap: _toggleFlash,
-              ),
+            child: _IconButton(
+              asset: 'assets/images/icon_camera_flash.svg',
+              size: const Size(24.822, 42.102),
+              label: _flashOn ? '플래시 끄기' : '플래시 켜기',
+              onTap: _toggleFlash,
             ),
           ),
         ],
