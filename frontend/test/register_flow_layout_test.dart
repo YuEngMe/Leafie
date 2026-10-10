@@ -4,9 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
+import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
@@ -172,6 +175,77 @@ void main() {
       );
       expect(bar.step, want, reason: screen.runtimeType.toString());
     }
+  });
+
+  // 최신 시안(4534:22)은 등록을 5단계로 본다: 바디(5028:1193)와 컬러
+  // (4534:507) 모두 진행선이 끝까지 주황이다. 예전 앱은 컬러를 6단계로
+  // 따로 세어 바디 화면 물결 끝이 회색이었다.
+  testWidgets('꾸미기(바디·컬러)는 5단계 중 마지막 단계다', (tester) async {
+    for (final screen in <Widget>[
+      PlantRegisterBodyScreen(draft: _draft()),
+      PlantRegisterAppearanceScreen(draft: _draft()),
+    ]) {
+      await tester.pumpWidget(MaterialApp(home: screen));
+      await tester.pumpAndSettle();
+      final bar = tester.widget<RegisterProgressBar>(
+        find.byType(RegisterProgressBar),
+      );
+      expect(bar.step, 5, reason: screen.runtimeType.toString());
+      expect(bar.totalSteps, 5, reason: screen.runtimeType.toString());
+      expect(find.text('캐릭터 꾸미기'), findsOneWidget);
+    }
+  });
+
+  group('꾸미기 컬러 (4534:507)', () {
+    testWidgets('문구·헤드라인 가운데·휠·체크 배지·캐릭터 좌표', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: PlantRegisterAppearanceScreen(draft: _draft())),
+      );
+      await tester.pumpAndSettle();
+
+      // 4534:535 헤드라인은 가운데 정렬(중심 x 201).
+      final title = find.text('리피를 꾸며주세요!');
+      expect(tester.widget<Text>(title).textAlign, TextAlign.center);
+      expect(tester.getRect(title).center.dx, closeTo(201, 1));
+      expect(find.text('식물을 꾸며주세요!'), findsNothing);
+      // 하단 '선택 완료' 버튼과 안내 문구는 없다.
+      expect(find.byType(PrimaryButton), findsNothing);
+      expect(find.text('밀거나 눌러 컬러를 선택해주세요'), findsNothing);
+
+      // 처음 꼭대기 칸(중심 200, 655)은 옐로다(5038:6395 Ellipse 451).
+      final top = tester.getRect(
+        find.byKey(const ValueKey('appearance_color_yellow')),
+      );
+      expect(top.center.dx, closeTo(200, 1));
+      expect(top.center.dy, closeTo(655, 1));
+      // 체크 배지 5038:6407: 원 38x38이 x=181 y=777.
+      final check = tester.getRect(
+        find.byKey(const ValueKey('appearance_confirm')),
+      );
+      expect(check.center.dx, closeTo(181 + 19, 1));
+      expect(check.center.dy, closeTo(777 + 19, 1));
+
+      // 캐릭터는 편집 화면(5038:6460)과 같은 폭 182.4 · 박스 위 y=366.
+      // 예전에는 폭 200으로 약 10% 크고 9px 위였다.
+      final art = tester.getRect(find.byType(PlantCharacterArt));
+      expect(art.width, closeTo(182.4, 1));
+      expect(art.top, closeTo(366, 1));
+    });
+  });
+
+  group('꾸미기 바디 (5028:1193)', () {
+    testWidgets('헤드라인 가운데 정렬', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: PlantRegisterBodyScreen(draft: _draft())),
+      );
+      await tester.pumpAndSettle();
+      // 5028:1221 헤드라인은 가운데(중심 x 200.5).
+      final title = find.text('리피의 외형을 정해주세요!');
+      expect(tester.widget<Text>(title).textAlign, TextAlign.center);
+      expect(tester.getRect(title).center.dx, closeTo(201, 1));
+    });
   });
 
   // 시뮬레이터에서 키보드를 열면 "BOTTOM OVERFLOWED BY 123 PIXELS"가 떴다.

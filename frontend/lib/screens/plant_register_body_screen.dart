@@ -82,9 +82,10 @@ class _BodyState extends State<PlantRegisterBodyScreen> {
 
   @override
   Widget build(BuildContext context) => RegisterStepScaffold(
-    appBarTitle: '캐릭터 만들기',
+    appBarTitle: '캐릭터 꾸미기',
     step: 5,
     title: '리피의 외형을 정해주세요!',
+    centerTitle: true,
     subtitle: '',
     bottomButton: PrimaryButton(
       key: const ValueKey('body_confirm'),

@@ -4,6 +4,7 @@ import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
@@ -18,7 +19,7 @@ PlantRegistrationDraft draft() => PlantRegistrationDraft(
 );
 
 void main() {
-  testWidgets('컬러를 밀어 선택하면 헤어는 종 자동 매핑값으로 draft에 저장된다', (tester) async {
+  testWidgets('컬러 휠을 밀어 선택하면 헤어는 종 자동 매핑값으로 draft에 저장된다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
@@ -28,22 +29,22 @@ void main() {
       MaterialApp(home: PlantRegisterAppearanceScreen(draft: value)),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant,
-      PrimaryButtonVariant.disabled,
-    );
-    // 헤어 선택 UI는 없다 — 컬러 탭/헤어 탭 구분도, 헤어 피커도 없어졌다.
-    expect(find.text('헤어'), findsNothing);
-    expect(find.text('컬러'), findsNothing);
-    await tester.drag(find.byType(PageView), const Offset(-100, 0));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant,
-      PrimaryButtonVariant.enabled,
-    );
+    // 시안 4534:507에는 하단 버튼이 없고 휠의 체크 배지가 확정 버튼이다.
+    expect(find.byType(PrimaryButton), findsNothing);
+    // 색을 고르기 전에는 체크 배지를 눌러도 넘어가지 않는다(기존 비활성 규칙).
     await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
     await tester.pumpAndSettle();
-    expect(value.bodyColorId, isNotNull);
+    expect(find.byType(PlantRegisterCompleteScreen), findsNothing);
+    expect(value.bodyColorId, isNull);
+    // 헤어 탭은 없고, 시안의 '컬러' 라벨만 휠 위에 있다.
+    expect(find.text('헤어'), findsNothing);
+    expect(find.text('컬러'), findsOneWidget);
+    // 왼쪽으로 한 칸(88px) 밀면 오른쪽 옆 색(옐로 → 라이트 그린)이 꼭대기로 온다.
+    await tester.drag(find.byType(ColorWheelPicker), const Offset(-88, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
+    await tester.pumpAndSettle();
+    expect(value.bodyColorId, 'color_light_green');
     // HERB 카테고리 초안이라 자동 매칭 기본값(바질)이 사용자 개입 없이 저장된다.
     expect(value.headItem, 'hair_sprout');
     expect(find.byType(PlantRegisterCompleteScreen), findsOneWidget);
@@ -108,8 +109,6 @@ void main() {
       expect(button.bottom, lessThanOrEqualTo(size.height - 34));
       expect(button.left, greaterThanOrEqualTo(0));
       expect(button.right, lessThanOrEqualTo(size.width));
-      await tester.ensureVisible(find.byType(PageView));
-      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       if (size.width == 402) {
         await tester.runAsync(
