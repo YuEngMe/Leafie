@@ -98,6 +98,9 @@ void main() {
     // Material 캘린더가 아니라 시안 바텀시트가 떠야 한다.
     expect(find.byType(PlantDatePickerSheet), findsOneWidget);
     expect(find.byType(CalendarDatePicker), findsNothing);
+    // 시안 4534:877은 시트 뒤 화면을 어둡게 덮지 않는다.
+    final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
+    expect(barrier.color?.a ?? 0, 0);
 
     // 화면 하단에도 '다음'이 있으므로 시트 안의 것만 누른다.
     await tester.tap(

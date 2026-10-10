@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
-import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -49,11 +48,12 @@ class _PlantRegisterEnvironmentScreenState
 
   Future<void> _pickDate({required bool watered}) async {
     final current = watered ? _lastWateredOn : _lastRepottedOn;
-    // Figma node 2318:3831. 기본 캘린더 대신 시안의 휠 피커를 띄운다.
+    // 시안 4534:877. 기본 캘린더 대신 시안의 휠 피커를 띄운다.
+    // 시안은 시트 뒤 화면을 어둡게 덮지 않는다.
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: kModalBarrier,
+      barrierColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
       builder: (_) => PlantDatePickerSheet(

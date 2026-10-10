@@ -7,9 +7,11 @@ import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
+import 'package:yeso_plant/widgets/date_wheel_column.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
+import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 /// 내 캐릭터(식물 관리) 흐름 8프레임의 좌표·색·문구를 시안과 맞춘다.
@@ -512,7 +514,7 @@ void main() {
       await tester.drag(
         find.byKey(const ValueKey('date_day_wheel')),
         // 드래그 인식 여유(kDragSlopDefault 20)만큼 더 끈다.
-        const Offset(0, PlantDatePickerSheet.rowHeight + kDragSlopDefault),
+        const Offset(0, PlantDatePickerSheet.rowExtent + kDragSlopDefault),
       );
       await tester.pumpAndSettle();
       await tester.tap(
@@ -559,6 +561,101 @@ void main() {
         DateTime(today.year, today.month, today.day),
       );
       expect(repository.sentRepottedOn, isNull);
+    });
+
+    testWidgets('4534:20112 날짜 시트: 딤 없음·핸들바 없음·띠 색', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('plant_watered_field')));
+      await tester.pumpAndSettle();
+
+      // 시안은 시트 뒤 화면을 어둡게 덮지 않는다. 투명 딤이면 라우트가
+      // 색 없는 ModalBarrier를 깐다.
+      final barrier = tester.widget<ModalBarrier>(
+        find.byType(ModalBarrier).last,
+      );
+      expect(barrier.color?.a ?? 0, 0);
+
+      // 회색 핸들바(4534:20157)는 시안에서 시트 아래에 깔려 보이지 않는다.
+      final handles = find.descendant(
+        of: find.byType(PlantDatePickerSheet),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).color ==
+                  const Color(0xFF8E8E8E),
+        ),
+      );
+      expect(handles, findsNothing);
+
+      // 4534:20178 띠 rgba(255,197,136,0.42), (1, 647.66) 399.954x39.686.
+      // 그림자는 띠 바깥에만 그려 반투명 바탕 밑으로 비치지 않는다.
+      final band = find.descendant(
+        of: find.byType(PlantDatePickerSheet),
+        matching: find.byType(DateWheelHighlight),
+      );
+      final bandRect = tester.getRect(band);
+      expect(bandRect.left, closeTo(1, .01));
+      expect(bandRect.top, closeTo(647.664, .01));
+      expect(bandRect.width, closeTo(399.954, .01));
+      expect(bandRect.height, closeTo(39.686, .01));
+      expect(
+        tester.widget<DateWheelHighlight>(band).color,
+        const Color(0x6BFFC588),
+      );
+    });
+
+    testWidgets('4534:20112 날짜 휠: 열 x와 고른 줄 위아래 간격', (tester) async {
+      // 위아래 두 줄씩 다 보이도록 열마다 가운데 값을 고른다.
+      final year = DateTime.now().year - 2;
+      final plant = _plant().copyWith(lastRepottedOn: DateTime(year, 6, 15));
+      await _pumpScreen(
+        tester,
+        PlantEditInfoScreen(plant: plant, repository: _FakeRepository([plant])),
+      );
+      await tester.tap(find.byKey(const ValueKey('plant_repotted_field')));
+      await tester.pumpAndSettle();
+
+      // 시트 안에서 화면에 보이는 줄(시트 549~790)만 고른다.
+      List<Rect> rows(String wheelKey) {
+        final rects = find
+            .descendant(
+              of: find.byKey(ValueKey(wheelKey)),
+              matching: find.byType(Text),
+            )
+            .evaluate()
+            .map((element) => tester.getRect(find.byWidget(element.widget)))
+            .where((rect) => rect.center.dy > 560 && rect.center.dy < 780)
+            .toList();
+        return rects..sort((a, b) => a.top.compareTo(b.top));
+      }
+
+      // 4534:20161~20182 글자 중심 y. 고른 줄 위 45.03, 아래 47.18,
+      // 나머지 38.61 간격이다.
+      const centers = [582.79, 621.40, 666.43, 713.61, 752.23];
+      for (final key in [
+        'date_year_wheel',
+        'date_month_wheel',
+        'date_day_wheel',
+      ]) {
+        final visible = rows(key);
+        expect(visible.length, 5, reason: key);
+        for (var i = 0; i < 5; i++) {
+          expect(visible[i].center.dy, _closeTo1px(centers[i]), reason: key);
+        }
+      }
+
+      // 연도는 왼쪽 정렬 x=60(고른 줄 60.33), 월·일은 중심 201.16 / 320.84.
+      for (final rect in rows('date_year_wheel')) {
+        expect(rect.left, _closeTo1px(60));
+      }
+      for (final rect in rows('date_month_wheel')) {
+        expect(rect.center.dx, _closeTo1px(201.16));
+      }
+      for (final rect in rows('date_day_wheel')) {
+        expect(rect.center.dx, _closeTo1px(320.84));
+      }
     });
   });
 

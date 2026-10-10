@@ -4,11 +4,11 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-/// 시안 2555:661 "캐릭터 상세_정보수정 1" + 2568:1639 "정보수정 2"(날짜 시트).
+/// 시안 2555:661 "캐릭터 상세_정보수정 1" + 4534:20112 "정보수정 4"(날짜 시트).
 ///
 /// 4필드 폼: 닉네임 / 장소(별명) / 마지막 물 준 날 / 분갈이 한 날.
 /// 라벨 x=45, 입력칸 x=34 w=334 h=51, 라벨 피치 110. 하단 '수정하기' y=790.
@@ -64,17 +64,24 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
       ? a == b
       : a.year == b.year && a.month == b.month && a.day == b.day;
 
-  /// 시안 2568:1639 "정보수정 2" 날짜 시트를 띄운다. 기록이 없으면 오늘에서
+  /// 시안 4534:20112 "정보수정 4" 날짜 시트를 띄운다. 기록이 없으면 오늘에서
   /// 시작한다. 서버가 미래 날짜를 받지 않으므로 여기서 먼저 막는다.
+  /// 시안은 시트 뒤 화면을 어둡게 덮지 않는다.
   Future<void> _pickDate({required bool watered}) async {
     final current = watered ? _wateredOn : _repottedOn;
+    final thisYear = DateTime.now().year;
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: kModalBarrier,
+      barrierColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
-      builder: (_) => PlantDatePickerSheet(initialDate: current ?? _todayInSeoul()),
+      builder: (_) => PlantDatePickerSheet(
+        initialDate: current ?? _todayInSeoul(),
+        buttonLabel: '수정하기',
+        firstYear: thisYear - 20,
+        lastYear: thisYear,
+      ),
     );
     if (!mounted || picked == null) return;
     if (DateTime(
@@ -237,240 +244,6 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
           const SizedBox(height: 5),
           SizedBox(height: 51, child: child),
         ],
-      ),
-    );
-  }
-}
-
-/// 시안 2568:1683 "정보수정 2"의 날짜 피커 시트.
-///
-/// 시트(2568:1686)는 **오렌지 #FFB52A**에 위 모서리만 35 굴린 402x325이고,
-/// 글자는 흰색 80%, 고른 줄만 흰 반투명 알약(2568:1706) 위에 흰 18 SemiBold,
-/// 아래 버튼(2568:1711)은 흰 배경에 오렌지 글자다. 시트 자체가 화면 바닥에
-/// 붙으므로 하단 SafeArea는 시트 안에서 더하지 않는다 — 그렇게 하면 시트가
-/// 시안보다 34px 커지고 버튼이 휠 위로 밀려 올라간다.
-class PlantDatePickerSheet extends StatefulWidget {
-  const PlantDatePickerSheet({super.key, this.initialDate});
-
-  final DateTime? initialDate;
-
-  /// 2568:1686. 시트 높이 325(시안 y=549..874).
-  static const double sheetHeight = 325;
-
-  /// 2568:1706 강조 줄. 시트 top 549 기준 y=647.66, 높이 39.686.
-  static const double rowHeight = 39.686;
-  static const double highlightTop = 647.664 - 549;
-
-  /// 2568:1711 버튼. 시트 안 y=790-549=241, 334x51.
-  static const double buttonTop = 790 - 549;
-
-  @override
-  State<PlantDatePickerSheet> createState() => _PlantDatePickerSheetState();
-}
-
-class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
-  late DateTime _selected = widget.initialDate ?? DateTime.now();
-
-  /// 2568:1686 시트 바탕.
-  static const Color _sheetOrange = kOrangeMain;
-
-  /// 2568:1706 고른 줄 알약. rgba(255,197,136,0.42).
-  static const Color _highlight = Color(0x6BFFC588);
-
-  /// 하루 수는 달마다 다르다. 31일에 2월로 넘기면 날짜를 끝날로 당긴다.
-  void _update({int? year, int? month, int? day}) {
-    final y = year ?? _selected.year;
-    final m = month ?? _selected.month;
-    final lastDay = DateTime(y, m + 1, 0).day;
-    final d = (day ?? _selected.day).clamp(1, lastDay);
-    setState(() => _selected = DateTime(y, m, d));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final thisYear = DateTime.now().year;
-    // 휠은 강조 줄 위아래로 2줄씩 보인다(2568:1687~1704).
-    const wheelHeight = PlantDatePickerSheet.rowHeight * 5;
-    return Container(
-      height: PlantDatePickerSheet.sheetHeight,
-      decoration: const BoxDecoration(
-        color: _sheetOrange,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
-        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 5)],
-      ),
-      child: Stack(
-        children: [
-          // 강조 줄 2568:1706. x=1 w=399.95 radius 20.
-          Positioned(
-            left: 1,
-            width: 399.954,
-            top: PlantDatePickerSheet.highlightTop,
-            height: PlantDatePickerSheet.rowHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: _highlight,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x2E000000), blurRadius: 4),
-                ],
-              ),
-            ),
-          ),
-          // 년·월·일 세 휠. 강조 줄이 가운데 오도록 위로 2줄만큼 올린다.
-          Positioned(
-            left: 0,
-            right: 0,
-            top:
-                PlantDatePickerSheet.highlightTop -
-                PlantDatePickerSheet.rowHeight * 2,
-            height: wheelHeight,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Wheel(
-                    key: const ValueKey('date_year_wheel'),
-                    values: [for (var y = thisYear - 20; y <= thisYear; y++) y],
-                    selected: _selected.year,
-                    suffix: '년',
-                    onChanged: (value) => _update(year: value),
-                  ),
-                ),
-                Expanded(
-                  child: _Wheel(
-                    key: const ValueKey('date_month_wheel'),
-                    values: [for (var m = 1; m <= 12; m++) m],
-                    selected: _selected.month,
-                    suffix: '월',
-                    onChanged: (value) => _update(month: value),
-                  ),
-                ),
-                Expanded(
-                  child: _Wheel(
-                    key: const ValueKey('date_day_wheel'),
-                    values: [
-                      for (
-                        var d = 1;
-                        d <=
-                            DateTime(
-                              _selected.year,
-                              _selected.month + 1,
-                              0,
-                            ).day;
-                        d++
-                      )
-                        d,
-                    ],
-                    selected: _selected.day,
-                    suffix: '일',
-                    onChanged: (value) => _update(day: value),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 버튼 2568:1711. 흰 배경 + 오렌지 글자라 PrimaryButton의 background를
-          // 뒤집어 쓴다. SafeArea는 시트가 이미 바닥에 붙어 있어 넣지 않는다.
-          Positioned(
-            left: 34,
-            width: 334,
-            top: PlantDatePickerSheet.buttonTop,
-            height: 51,
-            child: PrimaryButton(
-              label: '수정하기',
-              variant: PrimaryButtonVariant.enabled,
-              background: kBackgroundWhite,
-              textStyle: kButtonStyle.copyWith(color: kOrangeMain),
-              onPressed: () => Navigator.of(context).pop(_selected),
-            ),
-          ),
-          // 핸들바 2568:1685. 시트 안 y=846.11-549.
-          Positioned(
-            left: 120.702,
-            width: 160.595,
-            top: 846.112 - 549,
-            height: 6.436,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E8E8E),
-                borderRadius: BorderRadius.circular(3.218),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 한 자리 숫자 휠. 시안(2568:1687~1710)은 위아래 2줄씩 흐리게 보인다.
-/// 안 고른 줄은 흰색 80% 16 Medium, 고른 줄은 흰색 18 SemiBold.
-class _Wheel extends StatefulWidget {
-  const _Wheel({
-    super.key,
-    required this.values,
-    required this.selected,
-    required this.suffix,
-    required this.onChanged,
-  });
-
-  final List<int> values;
-  final int selected;
-  final String suffix;
-  final ValueChanged<int> onChanged;
-
-  @override
-  State<_Wheel> createState() => _WheelState();
-}
-
-class _WheelState extends State<_Wheel> {
-  late final FixedExtentScrollController _controller =
-      FixedExtentScrollController(
-        initialItem: widget.values.indexOf(widget.selected).clamp(
-          0,
-          widget.values.length - 1,
-        ),
-      );
-
-  @override
-  void didUpdateWidget(_Wheel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 달을 바꿔 날짜 수가 줄면 휠이 범위를 벗어나므로 되돌려 놓는다.
-    final index = widget.values.indexOf(widget.selected);
-    if (index >= 0 && _controller.hasClients && _controller.selectedItem != index) {
-      _controller.jumpToItem(index);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListWheelScrollView.useDelegate(
-      controller: _controller,
-      itemExtent: PlantDatePickerSheet.rowHeight,
-      diameterRatio: 100,
-      physics: const FixedExtentScrollPhysics(),
-      onSelectedItemChanged: (i) => widget.onChanged(widget.values[i]),
-      childDelegate: ListWheelChildBuilderDelegate(
-        childCount: widget.values.length,
-        builder: (context, i) {
-          final selected = widget.values[i] == widget.selected;
-          return Center(
-            child: Text(
-              '${widget.values[i]}${widget.suffix}',
-              style: TextStyle(
-                fontFamily: kFontFamily,
-                fontSize: selected ? 18 : 16,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.8),
-              ),
-            ),
-          );
-        },
       ),
     );
   }

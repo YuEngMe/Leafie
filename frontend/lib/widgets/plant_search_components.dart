@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/date_wheel_column.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
 /// Figma node 2318:3777. 사진 인식 결과를 보여주는 폴라로이드 카드.
@@ -296,28 +297,78 @@ class _ViewfinderPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// Figma node 2318:3831. 연·월·일 휠 세 개를 담은 날짜 선택 바텀시트.
+/// 연·월·일 휠 세 개를 담은 주황 날짜 선택 바텀시트.
+///
+/// 식물 등록(4534:877 "캐릭터 등록9")과 캐릭터 정보 수정(4534:20112
+/// "정보수정 4")이 같은 시트를 쓴다. 두 시안은 버튼 문구('다음'/'수정하기')만
+/// 다르고 시트·휠·띠 값이 모두 같다. 아래 좌표는 시트 top(y=549) 기준이다.
+///
+/// 시트 뒤 회색 핸들바(4534:919/4534:20157)는 시안에서 시트 아래 레이어라
+/// 보이지 않으므로 그리지 않는다. 시트가 화면 바닥에 붙으므로 하단
+/// SafeArea는 시트 안에서 더하지 않는다 — 더하면 시트가 34px 커지고 버튼이
+/// 휠 위로 밀려 올라간다.
 class PlantDatePickerSheet extends StatefulWidget {
   const PlantDatePickerSheet({
     super.key,
     required this.initialDate,
     this.maximumDate,
+    this.buttonLabel = '다음',
+    this.firstYear = 2015,
+    this.lastYear = 2035,
   });
 
   final DateTime initialDate;
+
+  /// 이 날짜 뒤를 고르고 버튼을 누르면 닫지 않고 안내만 띄운다.
   final DateTime? maximumDate;
+
+  final String buttonLabel;
+  final int firstYear;
+  final int lastYear;
+
+  /// 4534:920 시트 402x325.
+  static const double sheetHeight = 325;
+
+  /// 고르지 않은 줄끼리의 간격. 4534:20161→20165 글자 중심 582.79→621.40.
+  static const double rowExtent = 38.61;
+
+  /// 고른 줄 글자 중심(666.43)과 위·아래 줄(621.40 / 713.61)의 간격이
+  /// [rowExtent]보다 넓은 만큼. 45.03-38.61, 47.18-38.61.
+  static const double gapAbove = 6.42;
+  static const double gapBelow = 8.57;
+
+  /// 고른 줄 글자 중심. 4534:20181 666.43-549.
+  static const double selectedCenter = 117.43;
+
+  /// 4534:940 띠. y=647.664, 39.686 높이, x=1 w=399.954.
+  static const double highlightTop = 647.664 - 549;
+  static const double highlightHeight = 39.686;
+
+  /// 4534:945 버튼. y=790.
+  static const double buttonTop = 790 - 549;
+
+  /// 연도는 왼쪽 정렬 x=60(고른 줄 60.33), 월·일은 가운데 정렬
+  /// x=201.16 / 320.84(4534:20161~20182).
+  static const double yearLeft = 60;
+  static const double monthCenter = 201.16;
+  static const double dayCenter = 320.84;
 
   @override
   State<PlantDatePickerSheet> createState() => _PlantDatePickerSheetState();
 }
 
 class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
-  /// 시트 크기와 내부 좌표(2318:3803).
-  static const double _sheetHeight = 325;
-  static const double _rowExtent = 38.61;
-  static const double _bandHeight = 39.69;
+  /// 4534:940 rgba(255,197,136,0.42). 주황 위에 겹쳐 #FFBC51로 보인다.
+  static const Color _highlight = Color(0x6BFFC588);
 
-  late int _year = widget.initialDate.year;
+  /// 휠 영역 반높이. 위아래 둘째 줄(가운데에서 83.64 / 85.75)까지 보이고
+  /// 셋째 줄은 시트 위 가장자리·버튼에 비치지 않게 자른다.
+  static const double _wheelHalfHeight = 105;
+
+  late final int _firstYear = widget.firstYear;
+  late final int _lastYear = widget.lastYear;
+
+  late int _year = widget.initialDate.year.clamp(_firstYear, _lastYear);
   late int _month = widget.initialDate.month;
   late int _day = widget.initialDate.day;
 
@@ -330,9 +381,6 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
   late final _dayController = FixedExtentScrollController(
     initialItem: _day - 1,
   );
-
-  static const int _firstYear = 2015;
-  static const int _lastYear = 2035;
 
   int get _daysInMonth => DateTime(_year, _month + 1, 0).day;
 
@@ -368,7 +416,7 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _sheetHeight,
+      height: PlantDatePickerSheet.sheetHeight,
       decoration: const BoxDecoration(
         color: kOrangeMain,
         borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
@@ -376,71 +424,64 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
       ),
       child: Stack(
         children: [
-          // 선택 밴드(2318:3823)는 휠 뒤에 깔린다.
-          Positioned(
+          // 선택 띠(4534:940)는 휠 뒤에 깔린다.
+          const Positioned(
             left: 1,
-            right: 1,
-            top: 98.66,
-            height: _bandHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFC588).withValues(alpha: 0.42),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x2E000000), blurRadius: 4),
-                ],
-              ),
+            width: 399.954,
+            top: PlantDatePickerSheet.highlightTop,
+            height: PlantDatePickerSheet.highlightHeight,
+            child: DateWheelHighlight(
+              color: _highlight,
+              shadow: BoxShadow(color: Color(0x2E000000), blurRadius: 4),
+              borderRadius: BorderRadius.all(Radius.circular(20)),
             ),
           ),
-          // Figma는 선택 행 위아래로 두 줄씩, 모두 다섯 줄만 보여준다.
-          Positioned(
+          _column(
+            key: const ValueKey('date_year_wheel'),
             left: 0,
-            right: 0,
-            top: 98.66 + _bandHeight / 2 - _rowExtent * 2.5,
-            height: _rowExtent * 5,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _DateWheel(
-                    controller: _yearController,
-                    itemCount: _lastYear - _firstYear + 1,
-                    labelBuilder: (index) => '${_firstYear + index}년',
-                    onSelected: (index) => setState(() {
-                      _year = _firstYear + index;
-                      _clampDay();
-                    }),
-                  ),
-                ),
-                Expanded(
-                  child: _DateWheel(
-                    controller: _monthController,
-                    itemCount: 12,
-                    labelBuilder: (index) => '${index + 1}월',
-                    onSelected: (index) => setState(() {
-                      _month = index + 1;
-                      _clampDay();
-                    }),
-                  ),
-                ),
-                Expanded(
-                  child: _DateWheel(
-                    controller: _dayController,
-                    itemCount: _daysInMonth,
-                    labelBuilder: (index) => '${index + 1}일',
-                    onSelected: (index) => setState(() => _day = index + 1),
-                  ),
-                ),
-              ],
+            width: 146,
+            controller: _yearController,
+            itemCount: _lastYear - _firstYear + 1,
+            label: (index) => '${_firstYear + index}년',
+            alignment: Alignment.centerLeft,
+            // 연도만 왼쪽 정렬이다. 고른 줄은 0.33 더 들어간다.
+            padding: (selected) => EdgeInsets.only(
+              left: PlantDatePickerSheet.yearLeft + (selected ? 0.33 : 0),
             ),
+            onSelected: (index) => setState(() {
+              _year = _firstYear + index;
+              _clampDay();
+            }),
           ),
-          // 확정 버튼(2318:3828)은 흰 바탕에 오렌지 글씨로 색이 반전된다.
+          _column(
+            key: const ValueKey('date_month_wheel'),
+            left: PlantDatePickerSheet.monthCenter - 55.16,
+            width: 110.32,
+            controller: _monthController,
+            itemCount: 12,
+            label: (index) => '${index + 1}월',
+            onSelected: (index) => setState(() {
+              _month = index + 1;
+              _clampDay();
+            }),
+          ),
+          _column(
+            key: const ValueKey('date_day_wheel'),
+            left: PlantDatePickerSheet.dayCenter - 64.52,
+            width: 129.04,
+            controller: _dayController,
+            itemCount: _daysInMonth,
+            label: (index) => '${index + 1}일',
+            onSelected: (index) => setState(() => _day = index + 1),
+          ),
+          // 확정 버튼(4534:945)은 흰 바탕에 오렌지 글씨로 색이 반전된다.
           Positioned(
             left: 34,
-            top: 241,
+            top: PlantDatePickerSheet.buttonTop,
             right: 34,
             height: AppLayout.onboardingControlHeight,
             child: PrimaryButton(
-              label: '다음',
+              label: widget.buttonLabel,
               variant: PrimaryButtonVariant.enabled,
               height: AppLayout.onboardingControlHeight,
               background: kBackgroundWhite,
@@ -456,70 +497,52 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
               },
             ),
           ),
-          // 드래그 핸들(2318:3802).
-          Positioned(
-            left: 120.7,
-            top: 297.11,
-            width: 160.6,
-            height: 6.44,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E8E8E),
-                borderRadius: BorderRadius.circular(2.5),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  static const double rowExtent = _rowExtent;
-}
-
-class _DateWheel extends StatelessWidget {
-  const _DateWheel({
-    required this.controller,
-    required this.itemCount,
-    required this.labelBuilder,
-    required this.onSelected,
-  });
-
-  final FixedExtentScrollController controller;
-  final int itemCount;
-  final String Function(int index) labelBuilder;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListWheelScrollView.useDelegate(
-      controller: controller,
-      itemExtent: _PlantDatePickerSheetState.rowExtent,
-      physics: const FixedExtentScrollPhysics(),
-      onSelectedItemChanged: onSelected,
-      // 시안은 원근 왜곡 없이 평평하게 쌓인다.
-      perspective: 0.001,
-      childDelegate: ListWheelChildBuilderDelegate(
-        childCount: itemCount,
-        builder: (context, index) => Center(
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              final selected =
-                  controller.hasClients && controller.selectedItem == index;
-              return Text(
-                labelBuilder(index),
-                style: TextStyle(
-                  fontFamily: kFontFamily,
-                  fontSize: selected ? 18 : 16,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? kBackgroundWhite
-                      : kBackgroundWhite.withValues(alpha: 0.8),
-                  height: 1,
-                ),
-              );
-            },
+  /// 휠 한 열. 휠 가운데가 고른 줄 글자 중심에 오도록 놓는다.
+  Widget _column({
+    required Key key,
+    required double left,
+    required double width,
+    required FixedExtentScrollController controller,
+    required int itemCount,
+    required String Function(int index) label,
+    required ValueChanged<int> onSelected,
+    Alignment alignment = Alignment.center,
+    EdgeInsets Function(bool selected)? padding,
+  }) {
+    return Positioned(
+      left: left,
+      width: width,
+      top: PlantDatePickerSheet.selectedCenter - _wheelHalfHeight,
+      height: _wheelHalfHeight * 2,
+      child: DateWheelColumn(
+        key: key,
+        controller: controller,
+        itemCount: itemCount,
+        itemExtent: PlantDatePickerSheet.rowExtent,
+        gapAbove: PlantDatePickerSheet.gapAbove,
+        gapBelow: PlantDatePickerSheet.gapBelow,
+        onSelectedItemChanged: onSelected,
+        itemBuilder: (context, index, selected) => Padding(
+          padding: padding?.call(selected) ?? EdgeInsets.zero,
+          child: Align(
+            alignment: alignment,
+            child: Text(
+              label(index),
+              style: TextStyle(
+                fontFamily: kFontFamily,
+                fontSize: selected ? 18 : 16,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected
+                    ? kBackgroundWhite
+                    : kBackgroundWhite.withValues(alpha: 0.8),
+                height: 1,
+              ),
+            ),
           ),
         ),
       ),
