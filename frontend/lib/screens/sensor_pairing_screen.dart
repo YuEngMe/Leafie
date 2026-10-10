@@ -279,6 +279,8 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
               key: ValueKey('sensor_device_${device.deviceId}'),
               device: device,
               trailing: sensorSignalLabel(device.rssi),
+              // 신호세기(4534:21033)는 x239·폭 69라 오른쪽 끝이 26 안쪽이다.
+              trailingInset: 26,
               onTap: () => _selectDevice(device),
             ),
           ],
@@ -342,7 +344,7 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
     );
   }
 
-  /// 20·19 (5728:5849 / 5728:5711) 이 기기가 맞나요? + 기기 PIN.
+  /// 19 (5728:5711) 이 기기가 맞나요? + 기기 PIN.
   Widget _confirmDevice(SensorBleDevice device, {required bool wrongPin}) {
     final ready = isValidSensorPin(_pin.text);
     return SensorStepScaffold(
@@ -444,8 +446,9 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
               textInputAction: TextInputAction.done,
             ),
           ),
-          // 비밀번호 칸 bottom 405 → 안내 top 427.
-          const SizedBox(height: 22),
+          // 비밀번호 칸 bottom 405 → 안내 top 427(4534:21099). Flutter의 14px
+          // 글자 상자가 20으로 시안(16)보다 4 커서 글자가 시안에 맞게 2 덜 띄운다.
+          const SizedBox(height: 20),
           const _WifiNotice(),
         ],
       ),
@@ -455,15 +458,24 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
 
   /// 6-1 (4534:21257) Wi-Fi 연결에 실패했어요.
   Widget _wifiFailed(SensorPairingWifiInput state) {
-    final subtitle = switch (state.lastFailure) {
-      SensorWifiStatus.networkNotFound => 'Wi-Fi를 찾지 못했어요. 이름을 확인해주세요.',
-      SensorWifiStatus.authError => '비밀번호가 올바른지 확인해주세요.',
-      _ => '공유기가 2.4GHz인지, 비밀번호가 맞는지 확인해주세요.',
+    // 부제(4534:21280)는 1 1·11의 회색 14가 아니라 본문 16 Regular 진한
+    // 텍스트다. 시안에 없는 기타 실패 문구는 16이면 한 줄(337)을 넘어
+    // 부제 상자(23)에서 잘리므로 회색 14로 둔다.
+    final (subtitle, subtitleStyle) = switch (state.lastFailure) {
+      SensorWifiStatus.networkNotFound => (
+        'Wi-Fi를 찾지 못했어요. 이름을 확인해주세요.',
+        kSensorSubtitleStyle,
+      ),
+      SensorWifiStatus.authError => (
+        '비밀번호가 올바른지 확인해주세요.',
+        kSensorSubtitleStyle,
+      ),
+      _ => ('공유기가 2.4GHz인지, 비밀번호가 맞는지 확인해주세요.', kSensorHintStyle),
     };
     return SensorStepScaffold(
       title: 'WI-FI 연결에 실패했어요',
       subtitle: subtitle,
-      subtitleStyle: kSensorHintStyle,
+      subtitleStyle: subtitleStyle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -556,7 +568,8 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
             const SensorFieldLabel('Wi-Fi', color: kOrange),
             SensorPillRow(
               child: Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20),
+                // '상태: 정상'(4534:21340)은 x256·폭 48이라 오른쪽 끝이 30 안쪽이다.
+                padding: const EdgeInsets.only(left: 20, right: 30),
                 child: Row(
                   children: [
                     Expanded(
@@ -781,7 +794,7 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
     );
   }
 
-  /// 18·19·20 하단 두 버튼(149.28 x 44, 좌 38 / 우 214.72).
+  /// 18·19 하단 두 버튼(149.28 x 44, 좌 38 / 우 214.72, top 790).
   Widget _pairButtons({
     required String primaryLabel,
     required VoidCallback? onPrimary,
@@ -789,7 +802,9 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
     required VoidCallback onSecondary,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      // 19(5728:5733)는 높이 44 버튼을 51 버튼과 같은 top 790에 둔다. 하단은
+      // 안전영역 위(840)에 붙으므로 바닥을 834로 6 띄운다.
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -849,7 +864,8 @@ class _WifiNotice extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          // 둘째 줄 top 453(4534:21100). 첫 줄 상자가 시안보다 4 커서 8만 띄운다.
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.only(left: 13),
             child: Text(

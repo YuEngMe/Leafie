@@ -163,11 +163,16 @@ class SensorDeviceRow extends StatelessWidget {
     super.key,
     required this.device,
     required this.trailing,
+    this.trailingInset = 20,
     this.onTap,
   });
 
   final SensorBleDevice device;
   final String trailing;
+
+  /// 오른쪽 작은 글씨의 오른쪽 끝이 행 오른쪽에서 들어온 거리. 화면마다
+  /// 다르다(19 기기번호 20, 1 1 신호세기 26).
+  final double trailingInset;
   final VoidCallback? onTap;
 
   @override
@@ -175,7 +180,7 @@ class SensorDeviceRow extends StatelessWidget {
     return SensorPillRow(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(left: 22, right: 20),
+        padding: EdgeInsets.only(left: 22, right: trailingInset),
         child: Row(
           children: [
             SvgPicture.asset(
@@ -305,24 +310,31 @@ class SensorProgressList extends StatelessWidget {
                 ),
               SizedBox(
                 height: index == 0 ? 33 : 31,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 23,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _mark(mark),
+                // 시안(4534:21156·4534:21208)은 구분선을 32 간격(267·299·…),
+                // 글자·표시를 31 간격(245·276·…)에 둔다. 행은 구분선에 맞췄으니
+                // 글자·표시를 둘째 행부터 행마다 1씩 끌어올린다. 첫 행(33)은
+                // 가운데가 시안보다 1 위라 1 내린다.
+                child: Transform.translate(
+                  offset: Offset(0, index == 0 ? 1 : -index.toDouble()),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 23,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _mark(mark),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 11),
-                    Text(
-                      label,
-                      style: kSmallStyle.copyWith(
-                        color: kTextDark,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(width: 11),
+                      Text(
+                        label,
+                        style: kSmallStyle.copyWith(
+                          color: kTextDark,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
