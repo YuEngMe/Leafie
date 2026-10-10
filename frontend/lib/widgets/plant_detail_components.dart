@@ -16,8 +16,15 @@ const double _kAppBarBand = 46 + YesoAppBar.height;
 /// 윗선의 잔디 질감과 새싹 두 포기는 좌표로 옮기면 근사치가 되므로 시안
 /// 프레임 렌더(y=770..845)를 그대로 잘라 쓴다. 에셋 안에서 초록 밴드는
 /// 위에서 36px 아래에 시작하므로, 밴드가 시안 y=806에 오도록 770에 건다.
+///
+/// 에셋 아래 10줄(y 835~845)에는 시안 폰 프레임의 둥근 모서리가 회색으로
+/// 찍혀 있어 위 64줄만 쓴다. 밴드(4534:7394 y=806, 높이 75)는 화면 바닥
+/// 아래까지 이어지므로 그 밑은 같은 색을 화면 끝까지 깐다. 예전엔 845에서
+/// 끝나 바닥에 흰 띠 29가 남았다.
 const double _kGrassAssetTop = 770;
 const double _kGrassAssetHeight = 75;
+const double _kGrassAssetCleanHeight = 64;
+const double _kGrassBandTop = 806;
 
 /// `PlantCharacterArt(width:)`는 circle 몸통을 `width × 0.897` 폭으로 그린다
 /// (둘레는 그림자 여백). 시안 노드 폭을 넣으면 몸통이 그 폭으로 보이는
@@ -45,18 +52,34 @@ class PlantDetailBody extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (showGrass)
+          if (showGrass) ...[
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: _kGrassBandTop - _kAppBarBand,
+              bottom: 0,
+              child: ColoredBox(color: kAppleGreen),
+            ),
             Positioned(
               left: 0,
               right: 0,
               top: _kGrassAssetTop - _kAppBarBand,
-              height: _kGrassAssetHeight,
-              child: Image.asset(
-                'assets/images/plant_detail_grass.png',
-                fit: BoxFit.fill,
-                excludeFromSemantics: true,
+              height: _kGrassAssetCleanHeight,
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  maxHeight: _kGrassAssetHeight,
+                  child: Image.asset(
+                    'assets/images/plant_detail_grass.png',
+                    height: _kGrassAssetHeight,
+                    width: double.infinity,
+                    fit: BoxFit.fill,
+                    excludeFromSemantics: true,
+                  ),
+                ),
               ),
             ),
+          ],
           ...children,
         ],
       ),

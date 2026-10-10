@@ -254,6 +254,19 @@ void main() {
       ),
     );
 
+    testWidgets('잔디 밴드가 화면 바닥까지 이어진다(4534:7394 y=806)', (tester) async {
+      await pump(tester);
+
+      final band = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) => widget is ColoredBox && widget.color == kAppleGreen,
+        ),
+      );
+      expect(band.top, _closeTo1px(806));
+      expect(band.bottom, 874);
+      expect(band.width, 402);
+    });
+
     testWidgets('제목·닉네임·함께한 지·캐릭터 좌표', (tester) async {
       await pump(tester);
 
