@@ -61,11 +61,12 @@ abstract final class AppLayout {
   /// 회원가입(2307:933) 첫 라벨 top 145 = 앱바 92 + 53. 재설정(2307:1502)도 같다.
   static const double authFormTopPadding = 53;
 
-  /// 재설정 완료(4534:2261) 문구 상자 top 387 − 본문 시작(상태바 46 +
-  /// authFormTopPadding 53). 시안 headline 상자는 388(높이 48)이지만 글자가
-  /// 390에 찍히고, Flutter 두 줄 상자(행간 25)는 글자 위 여백이 3이다.
-  /// 위아래 Spacer로 가운데에 두면 시안보다 32px 아래였다.
-  static const double passwordResetDoneTitleGap = 288;
+  /// 재설정 완료(4534:2261) 문구 상자 top 388 − 본문 시작(상태바 46 +
+  /// authFormTopPadding 53). 시안 headline 상자는 388(높이 48)이고 글자가
+  /// 391에 찍힌다. Flutter 두 줄 상자(20px, 줄 24)도 글자 위 여백이 3이라
+  /// 상자를 시안 자리에 둔다. 위아래 Spacer로 가운데에 두면 시안보다 32px
+  /// 아래였다.
+  static const double passwordResetDoneTitleGap = 289;
 
   /// 라벨은 입력칸보다 11px 들여쓴다(x34 → x45). 모든 흐름 공통.
   static const double inputLabelIndent = 11;
@@ -88,9 +89,9 @@ abstract final class AppLayout {
   /// 둬야 글자가 같은 줄에 찍힌다(골든 대조).
   static const double signupCompleteCopyGap = 108.14;
 
-  /// 제목 상자 바닥(495.5) -> 부제 상자 508.5. 부제 글자가 508에 찍힌다
-  /// (4534:2479 body).
-  static const double signupCompleteTitleToSubtitleGap = 13;
+  /// 제목 상자 바닥(494.5, 20px height 1 상자 20) -> 부제 상자 508.5. 부제
+  /// 글자가 508에 찍힌다(4534:2479 body).
+  static const double signupCompleteTitleToSubtitleGap = 14;
   // 2395:44 버튼 바닥 841 -> 프레임 874.
   static const double signupCompleteBottomGap = 0;
 
@@ -107,8 +108,10 @@ abstract final class AppLayout {
   /// 값 35를 그대로 쓰면 라벨 사이가 110이 된다.
   static const double registrationFieldGap = 35;
 
-  /// 물결이 그려지는 바닥(113.21)에서 헤드라인 top(140)까지.
-  static const double registrationHeaderGap = 26.79;
+  /// 물결이 그려지는 바닥(113.21)에서 헤드라인 상자 top(139)까지. 시안
+  /// 상자는 140이고 글자는 144에 찍힌다. Flutter 20px 제목은 글자가 상자 top
+  /// 5 아래라 상자를 1 올린다.
+  static const double registrationHeaderGap = 25.79;
 
   /// 앱바 아래(92)에서 물결이 그려지기 시작하는 91.79까지. 0.21px 차이는
   /// 반올림 범위라 붙여 둔다.
@@ -130,7 +133,9 @@ abstract final class AppLayout {
   // 절대 y는 상태바 46 + 앱바 46 + 진행바 21.425 + 간격 12 = 125.425다.
   // 아래 상수는 시안 4534:195의 절대 y에서 이 125.425를 뺀 값이다.
   // (헤드라인 152 / 태그 190 / 캐릭터 216 / 말풍선 504 / 인디케이터 590)
-  static const double personalityTitleTop = 27; // 시안 152
+  // 시안 헤드라인 상자 152·글자 156. Flutter 20px 제목은 글자가 상자 top
+  // 5 아래라 1 올린 151(125.425 + 26)에 둔다.
+  static const double personalityTitleTop = 26;
   static const double personalityTagsTop = 65; // 시안 190
   // 시안 5460:721: 몸통(circle 기준) 폭 139, 바닥 y=488.85. 헤어는 박스 위로
   // 솟으므로 박스 위치를 헤어 꼭대기가 아닌 몸통 바닥에 맞춘다.

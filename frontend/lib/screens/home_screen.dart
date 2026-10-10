@@ -1724,7 +1724,12 @@ class _HomeEnvironmentPanel extends StatelessWidget {
                   message,
                   key: const ValueKey('home-environment-message'),
                   textAlign: TextAlign.center,
-                  style: kTitleStyle.copyWith(color: const Color(0xFF434343)),
+                  // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
+                  // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
+                  style: kTitleStyle.copyWith(
+                    fontSize: 21,
+                    color: const Color(0xFF434343),
+                  ),
                 ),
               )
             else ...[

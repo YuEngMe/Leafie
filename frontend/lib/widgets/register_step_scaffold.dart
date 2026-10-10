@@ -74,9 +74,10 @@ class RegisterStepScaffold extends StatelessWidget {
                     Text(title, style: kTitleStyle),
                   // 시안 2318:2981처럼 부제가 없는 화면은 간격도 두지 않는다.
                   if (subtitle.isNotEmpty) ...[
-                    // 헤드라인 top 140에서 부제 top 175까지 35, 헤드라인
-                    // 글자 상자가 30이라 남는 5px이 간격이다(2315:2234).
-                    const SizedBox(height: 5),
+                    // 헤드라인 상자 top 139(시안 140, 글자 자리 보정)에서 부제
+                    // top 175까지 36, 헤드라인 글자 상자(20px)가 29라 남는
+                    // 7px이 간격이다(2315:2234).
+                    const SizedBox(height: 7),
                     Text(subtitle, style: kSmallStyle),
                   ],
                 ],

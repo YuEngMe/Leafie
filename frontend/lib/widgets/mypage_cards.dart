@@ -63,7 +63,7 @@ class ProfileSummaryCard extends StatelessWidget {
                     nickname,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: kTitleStyle.copyWith(fontWeight: FontWeight.w500),
+                    style: kLargeMediumStyle,
                   ),
                 ),
                 const SizedBox(width: 5),

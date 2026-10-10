@@ -53,8 +53,9 @@ void main() {
       const MaterialApp(home: OAuthNicknameScreen(providerLabel: '카카오톡')),
     );
     await tester.pumpAndSettle();
-    // 2307:751 / 2307:752 / 2307:744.
-    expect(tester.getRect(find.text('닉네임을 설정해주세요!')).topLeft, const Offset(45, 140));
+    // 2307:751 / 2307:752 / 2307:744. 제목(4534:1636)은 시안 상자 140·글자
+    // 144다. 20px height 1 상자는 글자가 1 아래라 상자를 143에 둔다.
+    expect(tester.getRect(find.text('닉네임을 설정해주세요!')).topLeft, const Offset(45, 143));
     expect(tester.getRect(find.text('당신을 뭐라고 부르면 좋을까요?')).topLeft, const Offset(45, 175));
     _expectLabel(tester, '닉네임', 237);
   });

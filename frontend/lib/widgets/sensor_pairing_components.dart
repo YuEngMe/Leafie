@@ -12,7 +12,9 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 // 하단 버튼(top 790)을 같은 자리에 둔다.
 
 /// 시안 좌표를 앱바 아래(상태바 46 + 앱바 46 = 92) 기준으로 옮긴 값.
-const double _kTitleTop = 140 - 92;
+/// 제목은 시안 상자 140·글자 144인데 Flutter 20px 제목은 글자가 상자 top
+/// 5 아래라 상자를 139에 둔다.
+const double _kTitleTop = 139 - 92;
 const double _kBodyTop = 237;
 
 /// 행·입력칸 그림자(drop-shadow 0 0 2 rgba(0,0,0,0.18)).
@@ -87,10 +89,11 @@ class SensorStepScaffold extends StatelessWidget {
                     ],
                     if (subtitleText != null)
                       Padding(
-                        // 제목 top 140 → 부제 top 175. Flutter의 21px 제목 상자가
-                        // 30이라 5만 띄운다(RegisterStepScaffold와 같다). 부제는
-                        // 기기 이름이 길어져도 한 줄에 들도록 오른쪽을 덜 띄운다.
-                        padding: const EdgeInsets.fromLTRB(45, 5, 20, 0),
+                        // 제목 상자 top 139 → 부제 top 175. Flutter의 20px 제목
+                        // 상자가 29라 7만 띄운다(RegisterStepScaffold와 같다).
+                        // 부제는 기기 이름이 길어져도 한 줄에 들도록 오른쪽을 덜
+                        // 띄운다.
+                        padding: const EdgeInsets.fromLTRB(45, 7, 20, 0),
                         // 부제 상자는 글자 크기와 무관하게 23으로 둬서 본문이
                         // 늘 top 237에서 시작하게 한다(1 1의 14px 부제 포함).
                         child: SizedBox(
@@ -124,9 +127,9 @@ class SensorBodyGap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 부제 top 175 + 높이 23 = 198. 제목만 있으면 제목 상자(Flutter 30)
-    // 바닥 170.
-    return SizedBox(height: _kBodyTop - (hasSubtitle ? 198 : 170));
+    // 부제 top 175 + 높이 23 = 198. 제목만 있으면 제목 상자(top 139,
+    // Flutter 29) 바닥 168.
+    return SizedBox(height: _kBodyTop - (hasSubtitle ? 198 : 168));
   }
 }
 

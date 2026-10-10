@@ -405,7 +405,7 @@ class _CalendarHeader extends StatelessWidget {
             ),
           ),
         ),
-        // 3345:667 '캘린더' 43x19 x=179 y=60 → 16 Medium. kTitleStyle(21)은 너무 컸다.
+        // 3345:667 '캘린더' 43x19 x=179 y=60 → 16 Medium. 타이틀 스타일(kTitleStyle)은 너무 컸다.
         const Positioned(
           left: 0,
           right: 0,

@@ -20,8 +20,8 @@ class DiagnosisEmptyState extends StatelessWidget {
       textAlign: TextAlign.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       // 시안은 제목 글자 윗변(390)과 부제 글자 윗변(423)이 33 떨어진다.
-      // 기본 간격 10이면 30이라 부제가 3px 위에 붙는다.
-      gap: 13,
+      // 제목 상자(20px, height 1)가 20이라 간격 14여야 부제가 423에 찍힌다.
+      gap: 14,
     );
   }
 }

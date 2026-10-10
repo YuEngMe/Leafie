@@ -126,8 +126,9 @@ class _PlantRegisterEnvironmentScreenState
         ),
         child: Column(
           children: [
-            // 헤드라인 바닥(170)에서 첫 라벨(214)까지.
-            const SizedBox(height: 44),
+            // 헤드라인 바닥(상자 top 139 + 20px 상자 29 = 168)에서 첫
+            // 라벨(214)까지.
+            const SizedBox(height: 46),
             RoundedInputField(
               label: '장소(별명)',
               labelIndent: AppLayout.registrationLabelIndent,

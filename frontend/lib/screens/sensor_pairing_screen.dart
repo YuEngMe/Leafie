@@ -767,10 +767,8 @@ class _SensorPairingScreenState extends State<SensorPairingScreen>
               Text(
                 line,
                 textAlign: TextAlign.center,
-                style: kTitleStyle.copyWith(
-                  fontWeight: FontWeight.w500,
-                  height: 30 / 21,
-                ),
+                // 4534:21309는 타이틀(20)이 아닌 21 Medium, 줄 높이 30이다.
+                style: kLargeMediumStyle.copyWith(height: 30 / 21),
               ),
             if (tips != null) ...[
               const SizedBox(height: 28),

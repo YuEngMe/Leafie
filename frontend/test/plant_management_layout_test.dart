@@ -322,14 +322,15 @@ void main() {
         Colors.black,
       );
 
-      // 4534:7430 닉네임 w600 #2E2E2E, 가운데 x 199.5. Flutter 글자 상자는
+      // 4534:7430 닉네임 20 w600 #2E2E2E(옛 2564:1043은 21), 가운데 x 199.5.
+      // Flutter 글자 상자는
       // 위 여백이 커서 상자를 시안 top 115보다 2px 위(113)에 둬야 보이는
       // 글자 꼭대기가 시안과 맞는다.
       final nickname = tester.getRect(find.text('새싹이'));
       expect(nickname.top, _closeTo1px(113));
       expect(nickname.center.dx, _closeTo1px(199.5));
       final nicknameStyle = tester.widget<Text>(find.text('새싹이')).style!;
-      expect(nicknameStyle.fontSize, 21);
+      expect(nicknameStyle.fontSize, 20);
       expect(nicknameStyle.fontWeight, FontWeight.w600);
       expect(nicknameStyle.color, kPersonalityTitle);
 

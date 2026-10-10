@@ -439,6 +439,13 @@ void main() {
       await tester.tap(find.text('맞아요'));
       await run(tester, 5);
 
+      // 제목 4534:21097은 20 SemiBold, 상자 140·글자 144. Flutter 20px
+      // 상자는 글자가 top 5 아래라 139에 두고, 부제·본문 자리는 그대로다.
+      final title = find.text('WI-FI 연결');
+      expect(tester.getRect(title).top, 139);
+      expect(tester.widget<Text>(title).style!.fontSize, 20);
+      expect(tester.getRect(find.text('센서가 데이터를 전송할 Wi-Fi를 입력해주세요')).top, 175);
+
       // 4534:21099·4534:21100: top 427·453. Flutter 14px 상자는 20으로
       // 시안(16)보다 4 커서, 글자가 시안에 맞으려면 첫 줄 상자는 2 위다.
       expect(

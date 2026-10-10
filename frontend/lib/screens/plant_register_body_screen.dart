@@ -154,8 +154,9 @@ class _BodyState extends State<PlantRegisterBodyScreen> {
 }
 
 const double _kArtWidth = 190;
-// 스캐폴드 본문 시작(헤드라인 아래)에서 몸통 박스 위까지. 박스 위 = 몸통 바닥
-// 489 + 박스 아래 여백(0.053 × 190) − 박스 높이(190 × 649/698).
-const double _kArtTopGap = 152;
+// 스캐폴드 본문 시작(헤드라인 아래, 상자 top 139 + 20px 상자 29 = 168)에서
+// 몸통 박스 위까지. 박스 위 = 몸통 바닥 489 + 박스 아래 여백(0.053 × 190)
+// − 박스 높이(190 × 649/698).
+const double _kArtTopGap = 154;
 // 박스 바닥(≈499)에서 인디케이터 y=558까지.
 const double _kArtToIndicatorGap = 59;

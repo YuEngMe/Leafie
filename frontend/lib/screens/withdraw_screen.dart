@@ -68,11 +68,11 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         child: Stack(
           children: [
             // 시안이 각 요소를 절대 위치로 잡아 좌표를 그대로 옮긴다.
-            // Flutter 글자 상자가 시안보다 커서, 상자 top을 시안(4534:2991
-            // y=140)에 두면 보이는 글자가 2px 내려간다. 그만큼 올린다.
+            // 시안 4534:2991은 상자 y=140·글자 144(20px)다. Flutter 20px 제목은
+            // 글자가 상자 top 5 아래라 상자를 1 올린다.
             const Positioned(
               left: 45,
-              top: AppLayout.withdrawTopGap - 2,
+              top: AppLayout.withdrawTopGap - 1,
               child: Text('리피 탈퇴 전 확인하세요', style: kTitleStyle),
             ),
             // height 1로 상자를 시안(leading normal)보다 줄여 글자가 1px 뜬다.
@@ -241,9 +241,9 @@ class WithdrawCompleteScreen extends StatelessWidget {
             const Positioned(
               left: 0,
               right: 0,
-              // 시안 4534:2906 글자 상자 y=387(상태바 빼면 341). 줄 간격 25로
-              // 줄이며 첫 줄 글자가 올라간 2.4px을 내려 첫 줄 자리를 지킨다.
-              top: 343.4,
+              // 시안 4534:2906 글자 상자 y=388(상태바 빼면 342). 두 줄 제목
+              // (20px, 줄 24)은 첫 줄 글자가 시안과 같은 391에 찍힌다.
+              top: 342,
               child: Text(
                 '회원 탈퇴가\n완료되었습니다',
                 textAlign: TextAlign.center,

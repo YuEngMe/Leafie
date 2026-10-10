@@ -182,8 +182,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // 글자 상자 크기가 시안과 달라, 보이는 글자가 시안(140·175)과 맞도록
-      // 헤드라인 상자는 2 올리고 부제 상자(height 1)는 1 내렸다.
-      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 138);
+      // 헤드라인 상자(20px)는 1 올리고 부제 상자(height 1)는 1 내렸다.
+      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 139);
       _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 176);
       _expectAt(
         tester,
@@ -301,9 +301,10 @@ void main() {
     });
   });
 
-  // 두 줄 제목은 시안 줄 간격 25(4534:2883·4534:2906). kTitleStyle은 높이가
-  // 없어 Material 기본 본문 높이를 물려받아 30이 됐다. 첫 줄 글자는 고치기
-  // 전 자리(기준선 410.15)에 그대로 둔다.
+  // 두 줄 제목은 시안 20px, 글자 상자 y=388·높이 48이라 줄 간격 24다
+  // (4534:2883·4534:2906). kTitleStyle은 높이가 없어 Material 기본 본문
+  // 높이를 물려받아 29가 되므로 줄 높이를 따로 준다. 이 높이에서 첫 줄 글자가
+  // 상자 top 3 아래(391)라 시안 렌더와 같아, 상자를 시안 자리에 둔다.
   group('완료 화면 두 줄 제목', () {
     Future<void> expectTwoLineTitle(
       WidgetTester tester,
@@ -331,10 +332,11 @@ void main() {
       final top = tester.getTopLeft(title).dy;
 
       expect(lines, hasLength(2));
-      expect(top + lines[0].baseline, closeTo(410.15, 0.5), reason: '첫 줄 기준선');
+      expect(top, closeTo(388, 0.5), reason: '상자 top');
+      expect(top + lines[0].baseline, closeTo(407.78, 0.5), reason: '첫 줄 기준선');
       expect(
         lines[1].baseline - lines[0].baseline,
-        closeTo(25, 0.01),
+        closeTo(24, 0.01),
         reason: '줄 간격',
       );
     }

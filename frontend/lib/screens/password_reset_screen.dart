@@ -199,7 +199,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                         child: Text(
                           '비밀번호 설정이\n완료되었습니다',
                           textAlign: TextAlign.center,
-                          // 텍스트 블록 50px에 21px 두 줄 -> 행간 25/21.
+                          // 시안 4534:2283 텍스트 블록 48px에 20px 두 줄 -> 줄 24.
                           style: kTitleTwoLineStyle,
                         ),
                       ),
