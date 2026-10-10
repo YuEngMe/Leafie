@@ -8,6 +8,7 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
 import 'package:yeso_plant/widgets/date_wheel_column.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
@@ -561,6 +562,16 @@ void main() {
         DateTime(today.year, today.month, today.day),
       );
       expect(repository.sentRepottedOn, isNull);
+    });
+
+    testWidgets('4534:20068 뒤로 꺾쇠는 주황', (tester) async {
+      await pump(tester);
+
+      // 4534:20185 Polygon 4 (Stroke) fill #FFB52A.
+      expect(
+        tester.widget<FigmaBackChevron>(find.byType(FigmaBackChevron)).color,
+        kOrangeMain,
+      );
     });
 
     testWidgets('4534:20112 날짜 시트: 딤 없음·핸들바 없음·띠 색', (tester) async {
