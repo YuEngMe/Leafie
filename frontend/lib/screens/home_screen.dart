@@ -25,6 +25,8 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
@@ -202,6 +204,17 @@ class _HomeScreenState extends State<HomeScreen>
   bool _playedDialogue = false;
   bool _loadingHome = false;
   String? _homeError;
+
+  /// 마지막 홈 조회가 서버에 닿지도 못하고(연결 실패·시간 초과) 끝났는가.
+  /// 이때는 오류 카드 대신 연결 끊김 모달(4955:3086)을 띄우고, 뒤의 게이지·
+  /// 캐릭터는 직전 응답 그대로 둔다.
+  bool _homeOffline = false;
+
+  /// 연결 끊김 모달이 떠 있는 동안 다시 띄우지 않으려고 둔다.
+  bool _disconnectedDialogOpen = false;
+
+  /// 연결이 끊긴 조회의 식물. 다시 시도는 같은 요청을 다시 보낸다.
+  String? _offlinePlantId;
   int _unreadNotificationCount = 0;
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
@@ -444,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen>
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;
+        _homeOffline = false;
         // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
         // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
         // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
@@ -462,12 +476,44 @@ class _HomeScreenState extends State<HomeScreen>
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
+      // 시안 4955:3086 문구가 '리피와 연결이 끊겼어요 / 인터넷 연결을
+      // 확인하고'라 서버에 닿지 못한 경우만 모달로 보낸다. 서버가 답한
+      // 오류(4xx·5xx)는 연결 문제가 아니어서 기존 오류 카드에 남긴다.
+      final offline = _isConnectionFailure(error);
       setState(() {
         _loadingHome = false;
-        _homeError = error.message;
+        _homeOffline = offline;
+        _homeError = offline ? null : error.message;
       });
+      if (offline) {
+        _offlinePlantId = plantId;
+        unawaited(_showDisconnectedDialog());
+      }
       return false;
     }
+  }
+
+  /// LeafieApiClient가 IOException·TimeoutException을 바꿔 던지는 코드.
+  static bool _isConnectionFailure(LeafieApiException error) =>
+      error.code == 'NETWORK_ERROR' || error.code == 'NETWORK_TIMEOUT';
+
+  Future<void> _showDisconnectedDialog() async {
+    if (_disconnectedDialogOpen) return;
+    _disconnectedDialogOpen = true;
+    // 시안에 닫기 버튼이 없고 '다시 시도' 하나뿐이라 딤을 눌러 닫지 않는다.
+    await showConfirmDialog(
+      context,
+      barrierColor: kModalBarrier,
+      barrierDismissible: false,
+      dialog: _HomeDisconnectedDialog(onRetry: _retryAfterDisconnect),
+    );
+    _disconnectedDialogOpen = false;
+  }
+
+  /// 모달을 닫아도 되면 true. 다시 연결에 실패하면 모달을 그대로 둔다.
+  Future<bool> _retryAfterDisconnect() async {
+    await _loadHome(_offlinePlantId);
+    return !mounted || !_homeOffline;
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
@@ -1251,6 +1297,10 @@ class _HomeScreenState extends State<HomeScreen>
                       },
                     ),
                   )
+                else if (_homeOffline && plant == null)
+                  // 첫 조회부터 끊겼으면 식물을 모른다. 연결 끊김 모달이 덮고
+                  // 있으니 '등록된 식물이 없어요' 안내를 잘못 띄우지 않는다.
+                  const SizedBox.shrink()
                 else if (plant == null)
                   Positioned(
                     left: 42,
@@ -1716,6 +1766,112 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       alert: content.alert,
     ),
   );
+}
+
+/// 홈 재조회가 서버에 닿지 못했을 때 뜨는 연결 끊김 모달(4955:3086).
+///
+/// 상자·제목·부제 자리는 확인 모달(ConfirmDialog, 부제 있는 경우)과 같다:
+/// (47, 358) 308x158.829, 제목 top 40, 부제 top 68. 아래만 구분선·두 버튼
+/// 대신 주황 버튼 하나(4955:3673, 상자 기준 x22 y108 264x40)라 따로 둔다.
+class _HomeDisconnectedDialog extends StatefulWidget {
+  const _HomeDisconnectedDialog({required this.onRetry});
+
+  final Future<bool> Function() onRetry;
+
+  @override
+  State<_HomeDisconnectedDialog> createState() =>
+      _HomeDisconnectedDialogState();
+}
+
+class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
+  bool _retrying = false;
+
+  Future<void> _retry() async {
+    // 버튼을 회색(비활성)으로 바꾸지 않고 겹친 탭만 막는다.
+    if (_retrying) return;
+    _retrying = true;
+    final close = await widget.onRetry();
+    if (!mounted) return;
+    _retrying = false;
+    if (close) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: SizedBox(
+        width: 308,
+        height: 158.829,
+        child: Stack(
+          children: [
+            // 4955:3667: 흰 바탕, 반경 30, 0 0 5.366 rgba(0,0,0,.15).
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: kBackgroundWhite,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x26000000), blurRadius: 5.366),
+                ],
+              ),
+              child: const SizedBox.expand(),
+            ),
+            // 4955:3668: Paperlogy Regular 16 검정, 상자 위에서 40.
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 40,
+              height: 23,
+              child: Center(
+                child: Text(
+                  '리피와 연결이 끊겼어요',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 23 / 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            // 4955:3672: Regular 12 제일연한회색, 상자 위에서 68.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 68,
+              height: 14,
+              child: Center(
+                child: Text(
+                  '인터넷 연결을 확인하고 다시 시도해주세요.',
+                  style: kCaptionStyle.copyWith(
+                    color: kGrayLightest,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+            // 4955:3673: 오렌지_메인, 반경 50, 0 0 2 rgba(0,0,0,.18),
+            // 글자는 Medium 16 진한 텍스트(#444)라 흰 글자 기본값을 바꾼다.
+            Positioned(
+              left: 22,
+              top: 108,
+              child: PrimaryButton(
+                key: const ValueKey('home-disconnected-retry'),
+                label: '다시 시도',
+                width: 264,
+                height: 40,
+                variant: PrimaryButtonVariant.enabled,
+                textStyle: kButtonStyle.copyWith(color: kTextDark),
+                onPressed: _retry,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeMessageCard extends StatelessWidget {
