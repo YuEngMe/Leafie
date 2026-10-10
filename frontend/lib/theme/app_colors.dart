@@ -19,10 +19,9 @@ const Color kPaleYellow = Color(0xFFFFECA6); // 연노랑, 강조 배경
 // 마이페이지 프로필 카드(2353:690). kPaleYellow 43%를 흰 배경에 합성한 값.
 const Color kProfileCardYellow = Color(0xFFFFF7D9);
 const Color kTextDark = Color(0xFF444444); // 진한 텍스트
-// 진단 기록 제목(2346:2454)과 꺾쇠(2346:2456). 팔레트 토큰이 아니라 노드에
-// 직접 박힌 값이다.
+// 진단 기록 제목(4534:19853). 팔레트 토큰이 아니라 노드에 직접 박힌 값이다.
+// 꺾쇠(4534:19852)는 색(#CCCBCB)이 든 시안 에셋을 그대로 쓴다.
 const Color kDiagnosisTitle = Color(0xFF1F2E21);
-const Color kChevronGray = Color(0xFF7F7F7F);
 // 처방전(2346:2450)이 쓰는 값들.
 const Color kPrescriptionText = Color(0xFF030303);
 const Color kPrescriptionPercent = Color(0xFF5A5A5A);

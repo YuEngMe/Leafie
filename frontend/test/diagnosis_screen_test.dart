@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
@@ -104,6 +105,90 @@ void main() {
     expect(find.text('내 식물의 건강을 진단해주세요.'), findsOneWidget);
     expect(find.text('진단하기'), findsOneWidget);
     expect(find.text('진단기록'), findsNothing);
+  });
+
+  testWidgets('빈 상태 문구와 버튼은 실제 본문 높이에서 시안(4534:19683) 자리에 앉는다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisScreen(
+          plantId: 'plant-id',
+          repository: _FakeDiagnosisRepository(records: const []),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 예전엔 기준 높이 795를 본문 748에 눌러 담아 버튼이 48로 줄고
+    // 문구가 5~9px 위로 올라갔다. 버튼은 y790·높이 51.
+    final button = tester.getRect(
+      find
+          .ancestor(of: find.text('진단하기'), matching: find.byType(SizedBox))
+          .first,
+    );
+    expect(button.top, closeTo(790, 0.5));
+    expect(button.height, closeTo(51, 0.5));
+    // 글자 상자 top. 보이는 글자 윗변은 제목 390·부제 423(시안)이다.
+    expect(tester.getRect(find.text('진단 기록이 없습니다')).top, closeTo(389, 0.5));
+    expect(
+      tester.getRect(find.text('내 식물의 건강을 진단해주세요.')).top,
+      closeTo(423, 0.5),
+    );
+  });
+
+  testWidgets('기록 행 꺾쇠와 절 제목은 시안(4534:19827) 값이다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisScreen(
+          plantId: 'plant-id',
+          plantName: '새싹이',
+          repository: _FakeDiagnosisRepository(
+            records: [_summary('today', DateTime(2026, 9, 6, 10))],
+          ),
+          now: () => DateTime(2026, 9, 6, 12),
+          imageProviderBuilder: (_) => MemoryImage(_greenPixelPng),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 4534:19852 꺾쇠 x361 y191 8.29×13(행 오른쪽 끝에서 18.7 안쪽).
+    final chevron = tester.getRect(
+      find.ancestor(
+        of: _svgAsset('assets/images/diagnosis_record_chevron.svg'),
+        matching: find.byType(RotatedBox),
+      ),
+    );
+    expect(chevron.left, closeTo(361, 0.5));
+    expect(chevron.width, closeTo(8.29, 0.1));
+    expect(chevron.center.dy, closeTo(191 + 13.004 / 2, 1));
+    // 4534:19874 절 제목은 SemiBold 16.
+    expect(
+      tester.widget<Text>(find.text('오늘의 진단')).style?.fontWeight,
+      FontWeight.w600,
+    );
+  });
+
+  testWidgets('처방전 닫기 X는 시안(4534:19740) 중심에 앉는다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisDetailScreen(
+          diagnosisId: 'diagnosis-id',
+          repository: _FakeDiagnosisRepository(records: const []),
+          imageProviderBuilder: (_) => MemoryImage(_greenPixelPng),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 예전 Icons.close는 중심이 9px 왼쪽이었다.
+    final close = tester.getRect(
+      _svgAsset('assets/images/diagnosis_prescription_close.svg'),
+    );
+    expect(close.center.dx, closeTo(362.3, 0.5));
+    expect(close.center.dy, closeTo(171.7, 0.5));
   });
 
   testWidgets('오늘과 지난 진단을 나누고 상세 처방전으로 이동한다', (tester) async {
@@ -464,6 +549,13 @@ void _prescriptionActionTests() {
     expect(find.text('다시 시도할 수 없는 진단입니다.'), findsOneWidget);
   });
 }
+
+Finder _svgAsset(String asset) => find.byWidgetPredicate(
+  (widget) =>
+      widget is SvgPicture &&
+      widget.bytesLoader is SvgAssetLoader &&
+      (widget.bytesLoader as SvgAssetLoader).assetName == asset,
+);
 
 void _setIPhone16ProViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(402, 874);
