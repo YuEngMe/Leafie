@@ -139,6 +139,8 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       backgroundColor: kBackgroundWhite,
       appBar: YesoAppBar(
         title: '캐릭터 편집',
+        // 4534:7414 제목은 검정이다(공용 앱바 기본 #444).
+        titleColor: Colors.black,
         actions: _busy
             ? const [
                 Padding(
@@ -157,14 +159,20 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       body: PlantDetailBody(
         showGrass: true,
         children: [
-          // 닉네임 2564:1043. 시안 top 115, 21/w600 #2E2E2E.
+          // 닉네임 4534:7430. 시안 글자 가운데 (199.5, 127), w600 #2E2E2E.
+          // Flutter 글자 상자는 위 여백이 커서 시안 top 115에 두면 보이는
+          // 글자가 2px 아래로 내려간다. 상자를 113에 두어 글자 꼭대기를
+          // 시안(118)에 맞추고, 가운데는 시안대로 1.5px 왼쪽에 둔다.
           PlantDetailPositioned(
-            top: 115,
+            top: 113,
             height: 25,
-            child: Center(
-              child: Text(
-                _plant.nickname,
-                style: kTitleStyle.copyWith(color: kPersonalityTitle),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 3),
+              child: Center(
+                child: Text(
+                  _plant.nickname,
+                  style: kTitleStyle.copyWith(color: kPersonalityTitle),
+                ),
               ),
             ),
           ),

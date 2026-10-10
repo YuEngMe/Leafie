@@ -9,12 +9,18 @@ import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-/// 시안 2316:5103 "전체보기_내 캐릭터".
+/// 시안 4534:6665 "전체보기_"(옛 기준 2316:5103 "전체보기_내 캐릭터").
 ///
-/// 노란 배경(#FFECA6) 위에 흰 집 실루엣을 얹고, 집 안 3단 선반에 캐릭터를
+/// 연노랑 배경 위에 흰 집 실루엣을 얹고, 집 안 3단 선반에 캐릭터를
 /// 격자로 세운다. 빈 슬롯 하나에 `+`가 붙어 등록으로 넘어간다. 카드 리스트,
 /// "선택됨" 배지, 라디오 버튼, 카드 안 액션 3개는 시안에 없어 걷어냈다.
-const Color kPlantsHouseYellow = Color(0xFFFFECA6); // 2316:5104 연노랑
+///
+/// 배경은 프레임 4534:6665 채움 #FFF6D4다. 옛 시안(2316:5104)은 선반과 같은
+/// #FFECA6이었는데 최신 시안은 배경만 옅어졌다.
+const Color kPlantsHouseBackground = Color(0xFFFFF6D4);
+
+/// 선반 3줄(4534:6699~6701) 채움. 배경보다 한 단계 진한 연노랑이다.
+const Color kPlantsHouseYellow = Color(0xFFFFECA6);
 
 /// 집 실루엣(2316:5240)의 프레임 좌표. 그림자 필터가 SVG 밖으로 6px씩
 /// 번져 나오므로 그리는 크기는 368.03 x 729.99다(원 프레임 362.03x723.99).
@@ -29,24 +35,34 @@ const double _kShelfLeft = 57;
 const double _kShelfWidth = 287;
 const double _kShelfHeight = 3;
 
-/// 칸 가로 중심. 시안의 캐릭터 프레임(2316:5249/5243/5248 등) 중심값이다.
-/// 좌 66~67 + 폭 61~65, 중앙 167~170 + 폭 61~67, 우 274~276 + 폭 61~63.
-const List<double> _kColumnCenters = [98.5, 200.5, 305.5];
+/// 칸 가로 중심. 최신 시안 몸통(4743:195/407/458, 4743:211/252,
+/// 4743:289/226) 중심값이다. 좌 105.7·105.2·102.2, 중앙 198.2·200.6,
+/// 우 296.8·297.2. 옛 시안(2316:5249 등) 값 98.5 / 305.5는 양 끝 열이
+/// 7~8.5px 바깥으로 벌어져 있었다. 중앙은 `+`(4534:6811 중심 200.5)와 맞춘다.
+const List<double> _kColumnCenters = [105, 200.5, 297];
 
 /// 캐릭터가 선반 위에 서는 칸의 시안 폭. 시안 캐릭터(2316:5243~5253)는
 /// 61~67 x 74~93으로 제각각이라 가장 큰 2316:5243(61.22)을 쓰고, 밑선을
 /// 선반에 맞춘다. PNG 투명 여백 보정은 plantArtWidthFor가 한다.
 const double _kCharacterWidth = 61.219;
 
-/// `+` 버튼(3345:886). 시안 프레임은 x=186 y=520 29x29이지만 SVG는 그림자
+/// `+` 버튼(4534:6811). 시안 프레임은 x=186 y=525 29x29이지만 SVG는 그림자
 /// 때문에 34.05로 넘쳐 그려진다. 그려지는 크기를 그대로 쓴다.
 const double _kPlusDrawnSize = 34.048;
+
+/// `+` 원 중심이 선반 윗변보다 23.5 위에 온다(525 + 29/2 = 539.5, 선반 563).
+/// 예전엔 캐릭터 칸 가운데에 두어 시안보다 약 5px 위에 떴다.
+const double _kPlusCenterAboveShelf = 563 - (525 + 29 / 2);
 
 /// 상단 구름(2316:5225). 프레임 밖으로 나가는 부분은 잘린다.
 const double _kCloudLeft = -33;
 const double _kCloudTop = -155;
 const double _kCloudWidth = 499;
 const double _kCloudHeight = 300;
+
+/// 구름 오른쪽 아래 작은 조각(4534:6809 Ellipse 549). x=290 y=131 23x14 흰
+/// 타원으로, 구름 Union과 따로 떨어져 있어 SVG에 들어 있지 않다.
+const Rect _kCloudPuff = Rect.fromLTWH(290, 131, 23, 14);
 
 /// 하단 잔디(4694:1454). 새싹 두 포기 top 774부터 프레임 바닥 874까지를
 /// 투명 배경으로 잘라 둔 그림이다. 상세 화면 잔디와 같은 모양이다.
@@ -136,10 +152,12 @@ class _PlantManagementScreenState extends State<PlantManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPlantsHouseYellow,
+      backgroundColor: kPlantsHouseBackground,
+      // 4534:6810 제목은 검정이다(공용 앱바 기본 #444).
       appBar: const YesoAppBar(
         title: '내 캐릭터',
         backgroundColor: Colors.transparent,
+        titleColor: Colors.black,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: kOrangeMain))
@@ -193,6 +211,17 @@ class _PlantShelfHouse extends StatelessWidget {
             // contain으로 두면 SVG가 제 비율대로 그려진다. fill은 구름
             // 덩어리를 늘려 제목 아래에 흰 타원 조각을 만들었다.
             fit: BoxFit.contain,
+          ),
+        ),
+        Positioned(
+          left: _kCloudPuff.left,
+          top: _kCloudPuff.top - _appBarBand,
+          width: _kCloudPuff.width,
+          height: _kCloudPuff.height,
+          child: SvgPicture.asset(
+            'assets/images/plants_cloud_puff.svg',
+            width: _kCloudPuff.width,
+            height: _kCloudPuff.height,
           ),
         ),
         Positioned(
@@ -259,7 +288,7 @@ class _PlantShelfHouse extends StatelessWidget {
             ),
           ),
         if (plusSlot != null)
-          _slot(
+          _plusSlot(
             index: plusSlot,
             child: Center(
               child: GestureDetector(
@@ -305,6 +334,19 @@ class _PlantShelfHouse extends StatelessWidget {
       top: shelfTop - _appBarBand - _drawnHeight + _inkBottomGap,
       width: _drawnWidth,
       height: _drawnHeight,
+      child: child,
+    );
+  }
+
+  /// `+`는 캐릭터와 달리 선반 기준 높이(4534:6811)에 원 중심을 둔다.
+  Widget _plusSlot({required int index, required Widget child}) {
+    final shelfTop = _kShelfTops[index ~/ 3];
+    return Positioned(
+      left: _kColumnCenters[index % 3] - _kPlusDrawnSize / 2,
+      top:
+          shelfTop - _kPlusCenterAboveShelf - _kPlusDrawnSize / 2 - _appBarBand,
+      width: _kPlusDrawnSize,
+      height: _kPlusDrawnSize,
       child: child,
     );
   }

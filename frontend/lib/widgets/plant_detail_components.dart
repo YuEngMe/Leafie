@@ -110,6 +110,9 @@ class PlantDetailPositioned extends StatelessWidget {
   );
 }
 
+/// 메뉴 글자를 시안 top보다 올리는 양. 아래 [PlantDetailMenuRow] 참고.
+const double _kMenuTextLift = 2;
+
 /// 상세 카드 안 메뉴 한 줄(2564:1014 + 꺾쇠 2564:1015).
 /// 글자 x=52, 꺾쇠 x=340(잉크 350) 15px 연한 텍스트.
 class PlantDetailMenuRow extends StatelessWidget {
@@ -143,7 +146,10 @@ class PlantDetailMenuRow extends StatelessWidget {
           children: [
             Positioned(
               left: 52 - 29,
-              top: rowHeight / 2 - 19 / 2,
+              // Flutter 16px 글자 상자(23)는 시안(19)보다 위 여백이 커서
+              // 시안 top에 두면 보이는 글자가 2px 아래로 내려간다
+              // (4534:7420/7422/7425). 글자만 2px 올리고 꺾쇠는 그대로 둔다.
+              top: rowHeight / 2 - 19 / 2 - _kMenuTextLift,
               child: Text(label, style: kBodyStyle),
             ),
             Positioned(

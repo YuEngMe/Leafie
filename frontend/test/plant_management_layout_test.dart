@@ -19,8 +19,8 @@ import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 /// 내 캐릭터(식물 관리) 흐름 8프레임의 좌표·색·문구를 시안과 맞춘다.
 ///
 /// 프레임 402x874, 상태바 46, 하단 SafeArea 34. 시안 절대 y를 그대로 잰다.
-/// - 2316:5103 전체보기_내 캐릭터
-/// - 2564:947  캐릭터 상세 1
+/// - 4534:6665 전체보기_(옛 기준 2316:5103 전체보기_내 캐릭터)
+/// - 4534:7390 캐릭터 상세 3(옛 기준 2564:947 캐릭터 상세 1)
 /// - 2568:1926 삭제 모달
 /// - 4889:2219 캐릭터 성격(편집, 옛 기준 2568:1714)
 /// - 2555:661 / 2568:1639 정보수정 1·2
@@ -170,10 +170,32 @@ void main() {
       expect(title.center.dx, _closeTo1px(201));
       expect(title.top, _closeTo1px(60));
 
-      // 2316:5104 연노랑 배경.
+      // 4534:6810 제목은 검정이다(공용 앱바 기본 #444).
+      expect(
+        tester.widget<Text>(find.text('내 캐릭터')).style!.color,
+        Colors.black,
+      );
+
+      // 4534:6665 배경 #FFF6D4. 선반(4534:6699~6701)만 #FFECA6으로 남는다.
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-      expect(scaffold.backgroundColor, kPlantsHouseYellow);
+      expect(scaffold.backgroundColor, const Color(0xFFFFF6D4));
       expect(kPlantsHouseYellow, const Color(0xFFFFECA6));
+      final shelves = find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == kPlantsHouseYellow,
+      );
+      expect(shelves, findsNWidgets(3));
+
+      // 구름 오른쪽 작은 조각 4534:6809 x=290 y=131 23x14.
+      final puff = tester.getRect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is SvgPicture &&
+              w.bytesLoader is SvgAssetLoader &&
+              (w.bytesLoader as SvgAssetLoader).assetName ==
+                  'assets/images/plants_cloud_puff.svg',
+        ),
+      );
+      expect(puff, const Rect.fromLTWH(290, 131, 23, 14));
 
       // 시안에 없는 요소는 사라졌다.
       expect(find.text('식물 관리'), findsNothing);
@@ -197,7 +219,8 @@ void main() {
       final drawnHeight = drawn * 649 / 698;
       final inkBottomGap = drawnHeight * (649 - 612) / 649;
 
-      for (final entry in {'1': 98.5, '2': 200.5, '3': 305.5}.entries) {
+      // 4534:6665 몸통 중심. 옛 시안 98.5 / 305.5에서 안쪽으로 옮겼다.
+      for (final entry in {'1': 105.0, '2': 200.5, '3': 297.0}.entries) {
         final rect = tester.getRect(
           find.byKey(ValueKey('plant_slot_${entry.key}')),
         );
@@ -209,13 +232,15 @@ void main() {
 
       // 4번째는 2행 첫 칸. 선반 2는 y=441.
       final second = tester.getRect(find.byKey(const ValueKey('plant_slot_4')));
-      expect(second.center.dx, _closeTo1px(98.5));
+      expect(second.center.dx, _closeTo1px(105));
       expect(second.bottom - inkBottomGap, _closeTo1px(441));
 
-      // + 는 다음 빈 칸(2행 2열)에 온다. 시안 3345:886은 29x29 프레임이
-      // 그림자 때문에 34.05로 그려진다.
+      // + 는 다음 빈 칸(2행 2열)에 온다. 시안 4534:6811은 29x29 프레임이
+      // 그림자 때문에 34.05로 그려진다. 원 중심은 선반보다 23.5 위
+      // (3행 시안 539.5 = 563 − 23.5)라 2행에서는 441 − 23.5다.
       final plus = tester.getRect(find.byKey(const ValueKey('add_plant')));
       expect(plus.center.dx, _closeTo1px(200.5));
+      expect(plus.center.dy, _closeTo1px(441 - 23.5));
       expect(plus.width, _closeTo1px(34.048));
       // flutter_svg는 SVG filter를 그리지 않아 흰 원이 배경에 묻힌다.
       // 시안 filter0_d_0_4 값으로 그림자를 따로 깐다.
@@ -291,10 +316,18 @@ void main() {
       expect(appBarTitle.center.dx, _closeTo1px(201));
       expect(appBarTitle.top, _closeTo1px(60));
 
-      // 2564:1043 닉네임 top 115, 21/w600 #2E2E2E.
+      // 4534:7414 제목은 검정이다(공용 앱바 기본 #444).
+      expect(
+        tester.widget<Text>(find.text('캐릭터 편집')).style!.color,
+        Colors.black,
+      );
+
+      // 4534:7430 닉네임 w600 #2E2E2E, 가운데 x 199.5. Flutter 글자 상자는
+      // 위 여백이 커서 상자를 시안 top 115보다 2px 위(113)에 둬야 보이는
+      // 글자 꼭대기가 시안과 맞는다.
       final nickname = tester.getRect(find.text('새싹이'));
-      expect(nickname.top, _closeTo1px(115));
-      expect(nickname.center.dx, _closeTo1px(201));
+      expect(nickname.top, _closeTo1px(113));
+      expect(nickname.center.dx, _closeTo1px(199.5));
       final nicknameStyle = tester.widget<Text>(find.text('새싹이')).style!;
       expect(nicknameStyle.fontSize, 21);
       expect(nicknameStyle.fontWeight, FontWeight.w600);
@@ -320,7 +353,9 @@ void main() {
         kTextDark,
       );
 
-      // 2564:1014/1016/1019 글자 x=52, top 518.76 / 567.76 / 616.76.
+      // 4534:7420/7422/7425 글자 x=52, 시안 top 518.76 / 567.76 / 616.76.
+      // Flutter 글자 상자는 위 여백이 2px 커서 상자를 2px 위에 둬야 보이는
+      // 글자가 시안 자리에 온다.
       for (final entry in {
         '캐릭터 정보 수정': 518.762,
         '꾸미기': 567.762,
@@ -328,7 +363,7 @@ void main() {
       }.entries) {
         final rect = tester.getRect(find.text(entry.key));
         expect(rect.left, _closeTo1px(52), reason: entry.key);
-        expect(rect.top, _closeTo1px(entry.value), reason: entry.key);
+        expect(rect.top, _closeTo1px(entry.value - 2), reason: entry.key);
         final style = tester.widget<Text>(find.text(entry.key)).style!;
         expect(style.fontSize, 16);
         expect(style.color, kTextDark);
@@ -484,8 +519,12 @@ void main() {
     testWidgets('4필드 라벨 좌표와 입력칸 크기', (tester) async {
       await pump(tester);
 
-      // 2555:694 앱바.
+      // 2555:694 앱바. 4534:20090 제목은 검정이다(공용 앱바 기본 #444).
       expect(find.text('캐릭터 정보 수정'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('캐릭터 정보 수정')).style!.color,
+        Colors.black,
+      );
 
       // 라벨 x=45, top 145 / 255 / 365 / 475 (2555:688/698/703/708).
       for (final entry in {

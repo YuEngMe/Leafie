@@ -159,8 +159,13 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      // 시안 4534:20068/20112의 뒤로 꺾쇠는 주황(#FFB52A)이다.
-      appBar: const YesoAppBar(title: '캐릭터 정보 수정', backIconColor: kOrangeMain),
+      // 시안 4534:20068/20112의 뒤로 꺾쇠는 주황(#FFB52A), 제목(4534:20090)은
+      // 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 정보 수정',
+        backIconColor: kOrangeMain,
+        titleColor: Colors.black,
+      ),
       body: PlantDetailBody(
         children: [
           // 2555:687/689. 라벨 top 145, 입력칸 top 169.

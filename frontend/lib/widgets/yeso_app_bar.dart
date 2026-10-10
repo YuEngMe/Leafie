@@ -11,6 +11,7 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.backgroundColor,
     this.backIconColor,
+    this.titleColor,
   });
 
   final String title;
@@ -20,6 +21,10 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// 다이어리처럼 배경이 앱바 뒤까지 이어지는 화면은 투명으로 둔다.
   final Color? backgroundColor;
   final Color? backIconColor;
+
+  /// 제목 글자색. 대부분의 시안은 진한 텍스트(#444)지만 내 캐릭터 흐름
+  /// (4534:6665/7390/20068)처럼 검정으로 둔 화면이 있다.
+  final Color? titleColor;
 
   /// 시안(2319:2, 3345:996)의 앱바는 상태바 아래 46이다. Material 기본
   /// 56을 쓰면 꺾쇠와 제목이 5px 아래로 내려간다.
@@ -49,7 +54,12 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () => Navigator.maybePop(context),
             )
           : null,
-      title: Text(title, style: kBodyStyle),
+      title: Text(
+        title,
+        style: titleColor == null
+            ? kBodyStyle
+            : kBodyStyle.copyWith(color: titleColor),
+      ),
       actions: actions,
     );
   }
