@@ -197,6 +197,32 @@ void main() {
       }
     });
 
+    testWidgets('글자가 조금 넓게 측정돼도 안내가 꺾여 동의 줄을 덮지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      // 셋째 줄은 글자 칸을 0.6px 남기고 채운다. 기기 측정이 2% 넓은 경우.
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(1.02)),
+            child: WithdrawScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final lines = WithdrawScreen.notices.map(
+        (notice) => tester.getRect(find.text(notice)),
+      );
+      final checkbox = tester.getRect(find.byType(FigmaConsentCheckbox));
+      for (final line in lines) {
+        expect(line.height, lessThan(30), reason: '한 줄이어야 한다');
+      }
+      expect(lines.last.bottom, lessThan(checkbox.top));
+    });
+
     testWidgets('동의하기 전에는 탈퇴 버튼이 잠겨 있다', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: WithdrawScreen()));
 

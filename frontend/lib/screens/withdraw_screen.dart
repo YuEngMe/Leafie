@@ -158,9 +158,14 @@ class _NoticeBox extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // 셋째 줄이 글자 칸(278)을 0.6px 남기고 꽉 채워 기기 글꼴
+                  // 측정이 조금만 커져도 꺾이고, 늘어난 상자가 고정 위치의 동의
+                  // 줄을 덮는다. 시안처럼 줄바꿈 없이 오른쪽 여백으로 넘긴다.
                   Expanded(
                     child: Text(
                       notice,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
                       style: kSmallStyle.copyWith(
                         height: 23 / 14,
                         color: kOnboardingSubtitle,
