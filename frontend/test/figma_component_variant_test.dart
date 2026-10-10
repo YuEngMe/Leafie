@@ -70,7 +70,7 @@ void main() {
     final form = find.byType(LoginCredentialsForm);
     final email = find.byType(LoginEmailField);
     final password = find.byType(LoginPasswordField);
-    // 49(이메일) + 12(시안 2395:31 간격) + 75(비번+링크) = 136.
+    // 49(이메일) + 14(시안 4534:2499 간격) + 75(비번+링크) = 138.
     expect(
       tester.getSize(form),
       const Size(

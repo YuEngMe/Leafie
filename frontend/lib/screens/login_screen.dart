@@ -156,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const BrandLogo(
                 width: AppLayout.loginLogoWidth,
                 markWidthFactor: AppLayout.loginLogoMarkWidthFactor,
+                gap: AppLayout.loginLogoGap,
               ),
               const SizedBox(height: AppLayout.loginLogoToFormGap),
 

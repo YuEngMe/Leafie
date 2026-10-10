@@ -165,7 +165,8 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '비밀번호 재설정'),
+      // 완료 화면(4534:2261)은 앱바·뒤로가기 없이 문구와 로그인 버튼만 있다.
+      appBar: _step == _Step.done ? null : const YesoAppBar(title: '비밀번호 재설정'),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
@@ -188,7 +189,9 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_step == _Step.done) ...[
-                      const Spacer(),
+                      const SizedBox(
+                        height: AppLayout.passwordResetDoneTitleGap,
+                      ),
                       // Figma node 2427:9031. 부모 Column이 start 정렬이라
                       // 폭을 채워야 textAlign.center가 실제로 먹는다.
                       SizedBox(
@@ -209,76 +212,82 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                       ),
                     ] else ...[
                       if (!widget.startAtSetNewPassword) ...[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        // 발송 안내는 자리를 차지하지 않고 칸 바닥(+5)에
+                        // 얹힌다(4534:1813 안내 y=225, 다음 라벨 255 그대로).
+                        // 줄을 Column에 넣으면 아래 칸이 17px 밀린다.
+                        Stack(
+                          clipBehavior: Clip.none,
                           children: [
-                            Expanded(
-                              child: RoundedInputField(
-                                label: '이메일',
-                                hintText: '이메일을 입력하세요.',
-                                controller: _emailController,
-                                enabled: _step == _Step.emailInput,
-                                // 2307:1495 라벨+칸 75 — 회원가입 칸과 같다.
-                                height: AppLayout.onboardingControlHeight,
-                                labelGap: 1,
-                                centerVertically: true,
-                                errorText: _emailFormatError,
-                                // 2395:49는 남은 시간을 입력칸 안 우측에 얹는다.
-                                overlaySuffix: _step == _Step.linkSent,
-                                suffix: _step == _Step.linkSent
-                                    ? Text(
-                                        _formatRemaining(),
-                                        style: const TextStyle(
-                                          fontFamily: kFontFamily,
-                                          fontSize: 10,
-                                          color: kErrorRed,
-                                        ),
-                                      )
-                                    : null,
-                              ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: RoundedInputField(
+                                    label: '이메일',
+                                    hintText: '이메일을 입력하세요.',
+                                    controller: _emailController,
+                                    enabled: _step == _Step.emailInput,
+                                    // 2307:1495 라벨+칸 75 — 회원가입 칸과 같다.
+                                    height: AppLayout.onboardingControlHeight,
+                                    labelGap: 1,
+                                    centerVertically: true,
+                                    errorText: _emailFormatError,
+                                    // 2395:49는 남은 시간을 입력칸 안 우측에 얹는다.
+                                    overlaySuffix: _step == _Step.linkSent,
+                                    // 회원가입과 같은 위젯이라야 같은
+                                    // 자리(4534:1843 x252 y188)에 찍힌다.
+                                    suffix: _step == _Step.linkSent
+                                        ? VerificationCountdown(
+                                            text: _formatRemaining(),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(
+                                  width: AppLayout.authEmailActionGap,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 24),
+                                  // 2307:1517 68×51, 라벨 16 Medium — 회원가입 버튼.
+                                  child: SignupSendButton(
+                                    label: _loading ? '발송 중' : _sendButtonLabel,
+                                    variant:
+                                        _loading ||
+                                            !_emailNotEmpty ||
+                                            _emailFormatError != null ||
+                                            (_step == _Step.linkSent &&
+                                                _remaining.inSeconds > 0)
+                                        ? SignupSendButtonVariant.disabled
+                                        : SignupSendButtonVariant.enabled,
+                                    onPressed:
+                                        _loading ||
+                                            !_emailNotEmpty ||
+                                            _emailFormatError != null ||
+                                            (_step == _Step.linkSent &&
+                                                _remaining.inSeconds > 0)
+                                        ? null
+                                        : _sendResetLink,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: AppLayout.authEmailActionGap),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 24),
-                              // 2307:1517 68×51, 라벨 16 Medium — 회원가입 버튼.
-                              child: SignupSendButton(
-                                label: _loading ? '발송 중' : _sendButtonLabel,
-                                variant:
-                                    _loading ||
-                                        !_emailNotEmpty ||
-                                        _emailFormatError != null ||
-                                        (_step == _Step.linkSent &&
-                                            _remaining.inSeconds > 0)
-                                    ? SignupSendButtonVariant.disabled
-                                    : SignupSendButtonVariant.enabled,
-                                onPressed:
-                                    _loading ||
-                                        !_emailNotEmpty ||
-                                        _emailFormatError != null ||
-                                        (_step == _Step.linkSent &&
-                                            _remaining.inSeconds > 0)
-                                    ? null
-                                    : _sendResetLink,
+                            // 2395:51은 인증 완료를 버튼 라벨('완료')로만 알린다.
+                            // 4534:1853 x45 y225 — 칸 바닥(220)+5, 라벨처럼
+                            // 들여쓴다. 회원가입 이메일칸(SignupEmailField)과 같다.
+                            if (_step == _Step.linkSent)
+                              Positioned(
+                                left: AppLayout.inputLabelIndent,
+                                bottom: -17,
+                                child: Text(
+                                  '인증메일이 발송 되었습니다.',
+                                  style: kCaptionStyle.copyWith(
+                                    color: kErrorRed,
+                                    height: 1,
+                                  ),
+                                ),
                               ),
-                            ),
                           ],
                         ),
-                        // 2395:51은 인증 완료를 버튼 라벨('완료')로만 알린다.
-                        // 2307:1662 x45 y225 — 칸 바닥(220)+5, 라벨처럼 들여쓴다.
-                        if (_step == _Step.linkSent)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 5,
-                              left: AppLayout.inputLabelIndent,
-                            ),
-                            child: Text(
-                              '인증메일이 발송 되었습니다.',
-                              style: kCaptionStyle.copyWith(
-                                color: kErrorRed,
-                                height: 1,
-                              ),
-                            ),
-                          ),
                         const SizedBox(height: AppLayout.authFieldGap),
                       ],
                       RoundedInputField(

@@ -243,7 +243,9 @@ class _TermsAgreementSheetState extends State<TermsAgreementSheet> {
       child: Column(
         children: [
           _AgreementPill(checked: _allChecked, onTap: _toggleAll),
-          const SizedBox(height: 8),
+          // 시안 4534:2186 첫 행 글자는 625에 찍힌다(시트 top 533). 8이면
+          // 행 전체가 2px 위였다.
+          const SizedBox(height: 10),
           for (var index = 0; index < _labels.length; index++)
             _AgreementRow(
               label: _labels[index],
@@ -347,6 +349,10 @@ class _AgreementRow extends StatelessWidget {
               ),
             ),
             const FigmaChevronRight(),
+            // 시안 4534:2189 꺾쇠 선은 x 355.85에서 시작한다. 선이 상자
+            // 왼쪽에서 0.74 들어와 있으니 상자 오른쪽은 363.11, 칸 끝
+            // 368까지 4.89를 남긴다.
+            const SizedBox(width: 4.89),
           ],
         ),
       ),

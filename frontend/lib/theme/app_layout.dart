@@ -13,21 +13,24 @@ abstract final class AppLayout {
   /// 제목 '로그인' top은 시안에서 58(=874/2-367.5-11.5). 상태바 46을 빼면 12.
   static const double loginTitleTopGap = 12;
 
-  /// 제목 bottom(81)에서 로고 top(162.42)까지.
-  static const double loginTitleToLogoGap = 81.42;
-  // 2395:31 로고 그룹 폭.
-  static const double loginLogoWidth = 118.58;
+  /// 제목 bottom(81)에서 로고 top(169)까지(4534:2499 로고 4792:106 y=169).
+  static const double loginTitleToLogoGap = 88;
 
-  /// 심볼 에셋은 117x119라 폭을 그대로 쓰면 시안(110.65)보다 7.5px 커진다.
-  /// 110.65 x (117/119) / 118.581 = 0.9174.
-  static const double loginLogoMarkWidthFactor = 0.9174;
-  // 로고 바닥 317 -> 이메일 382.
-  static const double loginLogoToFormGap = 65;
+  /// 4534:2499 로고(4792:106)는 102x130.37이다. 심볼(4792:107)과
+  /// 워드마크(4792:132)가 같은 폭 102이고 둘 사이가 7이다. 옛 시안
+  /// (2395:31)의 118.58 묶음보다 작아 로고가 16px 넓었다.
+  static const double loginLogoWidth = 102;
+  static const double loginLogoMarkWidthFactor = 1;
+  static const double loginLogoGap = 7;
 
-  /// 시안 2353:24는 높이를 명시하지 않지만 비번칸(2353:26)이 51이고 두 칸은
-  /// 같은 크기다. 49는 간격 14를 전제로 역산됐던 값이라 함께 바로잡는다.
-  static const double loginEmailFieldHeight = 51;
-  static const double loginEmailToPasswordGap = 12;
+  /// 로고 바닥 299.36 -> 이메일 382. 로고 높이는 에셋 비율로 정해진다
+  /// (102x516/540 + 7 + 102x514/2025 = 130.36).
+  static const double loginLogoToFormGap = 82.64;
+
+  /// 빈 이메일칸(4534:2520)은 49이고 비번칸(445)까지 14를 띄운다. 값이
+  /// 있는 칸(4534:1423)만 51 + 간격 12다. 두 상태 모두 비번칸은 445에 앉는다.
+  static const double loginEmailFieldHeight = 49;
+  static const double loginEmailToPasswordGap = 14;
   static const double loginFilledEmailFieldHeight = 51;
   static const double loginFilledEmailToPasswordGap = 12;
   static const double loginPasswordComponentHeight = 75;
@@ -36,21 +39,33 @@ abstract final class AppLayout {
   static const double loginLinkHorizontalInset = 11;
   // 링크 바닥 520 -> 버튼 558.
   static const double loginLinkToButtonGap = 38;
-  // 버튼 바닥 609 -> 구분선 694.
-  static const double loginButtonToDividerGap = 85;
+
+  /// 버튼 바닥 609 -> 구분선 줄 694(4534:2579). 구분선 행은 글자 상자 17
+  /// 높이라 줄이 행 top + 8.5에 그려진다. 그래서 행 top은 685.5다.
+  static const double loginButtonToDividerGap = 76.5;
   static const double loginDividerLeftInset = 3;
   static const double loginDividerRightInset = 12;
   static const double loginDividerLabelInset = 12;
-  // 구분선 694 -> 소셜 735.
-  static const double loginDividerToSocialGap = 41;
+
+  /// 구분선 행 바닥 702.5 -> 소셜 735(4534:2538).
+  static const double loginDividerToSocialGap = 32.5;
+
+  /// 4534:2499(소셜 2개) 버튼 x 121 / 230.4 -> 간격 60. 묶음 가운데가
+  /// 200.5라 오른쪽을 왼쪽보다 1 더 들인다. 버튼 3개 시안(4534:1402)의
+  /// 간격 40은 애플을 뺀 지금 구성과 맞지 않는다.
   static const double loginSocialLeftInset = 51;
-  static const double loginSocialRightInset = 55;
-  // 2395:31 소셜 버튼 x 85 / 174.4 -> 간격 40. 애플은 팀 결정으로 뺐다.
-  static const double loginSocialGap = 40;
+  static const double loginSocialRightInset = 52;
+  static const double loginSocialGap = 60;
   static const double loginSocialButtonSize = 49.41;
   static const double loginBottomGap = 39;
   /// 회원가입(2307:933) 첫 라벨 top 145 = 앱바 92 + 53. 재설정(2307:1502)도 같다.
   static const double authFormTopPadding = 53;
+
+  /// 재설정 완료(4534:2261) 문구 상자 top 387 − 본문 시작(상태바 46 +
+  /// authFormTopPadding 53). 시안 headline 상자는 388(높이 48)이지만 글자가
+  /// 390에 찍히고, Flutter 두 줄 상자(행간 25)는 글자 위 여백이 3이다.
+  /// 위아래 Spacer로 가운데에 두면 시안보다 32px 아래였다.
+  static const double passwordResetDoneTitleGap = 288;
 
   /// 라벨은 입력칸보다 11px 들여쓴다(x34 → x45). 모든 흐름 공통.
   static const double inputLabelIndent = 11;
@@ -63,10 +78,19 @@ abstract final class AppLayout {
   static const double authFieldGap = 35;
   static const double authEmailActionWidth = 68;
   static const double authEmailActionGap = 5;
-  // 2395:44는 앱바 아래부터 로고까지. 시안 절대 293 - 앱바 밴드 약 102.
-  static const double signupCompleteTopGap = 191;
-  static const double signupCompleteLogoWidth = 155;
-  static const double signupCompleteCopyGap = 42;
+  /// 4534:2454·2325 로고(4889:386)는 로그인과 같은 102x130.37 묶음이고
+  /// top 236이다. 앱바 아래(92)부터 잰다. 옛 시안(2395:44)의 폭 155
+  /// 워드마크를 쓰던 때는 로고가 47px 아래였다.
+  static const double signupCompleteTopGap = 144;
+
+  /// 로고 바닥 366.36 -> 제목 글자 상자 474.5. 시안 headline(4534:2478)
+  /// 상자는 472(높이 24)지만 글자는 475에 찍힌다. Flutter 상자를 474.5에
+  /// 둬야 글자가 같은 줄에 찍힌다(골든 대조).
+  static const double signupCompleteCopyGap = 108.14;
+
+  /// 제목 상자 바닥(495.5) -> 부제 상자 508.5. 부제 글자가 508에 찍힌다
+  /// (4534:2479 body).
+  static const double signupCompleteTitleToSubtitleGap = 13;
   // 2395:44 버튼 바닥 841 -> 프레임 874.
   static const double signupCompleteBottomGap = 0;
 
