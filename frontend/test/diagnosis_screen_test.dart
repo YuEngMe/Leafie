@@ -8,6 +8,8 @@ import 'package:yeso_plant/services/diagnosis_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
+import 'support/device_view.dart';
+
 void main() {
   _prescriptionActionTests();
   setUp(() {});
@@ -50,6 +52,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DiagnosisPhotoConfirmScreen), findsOneWidget);
     expect(repository.submittedPlantId, isNull);
+  });
+
+  testWidgets('사진 확인 하단 글자는 시안(4534:20043) 자리에 잘리지 않고 앉는다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisPhotoConfirmScreen(
+          plantId: 'plant-id',
+          photo: DiagnosisPhoto(_greenPixelPng),
+          repository: _FakeDiagnosisRepository(records: const []),
+          photoPicker: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final retake = tester.getRect(find.text('다시 촬영'));
+    final submit = tester.getRect(find.text('다음'));
+    expect(retake.center.dy, closeTo(843.57, 2));
+    expect(submit.center.dy, closeTo(843.57, 2));
+    expect(retake.left, closeTo(30, 1));
+    expect(submit.right, closeTo(371, 1));
+    // 예전엔 안전 영역을 뺀 25 안에 버튼을 넣어 글자 칸이 9로 잘렸다.
+    for (final key in ['diagnosis-retake-button', 'diagnosis-submit-button']) {
+      expect(tester.getSize(find.byKey(ValueKey(key))).height, 44);
+    }
+    // 시안은 사진이 맨 위까지 보인다(어두운 앱바 띠 없음).
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
+      Colors.transparent,
+    );
   });
 
   testWidgets('기록이 없으면 Figma 빈 상태와 진단 버튼을 보여준다', (tester) async {

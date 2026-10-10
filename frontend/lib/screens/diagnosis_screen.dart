@@ -453,6 +453,17 @@ class _DiagnosisPhotoConfirmScreenState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final actionBarHeight = bottomInset > 34 ? bottomInset + 25 : 59.0;
+    // 시안(4534:20043) 막대 top 815·높이 59, 글자 중심 y 843.57. 글자는
+    // 홈 인디케이터 구역에 걸쳐 있다. 안전 영역을 빼고 남은 25에 TextButton
+    // (위아래 여백 8)을 넣으면 글자 칸이 9로 줄어 잘렸다.
+    const labelCenterFromBarTop = 843.57 - 815;
+    const hitHeight = 44.0;
+    const hitPadding = 12.0;
+    final buttonStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: hitPadding),
+      minimumSize: const Size(0, hitHeight),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: PopScope(
@@ -464,7 +475,8 @@ class _DiagnosisPhotoConfirmScreenState
             title: '',
             // 시안(4534-20043)엔 상단 뒤로가 없음. '다시 촬영'이 되돌아가는 역할.
             showBack: false,
-            backgroundColor: Colors.black54,
+            // 시안은 사진이 맨 위까지 그대로 보인다.
+            backgroundColor: Colors.transparent,
             backIconColor: Colors.white,
           ),
           body: Stack(
@@ -483,30 +495,33 @@ class _DiagnosisPhotoConfirmScreenState
                 height: actionBarHeight,
                 child: ColoredBox(
                   color: Colors.black.withValues(alpha: 0.6),
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 19,
-                      right: 13,
-                      bottom: bottomInset,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
+                  child: Stack(
+                    children: [
+                      // '다시 촬영' 글자 x=30, '다음' 글자 오른쪽 끝 x=371.
+                      Positioned(
+                        left: 30 - hitPadding,
+                        top: labelCenterFromBarTop - hitHeight / 2,
+                        child: TextButton(
                           key: const ValueKey('diagnosis-retake-button'),
+                          style: buttonStyle,
                           onPressed: _submitting ? null : _retake,
                           child: const Text(
                             '다시 촬영',
                             style: _captureActionStyle,
                           ),
                         ),
-                        TextButton(
+                      ),
+                      Positioned(
+                        right: 31 - hitPadding,
+                        top: labelCenterFromBarTop - hitHeight / 2,
+                        child: TextButton(
                           key: const ValueKey('diagnosis-submit-button'),
+                          style: buttonStyle,
                           onPressed: _submitting ? null : _submit,
                           child: const Text('다음', style: _captureActionStyle),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
