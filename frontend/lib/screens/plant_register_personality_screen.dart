@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_body_screen.dart';
@@ -8,6 +9,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
 
@@ -65,6 +67,9 @@ const _personalities = [
     dialogue: '말라죽겄슈',
   ),
 ];
+
+/// 말풍선 SVG(그림자 여백 포함) 크기. 4534:175 Union 253x47.05 + 사방 4.126.
+const Size _bubbleSvgSize = Size(261.253, 55.3058);
 
 /// 시안 순서 그대로의 성격 이름. 테스트가 글자를 고정한다.
 List<String> get kPersonalityLabels => [for (final p in _personalities) p.label];
@@ -143,6 +148,7 @@ class _PlantRegisterPersonalityScreenState
                           ),
                         ),
                       ),
+                      // 태그 4534:169/171: 58.69x20.67 알약 둘, 사이 6.62.
                       Positioned(
                         top: AppLayout.personalityTagsTop,
                         left: 0,
@@ -171,29 +177,39 @@ class _PlantRegisterPersonalityScreenState
                           ),
                         ),
                       ),
+                      // 말풍선 4534:174. 위로 꼬리가 난 Union(253x47.05)을
+                      // 시안 SVG 그대로 그린다(성격 수정 4889:2259와 같은
+                      // 모양이라 같은 에셋을 쓴다). 그림자(흐림 2.063, 18%)는
+                      // flutter_svg가 그리지 않아 SvgDropShadow로 다시 깐다.
                       Positioned(
                         top: AppLayout.personalityBubbleTop,
                         left: 0,
                         right: 0,
+                        height: _bubbleSvgSize.height,
                         child: Center(
-                          child: Container(
-                            width: 255,
-                            height: 46,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: kBackgroundWhite,
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x1F000000),
-                                  blurRadius: 5,
-                                ),
-                              ],
+                          child: SvgDropShadow(
+                            stdDeviation: 2.06324,
+                            opacity: 0.18,
+                            child: SvgPicture.asset(
+                              'assets/images/personality_bubble.svg',
+                              width: _bubbleSvgSize.width,
+                              height: _bubbleSvgSize.height,
                             ),
-                            child: Text(
-                              personality.dialogue,
-                              style: kBodyStyle,
-                            ),
+                          ),
+                        ),
+                      ),
+                      // 대사 4534:178: Paperlogy Regular 16.506 검정, 가운데
+                      // y=532.23. 옛 구현은 상자 가운데 정렬이라 4px 위였다.
+                      Positioned(
+                        top: AppLayout.personalityBubbleTextTop,
+                        left: 0,
+                        right: 0,
+                        child: Text(
+                          personality.dialogue,
+                          textAlign: TextAlign.center,
+                          style: kBodyStyle.copyWith(
+                            fontWeight: FontWeight.w400,
+                            color: Colors.black,
                           ),
                         ),
                       ),
@@ -264,17 +280,27 @@ class _PersonalityTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        // 2318:3960 테두리는 0.827px, 색은 kTagOrange다.
-        border: Border.all(color: kTagOrange, width: 0.827),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        label,
-        style: kCaptionStyle.copyWith(color: kTagOrange, fontSize: 10),
+    // 4534:169: 글자 길이와 관계없이 58.69x20.67 고정 알약이다. 여백으로
+    // 크기를 잡으면 Flutter 글자 상자(14)만큼 높이가 24로 커졌다.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3.31),
+      child: Container(
+        width: 58.693,
+        height: 20.667,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: kBackgroundWhite,
+          border: Border.all(color: kTagOrange, width: 0.827),
+          borderRadius: BorderRadius.circular(41.333),
+        ),
+        child: Text(
+          label,
+          style: kCaptionStyle.copyWith(
+            color: kTagOrange,
+            fontSize: 9.92,
+            height: 1,
+          ),
+        ),
       ),
     );
   }

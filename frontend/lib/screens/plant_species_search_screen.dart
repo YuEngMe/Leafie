@@ -285,32 +285,35 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
           children: [
             // 부제 바닥(195)에서 식물 명칭 라벨(237)까지.
             const SizedBox(height: 42),
-            RoundedInputField(
-              label: '식물 명칭',
-              labelColor: kOrangeAccent, // 2315:2583
-              labelIndent: AppLayout.registrationLabelIndent,
-              // 라벨 top 237 → 칸 top 261(4534:1007). 라벨 상자 23 + 1.
-              labelGap: 1,
-              height: AppLayout.onboardingControlHeight,
-              hintText: '예: 바질',
-              controller: _queryController,
-              suffix: Row(
-                mainAxisSize: MainAxisSize.min,
+            // 시안 4534:1007은 결과 카드(4534:1040, top 285)를 입력칸
+            // (top 261~312) 뒤에 깔아 칸 아래로 이어 붙인다. 카드를 칸 다음
+            // 형제로 두면 칸 바닥(312)부터 시작해 목록이 27px 내려가므로,
+            // 카드를 먼저 그리고 칸을 위에 겹친다.
+            Flexible(
+              child: Stack(
                 children: [
-                  IconButton(
-                    icon: const FigmaSearchIcon(),
-                    onPressed: () => _runSearch(_queryController.text.trim()),
-                  ),
-                  IconButton(
-                    icon: const FigmaCameraIcon(),
-                    onPressed: _pickPhoto,
+                  _buildResults(),
+                  RoundedInputField(
+                    label: '식물 명칭',
+                    labelColor: kOrangeAccent, // 2315:2583
+                    labelIndent: AppLayout.registrationLabelIndent,
+                    // 라벨 top 237 → 칸 top 261(4534:1007). 라벨 상자 23 + 1.
+                    labelGap: 1,
+                    height: AppLayout.onboardingControlHeight,
+                    hintText: '예: 바질',
+                    controller: _queryController,
+                    // 긴 검색어가 아이콘 밑으로 들어가지 않게 돋보기 왼쪽
+                    // 끝(칸 x250)에서 8px 앞까지만 글자를 둔다.
+                    contentPadding: const EdgeInsets.only(left: 20, right: 92),
+                    overlaySuffix: true,
+                    suffix: _SearchFieldActions(
+                      onSearch: () => _runSearch(_queryController.text.trim()),
+                      onCamera: _pickPhoto,
+                    ),
                   ),
                 ],
               ),
             ),
-            // 카드는 결과 개수만큼만 차지하고, 많으면 시안 높이(289)에서
-            // 스크롤한다.
-            Flexible(child: _buildResults()),
           ],
         ),
       ),
@@ -319,51 +322,145 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
 
   Widget _buildResults() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: kOrangeMain));
+      return const Padding(
+        padding: EdgeInsets.only(top: _fieldBottom),
+        child: Center(child: CircularProgressIndicator(color: kOrangeMain)),
+      );
     }
     if (_results.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.only(top: 24),
+        padding: const EdgeInsets.only(top: _fieldBottom + 24),
         child: Text('검색 결과가 없어요', style: kSmallStyle),
       );
     }
-    // 입력칸 뒤로 이어지는 흰 카드(Figma node 2318:3721). pill과 맞붙으므로
-    // 위쪽 모서리는 굴리지 않는다.
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 289),
-      decoration: const BoxDecoration(
-        color: kBackgroundWhite,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(27)),
-        boxShadow: [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
+    // 입력칸 뒤에 깔리는 흰 카드(4534:1040, top 285 = 칸 top + 24). 위쪽은
+    // 칸에 가려지므로 아래 모서리만 굴린다.
+    return Padding(
+      padding: const EdgeInsets.only(top: _fieldTop + 24),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 289),
+        decoration: const BoxDecoration(
+          color: kBackgroundWhite,
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(27)),
+          boxShadow: [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListView.builder(
+          // 4534:1040 카드 top 285 → 첫 하이라이트 띠 top 320(글자 329),
+          // 행 간격 36. 7행이면 띠 끝 569 + 여백 = 카드 바닥 574(높이 289).
+          padding: const EdgeInsets.only(top: 35, bottom: 2),
+          itemExtent: 36,
+          shrinkWrap: true,
+          itemCount: _results.length,
+          itemBuilder: (context, index) {
+            final candidate = _results[index];
+            final highlighted = index == _highlightedIndex;
+            return InkWell(
+              // 시안(2315:2582)은 고른 항목을 노랗게 표시만 하고, 넘어가는
+              // 것은 하단 '다음' 버튼이 맡는다.
+              onTap: () => setState(() => _highlightedIndex = index),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Container(
+                  // 4534:1041 하이라이트 띠 높이 33. 행 간격(36)을 다 채우면
+                  // 띠가 시안보다 3px 두꺼워진다(AUTH-ISS-006).
+                  height: 33,
+                  width: double.infinity,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  color: highlighted
+                      ? kOrangeMain.withValues(alpha: 0.43)
+                      : null,
+                  child: Text(
+                    candidate.displayName,
+                    style: kCaptionStyle.copyWith(
+                      color: const Color(0xFF1F2E21),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: ListView.builder(
-        // 2318:3721 카드 top에서 첫 텍스트까지 44px, 행 간격은 36px.
-        padding: const EdgeInsets.only(top: 33, bottom: 12),
-        itemExtent: 36,
-        shrinkWrap: true,
-        itemCount: _results.length,
-        itemBuilder: (context, index) {
-          final candidate = _results[index];
-          final highlighted = index == _highlightedIndex;
-          return InkWell(
-            // 시안(2315:2582)은 고른 항목을 노랗게 표시만 하고, 넘어가는
-            // 것은 하단 '다음' 버튼이 맡는다.
-            onTap: () => setState(() => _highlightedIndex = index),
-            child: Container(
-              // 2318:3722 하이라이트 밴드 높이.
-              height: 33,
-              width: double.infinity,
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              color: highlighted ? kOrangeMain.withValues(alpha: 0.43) : null,
-              child: Text(
-                candidate.displayName,
-                style: kCaptionStyle.copyWith(color: const Color(0xFF1F2E21)),
+    );
+  }
+}
+
+/// 결과 Stack 안에서 입력칸 top. 라벨 상자(Paperlogy 16 → 23) + labelGap 1.
+const double _fieldTop = 24;
+
+/// 결과 Stack 안에서 입력칸 바닥(칸 높이 51).
+const double _fieldBottom = _fieldTop + AppLayout.onboardingControlHeight;
+
+/// 입력칸 오른쪽의 돋보기·카메라(4534:1051, 4534:1045).
+///
+/// 시안은 칸 왼쪽에서 돋보기 상자를 x250·y12(29.6x31.6)에, 카메라를
+/// x288·y14(27x22.2)에 둔다. IconButton(48x48)으로 감싸면 아이콘이
+/// 버튼 가운데로 밀려 카메라가 9px 오른쪽에 앉았으므로, 칸 높이 전체를
+/// 쓰는 상자에 시안 좌표 그대로 얹고 터치 영역만 상자 크기로 잡는다.
+class _SearchFieldActions extends StatelessWidget {
+  const _SearchFieldActions({required this.onSearch, required this.onCamera});
+
+  final VoidCallback onSearch;
+  final VoidCallback onCamera;
+
+  /// overlaySuffix가 오른쪽에 두는 여백. 칸 오른쪽 끝(334)에서 이만큼 안쪽이
+  /// 이 상자의 오른쪽 끝이다.
+  static const double _rightPadding = 10;
+  static const double _left = 250;
+  static const double _width = 334 - _rightPadding - _left;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _width,
+      height: AppLayout.onboardingControlHeight,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 288 - _left,
+            child: Semantics(
+              button: true,
+              label: '검색',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onSearch,
+                child: const Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: FigmaSearchIcon(),
+                  ),
+                ),
               ),
             ),
-          );
-        },
+          ),
+          Positioned(
+            left: 288 - _left,
+            top: 0,
+            bottom: 0,
+            right: 0,
+            child: Semantics(
+              button: true,
+              label: '사진으로 찾기',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onCamera,
+                child: const Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 14),
+                    child: FigmaCameraIcon(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

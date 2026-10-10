@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -289,7 +291,7 @@ class FigmaMoistureIcon extends StatelessWidget {
   );
 }
 
-/// Figma node 2318:3742. 식물 검색의 사진 촬영 버튼.
+/// Figma node 4534:1045. 식물 검색의 사진 촬영 버튼.
 class FigmaCameraIcon extends StatelessWidget {
   const FigmaCameraIcon({super.key});
 
@@ -300,15 +302,32 @@ class FigmaCameraIcon extends StatelessWidget {
       const _AssetIcon(asset: 'assets/images/icon_camera.svg', size: figmaSize);
 }
 
-/// Figma node 2318:3726. 식물 검색 돋보기.
+/// Figma node 4534:1051. 식물 검색 돋보기.
+///
+/// 시안은 세운 돋보기(4534:1052, 17.868x26.016)를 -35.36도 기울여 놓고,
+/// 기울어진 그림이 차지하는 29.627x31.557 상자로 자리를 잡는다. 옛 에셋은
+/// 연회색 선 아이콘에 입력칸 흰 배경까지 섞여 있었다. 에셋은 세운 그대로
+/// 받고 기울기만 여기서 준다.
 class FigmaSearchIcon extends StatelessWidget {
   const FigmaSearchIcon({super.key});
 
-  static const Size figmaSize = Size(24.91, 24.91);
+  static const Size figmaSize = Size(29.627, 31.557);
+  static const Size _uprightSize = Size(17.868, 26.0157);
+  static const double _angle = -35.36 * math.pi / 180;
 
   @override
-  Widget build(BuildContext context) =>
-      const _AssetIcon(asset: 'assets/images/icon_search.svg', size: figmaSize);
+  Widget build(BuildContext context) => SizedBox.fromSize(
+    size: figmaSize,
+    child: Center(
+      child: Transform.rotate(
+        angle: _angle,
+        child: const _AssetIcon(
+          asset: 'assets/images/icon_search.svg',
+          size: _uprightSize,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Figma node 2353:41 / 2353:39. 소셜 로그인 버튼.

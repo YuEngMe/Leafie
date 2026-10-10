@@ -137,7 +137,11 @@ abstract final class AppLayout {
   // 폭 155 = 139 / 0.897(circle PNG 불투명 영역 비율).
   static const double personalityCharacterWidth = 155;
   static const double personalityCharacterTop = 227.5; // 몸통 바닥 시안 489
-  static const double personalityBubbleTop = 379; // 시안 504
+  // 말풍선 4534:174: 위로 꼬리가 난 Union(253x47.05)의 top이 504.68이고,
+  // SVG는 그림자 여백(사방 4.126)을 포함해 위가 500.55다.
+  static const double personalityBubbleTop = 375.125; // 시안 SVG 500.55
+  // 대사(4534:178) 글자 가운데 532.23 → Flutter 글자 상자 top 520.73.
+  static const double personalityBubbleTextTop = 395.305;
   static const double personalityDotsTop = 465; // 시안 590
   static const double appearanceCharacterWidth = 232;
   static const double appearanceCharacterTop = 64;

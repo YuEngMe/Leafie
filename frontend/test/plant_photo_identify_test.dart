@@ -94,6 +94,19 @@ void main() {
       tester.getRect(find.byType(PlantResultConfirmButtons)).top,
       closeTo(759, 1),
     );
+
+    // 4534:1187 뒤 종이와 4534:1198 흰 카드는 가운데가 같다(464). 예전에는
+    // 종이가 왼쪽 아래로 22·18px 밀려 시안과 반대로 기운 듯 보였다.
+    final card = find.byType(PlantResultCard);
+    final paper = find.descendant(of: card, matching: find.byType(Transform));
+    final front = tester.getRect(
+      // 첫째는 뒤 종이, 둘째가 흰 카드 자리다.
+      find.descendant(of: card, matching: find.byType(Positioned)).at(1),
+    );
+    expect(front.top, closeTo(254, 1));
+    final paperCenter = tester.getCenter(paper.first);
+    expect(paperCenter.dx, closeTo(front.center.dx, 0.5));
+    expect(paperCenter.dy, closeTo(front.center.dy, 0.5));
   });
 
   testWidgets('인식 결과의 이름과 분류가 카드에 뜬다', (tester) async {

@@ -8,6 +8,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 /// Figma node 2318:3777. 사진 인식 결과를 보여주는 폴라로이드 카드.
 ///
 /// 뒤에 연노랑 종이가 -6.31도 기울어 깔리고 그 위에 흰 카드가 올라간다.
+/// 시안 4534:1187·4534:1198은 두 장의 가운데가 같은 점(카드 묶음 가운데)이다.
 class PlantResultCard extends StatelessWidget {
   const PlantResultCard({
     super.key,
@@ -34,10 +35,15 @@ class PlantResultCard extends StatelessWidget {
       size: totalSize,
       child: Stack(
         children: [
-          // 뒤 종이(2318:3752). 내용 없이 색과 기울기만 남긴다.
+          // 뒤 종이(4534:1187). 내용 없이 색과 기울기만 남긴다. 흰 카드와
+          // 같은 자리에서 가운데를 축으로 돌린다. 예전에는 기울어진 그림의
+          // 바깥 상자 값(왼쪽 0·위 33.3)을 돌리기 전 자리로 써서 종이가
+          // 왼쪽 아래로 22·18px 밀렸다. 그래서 시안처럼 오른쪽 위 모서리가
+          // 흰 카드 위로 나오지 않고 왼쪽만 비어져 나와, 반대로 기운 것처럼
+          // 보였다.
           Positioned(
-            left: 0,
-            top: 33.3,
+            left: 22.16,
+            top: 15.38,
             child: Transform.rotate(
               angle: -6.31 * 3.1415926535 / 180,
               child: Container(
@@ -46,9 +52,7 @@ class PlantResultCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: kProfileCardYellow,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x26000000), blurRadius: 10),
-                  ],
+                  boxShadow: const [_cardShadow],
                 ),
               ),
             ),
@@ -71,6 +75,14 @@ class PlantResultCard extends StatelessWidget {
   }
 }
 
+/// 4534:1187·4534:1198 그림자: 흐림 10, 검정 15%. Figma/CSS 흐림은 2σ라
+/// σ=5이고, Flutter blurRadius는 σ = r·0.57735 + 0.5라 r ≈ 7.79다. 흐림 10을
+/// 그대로 넣으면 σ 6.27로 더 넓게 퍼져 시안보다 옅게 보였다.
+const BoxShadow _cardShadow = BoxShadow(
+  color: Color(0x26000000),
+  blurRadius: 7.79,
+);
+
 class _PolaroidFront extends StatelessWidget {
   const _PolaroidFront({required this.imageProvider, required this.rows});
 
@@ -85,7 +97,7 @@ class _PolaroidFront extends StatelessWidget {
       decoration: BoxDecoration(
         color: kBackgroundWhite,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 10)],
+        boxShadow: const [_cardShadow],
       ),
       child: Stack(
         children: [
@@ -163,10 +175,12 @@ class _ResultRow extends StatelessWidget {
             ],
           ),
         ),
+        // 구분선 4534:1205/1206: #D4D4D4 1px, 카드 기준 y 322·361(행 글자
+        // 상자 바닥에서 8 아래).
         if (showDivider)
           const Padding(
-            padding: EdgeInsets.only(top: 5.5),
-            child: Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+            padding: EdgeInsets.only(top: 8),
+            child: Divider(height: 1, thickness: 1, color: Color(0xFFD4D4D4)),
           ),
       ],
     );

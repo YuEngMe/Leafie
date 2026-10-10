@@ -9,6 +9,7 @@ import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
@@ -116,6 +117,35 @@ void main() {
       // 4534:1007: 칸 top 261(라벨 top + 24).
       expect(_fieldBox(tester, 0).top, closeTo(261, 1));
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
+
+      // 돋보기 4534:1051(칸 기준 x250·y12, 29.6x31.6)와 카메라 4534:1045
+      // (x288·y14). IconButton으로 감쌌을 때는 카메라가 9px 오른쪽이었다.
+      final search = tester.getRect(find.byType(FigmaSearchIcon));
+      expect(search.left, closeTo(34 + 250, 1));
+      expect(search.top, closeTo(261 + 12, 1));
+      expect(search.size.width, closeTo(29.627, 0.5));
+      expect(search.size.height, closeTo(31.557, 0.5));
+      _expectAt(
+        tester,
+        '카메라',
+        find.byType(FigmaCameraIcon),
+        34 + 288,
+        261 + 14,
+      );
+
+      // 결과 카드 4534:1040은 칸 뒤 top 285에서 시작한다(칸 다음에 두면
+      // 312부터라 목록이 27px 내려갔다). 첫 하이라이트 띠 top 320, 높이 33
+      // (4534:1041, AUTH-ISS-006 — 행 간격 36을 다 채우면 안 된다).
+      expect(tester.getRect(find.byType(ListView)).top, closeTo(285, 1));
+      final band = tester.getRect(
+        find
+            .ancestor(of: find.text('바질'), matching: find.byType(Container))
+            .first,
+      );
+      expect(band.top, closeTo(320, 1));
+      expect(band.height, closeTo(33, 0.5));
+      expect(band.left, closeTo(34, 1));
+      expect(band.width, closeTo(334, 1));
     });
 
     testWidgets('고르기 전에는 다음이 잠겨 있다', (tester) async {

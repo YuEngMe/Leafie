@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
@@ -54,6 +55,36 @@ void main() {
     // 아래다.
     final unit = art.width * 0.897 / 155.23;
     expect(hair.top + 3 * unit, greaterThan(tags.bottom));
+  });
+
+  testWidgets('성격: 태그 알약 20.67, 꼬리 달린 말풍선, 대사 가운데 532', (tester) async {
+    await _pump(tester, PlantRegisterPersonalityScreen(draft: _draft()));
+    // 4534:169/171: 58.69x20.67 알약 둘이 y=190, 사이 6.62. 여백으로 크기를
+    // 잡을 때는 높이가 24였다.
+    final chips = find.ancestor(
+      of: find.text('#긍정적'),
+      matching: find.byType(Container),
+    );
+    final chip = tester.getRect(chips.first);
+    expect(chip.height, closeTo(20.667, 0.1));
+    expect(chip.width, closeTo(58.693, 0.1));
+    expect(chip.top, closeTo(190, 1));
+    final second = tester.getRect(
+      find
+          .ancestor(of: find.text('#에너지'), matching: find.byType(Container))
+          .first,
+    );
+    expect(second.left - chip.right, closeTo(6.62, 0.1));
+    // 4534:175 말풍선은 위로 꼬리가 난 시안 SVG다. 그림자 여백 포함 위 500.55.
+    final bubble = tester.getRect(find.byType(SvgPicture).first);
+    expect(bubble.top, closeTo(500.55, 1));
+    expect(bubble.center.dx, closeTo(201, 1));
+    // 4534:178 대사 글자 가운데 532.23 → Flutter 상자 top 520.73. 옛 구현은
+    // 상자 가운데 정렬이라 보이는 글자가 4px 위였다.
+    expect(
+      tester.getRect(find.text('자 이제 물 줄 시간이야!')).top,
+      closeTo(520.73, 0.5),
+    );
   });
 
   testWidgets('외형: 가운데 정렬, 몸통 바닥 489, 인디케이터 y=558', (tester) async {
