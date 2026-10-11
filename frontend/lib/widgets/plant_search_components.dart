@@ -221,8 +221,10 @@ class PlantResultConfirmButtons extends StatelessWidget {
         const SizedBox(width: gap),
         PrimaryButton(
           label: '아니에요',
-          // Figma는 회색이지만 실제로 누를 수 있는 버튼이라 콜백을 붙인다.
-          variant: PrimaryButtonVariant.disabled,
+          // Figma는 회색이지만 실제로 누를 수 있는 버튼이다. disabled 변형은
+          // 콜백을 버려 눌리지 않으므로, 활성 변형에 비활성 회색만 칠한다.
+          variant: PrimaryButtonVariant.enabled,
+          background: kGrayLightest,
           width: buttonWidth,
           height: buttonHeight,
           showShadow: false,

@@ -190,6 +190,37 @@ void main() {
     expect(env.draft.primaryMediaFileId, 'media-id');
   });
 
+  testWidgets('아니에요를 누르면 결과 화면을 닫고 이전 화면으로 돌아간다', (tester) async {
+    // 회색이라 예전에는 disabled 변형을 써서 눌러도 반응하지 않았다.
+    _setUpView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PlantPhotoIdentifyScreen(
+                  photo: _photo,
+                  name: '씩씩이',
+                  identifier: (_) async => _mockResult,
+                ),
+              ),
+            ),
+            child: const Text('검색 화면'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('검색 화면'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('아니에요'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PlantPhotoIdentifyScreen), findsNothing);
+    expect(find.text('검색 화면'), findsOneWidget);
+  });
+
   testWidgets('인식에 실패하면 안내를 띄운다', (tester) async {
     await tester.pumpWidget(
       _screen(identifier: (_) async => throw Exception('boom')),
