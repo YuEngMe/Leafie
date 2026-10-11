@@ -5,6 +5,7 @@ import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/services/calendar_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 
 /// 캘린더 3프레임 회귀 측정.
 /// 시안: 월간 `3341:2`, 주간 `2687:15303`, 일정 추가 `3429:1163` (402x874).
@@ -341,8 +342,26 @@ void main() {
                   )
                   .decoration
               as BoxDecoration;
-      expect(circle(marks.at(0)).shape, BoxShape.circle);
-      expect(circle(marks.at(0)).color, kBackgroundWhite);
+      // 미완료 흰 원은 흰 카드에 묻히지 않게 4534:5160 안쪽 그림자
+      // (inset 0 0 2.1 rgba(0,0,0,0.2))로 테두리를 낸다.
+      final incompletePainter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: marks.at(0),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter
+              as InsetShadowPainter;
+      expect(incompletePainter.color, kBackgroundWhite);
+      expect(
+        incompletePainter.borderRadius,
+        const BorderRadius.all(Radius.circular(13)),
+      );
+      expect(incompletePainter.shadows, const [
+        BoxShadow(color: Color(0x33000000), blurRadius: 2.1),
+      ]);
       expect(circle(marks.at(1)).shape, BoxShape.circle);
       expect(circle(marks.at(1)).color, kOrangeMain);
       expect(tester.getSize(marks.at(0)), const Size.square(26));

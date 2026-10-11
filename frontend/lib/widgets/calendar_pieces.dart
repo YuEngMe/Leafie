@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 
 /// 캘린더 월간(3341:2)·주간(2687:15303)·일정 추가(3429:1163)가 함께 쓰는 조각들.
 /// 화면 파일이 커져서 골격만 남기려고 뽑아냈다. 좌표는 전부 402x874 시안 기준.
@@ -137,30 +138,41 @@ class CalendarCompleteMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!completed) {
+      // 4534:5160 흰 원에 inset 0 0 2.1 rgba(0,0,0,0.2). 흰 카드 위라 이
+      // 테두리 그늘이 없으면 원이 보이지 않는다(시안 PNG 가장자리 밝기 239).
+      return const SizedBox(
+        width: 26,
+        height: 26,
+        child: InsetShadowBox(
+          color: kBackgroundWhite,
+          shadows: [BoxShadow(color: Color(0x33000000), blurRadius: 2.1)],
+          borderRadius: BorderRadius.all(Radius.circular(13)),
+        ),
+      );
+    }
     return SizedBox(
       width: 26,
       height: 26,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: completed ? kOrangeMain : kBackgroundWhite,
+        decoration: const BoxDecoration(
+          color: kOrangeMain,
           shape: BoxShape.circle,
         ),
-        child: completed
-            ? Stack(
-                children: [
-                  // 4534:5182 꺾쇠 12x8 @ (6.97, 9.61). SVG는 선 두께 2의
-                  // 절반씩 사방으로 1 넓다.
-                  Positioned(
-                    left: 6.97 - 1,
-                    top: 9.61 - 1,
-                    child: SvgPicture.asset(
-                      'assets/images/calendar_complete_check.svg',
-                      excludeFromSemantics: true,
-                    ),
-                  ),
-                ],
-              )
-            : null,
+        child: Stack(
+          children: [
+            // 4534:5182 꺾쇠 12x8 @ (6.97, 9.61). SVG는 선 두께 2의
+            // 절반씩 사방으로 1 넓다.
+            Positioned(
+              left: 6.97 - 1,
+              top: 9.61 - 1,
+              child: SvgPicture.asset(
+                'assets/images/calendar_complete_check.svg',
+                excludeFromSemantics: true,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
