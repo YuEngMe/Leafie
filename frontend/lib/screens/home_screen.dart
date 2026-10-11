@@ -698,7 +698,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
     if (!mounted) return;
     await _loadHome((_serverPlant ?? widget.plant)?.id);
-    if (!mounted || selected == null) return;
+    // 연결이 끊겼으면 방금 띄운 연결 끊김 모달 위로 화면을 쌓지 않는다.
+    // 쌓으면 그 화면이 모달을 가려 뒤로 가야 모달이 보였다.
+    if (!mounted || selected == null || _homeOffline) return;
     await _openNotificationTarget(selected);
   }
 

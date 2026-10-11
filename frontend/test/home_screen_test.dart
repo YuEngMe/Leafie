@@ -739,8 +739,9 @@ void main() {
     /// [responses]를 차례로 돌려준다. 예외면 던진다.
     Future<List<String?>> pumpHome(
       WidgetTester tester,
-      List<Object> responses,
-    ) async {
+      List<Object> responses, {
+      WidgetBuilder? notificationBuilder,
+    }) async {
       useDeviceView(tester);
       final calls = <String?>[];
       await tester.pumpWidget(
@@ -750,6 +751,7 @@ void main() {
             plantRepository: _FakePlantManagementRepository(const []),
             letterRepository: _UnreadLetters(),
             plantManagementBuilder: (_, _, _, _) => const Scaffold(),
+            notificationBuilder: notificationBuilder,
             loadHomeForPlant: (plantId) async {
               final response = responses[calls.length];
               calls.add(plantId);
@@ -830,6 +832,41 @@ void main() {
       // 시안처럼 모달 뒤에 직전 게이지·방 이름이 남는다.
       expect(gaugeCard, findsOneWidget);
       expect(find.text('서버새싹 방'), findsOneWidget);
+    });
+
+    testWidgets('알림에서 돌아와 다시 조회하다 끊기면 알림 대상 화면을 열지 않는다', (tester) async {
+      final calls = await pumpHome(
+        tester,
+        [homeData, offline],
+        notificationBuilder: (routeContext) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(routeContext).pop(
+              NotificationData(
+                id: 'n-diagnosis',
+                plantId: 'plant-1',
+                type: 'DIAGNOSIS_DONE',
+                title: '진단이 끝났어요',
+                body: '결과를 확인해 보세요.',
+                sourceType: 'DIAGNOSIS',
+                sourceId: 'diagnosis-1',
+                readAt: DateTime(2026, 9, 25),
+                createdAt: DateTime(2026, 9, 25),
+              ),
+            ),
+            child: const Text('진단 알림'),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('home-notifications')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('진단 알림'));
+      await tester.pumpAndSettle();
+
+      expect(calls, hasLength(2));
+      // 진단 화면이 모달을 덮지 않고, 모달이 맨 위에 보인다.
+      expect(find.byType(DiagnosisDetailScreen), findsNothing);
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
     });
 
     testWidgets('서버가 답한 오류는 모달이 아니라 오류 카드로 남긴다', (tester) async {
