@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -379,10 +381,16 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
   /// 셋째 줄은 시트 위 가장자리·버튼에 비치지 않게 자른다.
   static const double _wheelHalfHeight = 105;
 
-  late final int _firstYear = widget.firstYear;
-  late final int _lastYear = widget.lastYear;
+  // 저장된 날짜가 연도 범위 밖이어도(정보 수정은 올해−20부터) 범위를
+  // 넓혀 그 해를 그대로 보여 준다. 범위 안으로 당기면 휠을 건드리지
+  // 않고 확정만 해도 날짜가 바뀌어 저장된다.
+  late final int _firstYear = math.min(
+    widget.firstYear,
+    widget.initialDate.year,
+  );
+  late final int _lastYear = math.max(widget.lastYear, widget.initialDate.year);
 
-  late int _year = widget.initialDate.year.clamp(_firstYear, _lastYear);
+  late int _year = widget.initialDate.year;
   late int _month = widget.initialDate.month;
   late int _day = widget.initialDate.day;
 

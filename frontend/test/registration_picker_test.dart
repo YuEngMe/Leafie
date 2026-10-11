@@ -151,4 +151,37 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('연도 범위 밖 날짜는 휠을 건드리지 않고 확정하면 그대로 돌려준다', (tester) async {
+    DateTime? picked;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                picked = await showModalBottomSheet<DateTime>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => PlantDatePickerSheet(
+                    initialDate: DateTime(2005, 6, 15),
+                    buttonLabel: '수정하기',
+                    firstYear: 2006,
+                    lastYear: 2026,
+                  ),
+                );
+              },
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expect(find.text('2005년'), findsOneWidget);
+    await tester.tap(find.text('수정하기'));
+    await tester.pumpAndSettle();
+    expect(picked, DateTime(2005, 6, 15));
+  });
 }
