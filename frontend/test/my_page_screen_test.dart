@@ -11,6 +11,8 @@ import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
+import 'support/device_view.dart';
+
 /// 시안(2319:2)이 그린 값 그대로의 가짜 세션. 화면이 세션에서 값을 읽으므로
 /// 좌표·문구 검증에는 고정된 사용자가 필요하다.
 User _mockUser() => User(
@@ -26,9 +28,7 @@ User _mockUser() => User(
 
 void main() {
   testWidgets('마이페이지 402x874 스냅샷', (tester) async {
-    tester.view.physicalSize = const Size(402, 874);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDeviceView(tester);
 
     await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
     await tester.pumpAndSettle();
@@ -85,6 +85,40 @@ void main() {
     expect(barrier.color, kModalBarrier);
   });
 
+  testWidgets('로그아웃 확인 모달은 안전영역이 아니라 화면 정중앙에 뜬다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
+
+    await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+
+    // 4534:3261(LF-061) 모달은 402x874 프레임의 (47, 358) 308x158.83이다.
+    // 안전영역(상단 46·하단 34) 안에서 가운데를 잡으면 363.59로 6 내려간다.
+    final modal = tester.getRect(
+      find.descendant(
+        of: find.byType(SignOutConfirmDialog),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is SizedBox &&
+              widget.width == 308 &&
+              widget.height == 158.829,
+        ),
+      ),
+    );
+    expect(modal.left, closeTo(47, .01));
+    expect(modal.top, closeTo(357.5855, .01));
+
+    // 4534:3264 '네'는 검정 SemiBold, 4534:3265 '아니오'는 연한 텍스트.
+    final yes = tester.widget<Text>(find.text('네')).style!;
+    expect(yes.color, Colors.black);
+    expect(yes.fontWeight, FontWeight.w600);
+    expect(tester.widget<Text>(find.text('아니오')).style!.color, kTextLight);
+
+    // 시안 버튼 글자 윗변(y=481)에 맞춘 글자 상자 위치. Paperlogy 16의
+    // 글자 상자(23)는 위로 5.4 여백을 둔다.
+    expect(tester.getRect(find.text('네')).top, closeTo(475.6, .5));
+  });
+
   testWidgets('모달에서 아니오를 고르면 로그아웃하지 않고 화면에 머문다', (tester) async {
     await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
@@ -120,12 +154,20 @@ void main() {
     expectAt('가입 기간', find.text('식집사가 된 지 128일째'), 131, 142);
     expectAt('이메일', find.text('akdrotorl@naver.com'), 52, 166.1);
     expectAt('메뉴 카드', find.byType(ProfileMenuCard), 29, 211);
-    expectAt('프로필 관리', find.text('프로필 관리'), 52, 227);
-    expectAt('내 정보 수정', find.text('내 정보 수정'), 52, 264.76);
-    expectAt('비밀번호 변경', find.text('비밀번호 변경'), 52, 313.76);
-    expectAt('센서 기기 등록', find.text('센서 기기 등록'), 52, 362.76);
-    expectAt('앱 알림', find.text('앱 알림'), 52, 411.76);
-    expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 460.76);
+    // 4534:3101. Flutter 글자 상자가 시안보다 커서, 보이는 글자를 시안에
+    // 맞추면 상자 top은 시안 y보다 위에 온다(12px 1, 16px 2).
+    expectAt('프로필 관리', find.text('프로필 관리'), 52, 227 - 1);
+    expectAt('내 정보 수정', find.text('내 정보 수정'), 52, 264.76 - 2);
+    expectAt('비밀번호 변경', find.text('비밀번호 변경'), 52, 313.76 - 2);
+    expectAt('센서 기기 등록', find.text('센서 기기 등록'), 52, 362.76 - 2);
+    expectAt('앱 알림', find.text('앱 알림'), 52, 411.76 - 2);
+    // 회원 탈퇴만 앞 행과 49가 아니라 52.93 간격이다.
+    expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 464.69 - 2);
+    expect(
+      tester.getSize(find.byType(ProfileMenuCard)).height,
+      closeTo(295, .01),
+    );
+    expect(tester.widget<Text>(find.text('프로필 관리')).style!.color, kTextDark);
 
     // 카드는 폭 344인데 버튼만 334다(2319:23). 세로 위치는 하단 SafeArea가
     // 정하므로 여기(상태바 없는 조건)서는 보지 않는다 —
@@ -177,5 +219,27 @@ void main() {
 
     expect(find.text('식집사님'), findsOneWidget);
     expect(find.text('plain@example.com'), findsOneWidget);
+  });
+
+  testWidgets('닉네임이 길어도 가입 일수를 덮지 않고 카드 안에 둔다', (tester) async {
+    for (final nickname in ['감사새싹님', 'auditnick님', '아주아주아주긴닉네임을쓰는식집사님']) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: ProfileSummaryCard(
+              nickname: nickname,
+              email: 'leafie@example.com',
+              tenureLabel: '식집사가 된 지 128일째',
+            ),
+          ),
+        ),
+      );
+
+      final card = tester.getRect(find.byType(ProfileSummaryCard));
+      final name = tester.getRect(find.text(nickname));
+      final tenure = tester.getRect(find.text('식집사가 된 지 128일째'));
+      expect(name.right, lessThanOrEqualTo(tenure.left), reason: nickname);
+      expect(tenure.right, lessThanOrEqualTo(card.right), reason: nickname);
+    }
   });
 }

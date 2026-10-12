@@ -12,6 +12,41 @@ import 'package:yeso_plant/widgets/login_credentials_form.dart';
 import 'package:yeso_plant/widgets/social_login_section.dart';
 
 void main() {
+  test('로그인 실패는 서버의 영어 문구 대신 한국어로 보여 준다', () {
+    expect(
+      loginErrorMessage(
+        const AuthApiException(
+          'Invalid login credentials',
+          statusCode: '400',
+          code: 'invalid_credentials',
+        ),
+      ),
+      '비밀번호가 옳지 않습니다.',
+    );
+    expect(
+      loginErrorMessage(
+        const AuthApiException('Invalid login credentials', statusCode: '400'),
+      ),
+      '비밀번호가 옳지 않습니다.',
+    );
+    expect(
+      loginErrorMessage(
+        const AuthApiException(
+          'Email not confirmed',
+          statusCode: '400',
+          code: 'email_not_confirmed',
+        ),
+      ),
+      '이메일 인증을 마친 뒤 로그인해 주세요.',
+    );
+    expect(
+      loginErrorMessage(
+        const AuthApiException('Internal error', statusCode: '500'),
+      ),
+      '로그인하지 못했어요. 잠시 후 다시 시도해 주세요.',
+    );
+  });
+
   testWidgets('로그인 화면에 Figma 입력 안내와 로그인 버튼이 보인다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
     await _passSplash(tester);

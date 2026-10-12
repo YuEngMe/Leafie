@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_personality_screen.dart';
-import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -49,11 +48,12 @@ class _PlantRegisterEnvironmentScreenState
 
   Future<void> _pickDate({required bool watered}) async {
     final current = watered ? _lastWateredOn : _lastRepottedOn;
-    // Figma node 2318:3831. 기본 캘린더 대신 시안의 휠 피커를 띄운다.
+    // 시안 4534:877. 기본 캘린더 대신 시안의 휠 피커를 띄운다.
+    // 시안은 시트 뒤 화면을 어둡게 덮지 않는다.
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: kModalBarrier,
+      barrierColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
       builder: (_) => PlantDatePickerSheet(
@@ -126,12 +126,14 @@ class _PlantRegisterEnvironmentScreenState
         ),
         child: Column(
           children: [
-            // 헤드라인 바닥(170)에서 첫 라벨(214)까지.
-            const SizedBox(height: 44),
+            // 헤드라인 바닥(상자 top 139 + 20px 상자 29 = 168)에서 첫
+            // 라벨(214)까지.
+            const SizedBox(height: 46),
             RoundedInputField(
               label: '장소(별명)',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              // 라벨 top 214 → 칸 top 238(4534:85). 라벨 상자가 23이라 1만 띄운다.
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '예: 베란다',
               controller: _placeNameController,
@@ -141,7 +143,7 @@ class _PlantRegisterEnvironmentScreenState
             RoundedInputField(
               label: '마지막 물 준 날',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '선택하기',
               controller: _lastWateredController,
@@ -152,7 +154,7 @@ class _PlantRegisterEnvironmentScreenState
             RoundedInputField(
               label: '분갈이 한 날',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '선택하기',
               controller: _lastRepottedController,

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/services/sensor_ble.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -11,7 +12,9 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 // 하단 버튼(top 790)을 같은 자리에 둔다.
 
 /// 시안 좌표를 앱바 아래(상태바 46 + 앱바 46 = 92) 기준으로 옮긴 값.
-const double _kTitleTop = 140 - 92;
+/// 제목은 시안 상자 140·글자 144인데 Flutter 20px 제목은 글자가 상자 top
+/// 5 아래라 상자를 139에 둔다.
+const double _kTitleTop = 139 - 92;
 const double _kBodyTop = 237;
 
 /// 행·입력칸 그림자(drop-shadow 0 0 2 rgba(0,0,0,0.18)).
@@ -86,10 +89,11 @@ class SensorStepScaffold extends StatelessWidget {
                     ],
                     if (subtitleText != null)
                       Padding(
-                        // 제목 top 140 → 부제 top 175. Flutter의 21px 제목 상자가
-                        // 30이라 5만 띄운다(RegisterStepScaffold와 같다). 부제는
-                        // 기기 이름이 길어져도 한 줄에 들도록 오른쪽을 덜 띄운다.
-                        padding: const EdgeInsets.fromLTRB(45, 5, 20, 0),
+                        // 제목 상자 top 139 → 부제 top 175. Flutter의 20px 제목
+                        // 상자가 29라 7만 띄운다(RegisterStepScaffold와 같다).
+                        // 부제는 기기 이름이 길어져도 한 줄에 들도록 오른쪽을 덜
+                        // 띄운다.
+                        padding: const EdgeInsets.fromLTRB(45, 7, 20, 0),
                         // 부제 상자는 글자 크기와 무관하게 23으로 둬서 본문이
                         // 늘 top 237에서 시작하게 한다(1 1의 14px 부제 포함).
                         child: SizedBox(
@@ -123,9 +127,9 @@ class SensorBodyGap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 부제 top 175 + 높이 23 = 198. 제목만 있으면 제목 상자(Flutter 30)
-    // 바닥 170.
-    return SizedBox(height: _kBodyTop - (hasSubtitle ? 198 : 170));
+    // 부제 top 175 + 높이 23 = 198. 제목만 있으면 제목 상자(top 139,
+    // Flutter 29) 바닥 168.
+    return SizedBox(height: _kBodyTop - (hasSubtitle ? 198 : 168));
   }
 }
 
@@ -146,21 +150,11 @@ class SensorPillRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 34),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(kButtonRadius),
-          child: Ink(
-            height: height,
-            decoration: BoxDecoration(
-              color: kBackgroundWhite,
-              borderRadius: BorderRadius.circular(kButtonRadius),
-              boxShadow: kSensorFieldShadow,
-            ),
-            child: child,
-          ),
-        ),
+      child: SensorShadowTapPill(
+        height: height,
+        shadow: kSensorFieldShadow,
+        onTap: onTap,
+        child: child,
       ),
     );
   }
@@ -172,11 +166,16 @@ class SensorDeviceRow extends StatelessWidget {
     super.key,
     required this.device,
     required this.trailing,
+    this.trailingInset = 20,
     this.onTap,
   });
 
   final SensorBleDevice device;
   final String trailing;
+
+  /// 오른쪽 작은 글씨의 오른쪽 끝이 행 오른쪽에서 들어온 거리. 화면마다
+  /// 다르다(19 기기번호 20, 1 1 신호세기 26).
+  final double trailingInset;
   final VoidCallback? onTap;
 
   @override
@@ -184,7 +183,7 @@ class SensorDeviceRow extends StatelessWidget {
     return SensorPillRow(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(left: 22, right: 20),
+        padding: EdgeInsets.only(left: 22, right: trailingInset),
         child: Row(
           children: [
             SvgPicture.asset(
@@ -240,47 +239,45 @@ class SensorTipBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 45),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
-        decoration: BoxDecoration(
-          color: kBackgroundWhite,
-          border: Border.all(color: const Color(0x14000000)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x33000000), blurRadius: 4),
-            BoxShadow(color: kBackgroundWhite, spreadRadius: -1, blurRadius: 3),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (index, tip) in tips.indexed)
-              Padding(
-                padding: EdgeInsets.only(top: index == 0 ? 0 : 5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      child: Text(
-                        '•',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          height: 23 / 16,
-                          color: kOnboardingSubtitle,
+      // 4534:21065: 흰 바탕, 테두리 없이 inset 0 0 4 0 rgba(0,0,0,0.2).
+      // 바깥 그림자로 그리면 상자 밖이 어두워져 시안과 반대가 된다.
+      child: InsetShadowBox(
+        color: kBackgroundWhite,
+        shadows: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (index, tip) in tips.indexed)
+                Padding(
+                  padding: EdgeInsets.only(top: index == 0 ? 0 : 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        child: Text(
+                          '•',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 23 / 16,
+                            color: kOnboardingSubtitle,
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tip,
-                        style: kSensorHintStyle.copyWith(height: 23 / 14),
+                      Expanded(
+                        child: Text(
+                          tip,
+                          style: kSensorHintStyle.copyWith(height: 23 / 14),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -316,24 +313,31 @@ class SensorProgressList extends StatelessWidget {
                 ),
               SizedBox(
                 height: index == 0 ? 33 : 31,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 23,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _mark(mark),
+                // 시안(4534:21156·4534:21208)은 구분선을 32 간격(267·299·…),
+                // 글자·표시를 31 간격(245·276·…)에 둔다. 행은 구분선에 맞췄으니
+                // 글자·표시를 둘째 행부터 행마다 1씩 끌어올린다. 첫 행(33)은
+                // 가운데가 시안보다 1 위라 1 내린다.
+                child: Transform.translate(
+                  offset: Offset(0, index == 0 ? 1 : -index.toDouble()),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 23,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _mark(mark),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 11),
-                    Text(
-                      label,
-                      style: kSmallStyle.copyWith(
-                        color: kTextDark,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(width: 11),
+                      Text(
+                        label,
+                        style: kSmallStyle.copyWith(
+                          color: kTextDark,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -468,58 +472,88 @@ class SensorPlantRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: SensorShadowTapPill(
+        height: 58.196,
+        // 4904:24 shadow 0 0 4 0 rgba(0,0,0,0.18).
+        shadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
+        onTap: onTap,
+        child: Row(
+          children: [
+            const SizedBox(width: 6),
+            SizedBox.square(
+              dimension: 48,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/sensor_avatar_circle.svg',
+                    width: 48,
+                    height: 48,
+                  ),
+                  // 4904:170: 몸통 폭 약 22에 바닥이 원 바닥에서 3 위다.
+                  Positioned(bottom: 3, child: character),
+                ],
+              ),
+            ),
+            const SizedBox(width: 33),
+            SizedBox(
+              width: 105,
+              child: Text(
+                nickname,
+                style: kBodyStyle,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                connectedLabel ?? '',
+                style: kCaptionStyle.copyWith(color: kTextDark),
+              ),
+            ),
+            SensorRadio(selected: selected),
+            const SizedBox(width: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 그림자가 있는 흰 알약 버튼 바탕(반경 [kButtonRadius]).
+///
+/// Material 안의 Ink로 그림자를 그리면 Material이 잉크를 자기 크기로
+/// 잘라(_RenderInkFeatures가 clipRect) 바깥으로 번지는 그림자가 통째로
+/// 사라진다. 그래서 그림자·흰 바탕은 Material 밖의 DecoratedBox가 그리고,
+/// 그 위의 투명 Material은 눌림 물결만 맡는다.
+class SensorShadowTapPill extends StatelessWidget {
+  const SensorShadowTapPill({
+    super.key,
+    required this.height,
+    required this.shadow,
+    required this.child,
+    this.onTap,
+  });
+
+  final double height;
+  final List<BoxShadow> shadow;
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(kButtonRadius);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: kBackgroundWhite,
+        borderRadius: radius,
+        boxShadow: shadow,
+      ),
       child: Material(
-        color: Colors.transparent,
+        type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(kButtonRadius),
-          child: Ink(
-            height: 58.196,
-            decoration: BoxDecoration(
-              color: kBackgroundWhite,
-              borderRadius: BorderRadius.circular(kButtonRadius),
-              boxShadow: const [
-                BoxShadow(color: Color(0x2E000000), blurRadius: 4),
-              ],
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 6),
-                SizedBox.square(
-                  dimension: 48,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/images/sensor_avatar_circle.svg',
-                        width: 48,
-                        height: 48,
-                      ),
-                      // 4904:170: 몸통 폭 약 22에 바닥이 원 바닥에서 3 위다.
-                      Positioned(bottom: 3, child: character),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 33),
-                SizedBox(
-                  width: 105,
-                  child: Text(
-                    nickname,
-                    style: kBodyStyle,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    connectedLabel ?? '',
-                    style: kCaptionStyle.copyWith(color: kTextDark),
-                  ),
-                ),
-                SensorRadio(selected: selected),
-                const SizedBox(width: 20),
-              ],
-            ),
-          ),
+          borderRadius: radius,
+          child: SizedBox(height: height, child: child),
         ),
       ),
     );

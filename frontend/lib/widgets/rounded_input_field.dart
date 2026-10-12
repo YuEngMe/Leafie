@@ -11,6 +11,15 @@ import 'package:yeso_plant/widgets/figma_glyphs.dart';
 /// 오류 문구 한 줄이 차지하는 높이(top 6 + 12px 글자).
 const double _errorRowHeight = 18;
 
+/// 시안 라벨 글자 상자 높이. 16pt 라벨은 h19다(회원가입 4534:1700·1695 등.
+/// 캐릭터 정보 수정은 같은 값을 화면에서 직접 쓴다).
+const double _labelLineHeight = 19;
+
+/// 라벨 자리 높이. 예전에는 라벨을 Flutter 기본 줄 높이(Paperlogy 16 → 23)로
+/// 그렸고, 화면마다 labelGap을 이 높이에 맞춰 잡아 두었다(23 + 1 = 칸 top
+/// 24). 글자 상자만 시안 19로 줄이고 남는 4는 아래에 비워 칸 자리를 지킨다.
+const double _labelSlotHeight = 23;
+
 class RoundedInputField extends StatefulWidget {
   const RoundedInputField({
     super.key,
@@ -38,10 +47,13 @@ class RoundedInputField extends StatefulWidget {
     this.overlaySuffix = false,
     this.hintStyle = kCaptionStyle,
     this.textStyle,
-    this.obscuringCharacter = '•',
+    this.obscuredTextStyle = kCaptionStyle,
+    this.obscuringCharacter = '●',
+    this.eyeVariant = FigmaEyeVariant.auth,
     this.showShadow = true,
     this.alwaysShowEye = false,
     this.labelIndent = AppLayout.inputLabelIndent,
+    this.hintLift = 2,
     this.keyboardType,
     this.inputFormatters,
   });
@@ -73,7 +85,15 @@ class RoundedInputField extends StatefulWidget {
   final bool overlaySuffix;
   final TextStyle hintStyle;
   final TextStyle? textStyle;
+
+  /// 가려진 동안의 글자 스타일. 시안의 가림 문자는 평문과 달리 연한 회색
+  /// ●다 — 회원가입(4534:2075)·비밀번호 변경(4534:2783)·기기 PIN(5728:5760)은
+  /// 12 Regular, 로그인(4534:1342)만 14 SemiBold라 호출부가 넘긴다.
+  final TextStyle obscuredTextStyle;
   final String obscuringCharacter;
+
+  /// 눈 아이콘 에셋과 자리. 기기연결 화면만 다른 시안 그룹을 쓴다.
+  final FigmaEyeVariant eyeVariant;
   final bool showShadow;
 
   /// 회원가입(2395:40)은 값이 있을 때만 눈을 보여주지만, 로그인(2395:31)은
@@ -83,6 +103,13 @@ class RoundedInputField extends StatefulWidget {
   /// 시안은 모든 화면에서 라벨을 입력칸(x34)보다 11px 들여쓴다(x45).
   /// 회원가입(2307:891)·재설정(2307:1502)·등록·마이페이지 전부 같다.
   final double labelIndent;
+
+  /// 힌트 글자를 위로 올리는 양. Material 입력칸은 힌트를 입력 글자(14pt)와
+  /// 같은 baseline에 앉혀서, 12pt 힌트는 시안보다 2px 아래로 내려간다(회원가입
+  /// 4534:1673·내 정보 수정 4534:2909·키우는 장소 4534:85·캐릭터 정보 수정
+  /// 4534:20068 모두 1.9~2.0). 입력 글자는 시안과 맞으므로 힌트만 그린 자리에서
+  /// 올린다. 세로 contentPadding으로 글자 자리를 직접 잡은 로그인은 0을 넘긴다.
+  final double hintLift;
 
   /// 센서 PIN처럼 숫자만 받는 칸에서 넘긴다.
   final TextInputType? keyboardType;
@@ -125,6 +152,10 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
   @override
   Widget build(BuildContext context) {
     final align = widget.centerText ? TextAlign.center : TextAlign.start;
+    final eye = _buildEye();
+    // 눈이 나타났다 사라져도 TextField가 같은 자리에 있어야 포커스가 유지된다.
+    // 그래서 눈을 쓸 수 있는 칸은 값 유무와 관계없이 겹쳐 그리는 배치를 쓴다.
+    final hasEyeSlot = widget.obscureText && widget.suffix == null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -133,10 +164,17 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
             padding: EdgeInsets.only(left: widget.labelIndent),
             child: Text(
               widget.label!,
-              style: kItemStyle.copyWith(color: widget.labelColor),
+              // 기본 23 상자로 그리면 글자가 시안보다 1.75px 아래였다. 줄
+              // 높이를 시안 상자(19)에 맞추면 2px 올라가 0.3px 안으로 맞는다.
+              style: kItemStyle.copyWith(
+                color: widget.labelColor,
+                height: _labelLineHeight / 16,
+              ),
             ),
           ),
-          SizedBox(height: widget.labelGap),
+          SizedBox(
+            height: _labelSlotHeight - _labelLineHeight + widget.labelGap,
+          ),
         ],
         _OverflowRow(
           errorText: widget.errorText,
@@ -158,26 +196,29 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
                     ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
                     : null,
               ),
-              child: widget.overlaySuffix
+              // 눈 아이콘은 시안이 칸 오른쪽 끝에서 잰 자리에 얹으므로 항상
+              // 겹쳐 그린다. suffixIcon으로 넣으면 입력 여백·버튼 크기에 따라
+              // 화면마다 자리가 달라진다.
+              child: widget.overlaySuffix || hasEyeSlot
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
                         Center(
-                          child: _buildTextField(align, includeSuffix: false),
+                          child: _buildTextField(
+                            align,
+                            includeSuffix: false,
+                            reserveEye: hasEyeSlot,
+                          ),
                         ),
-                        if (_buildSuffix() case final suffix?)
-                          // 눈 아이콘은 IconButton이 48px로 퍼지므로 15를 주면
-                          // Figma의 우측 21px(2353:1008)과 맞는다. 직접 넘긴
-                          // suffix는 그 보정이 없어 여백을 따로 잡는다.
+                        if (widget.overlaySuffix && widget.suffix != null)
                           Align(
                             alignment: Alignment.centerRight,
                             child: Padding(
-                              padding: EdgeInsets.only(
-                                right: widget.suffix == null ? 15 : 10,
-                              ),
-                              child: suffix,
+                              padding: const EdgeInsets.only(right: 10),
+                              child: widget.suffix,
                             ),
                           ),
+                        ?eye,
                       ],
                     )
                   : Align(
@@ -192,7 +233,19 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
     );
   }
 
-  Widget _buildTextField(TextAlign align, {required bool includeSuffix}) {
+  Widget _buildTextField(
+    TextAlign align, {
+    required bool includeSuffix,
+    bool reserveEye = false,
+  }) {
+    final hasText = widget.controller?.text.isNotEmpty ?? false;
+    // 가림 문자는 값이 있을 때만 보이므로, 빈 칸에서는 평문 스타일을 둔다.
+    // 그래야 힌트가 놓이는 줄 높이가 지금과 같다.
+    final style = _obscured && hasText
+        ? widget.obscuredTextStyle
+        : widget.textStyle ?? kBodyStyle.copyWith(fontSize: 14);
+    final padding =
+        widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 20);
     return TextField(
       controller: widget.controller,
       readOnly: widget.readOnly,
@@ -208,20 +261,38 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
       textAlign: align,
       // 입력칸은 높이가 고정이라 글자는 항상 세로 중앙에 온다.
       textAlignVertical: TextAlignVertical.center,
-      style: widget.textStyle ?? kBodyStyle.copyWith(fontSize: 14),
+      style: _withDesignSpacing(style),
       decoration: InputDecoration(
         // isDense로 InputDecoration의 기본 최소 높이를 걷어낸다. 이게 없으면
         // 바깥에서 아무리 정렬해도 글자가 아래로 붙는다.
         isDense: true,
-        hintText: widget.hintText,
-        hintStyle: widget.hintStyle,
+        // hintText 대신 hint 위젯을 넘겨야 그린 자리만 옮길 수 있다. 입력칸은
+        // 힌트를 baseline으로 배치하므로 Transform은 배치(입력 글자 자리)를
+        // 건드리지 않는다. Text가 그대로 트리에 있어 읽어 주기도 같다.
+        hint: widget.hintText == null
+            ? null
+            : Transform.translate(
+                offset: Offset(0, -widget.hintLift),
+                child: Text(
+                  widget.hintText!,
+                  // hintText로 그릴 때처럼 bodyLarge 위에 얹는다. 줄 높이 등
+                  // 나머지 값이 달라지면 힌트 상자 크기가 바뀌어, 칸이 낮은
+                  // 로그인에서 입력 글자까지 1px 밀린다.
+                  style: Theme.of(context).textTheme.bodyLarge!.merge(
+                    _withDesignSpacing(widget.hintStyle),
+                  ),
+                  textAlign: align,
+                ),
+              ),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
-        // 세로 여백은 textAlignVertical이 잡으므로 좌우만 준다.
-        contentPadding:
-            widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 20),
+        // 세로 여백은 textAlignVertical이 잡으므로 좌우만 준다. 왼쪽 정렬
+        // 칸은 긴 값이 눈 아이콘 밑으로 들어가지 않게 그 자리를 비운다.
+        contentPadding: reserveEye && !widget.centerText
+            ? padding.resolve(TextDirection.ltr).copyWith(right: _eyeReserve)
+            : padding,
         suffixIcon: includeSuffix ? _buildSuffix() : null,
         suffixIconConstraints: includeSuffix
             ? widget.suffixIconConstraints
@@ -230,25 +301,52 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
     );
   }
 
-  Widget? _buildSuffix() {
-    if (widget.suffix != null) return widget.suffix;
-    if (!widget.obscureText) return null;
+  Widget? _buildSuffix() => widget.suffix;
+
+  /// 눈 아이콘이 차지하는 오른쪽 폭(칸 끝 ~ 아이콘 왼쪽 끝) + 글자와의 틈 8.
+  double get _eyeReserve =>
+      widget.eyeVariant.rightInset + widget.eyeVariant.closedSize.width + 8;
+
+  Widget? _buildEye() {
+    if (widget.suffix != null || !widget.obscureText) return null;
     // 시안(2395:40)은 값이 있을 때만 눈을 보여준다. 가릴 게 없으면 숨긴다.
     // 로그인(2395:31)만 빈 칸에도 띄운다.
     if (!widget.alwaysShowEye && (widget.controller?.text.isEmpty ?? true)) {
       return null;
     }
-    // 여백은 바깥 Padding(overlaySuffix)이 잡으므로 버튼은 아이콘 크기만
-    // 차지하게 두고, 터치 영역은 가로 48px만 확보한다. minHeight를 키우면
-    // 같은 자리를 쓰는 03:21 카운트다운의 세로 중심이 밀린다.
-    return IconButton(
-      icon: FigmaEyeIcon(obscured: _obscured),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 48),
-      onPressed: () => setState(() => _obscured = !_obscured),
+    // 아이콘 상자 오른쪽 끝을 시안 자리(eyeVariant.rightInset)에 두고,
+    // 터치 영역만 좌우로 넓혀 가로 48을 확보한다.
+    final variant = widget.eyeVariant;
+    final hitPad = (_eyeHitWidth - variant.closedSize.width) / 2;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: EdgeInsets.only(right: variant.rightInset - hitPad),
+        child: Semantics(
+          button: true,
+          label: _obscured ? '비밀번호 보기' : '비밀번호 숨기기',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _obscured = !_obscured),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: hitPad, vertical: 8),
+              child: FigmaEyeIcon(obscured: _obscured, variant: variant),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
+
+/// 눈 아이콘 터치 영역의 가로 폭.
+const double _eyeHitWidth = 48;
+
+/// Material 3 입력칸은 글자·힌트에 bodyLarge의 자간 0.5를 덧씌운다. 시안
+/// 텍스트 스타일은 자간 0이 기본이므로, 호출부가 자간을 정하지 않았으면
+/// 0으로 못박는다(정한 경우 — 로그인 보정 자간 등 — 는 그대로 둔다).
+TextStyle _withDesignSpacing(TextStyle style) =>
+    style.letterSpacing == null ? style.copyWith(letterSpacing: 0) : style;
 
 /// 입력칸 아래 오류 문구를 흐름 밖으로 흘려보내는 래퍼.
 ///

@@ -172,7 +172,6 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   Widget _diagnosisBody(_DiagnosisHistoryData data) {
     if (data.records.isEmpty) {
       return _ReferenceBody(
-        referenceHeight: 795,
         child: _DiagnosisEmptyBody(
           onStartDiagnosis: () => _startDiagnosis(data),
         ),
@@ -453,6 +452,17 @@ class _DiagnosisPhotoConfirmScreenState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final actionBarHeight = bottomInset > 34 ? bottomInset + 25 : 59.0;
+    // 시안(4534:20043) 막대 top 815·높이 59, 글자 중심 y 843.57. 글자는
+    // 홈 인디케이터 구역에 걸쳐 있다. 안전 영역을 빼고 남은 25에 TextButton
+    // (위아래 여백 8)을 넣으면 글자 칸이 9로 줄어 잘렸다.
+    const labelCenterFromBarTop = 843.57 - 815;
+    const hitHeight = 44.0;
+    const hitPadding = 12.0;
+    final buttonStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: hitPadding),
+      minimumSize: const Size(0, hitHeight),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: PopScope(
@@ -464,7 +474,8 @@ class _DiagnosisPhotoConfirmScreenState
             title: '',
             // 시안(4534-20043)엔 상단 뒤로가 없음. '다시 촬영'이 되돌아가는 역할.
             showBack: false,
-            backgroundColor: Colors.black54,
+            // 시안은 사진이 맨 위까지 그대로 보인다.
+            backgroundColor: Colors.transparent,
             backIconColor: Colors.white,
           ),
           body: Stack(
@@ -483,30 +494,33 @@ class _DiagnosisPhotoConfirmScreenState
                 height: actionBarHeight,
                 child: ColoredBox(
                   color: Colors.black.withValues(alpha: 0.6),
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 19,
-                      right: 13,
-                      bottom: bottomInset,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
+                  child: Stack(
+                    children: [
+                      // '다시 촬영' 글자 x=30, '다음' 글자 오른쪽 끝 x=371.
+                      Positioned(
+                        left: 30 - hitPadding,
+                        top: labelCenterFromBarTop - hitHeight / 2,
+                        child: TextButton(
                           key: const ValueKey('diagnosis-retake-button'),
+                          style: buttonStyle,
                           onPressed: _submitting ? null : _retake,
                           child: const Text(
                             '다시 촬영',
                             style: _captureActionStyle,
                           ),
                         ),
-                        TextButton(
+                      ),
+                      Positioned(
+                        right: 31 - hitPadding,
+                        top: labelCenterFromBarTop - hitHeight / 2,
+                        child: TextButton(
                           key: const ValueKey('diagnosis-submit-button'),
+                          style: buttonStyle,
                           onPressed: _submitting ? null : _submit,
                           child: const Text('다음', style: _captureActionStyle),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -606,11 +620,17 @@ String _submissionStatusMessage(String status) => switch (status) {
   _ => '진단이 진행 중이에요. 잠시 후 진단 기록에서 확인해 주세요.',
 };
 
+/// 시안 좌표(본문 기준)를 그대로 쓰는 본문 틀.
+///
+/// 기준 높이는 지원 기기의 실제 본문 높이다: 874 − 상태바 46 − 앱바 46 −
+/// 하단 안전 영역 34 = 748. 이 값이 실제와 다르면 FittedBox가 세로로 늘이거나
+/// 눌러 글자·버튼이 시안에서 벗어난다(예전 빈 상태 795는 0.94배로 눌렸다).
 class _ReferenceBody extends StatelessWidget {
-  const _ReferenceBody({required this.child, this.referenceHeight = 749});
+  const _ReferenceBody({required this.child});
+
+  static const double referenceHeight = 748;
 
   final Widget child;
-  final double referenceHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -636,18 +656,20 @@ class _DiagnosisEmptyBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 4534:19705 headline y=387. _ReferenceBody가 795 높이를 화면
-        // 874로 늘려 그려서 앱바 밴드를 빼는 것만으로는 안 맞는다.
-        // 시뮬레이터 실측(앱 341 → 렌더 424)에서 역산한 값이다.
+        // 4534:19705 제목 글자 y390~409(본문 기준 298~317). 예전엔 기준
+        // 높이 795를 실제 본문 748에 눌러 담아 글자가 5~9px 위로, 버튼이
+        // 51→48로 줄었다. Flutter 글자 상자가 시안보다 커서 보이는 글자
+        // 윗변이 390에 오도록 297로 둔다.
         const Positioned(
           left: 0,
           right: 0,
-          top: 311,
+          top: 297,
           child: Center(child: DiagnosisEmptyState()),
         ),
+        // 4534:19703 버튼 y790 → 본문 기준 698(목록 화면과 같은 자리).
         Positioned(
           left: 34,
-          top: 744,
+          top: 698,
           child: PrimaryButton(
             width: 334,
             label: '진단하기',
@@ -681,10 +703,12 @@ class _DiagnosisHistoryBody extends StatelessWidget {
     final past = data.records.where((item) => !_sameDay(item.diagnosedAt, now));
     return Stack(
       children: [
+        // 4534:19874·19875 절 제목은 SemiBold 16(항목 스타일). 글자 상자가
+        // 시안보다 커서 시안 top(140·267.2)에서 2를 빼야 보이는 글자가 맞는다.
         const Positioned(
           left: 34,
-          top: 48,
-          child: Text('오늘의 진단', style: kBodyStyle),
+          top: 46,
+          child: Text('오늘의 진단', style: kItemStyle),
         ),
         Positioned(
           left: 14,
@@ -701,8 +725,8 @@ class _DiagnosisHistoryBody extends StatelessWidget {
         ),
         const Positioned(
           left: 34,
-          top: 175.2,
-          child: Text('지난 진단', style: kBodyStyle),
+          top: 173.2,
+          child: Text('지난 진단', style: kItemStyle),
         ),
         Positioned(
           left: 14,

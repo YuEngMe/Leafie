@@ -210,14 +210,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     double topGap = kNotificationSectionTop,
   }) {
     return [
-      SizedBox(height: topGap),
+      SizedBox(height: topGap - kNotificationHeaderLift),
       // 시안 3448:49 / 3456:4904: x=34, Paperlogy 16 w600 #444.
       Padding(
         padding: const EdgeInsets.only(left: 34),
         child: Text(title, style: kItemStyle),
       ),
       // 시안: 헤더 잉크 top 140 → 첫 타일 top 169.
-      const SizedBox(height: kNotificationHeaderToTile),
+      const SizedBox(
+        height: kNotificationHeaderToTile + kNotificationHeaderLift,
+      ),
       for (var index = 0; index < items.length; index++) ...[
         if (index > 0) const SizedBox(height: kNotificationTileGap),
         NotificationTile(

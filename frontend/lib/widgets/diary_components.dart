@@ -393,8 +393,13 @@ class DiaryCalendar extends StatelessWidget {
       height: sixWeeks ? gridHeight / 6 : _rowHeight[row],
       child: DecoratedBox(
         decoration: BoxDecoration(
-          // 3496:12146 border 0.769.
-          border: Border.all(color: kDiaryGridLine, width: 0.769),
+          // 4534:4142~ border 0.769, 칸 경계 가운데에 긋는다. 이웃 칸 선이
+          // 겹쳐 한 줄로 보인다(안쪽 선이면 두 겹 1.54가 된다).
+          border: Border.all(
+            color: kDiaryGridLine,
+            width: 0.769,
+            strokeAlign: BorderSide.strokeAlignCenter,
+          ),
         ),
         child: day == null
             ? const SizedBox.expand()
@@ -415,10 +420,11 @@ class DiaryCalendar extends StatelessWidget {
           padding: const EdgeInsets.only(top: 6),
           child: Text(
             '$day',
-            // 3496:12147 외 전부 16 SemiBold. 고른 날만 색이 다르다.
+            // 3496:12147 외 전부 16 SemiBold. 고른 날만 찐 오렌지
+            // #FF8834(4534:4176)다.
             style: kItemStyle.copyWith(
               height: 1,
-              color: isSelected ? kOrangeMain : kTextDark,
+              color: isSelected ? kBrightOrange : kTextDark,
             ),
           ),
         ),
@@ -495,7 +501,10 @@ class DiaryPhotoBox extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
+      // 테두리를 사진 위에 그린다. 뒤에 두면 사진이 좌·우·아래 선을 덮는다
+      // (시안 4534:4244는 사진 위로 주황 선이 보인다).
       child: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
         child: path == null && url == null
             // 2739:39799 아이콘 y=244, 2739:39798 문구 y=329 — 칸 top 144.74 기준

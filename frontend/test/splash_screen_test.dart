@@ -39,4 +39,35 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(calls, hasLength(1));
   });
+
+  testWidgets('가로형 로고가 시안 4918:639 크기·자리에 그려진다', (tester) async {
+    await pumpSplash(tester);
+    // 심볼 팝(Transform.scale)이 1.0으로 돌아온 뒤에 잰다.
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    Rect assetRect(String name) => tester.getRect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == name,
+      ),
+    );
+
+    // 글자 87,415.15 171.12x43.43 · 심볼 268.88,415 45.63x43.6.
+    final word = assetRect('assets/images/leafie_logo_word.png');
+    final symbol = assetRect('assets/images/leafie_logo_symbol.png');
+    expect(word.left, closeTo(87, 1));
+    expect(word.top, closeTo(415.15, 1));
+    expect(word.width, closeTo(171.12, 1));
+    expect(word.height, closeTo(43.43, 0.5));
+    expect(symbol.left, closeTo(268.88, 1));
+    expect(symbol.top, closeTo(415, 1));
+    expect(symbol.width, closeTo(45.63, 0.5));
+    expect(symbol.height, closeTo(43.6, 0.5));
+
+    // 연출이 끝난 뒤 넘어가며 남는 타이머를 비운다.
+    await tester.pump(const Duration(milliseconds: 300));
+  });
 }

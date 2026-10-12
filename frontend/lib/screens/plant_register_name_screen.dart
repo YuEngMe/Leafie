@@ -39,10 +39,10 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
   Future<void> _offerResume() async {
     final saved = await widget.draftStore.load();
     if (saved == null || !mounted) return;
-    final resume = await showDialog<bool>(
-      context: context,
+    final resume = await showConfirmDialog(
+      context,
       barrierDismissible: false,
-      builder: (_) => const ConfirmDialog(
+      dialog: const ConfirmDialog(
         message: '작성하던 식물 등록이 있어요',
         subtitle: '이어서 할까요?',
         confirmLabel: '이어서 하기',
@@ -122,19 +122,20 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
         ),
         child: Column(
           children: [
-            // 부제 바닥(195)에서 캐릭터 top(267)까지.
+            // 시안 4534:954 캐릭터 몸통 top 289 · 바닥 431.99.
             const SizedBox(height: AppLayout.registrationNameCharacterTopGap),
             const Center(
               child: PlantCharacterArt(
                 width: AppLayout.registrationNameCharacterWidth,
               ),
             ),
-            // 캐릭터 바닥(417)에서 애칭 라벨(493)까지.
+            // 캐릭터 박스 바닥에서 애칭 라벨 상자 top(493)까지.
             const SizedBox(height: AppLayout.registrationNameFieldsGap),
             RoundedInputField(
               label: '애칭',
               labelIndent: AppLayout.registrationLabelIndent,
-              labelGap: 5,
+              // 라벨 top 493 → 칸 top 517(4534:954). 라벨 상자가 23이라 1만 띄운다.
+              labelGap: 1,
               height: AppLayout.onboardingControlHeight,
               hintText: '예: 쑥쑥이',
               controller: _nicknameController,

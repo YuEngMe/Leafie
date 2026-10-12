@@ -28,6 +28,7 @@ class PrimaryButton extends StatelessWidget {
     this.showShadow = true,
     this.labelOffsetY = -1,
     this.background,
+    this.disabledBackground,
   });
 
   final String label;
@@ -40,6 +41,10 @@ class PrimaryButton extends StatelessWidget {
 
   /// 날짜 피커의 '다음'처럼 오렌지/흰색이 뒤집히는 자리에서만 넘긴다.
   final Color? background;
+
+  /// 비활성 회색은 대부분 제일연한회색인데, 회원 탈퇴(4534:3008)만 연한
+  /// 텍스트(#A1A1A1)로 칠해 그 자리에서만 넘긴다.
+  final Color? disabledBackground;
 
   /// null이면 Figma의 비활성(회색) 상태로 그린다.
   final VoidCallback? onPressed;
@@ -61,7 +66,7 @@ class PrimaryButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: background ?? kOrangeMain,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: kGrayLightest,
+            disabledBackgroundColor: disabledBackground ?? kGrayLightest,
             disabledForegroundColor: Colors.white,
             elevation: 0,
             padding: EdgeInsets.zero,

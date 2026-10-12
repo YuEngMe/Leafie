@@ -18,11 +18,13 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  // 시안 가로형 로고 폭(≈168 논리폭)과 글자·심볼 원본 크기(회색 제거 후).
-  static const double _logoWidth = 168;
+  // 시안 4918:639 가로형 로고: 글자(4918:606) 171.12x43.43, 심볼(4918:614)
+  // 45.63x43.6, 사이 10.76 → 전체 227.5. 옛 값(폭 168)은 시안의 74%였다.
+  static const double _wordHeight = 43.43;
+  static const double _symbolHeight = 43.6;
   static const double _wordAspect = 2025 / 514; // 글자 이미지 비율
   static const double _symbolAspect = 540 / 516; // 심볼 이미지 비율
-  static const double _gap = 8; // 글자와 심볼 사이 간격(논리폭)
+  static const double _gap = 10.76; // 글자와 심볼 사이 간격(논리폭)
 
   // 전체 진행(0~1)에서 글자 페이드가 차지하는 구간. 나머지에서 심볼이 팝.
   static const double _wordSpan = 0.68;
@@ -78,9 +80,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 글자·심볼 실제 렌더 폭을 로고 폭에 맞춰 배분한다.
-    final wordW = _wordAspect * _logoHeight;
-    final symW = _symbolAspect * _logoHeight;
+    // 글자·심볼 렌더 폭은 시안 높이와 이미지 비율로 정한다.
+    const wordW = _wordAspect * _wordHeight;
+    const symW = _symbolAspect * _symbolHeight;
 
     // 앱을 켤 때마다 보는 화면이라, 화면 어디든 탭하면 연출을 기다리지 않고
     // 바로 넘어간다(디자이너 확인). 연출 자체는 그대로 둔다.
@@ -107,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
                   // 글자 — 왼→오른 계단식 페이드.
                   SizedBox(
                     width: wordW,
-                    height: _logoHeight,
+                    height: _wordHeight,
                     child: ShaderMask(
                       blendMode: BlendMode.dstIn,
                       shaderCallback: (rect) {
@@ -137,7 +139,7 @@ class _SplashScreenState extends State<SplashScreen>
                   // 심볼 — 글자 뒤에 통통 팝.
                   SizedBox(
                     width: symW,
-                    height: _logoHeight,
+                    height: _symbolHeight,
                     child: Opacity(
                       opacity: symOpacity,
                       child: Transform.scale(
@@ -157,9 +159,6 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
-
-  // 로고 높이(폭 168 기준 가로형 비율에서 역산). 글자 높이에 맞춘다.
-  static const double _logoHeight = _logoWidth / (2692 / 516);
 
   /// 통통 팝: 작게 시작(0.4)해 살짝 오버슈트(≈1.12)했다가 제자리(1.0)로.
   /// easeOutBack이 1을 넘겼다 돌아오므로, 그 오버슈트를 스케일에 그대로 실어

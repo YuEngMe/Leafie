@@ -1,14 +1,16 @@
-// 사진 인식 흐름(2318:2815 분석 중, 2318:2890 결과). 좌표와 함께,
+// 사진 인식 흐름(4889:421 분석 중, 2318:2890 결과). 좌표와 함께,
 // '맞아요'가 인식한 종을 draft로 넘기는지 확인한다.
 
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 
 /// 시안이 보여주는 인식 결과.
@@ -51,12 +53,81 @@ void main() {
     await tester.pumpWidget(_screen(identifier: (_) => pending.future));
     await tester.pump();
 
+    // 시안 4889:421. 옛 시안(2318:2815)의 문구 y=205·진행 막대·앱바 제목은
+    // 최신 시안에서 빠지고, 캐릭터 셋 아래 화면 가운데쯤으로 문구가 내려왔다.
     final headline = tester.getRect(find.text('AI가 식물을 분석하고 있어요'));
-    expect(headline.top, closeTo(205, 1));
+    // 4889:442 x=80. 글자 상자 top 456이면 보이는 글자가 시안 렌더(461)에 앉는다.
+    expect(headline.left, closeTo(80, 1));
+    expect(headline.top, closeTo(456, 1));
+    // 4889:443 중심 x=202.5.
     final subtitle = tester.getRect(find.text('잠시만 기다려주세요..'));
-    expect(subtitle.top, closeTo(241, 1));
+    expect(subtitle.center.dx, closeTo(202.5, 1));
+    expect(subtitle.top, closeTo(492, 1));
+    // 4889:445 캐릭터 묶음 x=129 y=363, 144x42.4.
+    final characters = tester.getRect(
+      find.byKey(const ValueKey('analyzing-characters')),
+    );
+    expect(characters.left, closeTo(129, 0.5));
+    expect(characters.top, closeTo(363, 0.5));
+    expect(characters.width, closeTo(144, 0.5));
+    expect(characters.height, closeTo(42.4, 0.5));
+    // 앱바는 꺾쇠만 있고 제목이 없다.
+    expect(find.text('내 식물 등록하기'), findsNothing);
+    expect(find.byType(FigmaBackChevron), findsOneWidget);
 
-    // 애니메이션이 도는 채로 테스트를 끝내지 않는다.
+    // 결과가 오면 제목이 있는 결과 화면으로 바뀐다.
+    pending.complete(_mockResult);
+    await tester.pumpAndSettle();
+    expect(find.text('내 식물 등록하기'), findsOneWidget);
+  });
+
+  testWidgets('분석을 기다리는 동안 캐릭터가 왼쪽부터 차례로 뛴다', (tester) async {
+    _setUpView(tester);
+    final pending = Completer<PlantIdentification>();
+    double bodyTop(String name) => tester
+        .getRect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SvgPicture &&
+                widget.toString().contains('identify_analyzing_body_$name'),
+          ),
+        )
+        .top;
+
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+    // 첫 프레임은 시안 자리(4889:447 둥근 몸통 y=363.48).
+    final roundRest = bodyTop('round');
+    final ghostRest = bodyTop('ghost');
+    expect(roundRest, closeTo(363.48, 0.5));
+
+    // 150ms: 둥근 몸통은 뛰는 중, 유령은 아직 출발 전(180ms 뒤 출발).
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(bodyTop('round'), lessThan(roundRest - 4));
+    expect(bodyTop('ghost'), closeTo(ghostRest, 0.01));
+
+    pending.complete(_mockResult);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('동작 줄이기 설정이면 분석 중 캐릭터가 뛰지 않는다', (tester) async {
+    _setUpView(tester);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final pending = Completer<PlantIdentification>();
+    final round = find.byWidgetPredicate(
+      (widget) =>
+          widget is SvgPicture &&
+          widget.toString().contains('identify_analyzing_body_round'),
+    );
+
+    await tester.pumpWidget(_screen(identifier: (_) => pending.future));
+    await tester.pump();
+    final rest = tester.getRect(round).top;
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(tester.getRect(round).top, closeTo(rest, 0.01));
+
     pending.complete(_mockResult);
     await tester.pumpAndSettle();
   });
@@ -66,7 +137,8 @@ void main() {
     await tester.pumpWidget(_screen());
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(find.text('이 식물은 바위채송화이군요?')).top, closeTo(169, 1));
+    // 4534:1184 상자 y=167(보이는 글자 171). Flutter 20px 상자는 166.
+    expect(tester.getRect(find.text('이 식물은 바위채송화이군요?')).top, closeTo(166, 1));
     expect(
       tester.getRect(find.byType(PlantResultCard)).top,
       closeTo(238.62, 1),
@@ -75,6 +147,19 @@ void main() {
       tester.getRect(find.byType(PlantResultConfirmButtons)).top,
       closeTo(759, 1),
     );
+
+    // 4534:1187 뒤 종이와 4534:1198 흰 카드는 가운데가 같다(464). 예전에는
+    // 종이가 왼쪽 아래로 22·18px 밀려 시안과 반대로 기운 듯 보였다.
+    final card = find.byType(PlantResultCard);
+    final paper = find.descendant(of: card, matching: find.byType(Transform));
+    final front = tester.getRect(
+      // 첫째는 뒤 종이, 둘째가 흰 카드 자리다.
+      find.descendant(of: card, matching: find.byType(Positioned)).at(1),
+    );
+    expect(front.top, closeTo(254, 1));
+    final paperCenter = tester.getCenter(paper.first);
+    expect(paperCenter.dx, closeTo(front.center.dx, 0.5));
+    expect(paperCenter.dy, closeTo(front.center.dy, 0.5));
   });
 
   testWidgets('인식 결과의 이름과 분류가 카드에 뜬다', (tester) async {
@@ -103,6 +188,37 @@ void main() {
     expect(env.draft.species.referenceId, 'catalog:sedum-polytrichoides');
     expect(env.draft.speciesIdentificationId, 'identification-id');
     expect(env.draft.primaryMediaFileId, 'media-id');
+  });
+
+  testWidgets('아니에요를 누르면 결과 화면을 닫고 이전 화면으로 돌아간다', (tester) async {
+    // 회색이라 예전에는 disabled 변형을 써서 눌러도 반응하지 않았다.
+    _setUpView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PlantPhotoIdentifyScreen(
+                  photo: _photo,
+                  name: '씩씩이',
+                  identifier: (_) async => _mockResult,
+                ),
+              ),
+            ),
+            child: const Text('검색 화면'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('검색 화면'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('아니에요'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PlantPhotoIdentifyScreen), findsNothing);
+    expect(find.text('검색 화면'), findsOneWidget);
   });
 
   testWidgets('인식에 실패하면 안내를 띄운다', (tester) async {

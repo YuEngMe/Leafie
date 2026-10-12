@@ -5,6 +5,25 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
+/// 확인 모달을 시안 좌표에 띄운다. 4534:22의 확인 모달 넷(가입 중단 4534:2319,
+/// 로그아웃 4534:3261, 캐릭터 삭제 4534:7563, 편지 삭제 4534:15227)은 모두
+/// 402x874 프레임의 (47, 358)에 놓여 박스 중심이 화면 정중앙(y=437.4)이다.
+/// showDialog 기본값은 안전영역(상단 46·하단 34) 안에서 가운데를 잡아 모달이
+/// 시안보다 약 6px 아래에 뜨므로, 안전영역을 빼지 않고 화면 전체에서 가운데를
+/// 잡는다.
+Future<bool?> showConfirmDialog(
+  BuildContext context, {
+  required Widget dialog,
+  Color? barrierColor,
+  bool barrierDismissible = true,
+}) => showDialog<bool>(
+  context: context,
+  useSafeArea: false,
+  barrierColor: barrierColor,
+  barrierDismissible: barrierDismissible,
+  builder: (_) => dialog,
+);
+
 /// Figma node 2353:1045의 회원가입 중단 확인 모달.
 class SignupAbortDialog extends StatelessWidget {
   const SignupAbortDialog({super.key});
@@ -148,18 +167,24 @@ class _AbortDialogAction extends StatelessWidget {
   const _AbortDialogAction({
     required this.label,
     required this.onPressed,
-    this.color,
+    // '네'는 시안(4534:3264) 검정 SemiBold다. kItemStyle 기본색(#444)이 아니다.
+    this.color = Colors.black,
   });
 
   final String label;
   final VoidCallback onPressed;
-  final Color? color;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return TextButton(
       onPressed: onPressed,
-      style: TextButton.styleFrom(shape: const RoundedRectangleBorder()),
+      style: TextButton.styleFrom(
+        shape: const RoundedRectangleBorder(),
+        // 시안(4534:3264) 버튼 글자 윗변은 모달 위에서 123인데, 절반 영역
+        // 가운데에 두면 126에 찍힌다. 아래만 6을 비워 글자를 3 올린다.
+        padding: const EdgeInsets.only(bottom: 6),
+      ),
       child: Text(label, style: kItemStyle.copyWith(color: color)),
     );
   }
@@ -218,7 +243,9 @@ class _TermsAgreementSheetState extends State<TermsAgreementSheet> {
       child: Column(
         children: [
           _AgreementPill(checked: _allChecked, onTap: _toggleAll),
-          const SizedBox(height: 8),
+          // 시안 4534:2186 첫 행 글자는 625에 찍힌다(시트 top 533). 8이면
+          // 행 전체가 2px 위였다.
+          const SizedBox(height: 10),
           for (var index = 0; index < _labels.length; index++)
             _AgreementRow(
               label: _labels[index],
@@ -322,6 +349,10 @@ class _AgreementRow extends StatelessWidget {
               ),
             ),
             const FigmaChevronRight(),
+            // 시안 4534:2189 꺾쇠 선은 x 355.85에서 시작한다. 선이 상자
+            // 왼쪽에서 0.74 들어와 있으니 상자 오른쪽은 363.11, 칸 끝
+            // 368까지 4.89를 남긴다.
+            const SizedBox(width: 4.89),
           ],
         ),
       ),

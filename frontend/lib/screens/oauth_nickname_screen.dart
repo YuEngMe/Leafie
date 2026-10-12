@@ -57,10 +57,10 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
 
   /// 2395:37. 소셜 가입 도중 뒤로 나가면 회원가입 화면과 같은 모달을 띄운다.
   Future<void> _confirmExit() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
+    final shouldExit = await showConfirmDialog(
+      context,
       barrierColor: kModalBarrier,
-      builder: (_) => const SignupAbortDialog(),
+      dialog: const SignupAbortDialog(),
     );
     if (shouldExit != true || !mounted) return;
     setState(() => _allowPop = true);
@@ -119,13 +119,18 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 문구는 라벨처럼 입력칸보다 11px 들여쓴다(2307:751 x45).
-                // 타이틀 140 → 부제 175라 21px 글자 아래 14를 띄운다.
+                // 타이틀(4534:1636)은 상자 140·글자 144인데 Flutter 20px
+                // height 1 상자는 글자가 top에서 1 아래라 상자를 143에 둔다.
+                // 부제 상자 175는 그대로라 20px 상자 아래 12를 띄운다.
                 const Padding(
-                  padding: EdgeInsets.only(left: AppLayout.inputLabelIndent),
+                  padding: EdgeInsets.only(
+                    left: AppLayout.inputLabelIndent,
+                    top: 3,
+                  ),
                   child: OnboardingCopy(
                     title: '닉네임을 설정해주세요!',
                     subtitle: '당신을 뭐라고 부르면 좋을까요?',
-                    gap: 14,
+                    gap: 12,
                   ),
                 ),
                 // 부제 bottom 189 → 라벨 top 237 (2307:744).

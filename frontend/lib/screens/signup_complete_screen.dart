@@ -32,15 +32,16 @@ class SignupCompleteScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppLayout.signupCompleteTopGap),
+              // 로그인 화면과 같은 로고 묶음(4889:386 = 4792:106 크기)이다.
               const Center(
                 child: BrandLogo(
-                  width: AppLayout.signupCompleteLogoWidth,
-                  // 심볼 93.55 / 워드마크 155.34.
-                  markWidthFactor: 0.602,
+                  width: AppLayout.loginLogoWidth,
+                  markWidthFactor: AppLayout.loginLogoMarkWidthFactor,
+                  gap: AppLayout.loginLogoGap,
                 ),
               ),
               const SizedBox(height: AppLayout.signupCompleteCopyGap),
-              // 2315:2270은 headline이 폭 전체, body가 좌우 15px씩 들어간
+              // 4534:2477은 headline이 폭 전체, body가 좌우로 들어간
               // 가운데 정렬이다.
               const Align(
                 child: OnboardingCopy(
@@ -48,6 +49,7 @@ class SignupCompleteScreen extends StatelessWidget {
                   subtitle: '리피와 함께 나의 반려식물을 키워요!',
                   textAlign: TextAlign.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
+                  gap: AppLayout.signupCompleteTitleToSubtitleGap,
                 ),
               ),
               const Spacer(),

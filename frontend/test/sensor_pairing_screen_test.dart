@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/sensor_pairing_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
@@ -8,6 +9,10 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/services/sensor_ble.dart';
 import 'package:yeso_plant/services/sensor_pairing.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/widgets/sensor_pairing_components.dart';
+
+import 'support/device_view.dart';
 
 const _id = 'D40592E7D168';
 const _device = SensorBleDevice(deviceId: _id, bleId: 'ble-1', rssi: -50);
@@ -192,9 +197,15 @@ void main() {
 
   tearDown(() => pairing.dispose());
 
-  Future<void> open(WidgetTester tester) async {
-    await tester.binding.setSurfaceSize(const Size(402, 874));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  /// [device]면 지원 기기 안전영역(상단 46·하단 34)으로 찍어 시안 좌표를
+  /// 그대로 비교한다.
+  Future<void> open(WidgetTester tester, {bool device = false}) async {
+    if (device) {
+      useDeviceView(tester);
+    } else {
+      await tester.binding.setSurfaceSize(const Size(402, 874));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+    }
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -341,6 +352,10 @@ void main() {
 
     expect(find.text('WI-FI 연결에 실패했어요'), findsOneWidget);
     expect(find.text('비밀번호가 올바른지 확인해주세요.'), findsOneWidget);
+    // 6-1 부제(4534:21280)는 본문 16 Regular 진한 텍스트다(회색 14 아님).
+    final subtitle = tester.widget<Text>(find.text('비밀번호가 올바른지 확인해주세요.'));
+    expect(subtitle.style?.fontSize, 16);
+    expect(subtitle.style?.color, kTextDark);
     await tester.tap(find.text('다시 시도'));
     await tester.pump();
     expect(find.text('WI-FI 연결'), findsOneWidget);
@@ -384,5 +399,123 @@ void main() {
     await run(tester, 5);
     expect(find.text('주변 기기를 찾고 있어요'), findsOneWidget);
     await run(tester, 15);
+  });
+
+  group('시안 좌표(지원 기기 402x874, 상단 46·하단 34)', () {
+    testWidgets('1 1 신호세기 오른쪽 끝은 행 오른쪽에서 26 안쪽(x342)', (tester) async {
+      await open(tester, device: true);
+      // 4534:21033: x34 + 239, 폭 69.
+      expect(tester.getRect(find.text('신호세기: 강함')).right, 342);
+      await run(tester, 15);
+    });
+
+    testWidgets('19 하단 두 버튼은 높이 44로 top 790에 놓인다', (tester) async {
+      await open(tester, device: true);
+      await tester.tap(find.text('Leafie D168'));
+      await tester.pump();
+      // 5728:5733: 좌 38 / 우 214.72, y790, 149.28 x 44.
+      for (final label in ['맞아요', '다른 기기 선택']) {
+        final rect = tester.getRect(
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byType(ElevatedButton),
+          ),
+        );
+        expect(rect.top, 790, reason: label);
+        expect(rect.height, 44, reason: label);
+      }
+    });
+
+    testWidgets('12 안내 문구와 15 상태: 정상의 자리', (tester) async {
+      ble.infos = [
+        _info(SensorDeviceBleState.provisioning),
+        _info(SensorDeviceBleState.waitingClaim),
+      ];
+      await open(tester, device: true);
+      await tester.tap(find.text('Leafie D168'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '48201937');
+      await tester.pump();
+      await tester.tap(find.text('맞아요'));
+      await run(tester, 5);
+
+      // 제목 4534:21097은 20 SemiBold, 상자 140·글자 144. Flutter 20px
+      // 상자는 글자가 top 5 아래라 139에 두고, 부제·본문 자리는 그대로다.
+      final title = find.text('WI-FI 연결');
+      expect(tester.getRect(title).top, 139);
+      expect(tester.widget<Text>(title).style!.fontSize, 20);
+      expect(tester.getRect(find.text('센서가 데이터를 전송할 Wi-Fi를 입력해주세요')).top, 175);
+
+      // 4534:21099·4534:21100: top 427·453. Flutter 14px 상자는 20으로
+      // 시안(16)보다 4 커서, 글자가 시안에 맞으려면 첫 줄 상자는 2 위다.
+      expect(
+        tester.getRect(find.textContaining('2.4 GHZ', findRichText: true)).top,
+        425,
+      );
+      expect(
+        tester.getRect(find.text('Wi-Fi 정보는 스마트폰에서 센서로 직접 전달됩니다.')).top,
+        453,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('sensor_ssid_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('sensor_wifi_Home_2.4G')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('연결'));
+      await run(tester);
+      expect(find.text('기기 등록 완료'), findsOneWidget);
+      // 4534:21340: x34 + 256, 폭 48 → 오른쪽 끝 338.
+      expect(tester.getRect(find.text('상태: 정상')).right, 338);
+    });
+  });
+
+  testWidgets('13·14 진행 목록: 구분선은 32, 글자는 31 간격', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SensorProgressList(
+            steps: [
+              ('센서에 연결됨', SensorStepMark.done),
+              ('Wi-Fi 정보 전달', SensorStepMark.done),
+              ('Wi-Fi 연결 중..', SensorStepMark.current),
+              ('서버 등록', SensorStepMark.pending),
+              ('설정 완료', SensorStepMark.pending),
+            ],
+          ),
+        ),
+      ),
+    );
+    // 4534:21156: 구분선 y267·299·331·363, 글자 top 245·276·307·338·369.
+    final dividers = find.byWidgetPredicate(
+      (w) => w is SvgPicture && w.width == 299,
+    );
+    final dividerTops = [
+      for (final e in dividers.evaluate())
+        tester.getTopLeft(find.byWidget(e.widget)).dy,
+    ];
+    expect(
+      [
+        for (var i = 1; i < dividerTops.length; i++)
+          dividerTops[i] - dividerTops[i - 1],
+      ],
+      [32, 32, 32],
+    );
+    final labelTops = [
+      for (final label in [
+        '센서에 연결됨',
+        'Wi-Fi 정보 전달',
+        'Wi-Fi 연결 중..',
+        '서버 등록',
+        '설정 완료',
+      ])
+        tester.getTopLeft(find.text(label)).dy,
+    ];
+    expect(
+      [
+        for (var i = 1; i < labelTops.length; i++)
+          labelTops[i] - labelTops[i - 1],
+      ],
+      [31, 31, 31, 31],
+    );
   });
 }

@@ -8,7 +8,6 @@ import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
-import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
 
 Future<String> _submitPlantRegistration(PlantRegistrationDraft draft) async {
@@ -103,9 +102,10 @@ class _PlantRegisterCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
+    // 시안 4534:812에는 앱바(뒤로가기·'캐릭터 만들기')가 없다. 화면 뒤로
+    // 가기는 시스템 제스처(iOS 스와이프·안드로이드 뒤로)로만 남는다.
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 만들기'),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -116,6 +116,7 @@ class _PlantRegisterCompleteScreenState
                 SizedBox(height: AppLayout.completionTopGap * scale),
                 // 시안 4534:812: 제목 y=188, 광원 원(408) y=251, 몸통 바닥
                 // y=596.9. 헤어는 박스 위로 솟으므로 몸통 바닥 기준으로 둔다.
+                // 각 top은 AppLayout.completion* 주석 참고.
                 SizedBox(
                   height: AppLayout.completionStageHeight * scale,
                   child: Stack(
@@ -127,26 +128,24 @@ class _PlantRegisterCompleteScreenState
                         child: Container(
                           width: AppLayout.completionGlowSize * scale,
                           height: AppLayout.completionGlowSize * scale,
+                          // 4534:832: #FFD34F → 흰색 원형 그라데이션을
+                          // 불투명도 50%로 깐다.
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
-                              colors: [
-                                Color(0xFFFFDFA0),
-                                Color(0xCCFFEAC2),
-                                Color(0x00FFFFFF),
-                              ],
-                              stops: [0, 0.5, 1],
+                              colors: [Color(0x80FFD34F), Color(0x80FFFFFF)],
                             ),
                           ),
                         ),
                       ),
-                      const Positioned(
+                      Positioned(
                         top: 0,
                         left: 0,
                         right: 0,
+                        // 4534:833 글자색 #2E2E2E(kTextDark보다 진하다).
                         child: Text(
                           '당신의 리피가 완성되었어요!',
-                          style: kTitleStyle,
+                          style: kTitleStyle.copyWith(color: kPersonalityTitle),
                           textAlign: TextAlign.center,
                         ),
                       ),

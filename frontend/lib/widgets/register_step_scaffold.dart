@@ -18,6 +18,7 @@ class RegisterStepScaffold extends StatelessWidget {
     required this.child,
     this.bottomButton,
     this.scrollable = false,
+    this.centerTitle = false,
   });
 
   final String appBarTitle;
@@ -33,6 +34,10 @@ class RegisterStepScaffold extends StatelessWidget {
   /// 고정 간격 Column이 넘친다. 이때 본문만 스크롤되게 한다. 목록처럼
   /// 스스로 스크롤하는 본문(식물찾기)에는 켜지 않는다.
   final bool scrollable;
+
+  /// 캐릭터 꾸미기 단계(바디 5028:1193, 컬러 4534:507)는 헤드라인을 화면
+  /// 가운데에 둔다. 나머지 단계는 왼쪽 정렬이다.
+  final bool centerTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +61,23 @@ class RegisterStepScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: kTitleStyle),
+                  if (centerTitle)
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        title,
+                        style: kTitleStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    Text(title, style: kTitleStyle),
                   // 시안 2318:2981처럼 부제가 없는 화면은 간격도 두지 않는다.
                   if (subtitle.isNotEmpty) ...[
-                    // 헤드라인 top 140에서 부제 top 175까지 35, 헤드라인
-                    // 글자 상자가 30이라 남는 5px이 간격이다(2315:2234).
-                    const SizedBox(height: 5),
+                    // 헤드라인 상자 top 139(시안 140, 글자 자리 보정)에서 부제
+                    // top 175까지 36, 헤드라인 글자 상자(20px)가 29라 남는
+                    // 7px이 간격이다(2315:2234).
+                    const SizedBox(height: 7),
                     Text(subtitle, style: kSmallStyle),
                   ],
                 ],

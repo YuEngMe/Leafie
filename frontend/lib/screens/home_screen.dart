@@ -25,6 +25,8 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
+import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
@@ -75,24 +77,40 @@ class HomePlant {
 
 /// Figma 3441:2에 있는 시간대별 홈 배경 상태.
 enum HomeTimePeriod {
-  day(asset: 'assets/images/home_bg_default.png', phaseIcon: FigmaHomeIcon.sun),
+  day(
+    asset: 'assets/images/home_bg_default.png',
+    phaseIcon: FigmaHomeIcon.sun,
+    phaseIconOrigin: Offset(28, 113),
+  ),
   afternoon(
     asset: 'assets/images/home_bg_afternoon.png',
     phaseIcon: FigmaHomeIcon.afternoon,
+    phaseIconOrigin: Offset(34, 120),
   ),
   evening(
     asset: 'assets/images/home_bg_evening.png',
     phaseIcon: FigmaHomeIcon.moon,
+    phaseIconOrigin: Offset(38, 119),
   ),
   lateEvening(
     asset: 'assets/images/home_bg_late_evening.png',
     phaseIcon: FigmaHomeIcon.moon,
+    phaseIconOrigin: Offset(38, 119),
   );
 
-  const HomeTimePeriod({required this.asset, required this.phaseIcon});
+  const HomeTimePeriod({
+    required this.asset,
+    required this.phaseIcon,
+    required this.phaseIconOrigin,
+  });
 
   final String asset;
   final FigmaHomeIcon phaseIcon;
+
+  /// 시간대 아이콘 노드의 화면 좌상단. 해(4534:9603)·오후 해(4534:17769)·
+  /// 달은 크기가 달라 시안에서도 자리가 조금씩 다르다. 달은 노드를 받지 않고
+  /// 저녁 시안 이미지(LF-088·090)에 PNG를 맞대어 찾은 자리다.
+  final Offset phaseIconOrigin;
 
   /// 00~03 오후2, 03~06 오후, 06~15 기본, 15~18 오후,
   /// 18~19 오후2, 19~24 늦저녁 순서로 전환한다.
@@ -186,6 +204,17 @@ class _HomeScreenState extends State<HomeScreen>
   bool _playedDialogue = false;
   bool _loadingHome = false;
   String? _homeError;
+
+  /// 마지막 홈 조회가 서버에 닿지도 못하고(연결 실패·시간 초과) 끝났는가.
+  /// 이때는 오류 카드 대신 연결 끊김 모달(4955:3086)을 띄우고, 뒤의 게이지·
+  /// 캐릭터는 직전 응답 그대로 둔다.
+  bool _homeOffline = false;
+
+  /// 연결 끊김 모달이 떠 있는 동안 다시 띄우지 않으려고 둔다.
+  bool _disconnectedDialogOpen = false;
+
+  /// 연결이 끊긴 조회의 식물. 다시 시도는 같은 요청을 다시 보낸다.
+  String? _offlinePlantId;
   int _unreadNotificationCount = 0;
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
@@ -428,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen>
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;
+        _homeOffline = false;
         // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
         // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
         // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
@@ -446,12 +476,44 @@ class _HomeScreenState extends State<HomeScreen>
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
+      // 시안 4955:3086 문구가 '리피와 연결이 끊겼어요 / 인터넷 연결을
+      // 확인하고'라 서버에 닿지 못한 경우만 모달로 보낸다. 서버가 답한
+      // 오류(4xx·5xx)는 연결 문제가 아니어서 기존 오류 카드에 남긴다.
+      final offline = _isConnectionFailure(error);
       setState(() {
         _loadingHome = false;
-        _homeError = error.message;
+        _homeOffline = offline;
+        _homeError = offline ? null : error.message;
       });
+      if (offline) {
+        _offlinePlantId = plantId;
+        unawaited(_showDisconnectedDialog());
+      }
       return false;
     }
+  }
+
+  /// LeafieApiClient가 IOException·TimeoutException을 바꿔 던지는 코드.
+  static bool _isConnectionFailure(LeafieApiException error) =>
+      error.code == 'NETWORK_ERROR' || error.code == 'NETWORK_TIMEOUT';
+
+  Future<void> _showDisconnectedDialog() async {
+    if (_disconnectedDialogOpen) return;
+    _disconnectedDialogOpen = true;
+    // 시안에 닫기 버튼이 없고 '다시 시도' 하나뿐이라 딤을 눌러 닫지 않는다.
+    await showConfirmDialog(
+      context,
+      barrierColor: kModalBarrier,
+      barrierDismissible: false,
+      dialog: _HomeDisconnectedDialog(onRetry: _retryAfterDisconnect),
+    );
+    _disconnectedDialogOpen = false;
+  }
+
+  /// 모달을 닫아도 되면 true. 다시 연결에 실패하면 모달을 그대로 둔다.
+  Future<bool> _retryAfterDisconnect() async {
+    await _loadHome(_offlinePlantId);
+    return !mounted || !_homeOffline;
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
@@ -636,7 +698,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
     if (!mounted) return;
     await _loadHome((_serverPlant ?? widget.plant)?.id);
-    if (!mounted || selected == null) return;
+    // 연결이 끊겼으면 방금 띄운 연결 끊김 모달 위로 화면을 쌓지 않는다.
+    // 쌓으면 그 화면이 모달을 가려 뒤로 가야 모달이 보였다.
+    if (!mounted || selected == null || _homeOffline) return;
     await _openNotificationTarget(selected);
   }
 
@@ -823,12 +887,11 @@ class _HomeScreenState extends State<HomeScreen>
                   //
                   // 광선 시작점(꼭짓점)이 해 아이콘 중심에서 뻗어나오도록 맞춘다.
                   // SVG path 정점은 로컬 좌표 (≈32,15)에서 아래로 부채꼴로 퍼진다.
-                  // 해 아이콘은 Positioned(29,111)+Padding(4)라 그림 좌상단이
-                  // (33,115), sun 83.13×82.35라 중심이 (≈74.6,156.2). 정점을
-                  // 해 중심에 맞추려면 left=74.6-32≈43, top=156.2-15≈141.
+                  // 해 노드(4534:9603)는 (28,113)에 80×80이라 중심이 (68,153).
+                  // 정점을 해 중심에 맞추려면 left=68-32=36, top=153-15=138.
                   Positioned(
-                    left: 43,
-                    top: 141,
+                    left: 36,
+                    top: 138,
                     width: 277.172,
                     height: 421.502,
                     child: IgnorePointer(
@@ -863,9 +926,10 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                   ),
+                // 누르기 쉽게 사방 4px을 더 받으므로 노드 좌상단에서 4를 뺀다.
                 Positioned(
-                  left: 29,
-                  top: 111,
+                  left: period.phaseIconOrigin.dx - 4,
+                  top: period.phaseIconOrigin.dy - 4,
                   child: GestureDetector(
                     key: const ValueKey('home-period-control'),
                     behavior: HitTestBehavior.opaque,
@@ -1028,11 +1092,13 @@ class _HomeScreenState extends State<HomeScreen>
                                   );
                             }
                             // 좌하단 원위치(위젯중심 x≈55.5 y≈529.9)에서 시안
-                            // 몸통 중심(x≈262 y≈180=캐릭터 위 오른쪽)까지 대각선
+                            // 몸통 중심(x≈262 y≈193=캐릭터 위 오른쪽)까지 대각선
                             // 이동. dx/dy는 위젯 중심 기준 이동량이라 center 회전과
-                            // 결합해도 몸통 중심이 목표에 머문다.
+                            // 결합해도 몸통 중심이 목표에 머문다. 목표는 시안
+                            // LF-078 이미지에 1.355배·34.48° 물뿌리개를 맞대어
+                            // 찾은 자리다.
                             const dx = 206.5;
-                            const dy = -349.9;
+                            const dy = -336.9;
                             // 붓는 자세 유지 구간(t 0.25~0.75)에 손목으로 물을
                             // 따르듯 주둥이를 위아래로 "까딱"거린다. 붓는 구간
                             // 진행도(0~1)에 2.5주기 sin을 곱해 2~3회 왕복시키고,
@@ -1048,29 +1114,53 @@ class _HomeScreenState extends State<HomeScreen>
                               offset: Offset(dx * raise, dy * raise),
                               child: Transform.rotate(
                                 // 손잡이 위·주둥이(왼쪽)가 캐릭터 정수리를
-                                // 향하도록 반시계로 최대 -0.5rad(≈-30deg) 기운다.
+                                // 향하도록 반시계로 기운다. 시안 붓는 프레임
+                                // (4534:11397)은 34.48°(≈0.602rad)다.
                                 alignment: Alignment.center,
-                                angle: -0.5 * raise + nod,
-                                child: child,
+                                angle: -_kWateringPourAngle * raise + nod,
+                                child: Transform.scale(
+                                  // 붓는 물뿌리개는 113.804×91.812로, 평소
+                                  // 83.98×67.751보다 1.355배 크다.
+                                  scale: 1 + (_kWateringPourScale - 1) * raise,
+                                  child: child,
+                                ),
                               ),
                             );
                           },
-                          child: Image.asset(
-                            'assets/images/home_watering_can.png',
-                            fit: BoxFit.contain,
-                            semanticLabel: '물뿌리개',
+                          // PNG에는 그림자 여백(시안 inset 위아래 −2.24%,
+                          // 오른쪽 −1.81%, 왼쪽 −0.77%)이 들어 있어 노드
+                          // 상자 밖으로 넘쳐 그린다. 회전·확대 중심은 노드
+                          // 상자 가운데 그대로다.
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                left: -0.6467,
+                                top: -1.5176,
+                                width: 83.98 + 0.6467 + 1.52,
+                                height: 67.751 + 1.5176 * 2,
+                                child: Image.asset(
+                                  'assets/images/home_watering_can.png',
+                                  fit: BoxFit.fill,
+                                  semanticLabel: '물뿌리개',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
                 if (plant != null && _unreadLetterCount > 0)
-                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. x=319 y=390 55x62.
+                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. 노드는 x=319
+                  // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
+                  // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
+                  // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
                   Positioned(
-                    left: 319,
-                    top: 390,
-                    width: 55,
-                    height: 62.188,
+                    left: 319 - 4,
+                    top: 390 - 4,
+                    width: 55 + 8,
+                    height: 62.188 + 8,
                     child: Image.asset(
                       'assets/images/home_letter_badge.png',
                       fit: BoxFit.contain,
@@ -1149,9 +1239,11 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 if (plant != null)
+                  // 우체통 노드(4534:9607) 좌상단. 그림자 여백은 아이콘이
+                  // 바깥으로 넘쳐 그린다.
                   Positioned(
-                    left: 304,
-                    top: 453,
+                    left: 310,
+                    top: 461,
                     child: Semantics(
                       button: true,
                       label: '우편함 열기',
@@ -1207,6 +1299,10 @@ class _HomeScreenState extends State<HomeScreen>
                       },
                     ),
                   )
+                else if (_homeOffline && plant == null)
+                  // 첫 조회부터 끊겼으면 식물을 모른다. 연결 끊김 모달이 덮고
+                  // 있으니 '등록된 식물이 없어요' 안내를 잘못 띄우지 않는다.
+                  const SizedBox.shrink()
                 else if (plant == null)
                   Positioned(
                     left: 42,
@@ -1274,9 +1370,11 @@ class _HomeHeader extends StatelessWidget {
     return Stack(
       children: [
         if (dayCount != null)
+          // 시안 4534:17295 D+ 글자 x=33 y=60. Flutter 글자 상자가 시안보다
+          // 커서 보이는 글자 윗변(시안 63)이 맞도록 top을 61로 둔다.
           Positioned(
-            left: 43,
-            top: 63,
+            left: 33,
+            top: 61,
             child: Text(
               'D+ $dayCount',
               style: kCaptionStyle.copyWith(color: counterColor, height: 1),
@@ -1304,9 +1402,13 @@ class _HomeHeader extends StatelessWidget {
                 GestureDetector(
                   key: const ValueKey('home-manage-plants'),
                   onTap: onManagePlants,
+                  // 시안 4534:17207 방 이름: Paperlogy 5 Medium(500) 16.
                   child: Text(
                     roomName == null ? '내 식물' : '$roomName 방',
-                    style: kItemStyle.copyWith(color: titleColor),
+                    style: kItemStyle.copyWith(
+                      color: titleColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 3),
@@ -1323,8 +1425,10 @@ class _HomeHeader extends StatelessWidget {
             ),
           ),
         ),
+        // 시안 4534:17221 벨 노드 (341,55) 28×31을 56×48 탭 영역 가운데에
+        // 둔다(402 − 341 − 28 − 14 = 19).
         Positioned(
-          right: 22,
+          right: 19,
           top: 47,
           width: 56,
           height: 48,
@@ -1478,7 +1582,8 @@ class _HomeConversation extends StatelessWidget {
           ),
         ),
       ),
-      // 2346:594 / 592 / 590 — 102×38, 흰 60%.
+      // 시안 4534:17213 / 17219 / 17211 — 102×38 흰 말풍선. '히히'만
+      // 말풍선 전체(글자·그림자 포함)가 투명도 60%이고 나머지 둘은 불투명이다.
       HomeScene.happy => const Positioned.fill(
         child: Stack(
           children: [
@@ -1495,22 +1600,12 @@ class _HomeConversation extends StatelessWidget {
             Positioned(
               left: 169,
               top: 184,
-              child: _RoomBubble(
-                label: '신난다',
-                width: 102,
-                height: 38,
-                opacity: 0.6,
-              ),
+              child: _RoomBubble(label: '신난다', width: 102, height: 38),
             ),
             Positioned(
               left: 145,
               top: 251,
-              child: _RoomBubble(
-                label: '좋은 하루야!',
-                width: 102,
-                height: 38,
-                opacity: 0.6,
-              ),
+              child: _RoomBubble(label: '좋은 하루야!', width: 102, height: 38),
             ),
           ],
         ),
@@ -1593,69 +1688,67 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       right: 0,
       top: 575,
       height: 220,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.3),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(35),
-              ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 1,
-                  height: 18,
-                  child: GestureDetector(
-                    key: const ValueKey('home-environment-collapse'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onCollapse,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 71.6,
-                        height: 2,
-                        child: ColoredBox(color: Colors.white),
-                      ),
-                    ),
+      // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
+      // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
+      // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.3),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 1,
+              height: 18,
+              child: GestureDetector(
+                key: const ValueKey('home-environment-collapse'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onCollapse,
+                child: const Center(
+                  child: SizedBox(
+                    width: 71.6,
+                    height: 2,
+                    child: ColoredBox(color: Colors.white),
                   ),
                 ),
-                if (sensorPanelMessage(sensor) case final message?)
-                  Positioned(
-                    left: 34,
-                    right: 34,
-                    // Figma 3822:601: y=683, relative to the panel at y=575.
-                    top: 108,
-                    child: Text(
-                      message,
-                      key: const ValueKey('home-environment-message'),
-                      textAlign: TextAlign.center,
-                      style: kTitleStyle.copyWith(
-                        color: const Color(0xFF434343),
-                      ),
-                    ),
-                  )
-                else ...[
-                  // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
-                  // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
-                  _gauge(
-                    top: 606 - 575,
-                    kind: EnvironmentGaugeKind.humidity,
-                    content: soilGaugeContent(sensor!.soil, plantName),
-                  ),
-                  _gauge(
-                    top: 697 - 575,
-                    kind: EnvironmentGaugeKind.light,
-                    content: lightGaugeContent(sensor!.light, plantName),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
+            if (sensorPanelMessage(sensor) case final message?)
+              Positioned(
+                left: 34,
+                right: 34,
+                // Figma 3822:601: y=683, relative to the panel at y=575.
+                top: 108,
+                child: Text(
+                  message,
+                  key: const ValueKey('home-environment-message'),
+                  textAlign: TextAlign.center,
+                  // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
+                  // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
+                  style: kTitleStyle.copyWith(
+                    fontSize: 21,
+                    color: const Color(0xFF434343),
+                  ),
+                ),
+              )
+            else ...[
+              // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+              // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+              _gauge(
+                top: 606 - 575,
+                kind: EnvironmentGaugeKind.humidity,
+                content: soilGaugeContent(sensor!.soil, plantName),
+              ),
+              _gauge(
+                top: 697 - 575,
+                kind: EnvironmentGaugeKind.light,
+                content: lightGaugeContent(sensor!.light, plantName),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1677,8 +1770,115 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       comfortRatio: content.comfortRatio,
       currentLabel: content.currentLabel,
       maxLabel: content.maxLabel,
+      alert: content.alert,
     ),
   );
+}
+
+/// 홈 재조회가 서버에 닿지 못했을 때 뜨는 연결 끊김 모달(4955:3086).
+///
+/// 상자·제목·부제 자리는 확인 모달(ConfirmDialog, 부제 있는 경우)과 같다:
+/// (47, 358) 308x158.829, 제목 top 40, 부제 top 68. 아래만 구분선·두 버튼
+/// 대신 주황 버튼 하나(4955:3673, 상자 기준 x22 y108 264x40)라 따로 둔다.
+class _HomeDisconnectedDialog extends StatefulWidget {
+  const _HomeDisconnectedDialog({required this.onRetry});
+
+  final Future<bool> Function() onRetry;
+
+  @override
+  State<_HomeDisconnectedDialog> createState() =>
+      _HomeDisconnectedDialogState();
+}
+
+class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
+  bool _retrying = false;
+
+  Future<void> _retry() async {
+    // 버튼을 회색(비활성)으로 바꾸지 않고 겹친 탭만 막는다.
+    if (_retrying) return;
+    _retrying = true;
+    final close = await widget.onRetry();
+    if (!mounted) return;
+    _retrying = false;
+    if (close) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: SizedBox(
+        width: 308,
+        height: 158.829,
+        child: Stack(
+          children: [
+            // 4955:3667: 흰 바탕, 반경 30, 0 0 5.366 rgba(0,0,0,.15).
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: kBackgroundWhite,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x26000000), blurRadius: 5.366),
+                ],
+              ),
+              child: const SizedBox.expand(),
+            ),
+            // 4955:3668: Paperlogy Regular 16 검정, 상자 위에서 40.
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 40,
+              height: 23,
+              child: Center(
+                child: Text(
+                  '리피와 연결이 끊겼어요',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 23 / 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            // 4955:3672: Regular 12 제일연한회색, 상자 위에서 68.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 68,
+              height: 14,
+              child: Center(
+                child: Text(
+                  '인터넷 연결을 확인하고 다시 시도해주세요.',
+                  style: kCaptionStyle.copyWith(
+                    color: kGrayLightest,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+            // 4955:3673: 오렌지_메인, 반경 50, 0 0 2 rgba(0,0,0,.18),
+            // 글자는 Medium 16 진한 텍스트(#444)라 흰 글자 기본값을 바꾼다.
+            Positioned(
+              left: 22,
+              top: 108,
+              child: PrimaryButton(
+                key: const ValueKey('home-disconnected-retry'),
+                label: '다시 시도',
+                width: 264,
+                height: 40,
+                variant: PrimaryButtonVariant.enabled,
+                textStyle: kButtonStyle.copyWith(color: kTextDark),
+                onPressed: _retry,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeMessageCard extends StatelessWidget {
@@ -1725,12 +1925,12 @@ class _RoomBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bubble = Container(
       width: width,
       height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: kBackgroundWhite.withValues(alpha: opacity),
+        color: kBackgroundWhite,
         borderRadius: BorderRadius.circular(AppLayout.controlRadius),
         boxShadow: const [
           BoxShadow(color: Color(0x2E000000), blurRadius: 3.338),
@@ -1741,11 +1941,15 @@ class _RoomBubble extends StatelessWidget {
         style: kSmallStyle.copyWith(fontSize: 13.353, color: color),
       ),
     );
+    // 시안은 노드 투명도라 배경만이 아니라 글자·그림자까지 함께 옅어진다.
+    // 배경 알파만 낮추면 그림자가 비쳐 회색 말풍선처럼 보였다.
+    return opacity == 1 ? bubble : Opacity(opacity: opacity, child: bubble);
   }
 }
 
 /// 돌봄 토스트(시안 4534:9220 "햇빛을 줬어요!" / 4534:11479 "물을 줬어요!").
-/// 흰 pill(높이 27, radius 26, 그림자) + 왼쪽 오렌지 원·흰 체크 + 라벨.
+/// 흰 pill(높이 27, radius 26.245, 그림자 0 0 2.5 10%) + 왼쪽 오렌지 원
+/// (x11 지름 13.83)·흰 V 표시 + 라벨(x29.83).
 class _CareToast extends StatelessWidget {
   const _CareToast({required this.label});
 
@@ -1755,35 +1959,43 @@ class _CareToast extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 27,
-      padding: const EdgeInsets.only(left: 6, right: 14),
+      padding: const EdgeInsets.only(left: 11, right: 12),
       decoration: BoxDecoration(
         color: kBackgroundWhite,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
-          BoxShadow(color: Color(0x26000000), blurRadius: 6, offset: Offset(0, 2)),
-        ],
+        borderRadius: BorderRadius.circular(26.245),
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 2.5)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // toast_check.svg는 오렌지 원만 있어 흰 체크를 그 위에 얹는다.
-          SizedBox(
-            width: 16,
-            height: 16,
+          // toast_check.svg는 오렌지 원만 있어 시안 V 표시(4534:11486,
+          // toast_check_mark.svg)를 그 위에 얹는다. V는 선 굵기만큼 바깥
+          // 여백이 있는 SVG라 원 기준 (3.178, 4.578)에 7.446×5.250으로 놓는다.
+          SizedBox.square(
+            dimension: 13.8276,
             child: Stack(
-              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 SvgPicture.asset(
                   'assets/images/toast_check.svg',
-                  width: 16,
-                  height: 16,
+                  width: 13.8276,
+                  height: 13.8276,
                   fit: BoxFit.fill,
                 ),
-                const Icon(Icons.check_rounded, size: 11, color: kBackgroundWhite),
+                Positioned(
+                  left: 3.178,
+                  top: 4.578,
+                  width: 7.44571,
+                  height: 5.24973,
+                  child: SvgPicture.asset(
+                    'assets/images/toast_check_mark.svg',
+                    fit: BoxFit.fill,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             label,
             style: const TextStyle(
@@ -1799,6 +2011,11 @@ class _CareToast extends StatelessWidget {
     );
   }
 }
+
+/// 시안 붓는 프레임(4534:11397) 물뿌리개의 기울기(34.48°)와 확대 배율
+/// (113.804 / 83.98). 돌려 감싼 상자 145.79×140.11에서 역산했다.
+const double _kWateringPourAngle = 34.48 * math.pi / 180;
+const double _kWateringPourScale = 113.804 / 83.98;
 
 /// 시안 물줄기 본체 SVG(home_water_stream_vec.svg)의 viewBox 크기.
 /// 오버레이 페인터가 같은 좌표계를 쓰도록 위젯 박스도 이 값으로 맞춘다.

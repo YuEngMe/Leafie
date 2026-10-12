@@ -123,7 +123,7 @@ class SignupEmailField extends StatelessWidget {
                 // 입력 폭을 뺏어 이메일 끝 글자가 잘린다.
                 overlaySuffix: verificationSent,
                 suffix: verificationSent
-                    ? _VerificationCountdown(text: countdownText)
+                    ? VerificationCountdown(text: countdownText)
                     : null,
               ),
             ),
@@ -260,18 +260,21 @@ class SignupNicknameField extends StatelessWidget {
   }
 }
 
-class _VerificationCountdown extends StatelessWidget {
-  const _VerificationCountdown({required this.text});
+/// 이메일칸 안 오른쪽에 얹는 남은 시간(03:21). 회원가입·비밀번호 변경·
+/// 비밀번호 재설정이 같은 자리에 그린다.
+class VerificationCountdown extends StatelessWidget {
+  const VerificationCountdown({super.key, required this.text});
 
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    // Figma는 03:21을 이메일과 같은 줄에 둔다(중심 48.5 vs 49.5). 필드가
-    // isDense라 입력 텍스트가 세로 중앙보다 위에 붙으므로 카운트다운도
-    // 같은 만큼 올린다.
+    // 시안 4534:1765·1939는 03:21 글자 상자(12 높이)를 칸 세로 중앙(188,
+    // 칸 169~220)에 두고 글자가 x 252~278에 찍힌다. 칸 오른쪽 여백 10에
+    // 3을 더 들여야 그 자리에 오고, 아래 여백 2로 Flutter 글자 상자의 위
+    // 여백 차이를 맞춘다. 14로 올려 두면 글자가 6px 위에 찍혔다.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(right: 3, bottom: 2),
       child: Text(
         text,
         style: const TextStyle(

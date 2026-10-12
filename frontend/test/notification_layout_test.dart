@@ -89,7 +89,9 @@ void main() {
     // 절 헤더.
     final todayHeader = tester.getRect(find.text('오늘의 알림'));
     expect(todayHeader.left, closeTo(34, 1));
-    expect(todayHeader.top, closeTo(140, 1));
+    // 글자 상자는 시안 박스(140)보다 2 위다. Flutter 상자가 커서 그래야
+    // 보이는 글자가 시안 자리(143)에 온다.
+    expect(todayHeader.top, closeTo(140 - kNotificationHeaderLift, 1));
     final headerStyle = tester.widget<Text>(find.text('오늘의 알림')).style!;
     expect(headerStyle.fontSize, 16);
     expect(headerStyle.fontWeight, FontWeight.w600);
@@ -110,11 +112,17 @@ void main() {
     // 마지막 오늘 타일 바닥(300.392)에서 40 아래를 확인한다.
     final pastHeader = tester.getRect(find.text('지난 알림'));
     expect(pastHeader.left, closeTo(34, 1));
-    expect(pastHeader.top, closeTo(second.bottom + 40, 1));
+    expect(
+      pastHeader.top,
+      closeTo(second.bottom + 40 - kNotificationHeaderLift, 1),
+    );
 
-    // 지난 절 첫 타일은 헤더 잉크에서 29 아래.
+    // 지난 절 첫 타일은 시안 헤더 박스에서 29 아래.
     final third = tester.getRect(find.byKey(const Key('notification-c')));
-    expect(third.top, closeTo(pastHeader.top + 29, 1));
+    expect(
+      third.top,
+      closeTo(pastHeader.top + kNotificationHeaderLift + 29, 1),
+    );
   });
 
   testWidgets('타일 제목·점·모양이 시안값과 같다', (tester) async {
@@ -199,5 +207,16 @@ void main() {
     expect(find.text('안 읽음'), findsNothing);
     expect(find.text('전체 읽음'), findsNothing);
     expect(find.byKey(const Key('notification-read-all')), findsNothing);
+  });
+
+  testWidgets('긴 제목은 읽음 점 앞에서 줄이고 점과 겹치지 않는다', (tester) async {
+    const title = '이름이아주아주긴식물친구는물이필요하고햇빛도필요해요';
+    await _pump(tester, [
+      _item(id: 'long', title: title, createdAt: DateTime.now()),
+    ]);
+
+    final text = tester.getRect(find.text(title));
+    final dot = tester.getRect(find.byKey(const Key('notification-dot-long')));
+    expect(text.right, lessThanOrEqualTo(dot.left - 8));
   });
 }

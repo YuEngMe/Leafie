@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
-import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/arc_appearance_picker.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
 
@@ -80,106 +77,76 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => RegisterStepScaffold(
-    appBarTitle: '캐릭터 만들기',
-    step: 6,
-    title: '식물을 꾸며주세요!',
-    subtitle: '',
-    bottomButton: PrimaryButton(
-      key: const ValueKey('appearance_confirm'),
-      label: '선택 완료',
-      variant: _selectedColorId == null
-          ? PrimaryButtonVariant.disabled
-          : PrimaryButtonVariant.enabled,
-      onPressed: _confirm,
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              children: [
-                // 미리보기 위 여백. 헤어는 몸통 상단 위로 최대 ~164px(하월시아)
-                // 솟는데 Stack(clipBehavior: Clip.none)이라 그 높이가 레이아웃에
-                // 잡히지 않는다. child는 헤드라인 바로 아래(y=124.2)에서 시작하고
-                // 미리보기 몸통 top = 124.2 + 이 여백이므로, 여백이 헤어 솟음보다
-                // 작으면 헤어 꼭대기가 헤드라인을 파고든다. 작은 화면일수록
-                // maxHeight-440이 작아져 이 일이 생긴다(예: 360x740에서 124.8).
-                // 하한을 176으로 올려 어떤 기기에서도 헤어가 헤드라인 아래로
-                // 내려오게 한다. 큰 화면(402/393)은 maxHeight-440이 176보다 커서
-                // 그대로 선택되므로 배치가 바뀌지 않는다.
-                SizedBox(height: math.max(176, constraints.maxHeight - 440)),
-                PlantCharacterArt(
-                  width: 200,
-                  body: plantBodyFromId(widget.draft.bodyId),
-                  colorId: _selectedColorId,
-                  hairId: _selectedHairId,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: kBackgroundWhite,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(100),
+  Widget build(BuildContext context) {
+    // 스캐폴드 안쪽은 SafeArea가 안전영역을 지운 MediaQuery를 보므로 하단
+    // 안전영역은 여기(스캐폴드 바깥)에서 읽는다.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return RegisterStepScaffold(
+      appBarTitle: '캐릭터 꾸미기',
+      // 시안은 바디와 컬러를 같은 마지막 단계로 본다(4534:507 진행선이
+      // 끝까지 주황).
+      step: 5,
+      title: '리피를 꾸며주세요!',
+      centerTitle: true,
+      subtitle: '',
+      // 시안 4534:507에는 하단 버튼이 없다. 휠의 체크 배지가 확정 버튼이다.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 본문은 화면 바닥에서 하단 안전영역만큼 위에서 끝난다. 시안 화면
+          // y를 본문 좌표로 바꿀 때 바닥을 기준으로 잡아 휠이 늘 화면 바닥에
+          // 붙게 한다(402x874에서는 시안 y와 그대로 같다).
+          final bottom = constraints.maxHeight + bottomInset;
+          double fromDesign(double y) => bottom - (874 - y);
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 캐릭터 미리보기 4889:886: 네모 몸통 폭 156, 바닥 y=523.9로
+              // 편집 화면(5038:6460)과 같은 자리·크기다. 위젯 폭 182.4와 박스
+              // 위 y=366은 편집 화면과 같은 환산이다.
+              Positioned(
+                left: 0,
+                right: 0,
+                top: fromDesign(366),
+                height: 182.4 * 649 / 698,
+                child: Center(
+                  child: OverflowBox(
+                    maxWidth: double.infinity,
+                    maxHeight: double.infinity,
+                    child: PlantCharacterArt(
+                      width: 182.4,
+                      body: plantBodyFromId(widget.draft.bodyId),
+                      colorId: _selectedColorId,
+                      hairId: _selectedHairId,
                     ),
-                    boxShadow: [
-                      BoxShadow(color: Color(0x14000000), blurRadius: 5),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      ArcAppearancePicker(
-                        // 배경이 top-radius 100의 넓은 흰 반원이라 곡률이
-                        // 완만하다. 색 원들이 그 상단 호를 따라 완만히
-                        // 내려가도록 큰 R을 준다(디자이너 피드백: 회전 궤도를
-                        // 배경 원과 맞춘다).
-                        arcRadius: 360,
-                        initialIndex: math.max(
-                          0,
-                          _colors.indexWhere(
-                            (c) =>
-                                c.id == (_selectedColorId ?? 'color_green'),
-                          ),
-                        ),
-                        labels: [for (final c in _colors) c.label],
-                        onSelected: (index) => setState(() {
-                          _selectedColorId = _colors[index].id;
-                        }),
-                        itemBuilder: (context, index) {
-                          final option = _colors[index];
-                          return Container(
-                            key: ValueKey('appearance_${option.id}'),
-                            decoration: BoxDecoration(
-                              color: option.color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _selectedColorId == option.id
-                                    ? kOrangeMain
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      Text(
-                        _selectedColorId == null
-                            ? '밀거나 눌러 컬러를 선택해주세요'
-                            : '${_colors.firstWhere((c) => c.id == _selectedColorId).label} 선택됨',
-                        style: kSmallStyle,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: fromDesign(ColorWheelPicker.top),
+                height: ColorWheelPicker.height,
+                child: ColorWheelPicker(
+                  // 아직 고르지 않았으면 미리보기 몸통(색 없음 → 옐로)과 같은
+                  // 옐로를 꼭대기에 둔다(시안도 옐로가 꼭대기).
+                  initialIndex: math.max(
+                    0,
+                    _colors.indexWhere(
+                      (c) => c.id == (_selectedColorId ?? 'color_yellow'),
+                    ),
+                  ),
+                  onSelected: (index) => setState(() {
+                    _selectedColorId = _colors[index].id;
+                  }),
+                  confirmLabel: '선택 완료',
+                  // 기존처럼 색을 한 번 고르기 전에는 확정할 수 없다.
+                  onConfirm: _selectedColorId == null ? null : _confirm,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

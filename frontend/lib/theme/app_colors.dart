@@ -8,7 +8,8 @@ const Color kBrightOrange = Color(0xFFFF8834); // 밝은 오렌지, 달력 격�
 const Color kOrangeAccent = Color(0xFFFFA13E); // 종 검색 라벨(2315:2583)·꾸미기 활성 탭(2318:3594)
 // 성격 태그 칩(2318:3966)의 Figma 변수 `메인컬러_주황`.
 const Color kTagOrange = Color(0xFFFF9F6D);
-// 성격 타이틀(2318:3964)만 쓰는 raw hex. kTextDark보다 진하다.
+// 성격 타이틀(2318:3964)·등록 완성 제목(4534:833) 등이 쓰는 raw hex.
+// kTextDark보다 진하다.
 const Color kPersonalityTitle = Color(0xFF2E2E2E);
 const Color kAppleGreen = Color(0xFFC1E25F); // 애플 그린, 홈 포인트
 // 습도·조도 게이지(2435:16798)의 트랙과 선호 범위 시작색.
@@ -18,10 +19,9 @@ const Color kPaleYellow = Color(0xFFFFECA6); // 연노랑, 강조 배경
 // 마이페이지 프로필 카드(2353:690). kPaleYellow 43%를 흰 배경에 합성한 값.
 const Color kProfileCardYellow = Color(0xFFFFF7D9);
 const Color kTextDark = Color(0xFF444444); // 진한 텍스트
-// 진단 기록 제목(2346:2454)과 꺾쇠(2346:2456). 팔레트 토큰이 아니라 노드에
-// 직접 박힌 값이다.
+// 진단 기록 제목(4534:19853). 팔레트 토큰이 아니라 노드에 직접 박힌 값이다.
+// 꺾쇠(4534:19852)는 색(#CCCBCB)이 든 시안 에셋을 그대로 쓴다.
 const Color kDiagnosisTitle = Color(0xFF1F2E21);
-const Color kChevronGray = Color(0xFF7F7F7F);
 // 처방전(2346:2450)이 쓰는 값들.
 const Color kPrescriptionText = Color(0xFF030303);
 const Color kPrescriptionPercent = Color(0xFF5A5A5A);

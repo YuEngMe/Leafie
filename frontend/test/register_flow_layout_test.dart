@@ -4,9 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
+import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
+import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
@@ -33,6 +37,18 @@ void _expectAt(
   if (y != null) expect(rect.top, closeTo(y, 1), reason: '$label y');
 }
 
+/// index번째 RoundedInputField의 흰 칸 상자(라벨 제외).
+Rect _fieldBox(WidgetTester tester, int index) => tester.getRect(
+  find
+      .descendant(
+        of: find.byType(RoundedInputField).at(index),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration is BoxDecoration,
+        ),
+      )
+      .first,
+);
+
 PlantRegistrationDraft _draft() => PlantRegistrationDraft(
   name: '씩씩이',
   species: const PlantSpeciesCandidate(
@@ -44,7 +60,7 @@ PlantRegistrationDraft _draft() => PlantRegistrationDraft(
 );
 
 void main() {
-  group('1단계 이름 (2315:2189)', () {
+  group('1단계 이름 (4534:954)', () {
     testWidgets('좌표를 지킨다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
@@ -54,9 +70,32 @@ void main() {
 
       // 물결은 프레임(238x15)보다 넘쳐 243x21.425로 그려진다.
       _expectAt(tester, '진행 물결', find.byType(RegisterProgressBar), 79.5, 91.79);
-      _expectAt(tester, '헤드라인', find.text('리피의 이름을 지어주세요!'), 45, 140);
+      // 헤드라인 4534:978은 20 SemiBold, 상자 140·글자 144. Flutter 20px
+      // 상자는 글자가 top 5 아래라 상자를 139에 둔다.
+      final headline = find.text('리피의 이름을 지어주세요!');
+      expect(tester.getRect(headline).top, closeTo(139, 0.5));
+      expect(tester.widget<Text>(headline).style!.fontSize, 20);
+      _expectAt(tester, '헤드라인', headline, 45, null);
+      expect(
+        tester.getRect(find.text('당신의 식물을 뭐라고 부를까요?')).top,
+        closeTo(175, 0.5),
+      );
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
+
+      // 4534:954: 애칭 라벨 top 493 → 칸 top 517. 옛 시안(2315:2189)
+      // 배치라 라벨·칸이 13px 아래에 있었다(AUTH-ISS-005).
+      final label = tester.getRect(find.text('애칭'));
+      expect(label.top, closeTo(493, 1));
+      expect(_fieldBox(tester, 0).top, closeTo(517, 1));
+      expect(_fieldBox(tester, 0).top - label.top, closeTo(24, 0.5));
+
+      // 4534:954 캐릭터(5038:6564): 몸통 155.23x142.99, top 289 → 바닥
+      // 431.99. 옛 시안 값으로 그려 12px 위에 있었다.
+      final art = tester.getRect(find.byType(PlantCharacterArt));
+      expect(art.width * 0.897, closeTo(155.23, 0.5));
+      expect(art.center.dx, closeTo(201, 1));
+      expect(art.bottom - art.width * 37 / 698, closeTo(431.99, 1));
 
       final button = tester.getRect(find.byType(PrimaryButton));
       expect(button.width, closeTo(334, 1));
@@ -84,7 +123,38 @@ void main() {
 
       _expectAt(tester, '헤드라인', find.text('내 식물을 찾아주세요!'), 45, 140);
       _expectAt(tester, '식물 명칭 라벨', find.text('식물 명칭'), 45, 237);
+      // 4534:1007: 칸 top 261(라벨 top + 24).
+      expect(_fieldBox(tester, 0).top, closeTo(261, 1));
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
+
+      // 돋보기 4534:1051(칸 기준 x250·y12, 29.6x31.6)와 카메라 4534:1045
+      // (x288·y14). IconButton으로 감쌌을 때는 카메라가 9px 오른쪽이었다.
+      final search = tester.getRect(find.byType(FigmaSearchIcon));
+      expect(search.left, closeTo(34 + 250, 1));
+      expect(search.top, closeTo(261 + 12, 1));
+      expect(search.size.width, closeTo(29.627, 0.5));
+      expect(search.size.height, closeTo(31.557, 0.5));
+      _expectAt(
+        tester,
+        '카메라',
+        find.byType(FigmaCameraIcon),
+        34 + 288,
+        261 + 14,
+      );
+
+      // 결과 카드 4534:1040은 칸 뒤 top 285에서 시작한다(칸 다음에 두면
+      // 312부터라 목록이 27px 내려갔다). 첫 하이라이트 띠 top 320, 높이 33
+      // (4534:1041, AUTH-ISS-006 — 행 간격 36을 다 채우면 안 된다).
+      expect(tester.getRect(find.byType(ListView)).top, closeTo(285, 1));
+      final band = tester.getRect(
+        find
+            .ancestor(of: find.text('바질'), matching: find.byType(Container))
+            .first,
+      );
+      expect(band.top, closeTo(320, 1));
+      expect(band.height, closeTo(33, 0.5));
+      expect(band.left, closeTo(34, 1));
+      expect(band.width, closeTo(334, 1));
     });
 
     testWidgets('고르기 전에는 다음이 잠겨 있다', (tester) async {
@@ -117,6 +187,10 @@ void main() {
       _expectAt(tester, '라벨1', find.text('장소(별명)'), 45, 214);
       _expectAt(tester, '라벨2', find.text('마지막 물 준 날'), 45, 324);
       _expectAt(tester, '라벨3', find.text('분갈이 한 날'), 45, 434);
+      // 4534:85: 칸 top 238·348·458(라벨 top + 24). 예전엔 4px 아래였다.
+      expect(_fieldBox(tester, 0).top, closeTo(238, 1));
+      expect(_fieldBox(tester, 1).top, closeTo(348, 1));
+      expect(_fieldBox(tester, 2).top, closeTo(458, 1));
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
     });
 
@@ -149,6 +223,77 @@ void main() {
       );
       expect(bar.step, want, reason: screen.runtimeType.toString());
     }
+  });
+
+  // 최신 시안(4534:22)은 등록을 5단계로 본다: 바디(5028:1193)와 컬러
+  // (4534:507) 모두 진행선이 끝까지 주황이다. 예전 앱은 컬러를 6단계로
+  // 따로 세어 바디 화면 물결 끝이 회색이었다.
+  testWidgets('꾸미기(바디·컬러)는 5단계 중 마지막 단계다', (tester) async {
+    for (final screen in <Widget>[
+      PlantRegisterBodyScreen(draft: _draft()),
+      PlantRegisterAppearanceScreen(draft: _draft()),
+    ]) {
+      await tester.pumpWidget(MaterialApp(home: screen));
+      await tester.pumpAndSettle();
+      final bar = tester.widget<RegisterProgressBar>(
+        find.byType(RegisterProgressBar),
+      );
+      expect(bar.step, 5, reason: screen.runtimeType.toString());
+      expect(bar.totalSteps, 5, reason: screen.runtimeType.toString());
+      expect(find.text('캐릭터 꾸미기'), findsOneWidget);
+    }
+  });
+
+  group('꾸미기 컬러 (4534:507)', () {
+    testWidgets('문구·헤드라인 가운데·휠·체크 배지·캐릭터 좌표', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: PlantRegisterAppearanceScreen(draft: _draft())),
+      );
+      await tester.pumpAndSettle();
+
+      // 4534:535 헤드라인은 가운데 정렬(중심 x 201).
+      final title = find.text('리피를 꾸며주세요!');
+      expect(tester.widget<Text>(title).textAlign, TextAlign.center);
+      expect(tester.getRect(title).center.dx, closeTo(201, 1));
+      expect(find.text('식물을 꾸며주세요!'), findsNothing);
+      // 하단 '선택 완료' 버튼과 안내 문구는 없다.
+      expect(find.byType(PrimaryButton), findsNothing);
+      expect(find.text('밀거나 눌러 컬러를 선택해주세요'), findsNothing);
+
+      // 처음 꼭대기 칸(중심 200, 655)은 옐로다(5038:6395 Ellipse 451).
+      final top = tester.getRect(
+        find.byKey(const ValueKey('appearance_color_yellow')),
+      );
+      expect(top.center.dx, closeTo(200, 1));
+      expect(top.center.dy, closeTo(655, 1));
+      // 체크 배지 5038:6407: 원 38x38이 x=181 y=777.
+      final check = tester.getRect(
+        find.byKey(const ValueKey('appearance_confirm')),
+      );
+      expect(check.center.dx, closeTo(181 + 19, 1));
+      expect(check.center.dy, closeTo(777 + 19, 1));
+
+      // 캐릭터는 편집 화면(5038:6460)과 같은 폭 182.4 · 박스 위 y=366.
+      // 예전에는 폭 200으로 약 10% 크고 9px 위였다.
+      final art = tester.getRect(find.byType(PlantCharacterArt));
+      expect(art.width, closeTo(182.4, 1));
+      expect(art.top, closeTo(366, 1));
+    });
+  });
+
+  group('꾸미기 바디 (5028:1193)', () {
+    testWidgets('헤드라인 가운데 정렬', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: PlantRegisterBodyScreen(draft: _draft())),
+      );
+      await tester.pumpAndSettle();
+      // 5028:1221 헤드라인은 가운데(중심 x 200.5).
+      final title = find.text('리피의 외형을 정해주세요!');
+      expect(tester.widget<Text>(title).textAlign, TextAlign.center);
+      expect(tester.getRect(title).center.dx, closeTo(201, 1));
+    });
   });
 
   // 시뮬레이터에서 키보드를 열면 "BOTTOM OVERFLOWED BY 123 PIXELS"가 떴다.

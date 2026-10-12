@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 
-/// Figma가 내보낸 벡터 아이콘을 그대로 옮긴 글리프.
-///
-/// 각 SVG가 단색 path 한두 개뿐이라 flutter_svg 대신 CustomPainter로 좌표를
-/// 그대로 옮겼다. 상수는 Figma export의 원본 좌표계다. 그라디언트나 mask가
-/// 붙은 에셋이 들어오면 그때 flutter_svg를 도입한다.
-///
-/// 눈 아이콘이 쓰는 회색. Figma는 여기서만 #B1B1B1을 쓴다.
-const Color _kEyeGray = Color(0xFFB1B1B1);
+// Figma가 내보낸 벡터 아이콘을 그대로 옮긴 글리프.
+//
+// 각 SVG가 단색 path 한두 개뿐이라 flutter_svg 대신 CustomPainter로 좌표를
+// 그대로 옮겼다. 상수는 Figma export의 원본 좌표계다. 눈 아이콘처럼 시안
+// 에셋을 받아 둔 것은 flutter_svg로 그린다.
 
 class _PolylinePainter extends CustomPainter {
   const _PolylinePainter({
@@ -157,12 +155,20 @@ class FigmaCheckMark extends StatelessWidget {
 
 /// Figma node 2315:2495의 오른쪽 꺾쇠.
 class FigmaChevronRight extends StatelessWidget {
-  const FigmaChevronRight({super.key, this.color = kGrayLightest});
+  const FigmaChevronRight({
+    super.key,
+    this.color = kGrayLightest,
+    this.strokeWidth = 2,
+  });
 
   /// node 2315:2495 원본 좌표(8.00638 x 14.346).
   static const Size figmaSize = Size(8.00638, 14.346);
 
   final Color color;
+
+  /// 2315:2495의 획은 2. 마이페이지처럼 폰트 글리프 꺾쇠를 대신하는 자리는
+  /// 그 글리프 굵기에 맞춰 넘긴다.
+  final double strokeWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -175,104 +181,90 @@ class FigmaChevronRight extends StatelessWidget {
         ],
         viewBox: figmaSize,
         color: color,
-        strokeWidth: 2,
+        strokeWidth: strokeWidth,
       ),
       size: figmaSize,
     );
   }
 }
 
-/// Figma node 2315:2449의 비밀번호 가리기 눈 아이콘.
+/// 비밀번호 칸의 눈 아이콘이 화면 계열마다 쓰는 시안 에셋.
 ///
-/// Figma는 눈 윤곽(2315:2450) + 동공(2315:2451) + 흰 사선(2315:2452) +
-/// 회색 사선(2315:2453) 네 레이어를 겹친다. 흰 사선은 회색 사선 아래에서
-/// 눈 윤곽을 지워 슬래시가 파인 것처럼 보이게 하는 용도다.
+/// 인증 화면(로그인 4534:1343·회원가입 4534:2076·비밀번호 변경 4534:2784)은
+/// 사선을 잘라낸 Subtract 그룹(427320837)을, 기기연결(PIN 5728:5761·Wi-Fi
+/// 5728:5842)은 흰 사선을 겹친 옛 그룹(427320836)을 쓴다. 생김새는 같지만
+/// 상자 크기와 칸 안 위치가 달라 에셋을 따로 둔다.
+enum FigmaEyeVariant {
+  auth(
+    closedAsset: 'assets/images/icon_eye_closed.svg',
+    closedSize: Size(22.6274, 27.393),
+    // 칸 오른쪽 끝에서 아이콘 상자 오른쪽 끝까지(334 − 292 − 22.63).
+    rightInset: 19.37,
+    // 뜬 눈(4534:1427, top 18)은 감은 눈 상자(top 12)보다 6 아래, x는 같다.
+    openOffset: Offset(0, 6),
+  ),
+  sensor(
+    closedAsset: 'assets/images/icon_eye_closed_sensor.svg',
+    closedSize: Size(23.5124, 26.0163),
+    // 334 − 282 − 23.51.
+    rightInset: 28.49,
+    // 기기연결엔 뜬 눈 시안이 없다. 인증 화면 뜬 눈의 동공(11.45, 7.31)을
+    // 이 상자의 동공(12, 13)에 맞춘다.
+    openOffset: Offset(0.55, 5.69),
+  );
+
+  const FigmaEyeVariant({
+    required this.closedAsset,
+    required this.closedSize,
+    required this.rightInset,
+    required this.openOffset,
+  });
+
+  final String closedAsset;
+  final Size closedSize;
+  final double rightInset;
+  final Offset openOffset;
+}
+
+/// 비밀번호 가리기 눈 아이콘. 시안 SVG를 그대로 그린다.
+///
+/// 감은 눈 상자 안에 뜬 눈(4534:1427, 22.63×14.58)을 겹쳐 두어, 토글해도
+/// 아이콘이 차지하는 자리와 동공 위치가 변하지 않는다.
 class FigmaEyeIcon extends StatelessWidget {
-  const FigmaEyeIcon({super.key, this.obscured = true, this.color = _kEyeGray});
+  const FigmaEyeIcon({
+    super.key,
+    this.obscured = true,
+    this.variant = FigmaEyeVariant.auth,
+  });
 
-  /// 2315:2449 기준 좌표계. left 290~313.5, top 11~37 범위를 감싼다.
-  static const Size figmaSize = Size(24, 26);
+  static const String openAsset = 'assets/images/icon_eye_open.svg';
+  static const Size openSize = Size(22.6276, 14.5834);
 
-  /// 슬래시가 그어진 가려짐 상태인지. Figma에는 이 상태만 있다.
+  /// 사선이 그어진 가려짐 상태인지.
   final bool obscured;
-  final Color color;
+  final FigmaEyeVariant variant;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _EyePainter(obscured: obscured, color: color),
-      size: figmaSize,
+    return SizedBox.fromSize(
+      size: variant.closedSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (obscured)
+            Positioned.fill(child: SvgPicture.asset(variant.closedAsset))
+          else
+            Positioned(
+              left: variant.openOffset.dx,
+              top: variant.openOffset.dy,
+              width: openSize.width,
+              height: openSize.height,
+              child: SvgPicture.asset(openAsset),
+            ),
+        ],
+      ),
     );
   }
-}
-
-class _EyePainter extends CustomPainter {
-  const _EyePainter({required this.obscured, required this.color});
-
-  final bool obscured;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 좌표는 Figma의 절대 위치(left 290, top 11)를 원점으로 옮긴 값이다.
-    final scaleX = size.width / FigmaEyeIcon.figmaSize.width;
-    final scaleY = size.height / FigmaEyeIcon.figmaSize.height;
-    canvas.save();
-    canvas.scale(scaleX, scaleY);
-
-    final outline = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.74682
-      ..strokeJoin = StrokeJoin.round;
-
-    // 눈 윤곽(2315:2450): Figma 좌표에서 left 290 - 290 = 0, top 18.56 - 11.
-    canvas.save();
-    canvas.translate(0, 7.56);
-    canvas
-      ..drawPath(
-        Path()
-          ..moveTo(20.6446, 5.04353)
-          ..cubicTo(12.3243, -1.84011, 6.24105, 1.05132, 1.93412, 4.7848)
-          ..cubicTo(0.491988, 6.03492, 0.525823, 8.27719, 2.00244, 9.48637)
-          ..cubicTo(10.5932, 16.5213, 16.7928, 13.5148, 20.8707, 9.49837)
-          ..cubicTo(22.1422, 8.24603, 22.0197, 6.18119, 20.6446, 5.04353),
-        outline,
-      )
-      ..restore();
-
-    // 동공(2315:2451): left 297 - 290 = 7, top 20 - 11 = 9, 지름 10.
-    canvas.drawCircle(const Offset(7 + 5, 9 + 5), 5, Paint()..color = color);
-
-    if (obscured) {
-      // 사선 두 개(2315:2452, 2315:2453). 좌상에서 우하로 긋고, 흰 선이
-      // 회색 선보다 우측 0.9 / 위 1.15만큼 비껴 있어 슬래시 옆에 파임이
-      // 생긴다. Figma 좌표(left 292.9 / 292, top 12 / 13.15) 그대로다.
-      final slash = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      canvas
-        ..drawLine(
-          const Offset(5.4, 1.6),
-          const Offset(18.1, 23.6),
-          slash..color = Colors.white,
-        )
-        ..drawLine(
-          const Offset(4.5, 2.75),
-          const Offset(17.2, 24.75),
-          slash..color = color,
-        );
-    }
-
-    // canvas.scale이 stroke 두께까지 함께 키우므로 별도 보정은 없다.
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_EyePainter oldDelegate) =>
-      oldDelegate.obscured != obscured || oldDelegate.color != color;
 }
 
 /// Figma node 2353:1042의 회원가입 중단 모달 구분선.

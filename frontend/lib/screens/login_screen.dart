@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
+import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -17,6 +18,20 @@ typedef OAuthSignInLauncher =
       String? scopes,
       LaunchMode authScreenLaunchMode,
     });
+
+/// 로그인 실패를 비밀번호 입력칸 아래에 띄울 한국어 문구로 바꾼다.
+///
+/// 시안 문구는 "비밀번호가 옳지 않습니다." 하나다. 서버 코드
+/// `invalid_credentials`는 gotrue 2.26의 ErrorCode enum에 없어 문자열로 보고,
+/// 코드 없이 400만 오는 예전 서버 응답도 같은 문구로 둔다.
+@visibleForTesting
+String loginErrorMessage(AuthException error) {
+  if (error.code == 'invalid_credentials' ||
+      (error.code == null && error.statusCode == '400')) {
+    return '비밀번호가 옳지 않습니다.';
+  }
+  return authErrorMessage(error, fallback: '로그인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.oauthSignIn});
@@ -78,15 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on AuthException catch (e) {
       // Figma "03 앱 진입_로그인"(2026-08-09 확인): 로그인 실패는 비밀번호
-      // 입력칸 아래 인라인 에러로 표시한다. 서버 메시지가 있으면 그대로 쓰고,
-      // 없을 때만 Figma 기본 문구("비밀번호가 옳지 않습니다.")로 대체한다.
-      if (mounted) {
-        setState(
-          () => _passwordError = e.message.isNotEmpty
-              ? e.message
-              : '비밀번호가 옳지 않습니다.',
-        );
-      }
+      // 입력칸 아래 인라인 에러로 표시한다.
+      if (mounted) setState(() => _passwordError = loginErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -120,9 +128,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authErrorMessage(e, fallback: '소셜 로그인에 실패했어요. 다시 시도해 주세요.'),
+            ),
+          ),
+        );
       }
     }
   }
@@ -144,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const BrandLogo(
                 width: AppLayout.loginLogoWidth,
                 markWidthFactor: AppLayout.loginLogoMarkWidthFactor,
+                gap: AppLayout.loginLogoGap,
               ),
               const SizedBox(height: AppLayout.loginLogoToFormGap),
 

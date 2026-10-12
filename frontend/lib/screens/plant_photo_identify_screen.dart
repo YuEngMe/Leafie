@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
@@ -9,7 +11,6 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
-import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/register_progress_bar.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
@@ -49,7 +50,7 @@ Future<PlantIdentification> _identifyPlant(File photo) async {
   );
 }
 
-/// Figma "캐릭터 등록6"(2318:2815)과 "등록7"(2318:2890).
+/// Figma "캐릭터 등록6"(4889:421)과 "등록7"(2318:2890).
 ///
 /// 분석 중 화면을 먼저 띄우고, 끝나면 같은 화면에서 결과 카드로 바뀐다.
 class PlantPhotoIdentifyScreen extends StatefulWidget {
@@ -116,7 +117,10 @@ class _PlantPhotoIdentifyScreenState extends State<PlantPhotoIdentifyScreen> {
     final result = _result;
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '내 식물 등록하기'),
+      // 시안 4889:421 분석 중 화면은 앱바 제목 없이 꺾쇠만 있다.
+      appBar: YesoAppBar(
+        title: result == null && _error == null ? '' : '내 식물 등록하기',
+      ),
       body: SafeArea(
         child: _error != null
             ? _IdentifyFailed(onRetry: _reject)
@@ -133,7 +137,13 @@ class _PlantPhotoIdentifyScreenState extends State<PlantPhotoIdentifyScreen> {
   }
 }
 
-/// Figma node 2318:2815. 캐릭터 아래 진행 막대가 도는 대기 화면.
+/// Figma node 4889:421(LF-018). 주황 캐릭터 셋 아래에 문구를 둔 대기 화면.
+///
+/// 옛 시안 2318:2815는 노란 캐릭터 하나와 진행 막대였다. 최신 시안에는
+/// 막대도 모션 데이터도 없다(get_motion_context 빈 결과). 그대로 두면 분석이
+/// 길어질 때 화면이 멈춘 것처럼 보여, 세 캐릭터가 차례로 살짝 뛰게 한다
+/// (_AnalyzingCharacters). 쉬는 자세는 시안 좌표 그대로다.
+/// 좌표는 앱바 아래(상태바 46 + 앱바 46 = 92) 기준이다.
 class _Analyzing extends StatelessWidget {
   const _Analyzing();
 
@@ -141,61 +151,96 @@ class _Analyzing extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 2318:2858 y=205, 2318:2859 중심 y=248.
+        // 4889:445 묶음 x=129 y=363, 144x42.4.
         const Positioned(
-          left: 0,
-          right: 0,
-          top: 113,
-          child: Text(
-            'AI가 식물을 분석하고 있어요',
-            textAlign: TextAlign.center,
-            style: kTitleStyle,
-          ),
+          left: 129,
+          top: 271,
+          child: _AnalyzingCharacters(key: ValueKey('analyzing-characters')),
         ),
+        // 4889:442 x=80 y=458, 왼쪽 정렬. Flutter 글자가 시안보다 3~4px 넓어
+        // 가운데 정렬하면 왼쪽 끝이 어긋나므로 시안처럼 왼쪽 끝을 맞춘다.
+        // 글자 상자(29)가 시안(24)보다 커서, 보이는 글자 top이 시안 렌더(461)에
+        // 오도록 상자 top을 456(92 + 364)으로 둔다.
         Positioned(
-          left: 0,
+          left: 80,
+          top: 364,
+          child: Text('AI가 식물을 분석하고 있어요', style: kTitleStyle),
+        ),
+        // 4889:443 중심 x=202.5 y=501. left 3이면 가운데가 202.5가 된다.
+        // 보이는 글자 top 495(시안 렌더와 같음).
+        Positioned(
+          left: 3,
           right: 0,
-          top: 149,
+          top: 400,
           child: Text(
             '잠시만 기다려주세요..',
             textAlign: TextAlign.center,
-            style: kSmallStyle.copyWith(height: 1, color: kOnboardingSubtitle),
+            style: kSmallStyle.copyWith(color: kOnboardingSubtitle),
           ),
-        ),
-        // 2318:2844 x=148 y=375, 94x104.
-        const Positioned(
-          left: 0,
-          right: 0,
-          top: 283,
-          child: Center(child: PlantCharacterArt(width: 94)),
-        ),
-        // 2318:2846 트랙 180x7, 2318:2847 채움 126.768.
-        const Positioned(
-          left: 0,
-          right: 0,
-          top: 400,
-          child: Center(child: _AnalyzingBar()),
         ),
       ],
     );
   }
 }
 
-/// 시안(2318:2847)은 180 중 126.768을 채운 한 장면이다. 실제로는 도는
-/// 막대라 그 비율을 최대치로 두고 반복한다.
-class _AnalyzingBar extends StatefulWidget {
-  const _AnalyzingBar();
+/// 4889:445. 둥근·유령·네모 몸통(#FFB52A)에 같은 얼굴(4889:455/459/463)을
+/// 얹는다. 세 얼굴 SVG는 소수점 넷째 자리까지만 달라 한 파일을 쓴다.
+///
+/// 분석을 기다리는 동안 왼쪽부터 하나씩 [_hopHeight]만큼 뛰었다 내려온다.
+/// 한 바퀴의 시작과 끝은 모두 시안 자리라 첫 프레임은 정지 화면과 같다.
+/// 동작 줄이기 설정에서는 뛰지 않는다.
+class _AnalyzingCharacters extends StatefulWidget {
+  const _AnalyzingCharacters({super.key});
 
   @override
-  State<_AnalyzingBar> createState() => _AnalyzingBarState();
+  State<_AnalyzingCharacters> createState() => _AnalyzingCharactersState();
 }
 
-class _AnalyzingBarState extends State<_AnalyzingBar>
+class _AnalyzingCharactersState extends State<_AnalyzingCharacters>
     with SingleTickerProviderStateMixin {
+  // (몸통, 얼굴) 묶음. 묶음 왼쪽 위(129, 363) 기준 좌표.
+  static const _characters =
+      <((String, double, double, double, double), (double, double))>[
+        (
+          ('identify_analyzing_body_round', 0, 0.48, 45.494, 41.906),
+          (11.03, 18.23),
+        ), // 4889:447·455
+        (
+          ('identify_analyzing_body_ghost', 50.85, 0, 42.699, 40.772),
+          (60.92, 16.79),
+        ), // 4889:452·459
+        (
+          ('identify_analyzing_body_square', 99.30, 1.52, 44.705, 39.161),
+          (110.32, 16.79),
+        ), // 4889:454·463
+      ];
+  static const _faceWidth = 23.214;
+  static const _faceHeight = 10.073;
+
+  /// 한 바퀴: 셋이 차례로 뛰고 잠깐 쉰다.
+  static const _cycle = Duration(milliseconds: 1500);
+
+  /// 한 캐릭터가 뛰었다 내려오는 시간과 다음 캐릭터가 출발하는 간격.
+  static const _hop = 420.0;
+  static const _stagger = 180.0;
+  static const _hopHeight = 6.0;
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
+    duration: _cycle,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller
+        ..stop()
+        ..value = 0;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
 
   @override
   void dispose() {
@@ -203,32 +248,50 @@ class _AnalyzingBarState extends State<_AnalyzingBar>
     super.dispose();
   }
 
+  /// [index]번째 캐릭터의 위쪽 이동량(0 이하).
+  double _lift(int index) {
+    final ms = _controller.value * _cycle.inMilliseconds - index * _stagger;
+    if (ms <= 0 || ms >= _hop) return 0;
+    // 출발·도착이 부드러운 반원 궤적.
+    return -_hopHeight * math.sin(math.pi * ms / _hop);
+  }
+
   @override
   Widget build(BuildContext context) {
-    const trackWidth = 180.0;
-    const height = 7.0;
     return SizedBox(
-      width: trackWidth,
-      height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: kGaugeTrack,
-          borderRadius: BorderRadius.circular(50),
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) => SizedBox(
-              width: trackWidth * 0.7043 * _controller.value,
-              height: height,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: kOrangeMain,
-                  borderRadius: BorderRadius.circular(50),
+      width: 144.005,
+      height: 42.386,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final (
+                    index,
+                    ((name, left, top, width, height), (faceLeft, faceTop)),
+                  )
+                  in _characters.indexed) ...[
+                Positioned(
+                  left: left,
+                  top: top + _lift(index),
+                  child: SvgPicture.asset(
+                    'assets/images/$name.svg',
+                    width: width,
+                    height: height,
+                  ),
                 ),
-              ),
-            ),
+                Positioned(
+                  left: faceLeft,
+                  top: faceTop + _lift(index),
+                  child: SvgPicture.asset(
+                    'assets/images/identify_analyzing_face.svg',
+                    width: _faceWidth,
+                    height: _faceHeight,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -260,12 +323,12 @@ class _IdentifyResult extends StatelessWidget {
           top: 0,
           child: Center(child: RegisterProgressBar(step: 2)),
         ),
-        // 2318:2928 중심 y=179.5.
+        // 4534:1184 글자 상자 y=167, 보이는 글자 top 171. Flutter 20px 글자는
+        // 상자 위에서 5 아래 찍히므로 상자를 166(앱바 아래 92 기준 74)에 둔다.
         Positioned(
           left: 0,
           right: 0,
-          // 2318:2928 중심 y=179.5, 글자 상자 top 169. 앱바 아래(92) 기준.
-          top: 77,
+          top: 74,
           child: _RevealIn(
             child: Text(
               '이 식물은 ${result.candidate.displayName}이군요?',

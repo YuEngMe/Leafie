@@ -24,7 +24,8 @@ ManagedPlant _plant({
   startedOn: DateTime.now()
       .toUtc()
       .add(const Duration(hours: 9))
-      .subtract(const Duration(days: 12)),
+      // 등록한 날이 1일차라 12일째가 되려면 11일 전에 시작한다.
+      .subtract(const Duration(days: 11)),
   isSelected: selected,
 );
 
@@ -324,7 +325,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('소심한 성격'), findsOneWidget);
 
-    await tester.tap(find.text('수정하기'));
+    await tester.tap(find.text('선택'));
     await tester.pumpAndSettle();
 
     expect(repository.personalityTypeTo, 'INTROVERTED');

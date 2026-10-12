@@ -3,11 +3,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
+import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
@@ -15,6 +17,8 @@ import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+
+import 'support/device_view.dart';
 
 /// 홈 캐릭터는 circle 바디라 circle 얼굴을 쓴다.
 const _defaultFace = 'assets/images/character/face_circle_default.png';
@@ -133,10 +137,237 @@ void main() {
     });
   });
 
+  // 아이콘 PNG에는 그림자 여백이 들어 있다. 예전에는 PNG 전체를 노드 크기
+  // 상자에 넣어 그림이 작아지거나(전체보기·진단 25~30%) 여백만큼 밀렸다
+  // (해 6px 오른쪽·4px 아래). 보이는 그림이 시안 노드 자리에 오는지 잰다.
+  testWidgets('홈 아이콘이 그림자 여백을 빼고 시안 노드 자리에 그려진다', (tester) async {
+    useDeviceView(tester);
+
+    Rect assetRect(String asset) => tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == asset,
+      ),
+    );
+    void expectRect(Rect actual, Rect expected, String reason) {
+      expect(
+        actual.left,
+        moreOrLessEquals(expected.left, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.top,
+        moreOrLessEquals(expected.top, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.width,
+        moreOrLessEquals(expected.width, epsilon: 0.01),
+        reason: reason,
+      );
+      expect(
+        actual.height,
+        moreOrLessEquals(expected.height, epsilon: 0.01),
+        reason: reason,
+      );
+    }
+
+    // PNG 좌상단은 시안 이미지(LF-086·087·088)에 PNG를 맞대어 찾은 자리다.
+    const phasePng = {
+      HomeTimePeriod.day: Offset(26.43, 110.65),
+      HomeTimePeriod.afternoon: Offset(29, 115),
+      HomeTimePeriod.evening: Offset(33, 114),
+    };
+    for (final entry in phasePng.entries) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            key: ValueKey(entry.key),
+            period: entry.key,
+            plant: const HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final icon = entry.key.phaseIcon;
+      final png = assetRect(icon.asset);
+      expect(
+        png.left,
+        moreOrLessEquals(entry.value.dx, epsilon: 0.01),
+        reason: icon.name,
+      );
+      expect(
+        png.top,
+        moreOrLessEquals(entry.value.dy, epsilon: 0.01),
+        reason: icon.name,
+      );
+    }
+
+    // 해 노드 4534:9603 (28,113) 80×80.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expectRect(
+      tester.getRect(
+        find.byWidgetPredicate(
+          (w) => w is FigmaHomeAssetIcon && w.icon == FigmaHomeIcon.sun,
+        ),
+      ),
+      const Rect.fromLTWH(28, 113, 79.9966, 79.9966),
+      'sun node',
+    );
+    // 시안 4534:9620: 전체보기 29.256×28.775, 진단 22×32 노드에 사방 5·4.4
+    // 그림자 여백. 알약은 일부러 높이 96으로 줄여 둔 상태라 세로 자리는
+    // 상하 여백 14 기준이다(커밋 7c0ab64).
+    expectRect(
+      assetRect(FigmaHomeIcon.viewAll.asset),
+      const Rect.fromLTWH(333 + 7.87 - 5, 113 + 14 - 5, 39.256, 38.775),
+      'view all',
+    );
+    expectRect(
+      assetRect(FigmaHomeIcon.viewDiagnosis.asset),
+      const Rect.fromLTWH(333 + 11.5 - 4.4, 113 + 50 - 4.4, 30.8, 40.8),
+      'diagnosis',
+    );
+    // 우체통 노드 4534:9607 (310,461) 74.1×120, PNG는 사방 5 바깥.
+    expectRect(
+      assetRect(FigmaHomeIcon.mailbox.asset),
+      const Rect.fromLTWH(305, 456, 84.0994, 130.0006),
+      'mailbox',
+    );
+  });
+
+  // 시안 4534:16876(happy)·4534:9272(편지 배지)·4534:7570(게이지) 기준.
+  testWidgets('홈 헤더·말풍선·편지 배지·물뿌리개·게이지 판이 시안대로 그려진다', (
+    tester,
+  ) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          initialScene: HomeScene.happy,
+          // 게이지를 펼치면 말풍선을 숨기므로 접어 둔다.
+          initialGaugesExpanded: false,
+          letterRepository: _UnreadLetters(),
+          plant: const HomePlant(
+            id: 'plant',
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // D+ 글자 x=33(예전 43). 방 이름은 Medium(500).
+    expect(tester.getTopLeft(find.text('D+ 1')), const Offset(33, 61));
+    expect(
+      tester.widget<Text>(find.text('실제식물 방')).style?.fontWeight,
+      FontWeight.w500,
+    );
+    // 벨 노드 (341,55) 28×31. 탭 영역 56×48 가운데라 세로는 0.5 어긋난다.
+    final bell = tester.getRect(
+      find.byWidgetPredicate(
+        (w) => w is FigmaHomeAssetIcon && w.icon == FigmaHomeIcon.notification,
+      ),
+    );
+    expect(bell.left, moreOrLessEquals(341, epsilon: 0.01));
+    expect(bell.top, moreOrLessEquals(55.5, epsilon: 0.01));
+
+    // '히히'만 말풍선 전체가 60%, 나머지 둘은 불투명.
+    double? bubbleOpacity(String label) => tester
+        .widgetList<Opacity>(
+          find.ancestor(of: find.text(label), matching: find.byType(Opacity)),
+        )
+        .map((o) => o.opacity)
+        .where((o) => o < 1)
+        .firstOrNull;
+    expect(bubbleOpacity('히히'), 0.6);
+    expect(bubbleOpacity('신난다'), isNull);
+    expect(bubbleOpacity('좋은 하루야!'), isNull);
+
+    Rect assetRect(String asset) => tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == asset,
+      ),
+    );
+    void expectRect(Rect actual, Rect expected) {
+      expect(actual.left, moreOrLessEquals(expected.left, epsilon: 0.01));
+      expect(actual.top, moreOrLessEquals(expected.top, epsilon: 0.01));
+      expect(actual.width, moreOrLessEquals(expected.width, epsilon: 0.01));
+      expect(actual.height, moreOrLessEquals(expected.height, epsilon: 0.01));
+    }
+
+    // 편지 배지 노드 (319,390) 55×62.188, PNG는 사방 4 그림자 여백 바깥.
+    expectRect(
+      assetRect('assets/images/home_letter_badge.png'),
+      const Rect.fromLTWH(315, 386, 63, 70.188),
+    );
+    // 물뿌리개 노드 (13.479,496) 83.98×67.751, PNG는 그림자 여백(왼 0.65,
+    // 오른 1.52, 위아래 1.52)만큼 바깥.
+    expectRect(
+      assetRect('assets/images/home_watering_can.png'),
+      const Rect.fromLTWH(13.479 - 0.6467, 496 - 1.5176, 86.1467, 70.7862),
+    );
+
+    // 붓는 자세(LF-078 4534:11397): 1.355배로 키워 34.48° 기울인 물뿌리개
+    // 몸통 중심이 (262,193)에 온다. 예전에는 크기 그대로 y≈180이었다.
+    await tester.tap(find.byKey(const ValueKey('home-watering-can')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1500));
+    final pouring = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/home_watering_can.png',
+    );
+    final center = tester.getCenter(pouring);
+    expect(center.dx, moreOrLessEquals(262, epsilon: 1));
+    expect(center.dy, moreOrLessEquals(193, epsilon: 1));
+    final scale = tester
+        .widgetList<Transform>(
+          find.ancestor(of: pouring, matching: find.byType(Transform)),
+        )
+        .map((t) => t.transform.getMaxScaleOnAxis())
+        .reduce((a, b) => a * b);
+    expect(scale, moreOrLessEquals(113.804 / 83.98, epsilon: 0.001));
+    await tester.pumpAndSettle();
+
+    // 게이지 판(4534:7922)은 흰 30%뿐이고 배경 흐림이 없다.
+    await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('home-environment-collapse')), findsOne);
+    final blurTops = [
+      for (final element in find.byType(BackdropFilter).evaluate())
+        tester.getRect(find.byWidget(element.widget)).top,
+    ];
+    expect(blurTops, isNot(contains(575)));
+  });
+
   testWidgets('센서 API 전에는 조도 습도 예시 수치를 표시하지 않는다', (tester) async {
-    tester.view.physicalSize = const Size(402, 874);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDeviceView(tester);
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -474,6 +705,182 @@ void main() {
 
     expect(find.text('서버새싹 방'), findsOneWidget);
     expect(find.text('D+ 128'), findsOneWidget);
+  });
+
+  // HG-ISS-008: 서버에 닿지 못한 재조회는 오류 카드가 아니라 시안
+  // 4955:3086의 연결 끊김 모달로 알리고, '다시 시도'로 다시 조회한다.
+  group('홈 조회가 서버에 닿지 못하면', () {
+    const homeData = HomeDashboardData(
+      plant: HomePlantData(
+        id: 'plant-id',
+        nickname: '서버새싹',
+        personalityType: 'OUTGOING',
+        colorId: 'color_orange',
+        hairId: 'hair_sprout',
+        startedOn: '2026-05-01',
+        daysTogether: 128,
+        primaryPhotoUrl: null,
+      ),
+      room: HomeRoomData(
+        backgroundPhase: 'DAY',
+        dialogueKey: 'NORMAL',
+        dialogue: null,
+      ),
+      todayEvents: [],
+      unreadLetterCount: 0,
+      unreadNotificationCount: 0,
+    );
+    const offline = LeafieApiException(
+      code: 'NETWORK_ERROR',
+      message: '서버에 연결할 수 없습니다.',
+      statusCode: 0,
+    );
+
+    /// [responses]를 차례로 돌려준다. 예외면 던진다.
+    Future<List<String?>> pumpHome(
+      WidgetTester tester,
+      List<Object> responses, {
+      WidgetBuilder? notificationBuilder,
+    }) async {
+      useDeviceView(tester);
+      final calls = <String?>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plantRepository: _FakePlantManagementRepository(const []),
+            letterRepository: _UnreadLetters(),
+            plantManagementBuilder: (_, _, _, _) => const Scaffold(),
+            notificationBuilder: notificationBuilder,
+            loadHomeForPlant: (plantId) async {
+              final response = responses[calls.length];
+              calls.add(plantId);
+              if (response is LeafieApiException) throw response;
+              return response as HomeDashboardData;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return calls;
+    }
+
+    final retry = find.byKey(const ValueKey('home-disconnected-retry'));
+
+    testWidgets('연결 끊김 모달을 시안 자리에 띄우고 등록 안내는 띄우지 않는다', (tester) async {
+      await pumpHome(tester, [offline]);
+
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+      expect(find.text('인터넷 연결을 확인하고 다시 시도해주세요.'), findsOneWidget);
+      // 예전에는 캐릭터 위 텍스트 카드에 오류 문구를 띄웠다.
+      expect(find.textContaining('서버에 연결할 수 없습니다.'), findsNothing);
+      expect(find.textContaining('등록된 식물이 없어요.'), findsNothing);
+      // 4955:3667 상자 (47, 358) 308x158.829, 4955:3673 버튼 (69, 466) 264x40.
+      final box = find.ancestor(
+        of: find.text('리피와 연결이 끊겼어요'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is SizedBox && widget.width == 308,
+        ),
+      );
+      // showConfirmDialog가 화면 정중앙(437)에 두므로 시안보다 0.4 위다.
+      void expectRect(Finder finder, Rect expected) {
+        final rect = tester.getRect(finder);
+        expect(rect.left, closeTo(expected.left, 0.5));
+        expect(rect.top, closeTo(expected.top, 0.5));
+        expect(rect.width, closeTo(expected.width, 0.01));
+        expect(rect.height, closeTo(expected.height, 0.01));
+      }
+
+      expectRect(box, const Rect.fromLTWH(47, 358, 308, 158.829));
+      expectRect(retry, const Rect.fromLTWH(69, 466, 264, 40));
+
+      // 시안에 닫기 버튼이 없어 딤을 눌러도 닫히지 않는다.
+      await tester.tapAt(const Offset(20, 200));
+      await tester.pumpAndSettle();
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+    });
+
+    testWidgets('다시 시도하면 다시 조회하고, 성공하면 모달을 닫는다', (tester) async {
+      final calls = await pumpHome(tester, [offline, offline, homeData]);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      // 또 끊기면 모달이 그대로 남는다(겹쳐 뜨지 않는다).
+      expect(calls, hasLength(2));
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(calls, hasLength(3));
+      expect(find.text('리피와 연결이 끊겼어요'), findsNothing);
+      expect(find.text('서버새싹 방'), findsOneWidget);
+    });
+
+    testWidgets('이미 띄운 식물을 다시 불러오다 끊기면 게이지를 그대로 둔다', (tester) async {
+      final calls = await pumpHome(tester, [homeData, offline, homeData]);
+      final gaugeCard = find.byKey(const ValueKey('home-environment-collapse'));
+      expect(gaugeCard, findsOneWidget);
+
+      // 내 캐릭터에 다녀오면 홈을 다시 조회한다.
+      await tester.tap(find.byKey(const ValueKey('home-manage-plants')));
+      await tester.pumpAndSettle();
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      expect(calls, hasLength(2));
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+      // 시안처럼 모달 뒤에 직전 게이지·방 이름이 남는다.
+      expect(gaugeCard, findsOneWidget);
+      expect(find.text('서버새싹 방'), findsOneWidget);
+    });
+
+    testWidgets('알림에서 돌아와 다시 조회하다 끊기면 알림 대상 화면을 열지 않는다', (tester) async {
+      final calls = await pumpHome(
+        tester,
+        [homeData, offline],
+        notificationBuilder: (routeContext) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(routeContext).pop(
+              NotificationData(
+                id: 'n-diagnosis',
+                plantId: 'plant-1',
+                type: 'DIAGNOSIS_DONE',
+                title: '진단이 끝났어요',
+                body: '결과를 확인해 보세요.',
+                sourceType: 'DIAGNOSIS',
+                sourceId: 'diagnosis-1',
+                readAt: DateTime(2026, 9, 25),
+                createdAt: DateTime(2026, 9, 25),
+              ),
+            ),
+            child: const Text('진단 알림'),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('home-notifications')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('진단 알림'));
+      await tester.pumpAndSettle();
+
+      expect(calls, hasLength(2));
+      // 진단 화면이 모달을 덮지 않고, 모달이 맨 위에 보인다.
+      expect(find.byType(DiagnosisDetailScreen), findsNothing);
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+    });
+
+    testWidgets('서버가 답한 오류는 모달이 아니라 오류 카드로 남긴다', (tester) async {
+      await pumpHome(tester, [
+        const LeafieApiException(
+          code: 'INTERNAL_ERROR',
+          message: '요청을 처리하지 못했습니다.',
+          statusCode: 500,
+        ),
+      ]);
+
+      expect(find.text('리피와 연결이 끊겼어요'), findsNothing);
+      expect(find.textContaining('요청을 처리하지 못했습니다.'), findsOneWidget);
+    });
   });
 
   testWidgets('홈 화살표로 다음 식물을 선택하고 홈 데이터를 다시 조회한다', (tester) async {
@@ -963,6 +1370,13 @@ void main() {
     expect(find.text('현재습도 20%'), findsOneWidget);
     expect(find.text('어제 120%'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
+    // 시안 4534:7952: 부족(LOW)한 값의 마커만 글자 앞에 빨간 점을 찍는다.
+    Finder alertIn(String gauge) => find.descendant(
+      of: find.byKey(ValueKey('home-gauge-$gauge')),
+      matching: find.byKey(const ValueKey('gauge-marker-alert')),
+    );
+    expect(alertIn('humidity'), findsOneWidget);
+    expect(alertIn('light'), findsNothing);
 
     await pumpWith(null);
     expect(find.text('기기연결이 필요합니다'), findsOneWidget);
@@ -1341,6 +1755,14 @@ ManagedPlant _managedPlant(
   placeName: '거실',
   isSelected: selected,
 );
+
+class _UnreadLetters implements PlantLetterRepository {
+  @override
+  Future<int> unreadCount(String plantId) async => 1;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _FakePlantManagementRepository implements PlantManagementRepository {
   _FakePlantManagementRepository(this.plants);

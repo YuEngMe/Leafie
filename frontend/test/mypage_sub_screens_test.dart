@@ -4,14 +4,19 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/change_password_screen.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/services/user_api.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+
+import 'support/device_view.dart';
 
 /// 골든에는 상태바가 없어 시안 y에서 46을 뺀다.
 const double _statusBar = 46;
@@ -168,7 +173,7 @@ void main() {
   });
 
   group('회원 탈퇴', () {
-    testWidgets('시안 2570:1994 좌표를 지킨다', (tester) async {
+    testWidgets('시안 4534:2969 좌표를 지킨다', (tester) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -176,8 +181,10 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: WithdrawScreen()));
       await tester.pumpAndSettle();
 
-      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 140);
-      _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 175);
+      // 글자 상자 크기가 시안과 달라, 보이는 글자가 시안(140·175)과 맞도록
+      // 헤드라인 상자(20px)는 1 올리고 부제 상자(height 1)는 1 내렸다.
+      _expectAt(tester, '헤드라인', find.text('리피 탈퇴 전 확인하세요'), 45, 139);
+      _expectAt(tester, '부제', find.text('정말 탈퇴하시나요? 너무 아쉬워요..'), 45, 176);
       _expectAt(
         tester,
         '안내 첫 줄',
@@ -197,6 +204,32 @@ void main() {
       }
     });
 
+    testWidgets('글자가 조금 넓게 측정돼도 안내가 꺾여 동의 줄을 덮지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      // 셋째 줄은 글자 칸을 0.6px 남기고 채운다. 기기 측정이 2% 넓은 경우.
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(1.02)),
+            child: WithdrawScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final lines = WithdrawScreen.notices.map(
+        (notice) => tester.getRect(find.text(notice)),
+      );
+      final checkbox = tester.getRect(find.byType(FigmaConsentCheckbox));
+      for (final line in lines) {
+        expect(line.height, lessThan(30), reason: '한 줄이어야 한다');
+      }
+      expect(lines.last.bottom, lessThan(checkbox.top));
+    });
+
     testWidgets('동의하기 전에는 탈퇴 버튼이 잠겨 있다', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: WithdrawScreen()));
 
@@ -204,6 +237,13 @@ void main() {
           tester.widget<PrimaryButton>(find.byType(PrimaryButton)).variant;
 
       expect(variant(), PrimaryButtonVariant.disabled);
+      // 4534:3008 미동의 버튼은 다른 화면 비활성(#CCCBCB)보다 진한 #A1A1A1.
+      expect(
+        tester
+            .widget<PrimaryButton>(find.byType(PrimaryButton))
+            .disabledBackground,
+        kTextLight,
+      );
       expect(
         tester
             .widget<FigmaConsentCheckbox>(find.byType(FigmaConsentCheckbox))
@@ -258,6 +298,63 @@ void main() {
       await tester.tap(find.text('확인'));
       await tester.pumpAndSettle();
       expect(signOutCount, 1);
+    });
+  });
+
+  // 두 줄 제목은 시안 20px, 글자 상자 y=388·높이 48이라 줄 간격 24다
+  // (4534:2883·4534:2906). kTitleStyle은 높이가 없어 Material 기본 본문
+  // 높이를 물려받아 29가 되므로 줄 높이를 따로 준다. 이 높이에서 첫 줄 글자가
+  // 상자 top 3 아래(391)라 시안 렌더와 같아, 상자를 시안 자리에 둔다.
+  group('완료 화면 두 줄 제목', () {
+    Future<void> expectTwoLineTitle(
+      WidgetTester tester,
+      Widget screen,
+      String text,
+    ) async {
+      useDeviceView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(fontFamily: kFontFamily),
+          home: screen,
+        ),
+      );
+
+      final title = find.text(text);
+      final paragraph = tester.renderObject<RenderParagraph>(title);
+      // 화면에 깔린 글자와 같은 스타일(DefaultTextStyle 병합 결과)로 잰다.
+      final painter = TextPainter(
+        text: paragraph.text,
+        textDirection: TextDirection.ltr,
+        textHeightBehavior: paragraph.textHeightBehavior,
+      )..layout(maxWidth: paragraph.size.width);
+      addTearDown(painter.dispose);
+      final lines = painter.computeLineMetrics();
+      final top = tester.getTopLeft(title).dy;
+
+      expect(lines, hasLength(2));
+      expect(top, closeTo(388, 0.5), reason: '상자 top');
+      expect(top + lines[0].baseline, closeTo(407.78, 0.5), reason: '첫 줄 기준선');
+      expect(
+        lines[1].baseline - lines[0].baseline,
+        closeTo(24, 0.01),
+        reason: '줄 간격',
+      );
+    }
+
+    testWidgets('비밀번호 변경 완료', (tester) async {
+      await expectTwoLineTitle(
+        tester,
+        const ChangePasswordDoneScreen(),
+        '비밀번호 변경이\n완료되었습니다',
+      );
+    });
+
+    testWidgets('회원 탈퇴 완료', (tester) async {
+      await expectTwoLineTitle(
+        tester,
+        WithdrawCompleteScreen(signOut: () async {}),
+        '회원 탈퇴가\n완료되었습니다',
+      );
     });
   });
 

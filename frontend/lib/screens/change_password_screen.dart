@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -162,7 +163,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         _startCountdown();
       }
     } on AuthException catch (e) {
-      if (mounted) setState(() => _emailError = e.message);
+      if (mounted) {
+        setState(
+          () => _emailError = authErrorMessage(
+            e,
+            fallback: '메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -200,7 +208,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         MaterialPageRoute(builder: (_) => const ChangePasswordDoneScreen()),
       );
     } on AuthException catch (e) {
-      if (mounted) setState(() => _confirmError = e.message);
+      if (mounted) {
+        setState(
+          () => _confirmError = authErrorMessage(
+            e,
+            fallback: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -293,13 +308,15 @@ class ChangePasswordDoneScreen extends StatelessWidget {
             const Positioned(
               left: 0,
               right: 0,
-              // 시안 2346:2795는 y=387, 상태바를 빼면 341.
-              top: 341,
+              // 시안 4534:2883 글자 상자 y=388, 상태바를 빼면 342. 두 줄 제목
+              // (20px, 줄 24)은 첫 줄 글자가 상자 top에서 3 아래라 시안과
+              // 같은 자리(391)에 찍힌다.
+              top: 342,
               child: Text(
                 // 2346:2795. 로그인 전 재설정(2307:1813)은 '설정이'로 다르다.
                 '비밀번호 변경이\n완료되었습니다',
                 textAlign: TextAlign.center,
-                style: kTitleStyle,
+                style: kTitleTwoLineStyle,
               ),
             ),
             Positioned(

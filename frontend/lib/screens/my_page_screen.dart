@@ -149,10 +149,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 
   Future<void> _confirmSignOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
+    final confirmed = await showConfirmDialog(
+      context,
       barrierColor: kModalBarrier,
-      builder: (_) => const SignOutConfirmDialog(),
+      dialog: const SignOutConfirmDialog(),
     );
     if (confirmed != true || !mounted) return;
 

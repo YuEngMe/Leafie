@@ -134,6 +134,15 @@ void main() {
       ),
     );
 
+    // 종이 질감(4534:19786)은 에셋 이미지라 읽힌 뒤에 찍는다.
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/images/diagnosis_paper_texture.png'),
+        tester.element(find.byType(PrescriptionCard)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     await expectLater(
       find.byType(PrescriptionCard),
       matchesGoldenFile('goldens/prescription_card_379.png'),

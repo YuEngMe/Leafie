@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/services/calendar_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 
 /// 캘린더 3프레임 회귀 측정.
 /// 시안: 월간 `3341:2`, 주간 `2687:15303`, 일정 추가 `3429:1163` (402x874).
@@ -85,6 +87,9 @@ void main() {
               .border!;
       expect(border.top.width, 1);
       expect(border.top.color, kBrightOrange);
+      // 4534:5069~ 선은 칸 경계 가운데에 긋는다. 안쪽 선이면 이웃 칸 선이
+      // 나란히 붙어 격자선이 2px로 굵어진다.
+      expect(border.top.strokeAlign, BorderSide.strokeAlignCenter);
 
       // 3341:419 날짜 숫자 16 SemiBold, 미선택도 w600.
       final day1 = _style(tester, '1');
@@ -121,6 +126,19 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('배경은 홈 배경을 70%로 옅게 깐 것', (tester) async {
+      await _pumpMonth(tester);
+
+      // 4534:4708 홈 배경_기본은 흰 바탕 위 70% — 다이어리 배경 PNG와 같은 합성본.
+      final assets = tester
+          .widgetList<Image>(find.byType(Image))
+          .map((image) => image.image)
+          .whereType<AssetImage>()
+          .map((image) => image.assetName);
+      expect(assets, contains('assets/images/diary_background.png'));
+      expect(assets, isNot(contains('assets/images/home_bg_default.png')));
     });
 
     testWidgets('종이에 구겨진 질감을 깐다', (tester) async {
@@ -312,19 +330,54 @@ void main() {
       final done = tester.widget<CalendarCompleteMark>(marks.at(1));
       expect(done.completed, isTrue);
 
-      // 최신 Figma 에셋(4534:6595 / 4534:6650)을 26x26 그대로 쓴다.
-      final unchecked = find.descendant(
-        of: marks.at(0),
-        matching: _assetImage('calendar_complete_unchecked.png'),
+      // 4534:5158 / 4534:5178: 지름 26 원(흰색 / #FFB52A). 원 밖은 비워
+      // 둔다(예전 PNG는 네 모서리가 회색으로 찍혀 있었다).
+      BoxDecoration circle(Finder mark) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: mark,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      // 미완료 흰 원은 흰 카드에 묻히지 않게 4534:5160 안쪽 그림자
+      // (inset 0 0 2.1 rgba(0,0,0,0.2))로 테두리를 낸다.
+      final incompletePainter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: marks.at(0),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter
+              as InsetShadowPainter;
+      expect(incompletePainter.color, kBackgroundWhite);
+      expect(
+        incompletePainter.borderRadius,
+        const BorderRadius.all(Radius.circular(13)),
       );
-      final checked = find.descendant(
-        of: marks.at(1),
-        matching: _assetImage('calendar_complete_checked.png'),
+      expect(incompletePainter.shadows, const [
+        BoxShadow(color: Color(0x33000000), blurRadius: 2.1),
+      ]);
+      expect(circle(marks.at(1)).shape, BoxShape.circle);
+      expect(circle(marks.at(1)).color, kOrangeMain);
+      expect(tester.getSize(marks.at(0)), const Size.square(26));
+      expect(tester.getSize(marks.at(1)), const Size.square(26));
+      expect(
+        find.descendant(of: marks.at(0), matching: find.byType(SvgPicture)),
+        findsNothing,
       );
-      expect(unchecked, findsOneWidget);
-      expect(checked, findsOneWidget);
-      expect(tester.getSize(unchecked), const Size.square(26));
-      expect(tester.getSize(checked), const Size.square(26));
+      final chevron = tester.getRect(
+        find.descendant(of: marks.at(1), matching: find.byType(SvgPicture)),
+      );
+      final doneRect = tester.getRect(marks.at(1));
+      expect(chevron.left - doneRect.left, closeTo(5.97, .01));
+      expect(chevron.top - doneRect.top, closeTo(8.61, .01));
+      expect(chevron.width, closeTo(14, .01));
+      expect(chevron.height, closeTo(9.87, .01));
     });
   });
 
@@ -385,6 +438,52 @@ void main() {
       expect(dimmed.color, kTextLight);
     });
 
+    testWidgets('4534:5637 휠 열 x와 고른 줄 위아래 간격', (tester) async {
+      await _openSheet(tester);
+
+      // 카드(590~770) 안에 보이는 줄만 위에서부터 고른다.
+      List<Rect> rows(String wheelKey) {
+        final rects = find
+            .descendant(
+              of: find.byKey(ValueKey(wheelKey)),
+              matching: find.byType(Text),
+            )
+            .evaluate()
+            .map((element) => tester.getRect(find.byWidget(element.widget)))
+            .where((rect) => rect.center.dy > 590 && rect.center.dy < 770)
+            .toList();
+        return rects..sort((a, b) => a.top.compareTo(b.top));
+      }
+
+      // 4534:6090~6101 글자 중심 y 625.26 / 678.91 / 729.65. 고른 줄 위
+      // 간격(53.65)이 아래(50.74)보다 넓다.
+      const centers = [625.26, 678.91, 729.65];
+      for (final key in [
+        'calendar-year-wheel',
+        'calendar-month-wheel',
+        'calendar-day-wheel',
+      ]) {
+        final visible = rows(key);
+        expect(visible.length, 3, reason: key);
+        for (var i = 0; i < 3; i++) {
+          expect(visible[i].center.dy, closeTo(centers[i], 1), reason: key);
+        }
+      }
+
+      // 연도는 왼쪽 정렬: 고른 줄 x=68.33, 나머지 x=73.
+      final years = rows('calendar-year-wheel');
+      expect(years[0].left, closeTo(73, 1));
+      expect(years[1].left, closeTo(68.33, 1));
+      expect(years[2].left, closeTo(73, 1));
+      // 월·일은 가운데 정렬로 중심 183.34 / 245.48.
+      for (final rect in rows('calendar-month-wheel')) {
+        expect(rect.center.dx, closeTo(183.34, 1));
+      }
+      for (final rect in rows('calendar-day-wheel')) {
+        expect(rect.center.dx, closeTo(245.48, 1));
+      }
+    });
+
     testWidgets('일정 종류는 우측 세로 아이콘 2개 (분갈이·비료)', (tester) async {
       await _openSheet(tester);
 
@@ -400,6 +499,20 @@ void main() {
       );
       expect(fertilize.left, closeTo(301, 1));
       expect(fertilize.top, closeTo(685.09, 1));
+
+      // 4534:6068 / 4534:6076 두 원 모두 가장자리 안쪽 그림자로 테두리가 보인다.
+      // 흰 원도 흰 카드 위에서 경계가 사라지지 않게 칠하는 CustomPaint가 있다.
+      for (final type in ['REPOTTING', 'FERTILIZING']) {
+        final paint = find.descendant(
+          of: find.byKey(ValueKey('calendar-type-$type')),
+          matching: find.byType(CustomPaint),
+        );
+        expect(
+          tester.widgetList<CustomPaint>(paint).where((p) => p.painter != null),
+          hasLength(1),
+          reason: type,
+        );
+      }
 
       // 시안에 없는 것들은 사라졌다.
       expect(find.text('일정 추가'), findsNothing);
@@ -470,13 +583,6 @@ Finder _svg(String assetName) => find.byWidgetPredicate(
   (widget) =>
       widget.runtimeType.toString() == 'SvgPicture' &&
       widget.toString().contains(assetName),
-);
-
-Finder _assetImage(String assetName) => find.byWidgetPredicate(
-  (widget) =>
-      widget is Image &&
-      widget.image is AssetImage &&
-      (widget.image as AssetImage).assetName.endsWith(assetName),
 );
 
 /// 요일 머리글만 고른다. '월'·'주'는 토글에도 있어 글자만으로는 안 갈린다.

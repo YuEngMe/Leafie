@@ -6,6 +6,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
@@ -67,14 +68,18 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         child: Stack(
           children: [
             // 시안이 각 요소를 절대 위치로 잡아 좌표를 그대로 옮긴다.
+            // 시안 4534:2991은 상자 y=140·글자 144(20px)다. Flutter 20px 제목은
+            // 글자가 상자 top 5 아래라 상자를 1 올린다.
             const Positioned(
               left: 45,
-              top: AppLayout.withdrawTopGap,
+              top: AppLayout.withdrawTopGap - 1,
               child: Text('리피 탈퇴 전 확인하세요', style: kTitleStyle),
             ),
+            // height 1로 상자를 시안(leading normal)보다 줄여 글자가 1px 뜬다.
+            // 4534:2992 y=175(앱바 아래 83)에서 1 내린다.
             Positioned(
               left: 45,
-              top: 83,
+              top: 84,
               child: Text(
                 '정말 탈퇴하시나요? 너무 아쉬워요..',
                 style: kSmallStyle.copyWith(
@@ -114,6 +119,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     ? PrimaryButtonVariant.enabled
                     : PrimaryButtonVariant.disabled,
                 textStyle: kLoginButtonStyle,
+                // 4534:3008 미동의 버튼은 다른 화면의 비활성 회색(#CCCBCB)보다
+                // 진한 연한 텍스트(#A1A1A1)다.
+                disabledBackground: kTextLight,
                 onPressed: canSubmit ? _withdraw : null,
               ),
             ),
@@ -130,11 +138,11 @@ class _NoticeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: kBackgroundWhite,
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
-      ),
+    // 4534:2998: 흰 바탕에 inset 0 0 4 0 rgba(0,0,0,0.2). 바깥 그림자로
+    // 그리면 상자 밖이 어두워져 시안과 반대가 된다.
+    return InsetShadowBox(
+      color: kBackgroundWhite,
+      shadows: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
       child: Padding(
         padding: const EdgeInsets.fromLTRB(1, 14, 13, 12),
         child: Column(
@@ -144,23 +152,33 @@ class _NoticeBox extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 시안은 글머리 기호를 16px 문자로 찍는다.
+                  // 시안(4534:3001)은 16px list-disc 글머리라 가운뎃점(·)보다
+                  // 크고 진한 '•'(지름 약 2.7)이다. 점 중심이 시안 x=57.5에
+                  // 오도록 왼쪽 4를 비우고 가운데 정렬한다.
                   const SizedBox(
                     width: 20,
-                    child: Text(
-                      '·',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: kFontFamily,
-                        fontSize: 16,
-                        height: 23 / 16,
-                        color: kOnboardingSubtitle,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        '•',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 16,
+                          height: 23 / 16,
+                          color: kOnboardingSubtitle,
+                        ),
                       ),
                     ),
                   ),
+                  // 셋째 줄이 글자 칸(278)을 0.6px 남기고 꽉 채워 기기 글꼴
+                  // 측정이 조금만 커져도 꺾이고, 늘어난 상자가 고정 위치의 동의
+                  // 줄을 덮는다. 시안처럼 줄바꿈 없이 오른쪽 여백으로 넘긴다.
                   Expanded(
                     child: Text(
                       notice,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
                       style: kSmallStyle.copyWith(
                         height: 23 / 14,
                         color: kOnboardingSubtitle,
@@ -223,11 +241,13 @@ class WithdrawCompleteScreen extends StatelessWidget {
             const Positioned(
               left: 0,
               right: 0,
-              top: 341,
+              // 시안 4534:2906 글자 상자 y=388(상태바 빼면 342). 두 줄 제목
+              // (20px, 줄 24)은 첫 줄 글자가 시안과 같은 391에 찍힌다.
+              top: 342,
               child: Text(
                 '회원 탈퇴가\n완료되었습니다',
                 textAlign: TextAlign.center,
-                style: kTitleStyle,
+                style: kTitleTwoLineStyle,
               ),
             ),
             Positioned(
