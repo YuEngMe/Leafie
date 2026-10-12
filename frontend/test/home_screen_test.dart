@@ -1094,6 +1094,57 @@ void main() {
       expect(find.text('나 지금 목말라.. 물이 필요해'), findsNothing);
     });
   });
+  testWidgets('우편함이 떠 있는 동안 알림 벨·배지를 닫기 X 뒤에 그리지 않는다', (tester) async {
+    // 시안 우체통 프레임(4534:11529~16319)에는 벨이 없고 그 자리에 닫기 X만
+    // 있다. 벨을 남겨 두면 빨간 배지가 닫기 원 밖으로 비쳤다(MM-12).
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          letterRepository: _EmptyMailbox(),
+          loadHomeForPlant: (plantId) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 4,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bell = find.byKey(const ValueKey('home-notifications'));
+    expect(bell, findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('home-mailbox')));
+    await tester.pumpAndSettle();
+    expect(bell, findsNothing);
+    expect(find.text('4'), findsNothing);
+
+    // 빈 우편함은 바깥 닫기와 목록 닫기가 함께 있다. 맨 위 것을 누른다.
+    await tester.tap(find.byTooltip('닫기').last);
+    await tester.pumpAndSettle();
+    expect(bell, findsOneWidget);
+  });
+
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
@@ -1755,6 +1806,17 @@ ManagedPlant _managedPlant(
   placeName: '거실',
   isSelected: selected,
 );
+
+class _EmptyMailbox implements PlantLetterRepository {
+  @override
+  Future<List<PlantLetter>> listLetters(String plantId) async => const [];
+
+  @override
+  Future<int> unreadCount(String plantId) async => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _UnreadLetters implements PlantLetterRepository {
   @override
