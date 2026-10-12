@@ -299,7 +299,7 @@ void main() {
     expect(find.text('캐릭터 성격'), findsOneWidget);
     expect(find.text('귀여운 성격'), findsOneWidget);
     expect(find.text('#애교'), findsOneWidget);
-    expect(find.text('새싹이 물 먹고시포!'), findsOneWidget);
+    expect(find.text('오늘은 뭐 하고 놀까?'), findsOneWidget);
   });
 
   testWidgets('상세 > 성격에서 다른 성격을 골라 수정하면 updatePlant가 호출된다', (tester) async {

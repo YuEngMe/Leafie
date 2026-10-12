@@ -465,7 +465,7 @@ void main() {
       expect(bubble.top, _closeTo1px(500.55));
       expect(bubble.width, _closeTo1px(261.25));
       expect(bubble.center.dx, _closeTo1px(201));
-      final dialogue = tester.getRect(find.text('자 이제 물 줄 시간이야!'));
+      final dialogue = tester.getRect(find.text('오늘도 같이 놀자!'));
       expect(dialogue.center.dy, _closeTo1px(532.23));
 
       // 4889:2246 도트 y=590.73.
@@ -501,7 +501,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('시크한 성격'), findsOneWidget);
-      expect(find.text('뭘 봐? 물이나 줘.'), findsOneWidget);
+      expect(find.text('됐어. 그냥 있어.'), findsOneWidget);
 
       await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();

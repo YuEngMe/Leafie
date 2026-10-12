@@ -219,35 +219,36 @@ const List<String> kPlantPersonalityOrder = [
   'CHUNGCHEONG',
 ];
 
+// 대사는 등록 성격 화면과 같은 팀 노션 '성격별 말투'의 '평소' 줄이다.
 const Map<String, PlantPersonality> kPlantPersonalities = {
   'OUTGOING': PlantPersonality(
     label: '활발한 성격',
     tags: ['#긍정적', '#에너지'],
-    dialogue: '자 이제 물 줄 시간이야!',
+    dialogue: '오늘도 같이 놀자!',
   ),
   'CHIC': PlantPersonality(
     label: '시크한 성격',
     tags: ['#냉소적', '#츤데레'],
-    dialogue: '뭘 봐? 물이나 줘.',
+    dialogue: '됐어. 그냥 있어.',
   ),
   'CUTE': PlantPersonality(
     label: '귀여운 성격',
     tags: ['#애교', '#사랑둥이'],
-    dialogue: '새싹이 물 먹고시포!',
+    dialogue: '오늘은 뭐 하고 놀까?',
   ),
   'INTROVERTED': PlantPersonality(
     label: '소심한 성격',
     tags: ['#내성적', '#눈치'],
-    dialogue: '저..물 좀 주시면..안될까요..?',
+    dialogue: '와줬네… 사실 조금 기다렸어.',
   ),
   'CRUSH': PlantPersonality(
     label: '짝사랑 성격',
     tags: ['#미연시', '#적극적'],
-    dialogue: '물 줄래, 나랑 사귈래',
+    dialogue: '오늘도 네 생각만 했어….',
   ),
   'CHUNGCHEONG': PlantPersonality(
     label: '충청도 성격',
     tags: ['#느긋한', '#구수한'],
-    dialogue: '말라죽겄슈',
+    dialogue: '기다리고 있었구먼유.',
   ),
 };
