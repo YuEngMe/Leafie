@@ -64,12 +64,17 @@ erDiagram
 | `scientific_name`, `family_name` | varchar | 필수 |
 | `gbif_id`, `plantnet_species_id` | bigint/varchar | nullable, 인식 매핑 키 |
 | `category` | varchar | 7개 내부 대분류 중 하나 |
-| `flowering_period`, `care_summary` | text/jsonb | nullable |
+| `aliases` | jsonb | 검색 별칭 목록 |
+| `flowering_period` | varchar | nullable |
+| `care_profile`, `diagnosis_profile`, `source_references` | jsonb | 관리·센서 정책, 진단 참고, 출처 |
+| `data_version`, `reviewed_at` | varchar/date | 데이터 버전·검토일 |
 | `default_watering_interval_days` | integer | 양수 |
-| `default_repotting_interval_days` | integer | 양수 |
+| `default_repotting_interval_days` | integer | nullable, 설정 시 양수 |
 | `active` | boolean | 기본 true |
 
-사용자가 선택하는 값은 이 테이블의 정확한 23종이며 `category`는 파생 정보입니다.
+사용자가 선택하는 값은 이 테이블의 28개 카탈로그 항목이며 `category`는 파생 정보입니다.
+괴마옥은 분류 ID가 없는 유통 교잡종으로 수동 등록만 허용하며, 사진 매칭과 센서 판정은
+각각 `care_profile.taxonomy.photo_matching_enabled=false`, `sensor_thresholds.enabled=false`입니다.
 
 ### `plants`
 
