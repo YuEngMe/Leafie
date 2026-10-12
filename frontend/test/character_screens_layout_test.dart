@@ -82,7 +82,7 @@ void main() {
     // 4534:178 대사 글자 가운데 532.23 → Flutter 상자 top 520.73. 옛 구현은
     // 상자 가운데 정렬이라 보이는 글자가 4px 위였다.
     expect(
-      tester.getRect(find.text('자 이제 물 줄 시간이야!')).top,
+      tester.getRect(find.text('오늘도 같이 놀자!')).top,
       closeTo(520.73, 0.5),
     );
   });

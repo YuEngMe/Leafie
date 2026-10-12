@@ -27,44 +27,47 @@ class _PersonalityOption {
   final String dialogue;
 }
 
-// 이름·태그·대사는 시안 2318:3129~3430의 글자 그대로다(2026-09-07 대조).
+// 이름·태그는 시안 2318:3129~3430의 글자 그대로다(2026-09-07 대조).
+// 대사는 시안 예시 대신 팀 노션 '성격별 말투'의 '평소' 줄을 쓴다. 홈에서
+// 서버가 내려 주는 평소 대사(backend HOME_DIALOGUES NORMAL)와 같아서,
+// 고를 때 들은 말투를 홈에서도 그대로 듣는다.
 // 순서도 시안 프레임 순서(활발→시크→귀여운→소심→짝사랑→충청도)를 따른다.
 const _personalities = [
   _PersonalityOption(
     type: 'OUTGOING',
     label: '활발한 성격',
     tags: '#긍정적   #에너지',
-    dialogue: '자 이제 물 줄 시간이야!',
+    dialogue: '오늘도 같이 놀자!',
   ),
   _PersonalityOption(
     type: 'CHIC',
     label: '시크한 성격',
     tags: '#냉소적   #츤데레',
-    dialogue: '뭘 봐? 물이나 줘.',
+    dialogue: '됐어. 그냥 있어.',
   ),
   _PersonalityOption(
     type: 'CUTE',
     label: '귀여운 성격',
     tags: '#애교   #사랑둥이',
-    dialogue: '새싹이 물 먹고시포!',
+    dialogue: '오늘은 뭐 하고 놀까?',
   ),
   _PersonalityOption(
     type: 'INTROVERTED',
     label: '소심한 성격',
     tags: '#내성적   #눈치',
-    dialogue: '저..물 좀 주시면..안될까요..?',
+    dialogue: '와줬네… 사실 조금 기다렸어.',
   ),
   _PersonalityOption(
     type: 'CRUSH',
     label: '짝사랑 성격',
     tags: '#미연시   #적극적',
-    dialogue: '물 줄래, 나랑 사귈래',
+    dialogue: '오늘도 네 생각만 했어….',
   ),
   _PersonalityOption(
     type: 'CHUNGCHEONG',
     label: '충청도 성격',
     tags: '#느긋한   #구수한',
-    dialogue: '말라죽겄슈',
+    dialogue: '기다리고 있었구먼유.',
   ),
 ];
 

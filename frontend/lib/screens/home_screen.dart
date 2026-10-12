@@ -213,6 +213,10 @@ class _HomeScreenState extends State<HomeScreen>
   /// 연결 끊김 모달이 떠 있는 동안 다시 띄우지 않으려고 둔다.
   bool _disconnectedDialogOpen = false;
 
+  /// 우편함이 홈 위에 떠 있는 동안. 시안 우체통 프레임(4534:11529~16319)은
+  /// 알림 벨 자리에 닫기 X만 두므로, 그동안 벨·배지를 그리지 않는다.
+  bool _mailboxOpen = false;
+
   /// 연결이 끊긴 조회의 식물. 다시 시도는 같은 요청을 다시 보낸다.
   String? _offlinePlantId;
   int _unreadNotificationCount = 0;
@@ -558,11 +562,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openMailbox(String? plantId) async {
-    await showPlantMailbox(
-      context,
-      plantId: plantId,
-      repository: _letterRepository,
-    );
+    setState(() => _mailboxOpen = true);
+    try {
+      await showPlantMailbox(
+        context,
+        plantId: plantId,
+        repository: _letterRepository,
+      );
+    } finally {
+      if (mounted) setState(() => _mailboxOpen = false);
+    }
     // 편지를 읽거나 지웠을 수 있으니 닫힌 뒤 다시 센다.
     if (mounted) await _refreshLetterBadge();
   }
@@ -872,6 +881,7 @@ class _HomeScreenState extends State<HomeScreen>
                   dayCount: plant?.dayCount,
                   period: period,
                   unreadNotificationCount: _unreadNotificationCount,
+                  showNotifications: !_mailboxOpen,
                   canSwitchPlant: _plants.length > 1 && !_switchingPlant,
                   onPreviousPlant: () => _switchPlant(-1),
                   onNextPlant: () => _switchPlant(1),
@@ -1344,6 +1354,7 @@ class _HomeHeader extends StatelessWidget {
     required this.dayCount,
     required this.period,
     required this.unreadNotificationCount,
+    required this.showNotifications,
     required this.canSwitchPlant,
     required this.onPreviousPlant,
     required this.onNextPlant,
@@ -1355,6 +1366,10 @@ class _HomeHeader extends StatelessWidget {
   final int? dayCount;
   final HomeTimePeriod period;
   final int unreadNotificationCount;
+
+  /// 우편함 닫기 X(지름 37)가 벨 자리를 덮지만 배지가 원 밖으로 비쳐서,
+  /// 우편함이 떠 있는 동안에는 벨을 통째로 뺀다.
+  final bool showNotifications;
   final bool canSwitchPlant;
   final VoidCallback onPreviousPlant;
   final VoidCallback onNextPlant;
@@ -1427,58 +1442,59 @@ class _HomeHeader extends StatelessWidget {
         ),
         // 시안 4534:17221 벨 노드 (341,55) 28×31을 56×48 탭 영역 가운데에
         // 둔다(402 − 341 − 28 − 14 = 19).
-        Positioned(
-          right: 19,
-          top: 47,
-          width: 56,
-          height: 48,
-          child: Semantics(
-            button: true,
-            label: '알림',
-            child: GestureDetector(
-              key: const ValueKey('home-notifications'),
-              behavior: HitTestBehavior.opaque,
-              onTap: onNotifications,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  FigmaHomeAssetIcon(
-                    FigmaHomeIcon.notification,
-                    color: notificationColor,
-                  ),
-                  if (unreadNotificationCount > 0)
-                    Positioned(
-                      right: 3,
-                      top: 1,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 17,
-                          minHeight: 17,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF5A52),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          unreadNotificationCount > 99
-                              ? '99+'
-                              : '$unreadNotificationCount',
-                          style: kSmallStyle.copyWith(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            height: 1,
+        if (showNotifications)
+          Positioned(
+            right: 19,
+            top: 47,
+            width: 56,
+            height: 48,
+            child: Semantics(
+              button: true,
+              label: '알림',
+              child: GestureDetector(
+                key: const ValueKey('home-notifications'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onNotifications,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    FigmaHomeAssetIcon(
+                      FigmaHomeIcon.notification,
+                      color: notificationColor,
+                    ),
+                    if (unreadNotificationCount > 0)
+                      Positioned(
+                        right: 3,
+                        top: 1,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 17,
+                            minHeight: 17,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFF5A52),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unreadNotificationCount > 99
+                                ? '99+'
+                                : '$unreadNotificationCount',
+                            style: kSmallStyle.copyWith(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
