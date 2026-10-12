@@ -52,8 +52,6 @@ const Color kBackgroundWhite = Color(0xFFFFFFFF); // 배경_화이트
 // 모달·바텀시트 뒤를 덮는 딤(2307:785). rgba(0,0,0,0.45).
 const Color kModalBarrier = Color(0x73000000);
 
-// 다이어리 종이 오른쪽 책갈피(2766:203).
-
 // 달력 격자선(2739:35026 테두리). 시안은 회색이 아니라 옅은 주황이다.
 const Color kDiaryGridLine = Color(0xFFFF8834);
 
