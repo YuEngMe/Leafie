@@ -84,6 +84,9 @@ void main() {
           'assets/images/icon_home_check.png',
           // 물뿌리개가 아직 안 불렸을 때 찍히면 결과가 실행마다 달라진다.
           'assets/images/home_watering_can.png',
+          // 성격·꾸미기 화면 캐릭터의 새싹. 안 불러 두면 이 파일만 돌릴 때와
+          // 전체로 돌릴 때 새싹이 찍히고 안 찍히는 게 갈린다.
+          'assets/images/hair_sprout.png',
         ])
           precacheImage(AssetImage(asset), context),
       ]);
