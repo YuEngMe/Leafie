@@ -934,6 +934,93 @@ void main() {
     expect(find.text('둘째 방'), findsOneWidget);
     expect(find.text('D+ 3'), findsOneWidget);
   });
+  group('다음 식물을 못 불러오면 화면과 서버 선택을 맞춘다 (HG-ISS-009)', () {
+    HomeDashboardData first() => const HomeDashboardData(
+      plant: HomePlantData(
+        id: 'plant-a',
+        nickname: '첫째',
+        personalityType: 'OUTGOING',
+        colorId: 'color_orange',
+        hairId: 'hair_sprout',
+        startedOn: '2026-05-01',
+        daysTogether: 3,
+        primaryPhotoUrl: null,
+      ),
+      room: HomeRoomData(
+        backgroundPhase: 'DAY',
+        dialogueKey: 'NORMAL',
+        dialogue: null,
+      ),
+      todayEvents: [],
+      unreadLetterCount: 0,
+      unreadNotificationCount: 0,
+    );
+
+    Future<_FakePlantManagementRepository> pumpSwitch(
+      WidgetTester tester,
+      LeafieApiException secondPlantError,
+    ) async {
+      useDeviceView(tester);
+      final repository = _FakePlantManagementRepository([
+        _managedPlant('plant-a', '첫째', selected: true),
+        _managedPlant('plant-b', '둘째'),
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plantRepository: repository,
+            letterRepository: _UnreadLetters(),
+            loadHomeForPlant: (plantId) async {
+              if (plantId == 'plant-b') throw secondPlantError;
+              return first();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    testWidgets('서버 오류면 선택을 이전 식물로 되돌리고 이전 방을 그대로 둔다', (tester) async {
+      final repository = await pumpSwitch(
+        tester,
+        const LeafieApiException(
+          code: 'INTERNAL_ERROR',
+          message: '요청을 처리하지 못했습니다.',
+          statusCode: 500,
+        ),
+      );
+
+      expect(repository.selectedIds, ['plant-b', 'plant-a']);
+      expect(
+        repository.plants.singleWhere((plant) => plant.isSelected).id,
+        'plant-a',
+      );
+      expect(find.text('첫째 방'), findsOneWidget);
+      // 오류 카드(다시 불러오기) 대신 안내만 띄운다.
+      expect(find.textContaining('다시 불러오기'), findsNothing);
+      expect(find.text('요청을 처리하지 못했습니다.'), findsOneWidget);
+    });
+
+    testWidgets('연결이 끊겼으면 선택을 새 식물에 두고 모달의 다시 시도에 맡긴다', (tester) async {
+      final repository = await pumpSwitch(
+        tester,
+        const LeafieApiException(
+          code: 'NETWORK_ERROR',
+          message: '서버에 연결할 수 없습니다.',
+          statusCode: 0,
+        ),
+      );
+
+      // 끊긴 채로 되돌리기를 보내지 않는다. 다시 시도가 plant-b를 부른다.
+      expect(repository.selectedIds, ['plant-b']);
+      expect(find.text('리피와 연결이 끊겼어요'), findsOneWidget);
+    });
+  });
+
   group('서버 응답으로 씬을 정한다', () {
     HomeDashboardData dashboard(
       String plantId, {

@@ -621,6 +621,47 @@ class _HomeScreenState extends State<HomeScreen>
     _scene = HomeScene.idle;
   }
 
+  /// [plantId]를 서버에 고르고 그 식물의 홈을 불러온다. 고르기에 실패하면
+  /// 예외를 그대로 던진다(아무것도 바뀌지 않았다).
+  ///
+  /// 고르기는 됐는데 홈을 못 불러오면 화면은 이전 식물에 남는다. 서버
+  /// 선택만 새 식물로 넘어가 있으면 다음 실행·알림 이동이 화면과 다른
+  /// 식물을 연다(HG-ISS-009). 그래서 서버가 오류로 답한 경우 선택을 이전
+  /// 식물로 되돌리고, 되돌렸으면 오류 카드 대신 안내만 띄워 이전 방을
+  /// 그대로 보여 준다. 연결이 끊긴 경우는 되돌리기도 닿지 않으므로 선택을
+  /// 새 식물에 두고, 연결 끊김 모달의 다시 시도가 새 식물을 불러온다.
+  Future<bool> _selectAndLoad(String plantId) async {
+    final previousId = (_serverPlant ?? widget.plant)?.id;
+    await _plantRepository.selectPlant(plantId);
+    final request = _homeRequest + 1;
+    if (await _loadHome(plantId)) {
+      await _loadPlants();
+      return true;
+    }
+    // 그사이 다른 조회가 시작돼 이 응답을 버렸으면 실패가 아니다.
+    final failure = _homeError;
+    if (!mounted ||
+        request != _homeRequest ||
+        failure == null ||
+        previousId == null) {
+      return false;
+    }
+    try {
+      await _plantRepository.selectPlant(previousId);
+    } on LeafieApiException {
+      // 되돌리지 못하면 서버 선택은 새 식물이다. 오류 카드의 다시 불러오기가
+      // 서버 선택(새 식물)을 불러오므로 카드를 그대로 둔다.
+      return false;
+    }
+    if (!mounted) return false;
+    setState(() => _homeError = null);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(failure)));
+    await _loadPlants();
+    return false;
+  }
+
   Future<void> _switchPlant(int delta) async {
     if (_switchingPlant || _plants.length < 2) return;
     final currentId = (_serverPlant ?? widget.plant)?.id;
@@ -636,9 +677,7 @@ class _HomeScreenState extends State<HomeScreen>
       _resetRoomMotion();
     });
     try {
-      await _plantRepository.selectPlant(next.id);
-      await _loadHome(next.id);
-      await _loadPlants();
+      await _selectAndLoad(next.id);
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -794,9 +833,7 @@ class _HomeScreenState extends State<HomeScreen>
     });
     var loaded = false;
     try {
-      await _plantRepository.selectPlant(plantId);
-      loaded = await _loadHome(plantId);
-      await _loadPlants();
+      loaded = await _selectAndLoad(plantId);
     } on LeafieApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
