@@ -227,7 +227,7 @@ void main() {
       // 3341:483 토글 48x24.923 @ (335, 58).
       _expectRect(
         tester,
-        find.byType(CalendarModeSwitch),
+        find.byKey(const ValueKey('calendar-mode-pill')),
         const Rect.fromLTWH(335, 58, 48, 24.923),
       );
       // 3341:487 '월' 11x14 @ (342, 63) / 3341:488 '주' @ (365, 63).
