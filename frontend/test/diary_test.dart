@@ -552,6 +552,26 @@ void main() {
       expect(find.bySemanticsLabel('다이어리 쓰기'), findsNothing);
     });
 
+    testWidgets('키보드가 올라와도 하단 네비는 화면 바닥에 그대로 있다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = tester.getRect(find.byType(AppBottomNav));
+
+      // iPhone 16 Pro 한글 키보드 높이쯤.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(AppBottomNav)), before);
+      expect(before.bottom, 874);
+    });
+
     testWidgets('달력은 그 달에 필요한 주만 그린다', (tester) async {
       _setUpView(tester);
       // 2026년 2월은 1일이 일요일이라 딱 네 주다.

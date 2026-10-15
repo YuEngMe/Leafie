@@ -484,6 +484,10 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       child: Scaffold(
         backgroundColor: kBackgroundWhite,
         extendBodyBehindAppBar: true,
+        // 몸통을 줄이면 바닥에 붙은 하단 네비가 키보드를 따라 올라와 본문을
+        // 가린다(디자이너 요청 2026-10: 네비는 고정). 나머지는 시안 절대
+        // 좌표라 몸통 높이와 상관없이 제자리다.
+        resizeToAvoidBottomInset: false,
         appBar: YesoAppBar(
           title: '다이어리',
           backgroundColor: Colors.transparent,
