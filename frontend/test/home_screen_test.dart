@@ -1566,6 +1566,95 @@ void main() {
   });
 
 
+  testWidgets('캐릭터를 탭하면 얼굴만 바뀌고 몸통·머리는 흐려지지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '새싹이', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '새싹이',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              expressionId: 'expression_sad',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 위젯 트리에서 위로 올라가며 투명도를 곱한다.
+    double opacityOf(Element element) {
+      var opacity = 1.0;
+      for (final e in element.debugGetDiagnosticChain()) {
+        final w = e.widget;
+        if (w is FadeTransition) opacity *= w.opacity.value;
+        if (w is Opacity) opacity *= w.opacity;
+      }
+      return opacity;
+    }
+
+    final character = find.byKey(const ValueKey('home-character-pet'));
+    List<double> opacities(String label) => find
+        .descendant(
+          of: character,
+          matching: find.byWidgetPredicate(
+            (w) => w is Image && w.semanticLabel == label,
+          ),
+        )
+        .evaluate()
+        .map(opacityOf)
+        .toList();
+
+    await tester.tap(character);
+    await tester.pump(); // 전환 시작 프레임
+    // 표정 전환(200ms) 한가운데.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 몸통·머리는 한 벌만 불투명하게 그대로 있다. 몸통째 크로스페이드하면
+    // 반투명한 두 벌이 겹쳐 캐릭터가 유령처럼 비친다.
+    expect(opacities('식물 친구 캐릭터'), [1.0]);
+    expect(opacities('식물 머리'), [1.0]);
+    // 얼굴은 슬픈 얼굴에서 기쁜 얼굴로 크로스페이드하는 중이다.
+    final faces = find
+        .descendant(
+          of: character,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Image &&
+                w.image is AssetImage &&
+                (w.image as AssetImage).assetName.contains('/face_'),
+          ),
+        )
+        .evaluate()
+        .map((e) => ((e.widget as Image).image as AssetImage).assetName)
+        .toList();
+    expect(faces, hasLength(2));
+    expect(faces.last, contains('happy'));
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('센서 알림을 누르면 그 식물의 방으로 옮겨 게이지를 펼친다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;

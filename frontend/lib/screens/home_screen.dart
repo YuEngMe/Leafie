@@ -1255,8 +1255,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 math.sin(bouncePhase * math.pi) * 6;
                             // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
                             // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
-                            // 기쁨, 그 외 기본). 얼굴 PNG는 캔버스가 같아
-                            // 크로스페이드해도 위치가 안 튄다.
+                            // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
                             final expression = _isBeingCaredFor
                                 ? PlantExpression.happy
                                 : plantExpressionFromId(plant.expressionId);
@@ -1264,19 +1263,16 @@ class _HomeScreenState extends State<HomeScreen>
                               offset: Offset(0, -bounce),
                               child: Transform.rotate(
                                 angle: wiggle,
-                                child: AnimatedSwitcher(
-                                  duration:
+                                child: PlantCharacterArt(
+                                  width: 173.02,
+                                  body: plantBodyFromId(plant.bodyId),
+                                  expression: expression,
+                                  colorId: plant.colorId,
+                                  hairId: plant.hairId,
+                                  faceSwitchDuration:
                                       MediaQuery.disableAnimationsOf(context)
                                       ? Duration.zero
                                       : const Duration(milliseconds: 200),
-                                  child: PlantCharacterArt(
-                                    key: ValueKey(expression),
-                                    width: 173.02,
-                                    body: plantBodyFromId(plant.bodyId),
-                                    expression: expression,
-                                    colorId: plant.colorId,
-                                    hairId: plant.hairId,
-                                  ),
                                 ),
                               ),
                             );
