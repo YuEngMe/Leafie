@@ -238,6 +238,8 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _wateringController;
   // 쓰담쓰담: 캐릭터 탭 시 좌우 wiggle.
   late final AnimationController _petController;
+  // 달: 밤에 해 자리의 달을 탭하면 좌우로 흔들리다 멈춘다.
+  late final AnimationController _moonController;
 
   // 광선/토스트는 씬(_scene)이 아닌 로컬 상태로 제어한다. 해를 언제 눌러도
   // 광선이 뜨고, needsLight일 때만 씬을 cared로 넘긴다.
@@ -272,6 +274,10 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 550),
     );
+    _moonController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     _scene = widget.initialScene;
     _gaugesExpanded = widget.initialGaugesExpanded;
     if (_scene == HomeScene.cared) {
@@ -297,6 +303,7 @@ class _HomeScreenState extends State<HomeScreen>
     _raysController.dispose();
     _wateringController.dispose();
     _petController.dispose();
+    _moonController.dispose();
     super.dispose();
   }
 
@@ -385,10 +392,16 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _handlePeriodIconTap() {
     // 달이 뜬 시간대(evening/lateEvening)엔 해 자리에 달 아이콘이 뜬다.
-    // 달을 눌러도 햇빛(광선/토스트)이 나오면 안 되므로 아무것도 하지 않는다.
-    // 낮(day)·오후해(afternoon)일 때만 발동한다.
+    // 달을 눌러도 햇빛(광선/토스트)은 나오면 안 되고, 달만 흔들린다
+    // (디자이너 요청 2026-10: 눌러도 반응이 없었다).
+    // 햇빛은 낮(day)·오후해(afternoon)일 때만 발동한다.
     final period = widget.period ?? HomeTimePeriod.fromDateTime(DateTime.now());
-    if (period.phaseIcon == FigmaHomeIcon.moon) return;
+    if (period.phaseIcon == FigmaHomeIcon.moon) {
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _moonController.forward(from: 0);
+      }
+      return;
+    }
     // 해를 언제 눌러도 광선과 토스트가 뜬다(씬 상태와 무관한 로컬 모션).
     // needsLight일 때만 씬을 감사 상태(cared)로 넘긴다.
     _showCareToast('햇빛을 줬어요!');
@@ -983,7 +996,20 @@ class _HomeScreenState extends State<HomeScreen>
                     onTap: _handlePeriodIconTap,
                     child: Padding(
                       padding: const EdgeInsets.all(4),
-                      child: FigmaHomeAssetIcon(period.phaseIcon),
+                      child: AnimatedBuilder(
+                        animation: _moonController,
+                        // 달: ±0.15rad(약 9°)를 세 번 왕복하며 줄어든다.
+                        builder: (context, child) => Transform.rotate(
+                          key: const ValueKey('home-moon-swing'),
+                          angle: _moonController.isAnimating
+                              ? math.sin(_moonController.value * math.pi * 6) *
+                                    0.15 *
+                                    (1 - _moonController.value)
+                              : 0,
+                          child: child,
+                        ),
+                        child: FigmaHomeAssetIcon(period.phaseIcon),
+                      ),
                     ),
                   ),
                 ),
@@ -1255,8 +1281,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 math.sin(bouncePhase * math.pi) * 6;
                             // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
                             // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
-                            // 기쁨, 그 외 기본). 얼굴 PNG는 캔버스가 같아
-                            // 크로스페이드해도 위치가 안 튄다.
+                            // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
                             final expression = _isBeingCaredFor
                                 ? PlantExpression.happy
                                 : plantExpressionFromId(plant.expressionId);
@@ -1264,19 +1289,16 @@ class _HomeScreenState extends State<HomeScreen>
                               offset: Offset(0, -bounce),
                               child: Transform.rotate(
                                 angle: wiggle,
-                                child: AnimatedSwitcher(
-                                  duration:
+                                child: PlantCharacterArt(
+                                  width: 173.02,
+                                  body: plantBodyFromId(plant.bodyId),
+                                  expression: expression,
+                                  colorId: plant.colorId,
+                                  hairId: plant.hairId,
+                                  faceSwitchDuration:
                                       MediaQuery.disableAnimationsOf(context)
                                       ? Duration.zero
                                       : const Duration(milliseconds: 200),
-                                  child: PlantCharacterArt(
-                                    key: ValueKey(expression),
-                                    width: 173.02,
-                                    body: plantBodyFromId(plant.bodyId),
-                                    expression: expression,
-                                    colorId: plant.colorId,
-                                    hairId: plant.hairId,
-                                  ),
                                 ),
                               ),
                             );

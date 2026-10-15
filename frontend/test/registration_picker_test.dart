@@ -184,4 +184,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(picked, DateTime(2005, 6, 15));
   });
+
+  group('컬러 휠 관성', () {
+    Future<List<int>> pumpWheel(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final selected = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: ColorWheelPicker.top,
+                  height: ColorWheelPicker.height,
+                  child: ColorWheelPicker(
+                    initialIndex: 0,
+                    onSelected: selected.add,
+                    confirmLabel: '선택 완료',
+                    onConfirm: () {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return selected;
+    }
+
+    testWidgets('세게 튕기면 손을 뗀 뒤에도 몇 칸 더 돌다 칸에 멈춘다', (tester) async {
+      final selected = await pumpWheel(tester);
+
+      // 150px(1.7칸)만 밀고 빠르게 놓는다. 관성이 없으면 2칸에서 멈추고,
+      // 관성이 있으면 1200px/s × 0.3초 ≈ 4칸을 더 돌아 6칸쯤에 멈춘다
+      // (10칸을 넘기면 한 바퀴 돌아 처음 색으로 오므로 그 아래로 잡는다).
+      await tester.fling(
+        find.byType(ColorWheelPicker),
+        const Offset(-150, 0),
+        1200,
+      );
+      await tester.pumpAndSettle();
+
+      expect(selected.last, greaterThanOrEqualTo(4));
+      // 도는 동안에도 칸을 지날 때마다 알린다(햅틱이 울린다). 되돌아가지 않는다.
+      expect(selected.length, greaterThan(2));
+      for (var i = 1; i < selected.length; i++) {
+        expect(selected[i], greaterThan(selected[i - 1]));
+      }
+    });
+
+    testWidgets('천천히 밀고 놓으면 관성 없이 가까운 칸에 멈춘다', (tester) async {
+      final selected = await pumpWheel(tester);
+
+      await tester.drag(find.byType(ColorWheelPicker), const Offset(-88, 0));
+      await tester.pumpAndSettle();
+
+      expect(selected, [1]);
+    });
+  });
 }
