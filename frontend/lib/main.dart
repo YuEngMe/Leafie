@@ -15,6 +15,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/design_status_bar_inset.dart';
 import 'package:yeso_plant/widgets/platform_reduce_motion.dart';
+import 'package:yeso_plant/widgets/tap_outside_unfocus.dart';
 
 // OAuth·이메일 인증·비밀번호 재설정 링크가 모두 이 스킴으로 앱에 돌아온다.
 // android/ios에 등록해둔 값과 반드시 일치해야 한다.
@@ -224,8 +225,9 @@ class _YesoAppState extends State<YesoApp> {
         scaffoldBackgroundColor: kBackgroundWhite,
         fontFamily: kFontFamily,
       ),
-      builder: (context, child) =>
-          DesignStatusBarInset(child: PlatformReduceMotion(child: child!)),
+      builder: (context, child) => DesignStatusBarInset(
+        child: PlatformReduceMotion(child: TapOutsideUnfocus(child: child!)),
+      ),
       home: SplashScreen(onDone: _onSplashDone),
     );
   }

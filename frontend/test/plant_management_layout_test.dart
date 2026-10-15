@@ -635,6 +635,25 @@ void main() {
       expect(repository.sentRepottedOn, isNull);
     });
 
+    testWidgets('날짜 시트는 서울 기준 오늘 뒤의 날짜를 휠에서 뺀다', (tester) async {
+      final repository = _FakeRepository([_plant()]);
+      await _pumpScreen(
+        tester,
+        PlantEditInfoScreen(plant: _plant(), repository: repository),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('plant_watered_field')));
+      await tester.pumpAndSettle();
+
+      final seoul = DateTime.now().toUtc().add(const Duration(hours: 9));
+      expect(
+        tester
+            .widget<PlantDatePickerSheet>(find.byType(PlantDatePickerSheet))
+            .maximumDate,
+        DateTime(seoul.year, seoul.month, seoul.day),
+      );
+    });
+
     testWidgets('4534:20068 뒤로 꺾쇠는 주황', (tester) async {
       await pump(tester);
 

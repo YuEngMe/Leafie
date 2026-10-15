@@ -369,6 +369,61 @@ void main() {
       expect(find.text('다이어리를 기록하세요'), findsOneWidget);
     });
 
+    group('사진칸은 아이콘·문구만 눌린다(배경은 안 눌린다)', () {
+      Future<List<int>> pumpBox(WidgetTester tester, {String? url}) async {
+        _setUpView(tester);
+        final taps = <int>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Stack(
+              children: [
+                // 작성 화면과 같은 자리(3496:10622).
+                Positioned(
+                  left: 46,
+                  top: 144.74,
+                  width: 304,
+                  height: 259.58,
+                  child: DiaryPhotoBox(
+                    photoPath: null,
+                    photoUrl: url,
+                    onTap: () => taps.add(1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        return taps;
+      }
+
+      testWidgets('빈 칸의 배경 구석을 누르면 사진을 고르지 않는다', (tester) async {
+        final taps = await pumpBox(tester);
+
+        await tester.tapAt(const Offset(46 + 20, 144.74 + 230));
+        await tester.tapAt(const Offset(46 + 280, 144.74 + 60));
+
+        expect(taps, isEmpty);
+      });
+
+      testWidgets('사진 추가 아이콘과 문구를 누르면 사진을 고른다', (tester) async {
+        final taps = await pumpBox(tester);
+
+        await tester.tap(find.byType(SvgPicture));
+        await tester.tap(find.text('사진 추가하기'));
+
+        expect(taps, hasLength(2));
+      });
+
+      testWidgets('사진이 있으면 사진을 눌러 바꿀 수 있다', (tester) async {
+        final taps = await pumpBox(tester, url: 'https://example.com/p.jpg');
+        await tester.pump();
+
+        await tester.tapAt(const Offset(46 + 152, 144.74 + 150));
+
+        expect(taps, hasLength(1));
+      });
+    });
+
     testWidgets('사진칸 테두리는 사진 위에 그린다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
@@ -550,6 +605,26 @@ void main() {
       expect(find.bySemanticsLabel('다음 날'), findsOneWidget);
       expect(find.byKey(const ValueKey('diary-appbar-edit')), findsOneWidget);
       expect(find.bySemanticsLabel('다이어리 쓰기'), findsNothing);
+    });
+
+    testWidgets('키보드가 올라와도 하단 네비는 화면 바닥에 그대로 있다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryEntryScreen(
+            entry: DiaryEntry(date: DateTime(2026, 7, 15)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = tester.getRect(find.byType(AppBottomNav));
+
+      // iPhone 16 Pro 한글 키보드 높이쯤.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(AppBottomNav)), before);
+      expect(before.bottom, 874);
     });
 
     testWidgets('달력은 그 달에 필요한 주만 그린다', (tester) async {

@@ -415,9 +415,12 @@ class _CalendarHeader extends StatelessWidget {
             child: Text('캘린더', style: kBodyStyle, textHeightBehavior: _tight),
           ),
         ),
+        // 알약은 y=58이고, 위아래로 넓힌 터치 상자만큼 위로 올려 둔다.
         Positioned(
           left: 335,
-          top: 58,
+          top:
+              58 -
+              (CalendarModeSwitch.hitHeight - CalendarModeSwitch.height) / 2,
           child: CalendarModeSwitch(
             weekSelected: mode == CalendarViewMode.week,
             onChanged: (week) => onModeChanged(
