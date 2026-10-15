@@ -1,6 +1,8 @@
 // 홈은 API가 반환한 데이터만 표시해야 한다. 세션 fallback과 Figma 예시값이
 // 남아 있으면 다른 사용자의 데이터처럼 보이므로 여기서 회귀를 막는다.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_letter.dart';
@@ -482,6 +484,46 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle(); // 펜딩 타이머 없이 완료.
     expect(find.text('햇빛을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('달을 누르면 햇빛 없이 달만 흔들리다 멈춘다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.evening,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          initialScene: HomeScene.idle,
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double moonAngle() {
+      final transform = tester
+          .widget<Transform>(find.byKey(const ValueKey('home-moon-swing')))
+          .transform;
+      return math.atan2(transform.entry(1, 0), transform.entry(0, 0));
+    }
+
+    expect(moonAngle(), 0);
+
+    await tester.tap(find.byKey(const ValueKey('home-period-control')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(moonAngle().abs(), greaterThan(0.02));
+    expect(find.text('햇빛을 줬어요!'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(moonAngle(), 0);
   });
 
   testWidgets('물뿌리개를 누르면 물주기 모션이 예외 없이 끝난다', (tester) async {
