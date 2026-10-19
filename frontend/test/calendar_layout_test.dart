@@ -104,28 +104,82 @@ void main() {
       expect(one.dy, closeTo(232.571 + 17.26, 1));
     });
 
-    testWidgets('일정 있는 날 표식은 종류와 무관하게 물방울 하나', (tester) async {
-      await _pumpMonth(tester, items: _twoCards);
+    group('날짜 칸 표식은 일정 종류별 아이콘(켈린더 2, 4534:4708)', () {
+      late WidgetTester tester;
+      // 2026.7.15는 수요일이라 4번째 열. 15일 칸 왼쪽 위 (176.436, 345.996).
+      const cell = Offset(176.436, 345.996);
 
-      // 3341:426 물방울 17.045x23.729, 15일 셀(176.436, 345.996) 기준 (29.07, 27.59).
-      // 2026.7.15는 수요일이라 4번째 열(index 3) = 26.04 + 3*50.132.
-      // 분갈이·비료 두 건이 같은 날에 있어도 표식은 하나다.
-      final drops = _svg('calendar_day_drop.svg');
-      expect(drops, findsOneWidget);
-      final drop = tester.getRect(drops);
-      expect(drop.left, closeTo(176.436 + 29.07, 1));
-      expect(drop.top, closeTo(345.996 + 27.59, 1));
-      expect(drop.width, closeTo(17.045, 1));
-      expect(drop.height, closeTo(23.729, 1));
+      // 15일은 오늘이라 아래 '오늘 할 일' 카드에도 같은 아이콘이 있다.
+      // 날짜 칸 표식만 키로 고른다.
+      Finder mark(String kind) =>
+          find.byKey(ValueKey('calendar-cell-mark-$kind'));
 
-      // 날짜 칸에는 일정 종류 아이콘(화분·비료)이 없다 — 카드 쪽에만 있다.
-      expect(
-        find.descendant(
-          of: find.byType(CalendarPaper),
-          matching: find.byType(CalendarEventIcon),
-        ),
-        findsNothing,
-      );
+      void expectAt(Finder f, double x, double y, double w, double h) {
+        expect(f, findsOneWidget);
+        final r = tester.getRect(f);
+        expect(r.left - cell.dx, closeTo(x, 1.5), reason: 'x');
+        expect(r.top - cell.dy, closeTo(y, 1.5), reason: 'y');
+        expect(r.width, closeTo(w, 0.5), reason: 'w');
+        expect(r.height, closeTo(h, 0.5), reason: 'h');
+      }
+
+      testWidgets('물 주기만 있으면 물방울(4534:5066)', (t) async {
+        tester = t;
+        await _pumpMonth(t, items: [('w', 'WATERING', 15, 'SCHEDULED')]);
+        expectAt(mark('water'), 29.08, 27.59, 17.04, 23.73);
+        expect(mark('repot'), findsNothing);
+        expect(mark('fertilize'), findsNothing);
+      });
+
+      testWidgets('비료만 있으면 비료(6051:4957)', (t) async {
+        tester = t;
+        await _pumpMonth(t, items: [('f', 'FERTILIZING', 15, 'SCHEDULED')]);
+        expectAt(mark('fertilize'), 28.37, 30.83, 14.24, 22.93);
+        expect(mark('water'), findsNothing);
+      });
+
+      testWidgets('분갈이만 있으면 화분(6051:4953)', (t) async {
+        tester = t;
+        await _pumpMonth(t, items: [('r', 'REPOTTING', 15, 'SCHEDULED')]);
+        expectAt(mark('repot'), 27.57, 32.68, 19, 17.61);
+      });
+
+      testWidgets('분갈이+물이면 화분이 왼쪽으로 비키고 물방울이 겹친다(10일 칸)', (t) async {
+        tester = t;
+        await _pumpMonth(
+          t,
+          items: [
+            ('w', 'WATERING', 15, 'SCHEDULED'),
+            ('r', 'REPOTTING', 15, 'SCHEDULED'),
+          ],
+        );
+        // 6089:2474 화분 (18.30, 32.68). 물방울은 혼자일 때 자리에 둔다.
+        // 시안 6089:2439는 (29.30, 28.83)이지만 같은 시안의 물방울끼리도
+        // 1px 넘게 다르다(1일 27.59, 15일 29.03). 손으로 놓은 차이로 본다.
+        expectAt(mark('repot'), 18.30, 32.68, 19, 17.61);
+        expectAt(mark('water'), 29.08, 27.59, 17.04, 23.73);
+      });
+
+      testWidgets('분갈이+비료면 화분이 비키고 비료가 제자리에 겹친다', (t) async {
+        tester = t;
+        await _pumpMonth(t, items: _twoCards);
+        expectAt(mark('repot'), 27.57 - 9.27, 32.68, 19, 17.61);
+        expectAt(mark('fertilize'), 28.37, 30.83, 14.24, 22.93);
+      });
+
+      testWidgets('전용 아이콘이 없는 일정은 화분으로 그리고 화분과 겹쳐 두 번 그리지 않는다', (t) async {
+        tester = t;
+        await _pumpMonth(
+          t,
+          items: [
+            ('p', 'PRUNING', 15, 'SCHEDULED'),
+            ('r', 'REPOTTING', 15, 'SCHEDULED'),
+          ],
+        );
+        expectAt(mark('repot'), 27.57, 32.68, 19, 17.61);
+        expect(mark('water'), findsNothing);
+        expect(mark('fertilize'), findsNothing);
+      });
     });
 
     testWidgets('배경은 홈 배경을 70%로 옅게 깐 것', (tester) async {
