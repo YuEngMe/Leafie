@@ -42,12 +42,14 @@ double _bodyBottom(Rect art) => art.bottom - art.width * 649 / 698 * 37 / 649;
 Matcher _near(double v) => closeTo(v, 2);
 
 void main() {
-  testWidgets('성격: 몸통 폭 139·바닥 489, 헤어가 태그를 덮지 않는다', (tester) async {
+  // 디자이너 수정 6049:2564(메모 6049:2648 "수정햇으요"): 캐릭터가 1.12배
+  // 커지고(몸통 폭 139→156, 바닥 488.85→550.22) 말풍선·대사·점이 내려갔다.
+  testWidgets('성격: 몸통 폭 156·바닥 550, 헤어가 태그를 덮지 않는다', (tester) async {
     await _pump(tester, PlantRegisterPersonalityScreen(draft: _draft()));
     final art = tester.getRect(find.byType(PlantCharacterArt).first);
     expect(art.center.dx, _near(201));
-    expect(art.width * 0.897, _near(139));
-    expect(_bodyBottom(art), _near(488.85));
+    expect(art.width * 0.897, _near(156));
+    expect(_bodyBottom(art), _near(550.22));
     final hair = tester.getRect(find.bySemanticsLabel('식물 머리').first);
     final tags = tester.getRect(find.text('#긍정적'));
     // 헤어 PNG는 레이어 렌더 영역을 사방 3 unit 넓혀 뽑아 위쪽이 투명하다.
@@ -57,7 +59,7 @@ void main() {
     expect(hair.top + 3 * unit, greaterThan(tags.bottom));
   });
 
-  testWidgets('성격: 태그 알약 20.67, 꼬리 달린 말풍선, 대사 가운데 532', (tester) async {
+  testWidgets('성격: 태그 알약 20.67, 꼬리 달린 말풍선, 대사 가운데 608', (tester) async {
     await _pump(tester, PlantRegisterPersonalityScreen(draft: _draft()));
     // 4534:169/171: 58.69x20.67 알약 둘이 y=190, 사이 6.62. 여백으로 크기를
     // 잡을 때는 높이가 24였다.
@@ -75,16 +77,21 @@ void main() {
           .first,
     );
     expect(second.left - chip.right, closeTo(6.62, 0.1));
-    // 4534:175 말풍선은 위로 꼬리가 난 시안 SVG다. 그림자 여백 포함 위 500.55.
+    // 6049:2604 말풍선은 위로 꼬리가 난 시안 SVG다. Union top 581, 그림자
+    // 여백(4.126) 포함 위 576.87.
     final bubble = tester.getRect(find.byType(SvgPicture).first);
-    expect(bubble.top, closeTo(500.55, 1));
+    expect(bubble.top, closeTo(576.87, 1));
     expect(bubble.center.dx, closeTo(201, 1));
-    // 4534:178 대사 글자 가운데 532.23 → Flutter 상자 top 520.73. 옛 구현은
-    // 상자 가운데 정렬이라 보이는 글자가 4px 위였다.
+    // 6049:2607 대사 글자 가운데 608.55 → Flutter 상자 top 597.05.
     expect(
       tester.getRect(find.text('오늘도 같이 놀자!')).top,
-      closeTo(520.73, 0.5),
+      closeTo(597.05, 0.5),
     );
+    // 6049:2595 페이지 점 6개 줄 top 691(이전 590.73).
+    final dots = find.byWidgetPredicate(
+      (w) => w.runtimeType.toString() == '_PersonalityDots',
+    );
+    expect(tester.getRect(dots.first).top, closeTo(691, 1));
   });
 
   testWidgets('외형: 가운데 정렬, 몸통 바닥 489, 인디케이터 y=558', (tester) async {
