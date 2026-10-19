@@ -40,6 +40,10 @@ class _BodyChoice {
   final String label;
 }
 
+/// 바디 스위처 실루엣 크기. 시안 6049:2699~2708은 24~28로 제각각인데
+/// 묶음 확대 비율(105.96/86.71 ≈ 1.222)을 기존 22에 곱해 맞춘다.
+const double _bodyGlyphSize = 22 * 105.96 / 86.71;
+
 const _bodyChoices = [
   _BodyChoice(id: 'body_circle', label: '동그라미'),
   _BodyChoice(id: 'body_thumb', label: '통통이'),
@@ -91,9 +95,11 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
           // 온다 — 등록 화면과 달리 편집 화면은 헤드라인 없이 스위처를 top 143에
           // 앉힌다. 선택된 바디만 kOrangeMain으로 채우고 나머지는 회색. SVG
           // 에셋이 없어 도형을 코드로 그린다. body_*.png 썸네일은 안 쓴다.
+          // 6049:2649(디자이너 수정 "아이콘 크기"): 묶음 6049:2698이 1.22배로
+          // 커졌다. 아이콘 ≈27, 간격 12.22, 가운데 x≈201·top 143은 그대로다.
           PlantDetailPositioned(
             top: 143,
-            height: 22,
+            height: _bodyGlyphSize,
             child: Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -101,7 +107,9 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                 children: [
                   for (final choice in _bodyChoices)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12.22 / 2,
+                      ),
                       child: GestureDetector(
                         key: ValueKey('appearance_${choice.id}'),
                         behavior: HitTestBehavior.opaque,
@@ -115,6 +123,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                           child: BodyGlyph(
                             id: choice.id,
                             selected: _selectedBodyId == choice.id,
+                            size: _bodyGlyphSize,
                           ),
                         ),
                       ),
