@@ -451,11 +451,13 @@ class _DiagnosisPhotoConfirmScreenState
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final actionBarHeight = bottomInset > 34 ? bottomInset + 25 : 59.0;
-    // 시안(4534:20043) 막대 top 815·높이 59, 글자 중심 y 843.57. 글자는
-    // 홈 인디케이터 구역에 걸쳐 있다. 안전 영역을 빼고 남은 25에 TextButton
-    // (위아래 여백 8)을 넣으면 글자 칸이 9로 줄어 잘렸다.
-    const labelCenterFromBarTop = 843.57 - 815;
+    final actionBarHeight = bottomInset > 34 ? bottomInset + 39 : 73.0;
+    // 시안(4534:20043) 막대 4534:20064 top 801·높이 73, 글자 중심 y 831.57.
+    // 디자이너가 막대를 14 올리고 글자를 10씩 안쪽·12 위로 옮겼다(메모
+    // 6049:2755, 이전 815·59·843.57). 글자는 홈 인디케이터 구역에 걸쳐
+    // 있다. 안전 영역을 빼고 남은 칸에 TextButton(위아래 여백 8)을 넣으면
+    // 글자 칸이 줄어 잘렸으므로 막대 top 기준으로 놓는다.
+    const labelCenterFromBarTop = 831.57 - 801;
     const hitHeight = 44.0;
     const hitPadding = 12.0;
     final buttonStyle = TextButton.styleFrom(
@@ -496,9 +498,9 @@ class _DiagnosisPhotoConfirmScreenState
                   color: Colors.black.withValues(alpha: 0.6),
                   child: Stack(
                     children: [
-                      // '다시 촬영' 글자 x=30, '다음' 글자 오른쪽 끝 x=371.
+                      // '다시 촬영' 글자 x=40, '다음' 글자 오른쪽 끝 x=361.04.
                       Positioned(
-                        left: 30 - hitPadding,
+                        left: 40 - hitPadding,
                         top: labelCenterFromBarTop - hitHeight / 2,
                         child: TextButton(
                           key: const ValueKey('diagnosis-retake-button'),
@@ -511,7 +513,7 @@ class _DiagnosisPhotoConfirmScreenState
                         ),
                       ),
                       Positioned(
-                        right: 31 - hitPadding,
+                        right: 402 - 361.04 - hitPadding,
                         top: labelCenterFromBarTop - hitHeight / 2,
                         child: TextButton(
                           key: const ValueKey('diagnosis-submit-button'),
