@@ -56,6 +56,7 @@ class PlantCharacterArt extends StatelessWidget {
     this.expression = PlantExpression.none,
     this.colorId,
     this.hairId,
+    this.faceSwitchDuration = Duration.zero,
   });
 
   /// circle 몸통의 보이는 폭이 `width × 0.897`이 되는 기준 폭.
@@ -71,6 +72,13 @@ class PlantCharacterArt extends StatelessWidget {
   /// 종으로 자동 매핑된 헤어 애셋 id(`hair_*`). null이거나 카탈로그에 없는
   /// 값이면 헤어를 얹지 않고 민머리로 그린다.
   final String? hairId;
+
+  /// 표정이 바뀔 때 얼굴만 크로스페이드하는 시간. 0이면 바로 바꾼다.
+  ///
+  /// 캐릭터 전체를 크로스페이드하면 반투명한 몸통 두 벌이 겹쳐 그동안
+  /// 캐릭터가 유령처럼 비쳤다(디자이너 지적 2026-10). 몸통·머리는 그대로
+  /// 두고 얼굴 PNG만 바꾼다. 얼굴 PNG는 몸통과 캔버스가 같아 자리가 안 튄다.
+  final Duration faceSwitchDuration;
 
   @override
   Widget build(BuildContext context) {
@@ -111,14 +119,7 @@ class PlantCharacterArt extends StatelessWidget {
               semanticLabel: '식물 친구 캐릭터',
             ),
           ),
-          Positioned.fromRect(
-            rect: canvas,
-            child: Image.asset(
-              plantFaceAssetFor(body, expression),
-              fit: BoxFit.fill,
-              excludeFromSemantics: true,
-            ),
-          ),
+          Positioned.fromRect(rect: canvas, child: _face()),
           if (hair != null)
             Positioned.fromRect(
               rect: hair.rectFor(
@@ -135,6 +136,24 @@ class PlantCharacterArt extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _face() {
+    final asset = plantFaceAssetFor(body, expression);
+    final face = Image.asset(
+      asset,
+      key: ValueKey(asset),
+      fit: BoxFit.fill,
+      excludeFromSemantics: true,
+    );
+    if (faceSwitchDuration == Duration.zero) return face;
+    return AnimatedSwitcher(
+      duration: faceSwitchDuration,
+      // 기본 레이아웃(가운데 정렬 Stack)은 얼굴을 원본 PNG 크기로 그린다.
+      layoutBuilder: (current, previous) =>
+          Stack(fit: StackFit.expand, children: [...previous, ?current]),
+      child: face,
     );
   }
 }

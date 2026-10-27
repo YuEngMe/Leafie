@@ -1,6 +1,8 @@
 // 홈은 API가 반환한 데이터만 표시해야 한다. 세션 fallback과 Figma 예시값이
 // 남아 있으면 다른 사용자의 데이터처럼 보이므로 여기서 회귀를 막는다.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/models/plant_letter.dart';
@@ -482,6 +484,46 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle(); // 펜딩 타이머 없이 완료.
     expect(find.text('햇빛을 줬어요!'), findsNothing);
+  });
+
+  testWidgets('달을 누르면 햇빛 없이 달만 흔들리다 멈춘다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.evening,
+          plant: HomePlant(
+            name: '실제식물',
+            startedOn: null,
+            personalityType: null,
+          ),
+          initialScene: HomeScene.idle,
+          initialGaugesExpanded: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double moonAngle() {
+      final transform = tester
+          .widget<Transform>(find.byKey(const ValueKey('home-moon-swing')))
+          .transform;
+      return math.atan2(transform.entry(1, 0), transform.entry(0, 0));
+    }
+
+    expect(moonAngle(), 0);
+
+    await tester.tap(find.byKey(const ValueKey('home-period-control')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(moonAngle().abs(), greaterThan(0.02));
+    expect(find.text('햇빛을 줬어요!'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(moonAngle(), 0);
   });
 
   testWidgets('물뿌리개를 누르면 물주기 모션이 예외 없이 끝난다', (tester) async {
@@ -1565,6 +1607,95 @@ void main() {
     expect(faces, contains(PlantExpression.sad));
   });
 
+
+  testWidgets('캐릭터를 탭하면 얼굴만 바뀌고 몸통·머리는 흐려지지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '새싹이', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '새싹이',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              expressionId: 'expression_sad',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 위젯 트리에서 위로 올라가며 투명도를 곱한다.
+    double opacityOf(Element element) {
+      var opacity = 1.0;
+      for (final e in element.debugGetDiagnosticChain()) {
+        final w = e.widget;
+        if (w is FadeTransition) opacity *= w.opacity.value;
+        if (w is Opacity) opacity *= w.opacity;
+      }
+      return opacity;
+    }
+
+    final character = find.byKey(const ValueKey('home-character-pet'));
+    List<double> opacities(String label) => find
+        .descendant(
+          of: character,
+          matching: find.byWidgetPredicate(
+            (w) => w is Image && w.semanticLabel == label,
+          ),
+        )
+        .evaluate()
+        .map(opacityOf)
+        .toList();
+
+    await tester.tap(character);
+    await tester.pump(); // 전환 시작 프레임
+    // 표정 전환(200ms) 한가운데.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 몸통·머리는 한 벌만 불투명하게 그대로 있다. 몸통째 크로스페이드하면
+    // 반투명한 두 벌이 겹쳐 캐릭터가 유령처럼 비친다.
+    expect(opacities('식물 친구 캐릭터'), [1.0]);
+    expect(opacities('식물 머리'), [1.0]);
+    // 얼굴은 슬픈 얼굴에서 기쁜 얼굴로 크로스페이드하는 중이다.
+    final faces = find
+        .descendant(
+          of: character,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Image &&
+                w.image is AssetImage &&
+                (w.image as AssetImage).assetName.contains('/face_'),
+          ),
+        )
+        .evaluate()
+        .map((e) => ((e.widget as Image).image as AssetImage).assetName)
+        .toList();
+    expect(faces, hasLength(2));
+    expect(faces.last, contains('happy'));
+
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('센서 알림을 누르면 그 식물의 방으로 옮겨 게이지를 펼친다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);

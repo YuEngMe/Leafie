@@ -82,6 +82,12 @@ const double _kSwatchSize = 60;
 // 꼭대기 칸과 옆 칸의 가로 간격(200 → 288). 이만큼 밀면 한 칸 돈다.
 const double _kPxPerSlot = 88;
 
+// 손을 뗄 때 이보다 빠르면(px/s) 튕긴 것으로 보고 관성으로 더 돈다.
+const double _kFlingMinVelocity = 300;
+
+// 관성으로 더 도는 거리 = 손을 뗀 속도 × 이 시간. 2500px/s면 약 8.5칸.
+const double _kGlideSeconds = 0.3;
+
 // 원판 Ellipse 1168: x=-21 y=576 443x439, 흰색, 그림자 stdDeviation 2 · 18%.
 const double _kPaletteLeft = -21;
 const double _kPaletteWidth = 443;
@@ -151,13 +157,16 @@ class _ColorWheelPickerState extends State<ColorWheelPicker>
     widget.onSelected(index);
   }
 
-  Future<void> _settle(double target) async {
+  Future<void> _settle(
+    double target, {
+    Duration duration = const Duration(milliseconds: 220),
+  }) async {
     if (MediaQuery.disableAnimationsOf(context)) {
       _rotation.value = target;
     } else {
       await _rotation.animateTo(
         target,
-        duration: const Duration(milliseconds: 220),
+        duration: duration,
         curve: Curves.easeOutCubic,
       );
     }
@@ -175,14 +184,35 @@ class _ColorWheelPickerState extends State<ColorWheelPicker>
   Future<void> _onDragEnd(DragEndDetails details) async {
     final v = details.velocity.pixelsPerSecond.dx;
     final current = _rotation.value;
-    final double target;
-    if (v.abs() > 300) {
-      // 튕기면 민 방향으로 한 칸을 마저 넘긴다.
-      target = (v > 0 ? current.floorToDouble() : current.ceilToDouble());
-    } else {
-      target = current.roundToDouble();
+    if (v.abs() <= _kFlingMinVelocity) {
+      await _settle(current.roundToDouble());
+      if (mounted) _notifyIfMoved();
+      return;
     }
-    await _settle(target);
+    // 관성(디자이너 요청 2026-10): 손을 뗀 속도로 [_kGlideSeconds]만큼 더
+    // 돈 자리에서 가장 가까운 칸에 멈춘다. 전에는 아무리 세게 밀어도 한
+    // 칸만 넘어갔다. 약하게 튕겨도 민 방향으로 최소 한 칸은 넘긴다.
+    // 한 번에 최대 한 바퀴까지만 돈다.
+    final slotsPerSecond = -v / _kPxPerSlot;
+    final projected = (current + slotsPerSecond * _kGlideSeconds)
+        .clamp(current - _count, current + _count)
+        .roundToDouble();
+    final target = slotsPerSecond > 0
+        ? math.max(projected, current.ceilToDouble())
+        : math.min(projected, current.floorToDouble());
+    final distance = (target - current).abs();
+    // 도는 동안 지나가는 칸마다 알린다(햅틱이 칸마다 울린다).
+    _rotation.addListener(_notifyIfMoved);
+    try {
+      await _settle(
+        target,
+        duration: Duration(
+          milliseconds: (220 + distance * 70).clamp(220, 900).round(),
+        ),
+      );
+    } finally {
+      _rotation.removeListener(_notifyIfMoved);
+    }
     if (mounted) _notifyIfMoved();
   }
 
