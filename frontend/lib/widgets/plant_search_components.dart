@@ -337,7 +337,8 @@ class PlantDatePickerSheet extends StatefulWidget {
 
   final DateTime initialDate;
 
-  /// 이 날짜 뒤를 고르고 버튼을 누르면 닫지 않고 안내만 띄운다.
+  /// 이 날짜 뒤의 연·월·일은 휠에 아예 넣지 않는다(디자이너 요청 2026-10:
+  /// 고를 수 없는 값은 처음부터 고르지 못하게). 시각은 무시하고 날짜만 본다.
   final DateTime? maximumDate;
 
   final String buttonLabel;
@@ -386,15 +387,30 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
   // 저장된 날짜가 연도 범위 밖이어도(정보 수정은 올해−20부터) 범위를
   // 넓혀 그 해를 그대로 보여 준다. 범위 안으로 당기면 휠을 건드리지
   // 않고 확정만 해도 날짜가 바뀌어 저장된다.
-  late final int _firstYear = math.min(
-    widget.firstYear,
-    widget.initialDate.year,
-  );
-  late final int _lastYear = math.max(widget.lastYear, widget.initialDate.year);
+  late final DateTime? _maximum = switch (widget.maximumDate) {
+    final m? => DateTime(m.year, m.month, m.day),
+    null => null,
+  };
 
-  late int _year = widget.initialDate.year;
-  late int _month = widget.initialDate.month;
-  late int _day = widget.initialDate.day;
+  // 최대 날짜보다 늦게 열리면 최대 날짜에서 시작한다. 휠에 없는 날을
+  // 들고 있으면 손대지 않고 확정만 해도 고를 수 없는 날이 나간다.
+  late final DateTime _initial = switch (_maximum) {
+    final m? when widget.initialDate.isAfter(m) => m,
+    _ => widget.initialDate,
+  };
+
+  late final int _firstYear = math.min(widget.firstYear, _initial.year);
+  late final int _lastYear = math.max(
+    _firstYear,
+    math.min(
+      math.max(widget.lastYear, _initial.year),
+      _maximum?.year ?? widget.lastYear,
+    ),
+  );
+
+  late int _year = _initial.year;
+  late int _month = _initial.month;
+  late int _day = _initial.day;
 
   late final _yearController = FixedExtentScrollController(
     initialItem: _year - _firstYear,
@@ -406,20 +422,17 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
     initialItem: _day - 1,
   );
 
-  int get _daysInMonth => DateTime(_year, _month + 1, 0).day;
+  int get _monthCount => switch (_maximum) {
+    final m? when _year == m.year => m.month,
+    _ => 12,
+  };
+
+  int get _dayCount => switch (_maximum) {
+    final m? when _year == m.year && _month == m.month => m.day,
+    _ => DateTime(_year, _month + 1, 0).day,
+  };
 
   DateTime get _selectedDate => DateTime(_year, _month, _day);
-
-  bool get _isAfterMaximum {
-    final maximumDate = widget.maximumDate;
-    if (maximumDate == null) return false;
-    final maximum = DateTime(
-      maximumDate.year,
-      maximumDate.month,
-      maximumDate.day,
-    );
-    return _selectedDate.isAfter(maximum);
-  }
 
   @override
   void dispose() {
@@ -429,11 +442,15 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
     super.dispose();
   }
 
-  void _clampDay() {
-    final maxDay = _daysInMonth;
-    if (_day > maxDay) {
-      _day = maxDay;
-      _dayController.jumpToItem(maxDay - 1);
+  /// 연·월이 바뀌어 휠 줄 수가 줄면, 고른 값을 남은 마지막 줄로 당긴다.
+  void _clampMonthAndDay() {
+    if (_month > _monthCount) {
+      _month = _monthCount;
+      _monthController.jumpToItem(_month - 1);
+    }
+    if (_day > _dayCount) {
+      _day = _dayCount;
+      _dayController.jumpToItem(_day - 1);
     }
   }
 
@@ -474,7 +491,7 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
             ),
             onSelected: (index) => setState(() {
               _year = _firstYear + index;
-              _clampDay();
+              _clampMonthAndDay();
             }),
           ),
           _column(
@@ -482,11 +499,11 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
             left: PlantDatePickerSheet.monthCenter - 55.16,
             width: 110.32,
             controller: _monthController,
-            itemCount: 12,
+            itemCount: _monthCount,
             label: (index) => '${index + 1}월',
             onSelected: (index) => setState(() {
               _month = index + 1;
-              _clampDay();
+              _clampMonthAndDay();
             }),
           ),
           _column(
@@ -494,7 +511,7 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
             left: PlantDatePickerSheet.dayCenter - 64.52,
             width: 129.04,
             controller: _dayController,
-            itemCount: _daysInMonth,
+            itemCount: _dayCount,
             label: (index) => '${index + 1}일',
             onSelected: (index) => setState(() => _day = index + 1),
           ),
@@ -510,15 +527,7 @@ class _PlantDatePickerSheetState extends State<PlantDatePickerSheet> {
               height: AppLayout.onboardingControlHeight,
               background: kBackgroundWhite,
               textStyle: kLoginButtonStyle.copyWith(color: kOrangeMain),
-              onPressed: () {
-                if (_isAfterMaximum) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')),
-                  );
-                  return;
-                }
-                Navigator.of(context).pop(_selectedDate);
-              },
+              onPressed: () => Navigator.of(context).pop(_selectedDate),
             ),
           ),
         ],

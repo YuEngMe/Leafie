@@ -72,11 +72,80 @@ void main() {
     expect(find.text('등록된 일정이 없어요.'), findsOneWidget);
   });
 
+  group('월/주 토글은 알약 어디를 눌러도 반대 모드로 넘어간다', () {
+    // 시안 3341:483 알약 48x24.923 @ (335, 58).
+    const pill = Rect.fromLTWH(335, 58, 48, 24.923);
+
+    Future<_FakeCalendarRepository> pumpCalendar(WidgetTester tester) async {
+      _setIPhone16ProViewport(tester);
+      final repository = _FakeCalendarRepository(items: const []);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CalendarScreen(
+            plantId: 'plant-1',
+            repository: repository,
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    final week = _CalendarRequest(
+      plantId: 'plant-1',
+      from: DateTime(2026, 7, 12),
+      to: DateTime(2026, 7, 18),
+    );
+    final month = _CalendarRequest(
+      plantId: 'plant-1',
+      from: DateTime(2026, 7, 1),
+      to: DateTime(2026, 7, 31),
+    );
+
+    testWidgets('글자 사이 빈 곳', (tester) async {
+      final repository = await pumpCalendar(tester);
+
+      await tester.tapAt(pill.center);
+      await tester.pumpAndSettle();
+
+      expect(repository.requests.last, week);
+    });
+
+    testWidgets('알약 바로 위아래(44pt 터치 영역 안)', (tester) async {
+      final repository = await pumpCalendar(tester);
+
+      await tester.tapAt(pill.topCenter.translate(0, -8));
+      await tester.pumpAndSettle();
+      expect(repository.requests.last, week);
+
+      await tester.tapAt(pill.bottomCenter.translate(0, 8));
+      await tester.pumpAndSettle();
+      expect(repository.requests.last, month);
+    });
+
+    testWidgets('주간에서 같은 자리를 다시 누르면 월간으로 돌아온다', (tester) async {
+      final repository = await pumpCalendar(tester);
+
+      await tester.tapAt(pill.centerRight.translate(-8, 0));
+      await tester.pumpAndSettle();
+      expect(repository.requests.last, week);
+
+      await tester.tapAt(pill.centerRight.translate(-8, 0));
+      await tester.pumpAndSettle();
+      expect(repository.requests.last, month);
+    });
+  });
+
   testWidgets('완료 가능한 일정을 누르면 완료 API를 호출하고 다시 조회한다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(
       items: [
-        _item(id: 'repot-1', date: DateTime(2026, 7, 15), careType: 'REPOTTING'),
+        _item(
+          id: 'repot-1',
+          date: DateTime(2026, 7, 15),
+          careType: 'REPOTTING',
+        ),
       ],
     );
 

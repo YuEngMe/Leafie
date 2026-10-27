@@ -72,6 +72,25 @@ void main() {
     );
   });
 
+  testWidgets(
+    '입력 중 화면 빈 곳을 탭하면 키보드가 내려간다',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const YesoApp());
+      await _passSplash(tester);
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      // 입력창·버튼이 없는 화면 왼쪽 위 가장자리.
+      await tester.tapAt(const Offset(4, 120));
+      await tester.pump();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   testWidgets('회원가입을 누르면 회원가입 화면으로 이동한다', (WidgetTester tester) async {
     await tester.pumpWidget(const YesoApp());
     await _passSplash(tester);

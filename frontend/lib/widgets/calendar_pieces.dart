@@ -197,6 +197,11 @@ class CalendarEventIcon extends StatelessWidget {
 }
 
 /// 월/주 토글(3341:483). 48x24.923 오렌지 알약 + 지름 21.23 흰 알약 손잡이.
+///
+/// 디자이너 요청(2026-10): 글자만 눌리면 안 되고 어디를 눌러도 반대 모드로
+/// 넘어가야 한다. 그래서 위젯 전체가 한 번의 탭으로 토글되고, 상자는 알약보다
+/// 위아래로 넓은 44pt다(Apple 최소 터치 크기). 그림은 가운데 알약만 그린다.
+/// 히트 테스트는 부모 상자 밖을 보지 않으므로 상자 자체를 키워야 한다.
 class CalendarModeSwitch extends StatelessWidget {
   const CalendarModeSwitch({
     super.key,
@@ -206,6 +211,7 @@ class CalendarModeSwitch extends StatelessWidget {
 
   static const double width = 48;
   static const double height = 24.923;
+  static const double hitHeight = 44;
   // 3341:484의 흰 원 r=10.615, 중심 x는 알약 왼쪽에서 12.615.
   static const double _knobDiameter = 21.231;
   static const double _knobInset = 2;
@@ -215,62 +221,71 @@ class CalendarModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: kOrangeMain,
-                borderRadius: BorderRadius.circular(height / 2),
-              ),
-            ),
-          ),
-          Positioned(
-            left: weekSelected
-                ? width - _knobInset - _knobDiameter
-                : _knobInset,
-            top: (height - _knobDiameter) / 2,
-            width: _knobDiameter,
-            height: _knobDiameter,
-            child: const DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 5)],
-              ),
-            ),
-          ),
-          // 글자 '월' x=342 y=63 11x14, '주' x=365 — 알약(x=335) 기준 7 / 30.
-          for (final (label, left, week) in const [
-            ('월', 7.0, false),
-            ('주', 30.0, true),
-          ])
-            Positioned(
-              key: ValueKey('calendar-mode-${week ? 'week' : 'month'}'),
-              left: left,
-              top: 5,
-              width: 11,
-              height: 14,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(week),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: kCaptionStyle.copyWith(
-                      color: weekSelected == week
-                          ? kTextDark
-                          : kBackgroundWhite,
-                      height: 1,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!weekSelected),
+      child: SizedBox(
+        width: width,
+        height: hitHeight,
+        child: Center(
+          child: SizedBox(
+            key: const ValueKey('calendar-mode-pill'),
+            width: width,
+            height: height,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: kOrangeMain,
+                      borderRadius: BorderRadius.circular(height / 2),
                     ),
                   ),
                 ),
-              ),
+                Positioned(
+                  left: weekSelected
+                      ? width - _knobInset - _knobDiameter
+                      : _knobInset,
+                  top: (height - _knobDiameter) / 2,
+                  width: _knobDiameter,
+                  height: _knobDiameter,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Color(0x33000000), blurRadius: 5),
+                      ],
+                    ),
+                  ),
+                ),
+                // 글자 '월' x=342 y=63 11x14, '주' x=365 — 알약(x=335) 기준 7 / 30.
+                for (final (label, left, week) in const [
+                  ('월', 7.0, false),
+                  ('주', 30.0, true),
+                ])
+                  Positioned(
+                    key: ValueKey('calendar-mode-${week ? 'week' : 'month'}'),
+                    left: left,
+                    top: 5,
+                    width: 11,
+                    height: 14,
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: kCaptionStyle.copyWith(
+                          color: weekSelected == week
+                              ? kTextDark
+                              : kBackgroundWhite,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
