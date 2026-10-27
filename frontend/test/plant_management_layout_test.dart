@@ -786,6 +786,11 @@ void main() {
       );
       // 3개 실루엣이 중앙 대칭: circle(왼)·square(오) 중심이 201 기준 대칭.
       expect((bodyRow.center.dx + square.center.dx) / 2, _closeTo1px(201));
+      // 6049:2649(디자이너 수정 "아이콘 크기"): 묶음 6049:2698이
+      // x 148..253.96으로 1.22배 커졌다. 아이콘 약 27, 간격 12.22.
+      expect(bodyRow.left, _closeTo1px(148));
+      expect(bodyRow.width, _closeTo1px(27));
+      expect(square.right, _closeTo1px(253.96));
 
       // 컬러 휠 5038:6533은 등록 꾸미기(4534:507)와 같은 위젯이다. 휠
       // 위에 '컬러' 라벨(5038:6551)이 있고, 헤어 탭은 없다.

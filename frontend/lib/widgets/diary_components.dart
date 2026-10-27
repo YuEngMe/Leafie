@@ -265,7 +265,7 @@ class DiaryCalendar extends StatelessWidget {
   final DateTime selected;
   final ValueChanged<DateTime> onSelect;
 
-  /// 글이 있는 날. 시안에 표시가 없어 지금은 쓰지 않지만 넘겨는 둔다.
+  /// 글이 있는 날. 칸 오른쪽 아래에 새싹(6089:2516)을 그린다.
   final Set<int> markedDays;
 
   /// 시안 2739:34979의 요일 머리글 x좌표.
@@ -402,31 +402,55 @@ class DiaryCalendar extends StatelessWidget {
         ),
         child: day == null
             ? const SizedBox.expand()
-            : _dayLabel(DateTime(month.year, month.month, day), day),
+            : _dayLabel(
+                DateTime(month.year, month.month, day),
+                day,
+                written: markedDays.contains(day),
+              ),
       ),
     );
     return cell;
   }
 
-  Widget _dayLabel(DateTime date, int day) {
+  Widget _dayLabel(DateTime date, int day, {required bool written}) {
     final isSelected = DiaryEntry.sameDay(date, selected);
     return GestureDetector(
       onTap: () => onSelect(date),
       behavior: HitTestBehavior.opaque,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            '$day',
-            // 3496:12147 외 전부 16 SemiBold. 고른 날만 찐 오렌지
-            // #FF8834(4534:4176)다.
-            style: kItemStyle.copyWith(
-              height: 1,
-              color: isSelected ? kBrightOrange : kTextDark,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '$day',
+                // 3496:12147 외 전부 16 SemiBold. 고른 날만 찐 오렌지
+                // #FF8834(4534:4176)다.
+                style: kItemStyle.copyWith(
+                  height: 1,
+                  color: isSelected ? kBrightOrange : kTextDark,
+                ),
+              ),
             ),
           ),
-        ),
+          // 글 쓴 날 새싹(6089:2516, 16.22×16.49). '다이어리 5'(4534:3781)에서
+          // 칸 오른쪽 아래 모서리로부터 약 4px 안쪽에 놓인다(2일 칸 기준
+          // 오른쪽 4.23·아래 4.34). 아래 기준이라 6주 달의 낮은 칸에도 맞는다.
+          if (written)
+            Positioned(
+              key: const ValueKey('diary-written-mark'),
+              right: 4.23,
+              bottom: 4.34,
+              width: 16.2208,
+              height: 16.494,
+              child: SvgPicture.asset(
+                'assets/images/icon_diary_written.svg',
+                semanticsLabel: '다이어리 쓴 날',
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -151,6 +151,41 @@ void main() {
       );
     });
 
+    testWidgets('글을 쓴 날 칸 오른쪽 아래에 새싹을 그린다(6089:2516)', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore()
+        ..entries = [
+          DiaryEntry(date: DateTime(2026, 7, 1), title: '첫날'),
+          DiaryEntry(date: DateTime(2026, 7, 2), title: '둘째 날'),
+          DiaryEntry(date: DateTime(2026, 7, 9), title: '아홉째 날'),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(today: DateTime(2026, 7, 15), store: store),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final sprouts = find.byKey(const ValueKey('diary-written-mark'));
+      expect(sprouts, findsNWidgets(3));
+      final rects = [for (var i = 0; i < 3; i++) tester.getRect(sprouts.at(i))]
+        ..sort(
+          (a, b) => a.top == b.top
+              ? a.left.compareTo(b.left)
+              : a.top.compareTo(b.top),
+        );
+      // 4534:3781 '다이어리 5': 1일 (199.49, 338.79), 2일 (244, 339),
+      // 9일 (244, 405). 16.22×16.49.
+      expect(rects[0].left, closeTo(199.49, 1));
+      expect(rects[0].top, closeTo(338.79, 1));
+      expect(rects[1].left, closeTo(244, 1));
+      expect(rects[1].top, closeTo(339, 1));
+      expect(rects[2].left, closeTo(244, 1));
+      expect(rects[2].top, closeTo(405, 1));
+      expect(rects[0].width, closeTo(16.22, 0.1));
+      expect(rects[0].height, closeTo(16.49, 0.1));
+    });
+
     testWidgets('그 달의 날짜를 빠짐없이 그린다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(

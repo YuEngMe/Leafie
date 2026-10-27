@@ -613,6 +613,7 @@ class _DayCell extends StatelessWidget {
     final dayItems = value == null
         ? const <CalendarItemData>[]
         : items.where((item) => _sameDay(item.date, value)).toList();
+    final marks = _marksFor(dayItems);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: value == null ? null : () => onSelect(value),
@@ -646,24 +647,62 @@ class _DayCell extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // 3341:426 / 3341:455 물방울 17.045x23.729, 셀 기준 (29.07, 27.59).
-                  // 일정 종류와 무관하게 '이 날 뭔가 있다' 표시 하나만 둔다.
-                  if (dayItems.isNotEmpty)
-                    Positioned(
-                      left: 29.07,
-                      top: 27.59,
-                      width: 17.045,
-                      height: 23.729,
-                      child: SvgPicture.asset(
-                        'assets/images/calendar_day_drop.svg',
-                        fit: BoxFit.fill,
-                      ),
-                    ),
+                  for (final (i, mark) in marks.indexed)
+                    _markAt(mark, shift: _kMarkShift * (marks.length - 1 - i)),
                 ],
               ),
       ),
     );
   }
+}
+
+/// 날짜 칸 표식 종류. 그리는 순서이기도 하다(뒤가 위에 겹친다).
+enum _DayMark { repot, fertilize, water }
+
+/// 날짜 칸 표식(켈린더 2, 4534:4708). 칸 왼쪽 위 기준 자리와 크기.
+/// 물 4534:5066, 비료 6051:4957, 분갈이 6051:4953.
+const Map<_DayMark, Rect> _kMarkRects = {
+  _DayMark.water: Rect.fromLTWH(29.08, 27.59, 17.04, 23.73),
+  _DayMark.fertilize: Rect.fromLTWH(28.37, 30.83, 14.24, 22.93),
+  _DayMark.repot: Rect.fromLTWH(27.57, 32.68, 19, 17.61),
+};
+
+/// 표식이 여럿이면 앞 표식이 이만큼씩 왼쪽으로 비킨다. 시안의 유일한 예
+/// (10일 칸: 분갈이 6089:2474가 혼자일 때 27.57 → 18.30, 물이 그 위)에서
+/// 읽은 값이다. 세 개 이상·비료 조합은 시안에 없어 같은 규칙을 늘려 쓴다.
+const double _kMarkShift = 27.57 - 18.30;
+
+/// 그날 일정을 표식 종류로 묶는다. 전용 그림이 없는 종류(가지치기·상태
+/// 기록)는 카드처럼 화분으로 그리고, 같은 그림은 한 번만 그린다.
+List<_DayMark> _marksFor(List<CalendarItemData> items) {
+  final marks = {
+    for (final item in items)
+      switch (item.careType) {
+        'WATERING' => _DayMark.water,
+        'FERTILIZING' => _DayMark.fertilize,
+        _ => _DayMark.repot,
+      },
+  }.toList()..sort((a, b) => a.index.compareTo(b.index));
+  return marks;
+}
+
+Widget _markAt(_DayMark mark, {required double shift}) {
+  final rect = _kMarkRects[mark]!;
+  return Positioned(
+    key: ValueKey('calendar-cell-mark-${mark.name}'),
+    left: rect.left - shift,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    child: switch (mark) {
+      _DayMark.water => SvgPicture.asset(
+        'assets/images/calendar_day_drop.svg',
+        fit: BoxFit.fill,
+      ),
+      _DayMark.fertilize => const CalendarEventIcon(type: 'FERTILIZING'),
+      _DayMark.repot => const CalendarEventIcon(type: 'REPOTTING'),
+    },
+  );
 }
 
 /// 월간 아래 '오늘 할 일' 목록 (3341:362 + 3429:675/689).

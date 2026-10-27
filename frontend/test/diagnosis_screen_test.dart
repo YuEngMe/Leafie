@@ -69,12 +69,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // 디자이너 수정(메모 6049:2755 "아래 검은바 좀 올리고 / 글자 안으로
+    // 땡김"): 막대 4534:20064가 y 801·높이 73으로 14 올라갔고, 글자
+    // 4534:20066/20067은 10씩 안쪽·12 위(중심 y 831.57)로 옮겨졌다.
+    final bar = tester.getRect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is ColoredBox && w.color == Colors.black.withValues(alpha: 0.6),
+      ),
+    );
+    expect(bar.top, closeTo(801, 1));
+    expect(bar.bottom, closeTo(874, 1));
     final retake = tester.getRect(find.text('다시 촬영'));
     final submit = tester.getRect(find.text('다음'));
-    expect(retake.center.dy, closeTo(843.57, 2));
-    expect(submit.center.dy, closeTo(843.57, 2));
-    expect(retake.left, closeTo(30, 1));
-    expect(submit.right, closeTo(371, 1));
+    expect(retake.center.dy, closeTo(831.57, 2));
+    expect(submit.center.dy, closeTo(831.57, 2));
+    expect(retake.left, closeTo(40, 1));
+    expect(submit.right, closeTo(361.04, 1));
     // 예전엔 안전 영역을 뺀 25 안에 버튼을 넣어 글자 칸이 9로 잘렸다.
     for (final key in ['diagnosis-retake-button', 'diagnosis-submit-button']) {
       expect(tester.getSize(find.byKey(ValueKey(key))).height, 44);

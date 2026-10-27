@@ -131,23 +131,26 @@ abstract final class AppLayout {
   static const double registrationNameFieldsGap = 51.83;
   // 성격 화면 요소는 PageView의 Stack(top=0)을 기준으로 놓인다. 그 top=0의
   // 절대 y는 상태바 46 + 앱바 46 + 진행바 21.425 + 간격 12 = 125.425다.
-  // 아래 상수는 시안 4534:195의 절대 y에서 이 125.425를 뺀 값이다.
-  // (헤드라인 152 / 태그 190 / 캐릭터 216 / 말풍선 504 / 인디케이터 590)
+  // 아래 상수는 시안의 절대 y에서 이 125.425를 뺀 값이다. 헤드라인·태그는
+  // 4534:195 그대로(152 / 190), 캐릭터·말풍선·점은 디자이너가 고친
+  // 6049:2564(충청도 성격, 메모 6049:2648)를 따른다(244 / 581 / 691).
   // 시안 헤드라인 상자 152·글자 156. Flutter 20px 제목은 글자가 상자 top
   // 5 아래라 1 올린 151(125.425 + 26)에 둔다.
   static const double personalityTitleTop = 26;
   static const double personalityTagsTop = 65; // 시안 190
-  // 시안 5460:721: 몸통(circle 기준) 폭 139, 바닥 y=488.85. 헤어는 박스 위로
-  // 솟으므로 박스 위치를 헤어 꼭대기가 아닌 몸통 바닥에 맞춘다.
-  // 폭 155 = 139 / 0.897(circle PNG 불투명 영역 비율).
-  static const double personalityCharacterWidth = 155;
-  static const double personalityCharacterTop = 227.5; // 몸통 바닥 시안 489
-  // 말풍선 4534:174: 위로 꼬리가 난 Union(253x47.05)의 top이 504.68이고,
-  // SVG는 그림자 여백(사방 4.126)을 포함해 위가 500.55다.
-  static const double personalityBubbleTop = 375.125; // 시안 SVG 500.55
-  // 대사(4534:178) 글자 가운데 532.23 → Flutter 글자 상자 top 520.73.
-  static const double personalityBubbleTextTop = 395.305;
-  static const double personalityDotsTop = 465; // 시안 590
+  // 시안 6049:2633: 몸통(circle 기준) 폭 156, 바닥 y=550.22(이전 139·488.85
+  // 에서 1.12배). 헤어는 박스 위로 솟으므로 박스 위치를 헤어 꼭대기가 아닌
+  // 몸통 바닥에 맞춘다. 폭 = 156 / 0.897(circle PNG 불투명 영역 비율).
+  // 박스 top = 몸통 바닥 − 폭 × 612/698(박스 위→몸통 바닥) − 125.425.
+  static const double personalityCharacterWidth = 156 / 0.897;
+  static const double personalityCharacterTop =
+      550.22 - personalityCharacterWidth * 612 / 698 - 125.425;
+  // 말풍선 6049:2604: 위로 꼬리가 난 Union(253x47.05)의 top이 581이고,
+  // SVG는 그림자 여백(사방 4.126)을 포함해 위가 576.87다.
+  static const double personalityBubbleTop = 576.87 - 125.425;
+  // 대사(6049:2607) 글자 가운데 608.55 → Flutter 글자 상자 top 597.05.
+  static const double personalityBubbleTextTop = 597.05 - 125.425;
+  static const double personalityDotsTop = 691 - 125.425; // 6049:2595
   static const double appearanceCharacterWidth = 232;
   static const double appearanceCharacterTop = 64;
   static const double appearancePaletteTop = 399;
