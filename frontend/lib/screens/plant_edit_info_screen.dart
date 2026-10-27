@@ -78,22 +78,14 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
       useSafeArea: false,
       builder: (_) => PlantDatePickerSheet(
         initialDate: current ?? _todayInSeoul(),
+        // 오늘 뒤의 날짜는 휠에 아예 없다.
+        maximumDate: _todayInSeoul(),
         buttonLabel: '수정하기',
         firstYear: thisYear - 20,
         lastYear: thisYear,
       ),
     );
     if (!mounted || picked == null) return;
-    if (DateTime(
-      picked.year,
-      picked.month,
-      picked.day,
-    ).isAfter(_todayInSeoul())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')),
-      );
-      return;
-    }
     setState(() {
       if (watered) {
         _wateredOn = picked;

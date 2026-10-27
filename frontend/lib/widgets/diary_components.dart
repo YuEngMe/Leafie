@@ -497,25 +497,28 @@ class DiaryPhotoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = photoPath;
     final url = photoUrl;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      // 테두리를 사진 위에 그린다. 뒤에 두면 사진이 좌·우·아래 선을 덮는다
-      // (시안 4534:4244는 사진 위로 주황 선이 보인다).
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
-        child: path == null && url == null
-            // 2739:39799 아이콘 y=244, 2739:39798 문구 y=329 — 칸 top 144.74 기준
-            // (2026-09-15 시안 재확인: 본문칸과의 간격이 12px 좁아졌다).
-            ? Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  // x=153 → 칸(46) 기준 107.
-                  padding: const EdgeInsets.only(
-                    left: 153 - 46,
-                    top: 244 - 144.74,
-                  ),
+    // 테두리를 사진 위에 그린다. 뒤에 두면 사진이 좌·우·아래 선을 덮는다
+    // (시안 4534:4244는 사진 위로 주황 선이 보인다).
+    //
+    // 디자이너 요청(2026-10): 빈 칸은 아이콘·문구만 눌리고 배경은 안 눌린다.
+    // 사진이 있으면 사진을 눌러 바꾼다(바꿀 다른 길이 없다).
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(border: Border.all(color: kOrangeMain)),
+      child: path == null && url == null
+          // 2739:39799 아이콘 y=244, 2739:39798 문구 y=329 — 칸 top 144.74 기준
+          // (2026-09-15 시안 재확인: 본문칸과의 간격이 12px 좁아졌다).
+          ? Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                // x=153 → 칸(46) 기준 107.
+                padding: const EdgeInsets.only(
+                  left: 153 - 46,
+                  top: 244 - 144.74,
+                ),
+                child: GestureDetector(
+                  onTap: onTap,
+                  behavior: HitTestBehavior.opaque,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -529,10 +532,14 @@ class DiaryPhotoBox extends StatelessWidget {
                     ],
                   ),
                 ),
-              )
-            // 사진은 가로선 아래(3496:10751 y=183.38~)만 채운다. 위는 날짜 줄이 쓴다.
-            : Padding(
-                padding: const EdgeInsets.only(top: 183.36 - 144.74),
+              ),
+            )
+          // 사진은 가로선 아래(3496:10751 y=183.38~)만 채운다. 위는 날짜 줄이 쓴다.
+          : Padding(
+              padding: const EdgeInsets.only(top: 183.36 - 144.74),
+              child: GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
                 child: path != null
                     ? Image.file(File(path), fit: BoxFit.cover)
                     : Image.network(
@@ -546,7 +553,7 @@ class DiaryPhotoBox extends StatelessWidget {
                         ),
                       ),
               ),
-      ),
+            ),
     );
   }
 }

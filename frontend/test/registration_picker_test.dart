@@ -184,6 +184,98 @@ void main() {
     await tester.pumpAndSettle();
     expect(picked, DateTime(2005, 6, 15));
   });
+  group('최대 날짜 뒤는 휠에 아예 없다', () {
+    Future<DateTime? Function()> openSheet(
+      WidgetTester tester, {
+      required DateTime initialDate,
+    }) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      DateTime? picked;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  picked = await showModalBottomSheet<DateTime>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => PlantDatePickerSheet(
+                      initialDate: initialDate,
+                      maximumDate: DateTime(2026, 10, 16, 15, 30),
+                    ),
+                  );
+                },
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      return () => picked;
+    }
+
+    Future<void> scrollRows(WidgetTester tester, String wheel, int rows) async {
+      // 위로 끌면 다음 줄로 간다. 드래그 인식 여유만큼 더 끈다.
+      final sign = rows.sign.toDouble();
+      await tester.drag(
+        find.byKey(ValueKey(wheel)),
+        Offset(
+          0,
+          -sign *
+              (PlantDatePickerSheet.rowExtent * rows.abs() + kDragSlopDefault),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('최대 연·월·일 뒤의 줄을 그리지 않는다', (tester) async {
+      await openSheet(tester, initialDate: DateTime(2026, 10, 15));
+
+      expect(find.text('2026년'), findsOneWidget);
+      expect(find.text('2027년'), findsNothing);
+      expect(find.text('10월'), findsOneWidget);
+      expect(find.text('11월'), findsNothing);
+      expect(find.text('16일'), findsOneWidget);
+      expect(find.text('17일'), findsNothing);
+    });
+
+    testWidgets('지난 해로 옮기면 12월·31일까지 다시 고를 수 있다', (tester) async {
+      await openSheet(tester, initialDate: DateTime(2026, 10, 15));
+
+      await scrollRows(tester, 'date_year_wheel', -1);
+
+      expect(find.text('2025년'), findsOneWidget);
+      expect(find.text('11월'), findsOneWidget);
+      expect(find.text('17일'), findsOneWidget);
+    });
+
+    testWidgets('최대 날짜보다 늦은 월·일을 든 채 최대 연도로 오면 최대 날짜로 당긴다', (tester) async {
+      final picked = await openSheet(
+        tester,
+        initialDate: DateTime(2025, 12, 31),
+      );
+
+      await scrollRows(tester, 'date_year_wheel', 1);
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+
+      expect(picked(), DateTime(2026, 10, 16));
+    });
+
+    testWidgets('최대 날짜보다 늦은 날로 열려도 최대 날짜로 시작한다', (tester) async {
+      final picked = await openSheet(tester, initialDate: DateTime(2027, 3, 3));
+
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+
+      expect(picked(), DateTime(2026, 10, 16));
+    });
+  });
 
   group('컬러 휠 관성', () {
     Future<List<int>> pumpWheel(WidgetTester tester) async {
