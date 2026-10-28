@@ -1999,6 +1999,56 @@ void main() {
 
     Finder characters() => find.byKey(const ValueKey('home-character-pet'));
 
+    testWidgets('> 를 누르면 지금 캐릭터는 왼쪽으로, 다음 캐릭터는 오른쪽에서 밀려 들어온다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: const HomePlant(
+              id: 'plant-a',
+              name: '첫째',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialGaugesExpanded: false,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+              _managedPlant('plant-b', '둘째'),
+            ]),
+            loadHomeForPlant: (plantId) async => dashboard(plantId!),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final restingX = tester.getCenter(characters()).dx;
+
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 150));
+
+      // 전환 중에는 두 캐릭터가 함께 있고, 하나는 왼쪽·하나는 오른쪽에 있다.
+      final xs = characters().evaluate().map((e) {
+        final box = e.renderObject! as RenderBox;
+        return box.localToGlobal(box.size.center(Offset.zero)).dx;
+      }).toList()..sort();
+      expect(xs, hasLength(2));
+      expect(xs.first, lessThan(restingX - 20));
+      expect(xs.last, greaterThan(restingX + 20));
+      expect(find.text('첫째 방'), findsOneWidget);
+      expect(find.text('둘째 방'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(characters(), findsOneWidget);
+      expect(tester.getCenter(characters()).dx, moreOrLessEquals(restingX));
+      expect(find.text('첫째 방'), findsNothing);
+      expect(find.text('둘째 방'), findsOneWidget);
+    });
+
     testWidgets('캐릭터를 좌우로 문지르는 동안 계속 흔들리고 웃는다', (tester) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
