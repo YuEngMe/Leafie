@@ -1997,6 +1997,58 @@ void main() {
           unreadNotificationCount: 0,
         );
 
+    Finder characters() => find.byKey(const ValueKey('home-character-pet'));
+
+    testWidgets('캐릭터를 좌우로 문지르는 동안 계속 흔들리고 웃는다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialScene: HomeScene.idle,
+            initialGaugesExpanded: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Set<String> faces() => tester
+          .widgetList<Image>(
+            find.descendant(of: characters(), matching: find.byType(Image)),
+          )
+          .map((image) => (image.image as AssetImage).assetName)
+          .where((asset) => asset.contains('/face_'))
+          .toSet();
+      bool tilted() => tester
+          .widgetList<Transform>(
+            find.descendant(of: characters(), matching: find.byType(Transform)),
+          )
+          .any((t) => t.transform.storage[1].abs() > 1e-4);
+
+      final gesture = await tester.startGesture(tester.getCenter(characters()));
+      var tiltedLate = false;
+      // 1.6초 동안 좌우로 문지른다. 탭 한 번의 흔들림(550ms)보다 훨씬 길다.
+      for (var i = 0; i < 16; i++) {
+        await gesture.moveBy(Offset(i.isEven ? 30 : -30, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        if (i >= 8 && tilted()) tiltedLate = true;
+      }
+      expect(tiltedLate, isTrue);
+      expect(faces(), contains(_happyFace));
+
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(faces(), {_defaultFace});
+    });
+
     testWidgets('조도·습도 게이지는 0에서 현재값까지 차오른다', (tester) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;

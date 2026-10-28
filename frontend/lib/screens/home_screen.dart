@@ -223,6 +223,8 @@ class _HomeScreenState extends State<HomeScreen>
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+  // 캐릭터를 좌우로 문지르는 중이면 쓰담 반응을 계속 이어 간다(디자이너 답 7-B).
+  bool _rubbing = false;
   final _tabShellKey = GlobalKey<MainTabShellState>();
 
   /// 내 캐릭터에서 돌아올 때마다 올려 캘린더 탭을 새로 만든다.
@@ -312,6 +314,23 @@ class _HomeScreenState extends State<HomeScreen>
     _petController.forward(from: 0);
   }
 
+  void _startRub() {
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    setState(() => _rubbing = true);
+    _petController.forward(from: 0);
+  }
+
+  /// 문지르는 동안 흔들림이 끝날 때마다 다시 흔든다. 도중에 처음부터 다시
+  /// 돌리면 흔들림이 끊겨 떨리는 것처럼 보여서 끝난 뒤에만 잇는다.
+  void _continueRub() {
+    if (!_rubbing || _petController.isAnimating) return;
+    _petController.forward(from: 0);
+  }
+
+  void _endRub() {
+    if (_rubbing) setState(() => _rubbing = false);
+  }
+
   void _waterPlant() {
     _showCareToast('물을 줬어요!');
     if (MediaQuery.disableAnimationsOf(context)) return;
@@ -333,6 +352,7 @@ class _HomeScreenState extends State<HomeScreen>
       _wateringController.isAnimating ||
       _wateringAfterglow ||
       _sunActive ||
+      _rubbing ||
       _petController.isAnimating;
 
   /// 물이 주둥이에서 떨어지는 구간(0.2~0.85)의 표시 세기(0~1).
@@ -621,6 +641,7 @@ class _HomeScreenState extends State<HomeScreen>
     _raysController.value = 0;
     _wateringController.value = 0;
     _petController.value = 0;
+    _rubbing = false;
     _sunActive = false;
     _wateringAfterglow = false;
     _careToastLabel = null;
@@ -1257,6 +1278,10 @@ class _HomeScreenState extends State<HomeScreen>
                         key: const ValueKey('home-character-pet'),
                         behavior: HitTestBehavior.opaque,
                         onTap: _petCharacter,
+                        onHorizontalDragStart: (_) => _startRub(),
+                        onHorizontalDragUpdate: (_) => _continueRub(),
+                        onHorizontalDragEnd: (_) => _endRub(),
+                        onHorizontalDragCancel: _endRub,
                         child: AnimatedBuilder(
                           // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
                           // 표정 전환도 여기서 함께 재평가된다.
