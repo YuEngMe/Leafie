@@ -61,7 +61,7 @@ class MainTabShellState extends State<MainTabShell> {
             // 리뉴얼 시안(4534:3044)은 마이페이지에도 탭 바를 둔다. 그래서
             // 화면을 따로 올리지 않고 넷째 탭으로 둔다.
             _visited.contains(3)
-                ? const MyPageScreen(inTab: true)
+                ? MyPageScreen(inTab: true, onNavTap: select)
                 : const SizedBox.shrink(),
           ],
         ),

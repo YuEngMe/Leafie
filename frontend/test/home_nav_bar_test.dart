@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
@@ -86,8 +87,13 @@ void main() {
       ),
       findsNothing,
     );
-    await tester.tap(_navIcon(FigmaNavIcon.home));
+    // 내 정보 수정에서도 탭 바로 다른 탭에 바로 간다(4534:2939).
+    await tester.tap(find.text('내 정보 수정'));
     await tester.pumpAndSettle();
+    expect(find.byType(EditProfileScreen), findsOneWidget);
+    await tester.tap(_navIcon(FigmaNavIcon.home).last);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditProfileScreen), findsNothing);
     expect(find.text('home-tab'), findsOneWidget);
     await tester.tap(_navIcon(FigmaNavIcon.calendar));
     await tester.pumpAndSettle();

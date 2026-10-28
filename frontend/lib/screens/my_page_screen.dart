@@ -8,6 +8,7 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
@@ -25,6 +26,7 @@ class MyPageScreen extends StatefulWidget {
     this.user,
     this.repository,
     this.inTab = false,
+    this.onNavTap,
   });
 
   /// 로그인한 사용자. 비워 두면 현재 세션에서 읽는다. 테스트에서만 넘긴다.
@@ -33,6 +35,9 @@ class MyPageScreen extends StatefulWidget {
 
   /// 하단 탭 묶음 안의 탭이면 true. 뒤로 꺾쇠를 그리지 않는다.
   final bool inTab;
+
+  /// 탭 묶음의 탭 고르기. 내 정보 수정의 탭 바가 이것으로 다른 탭에 간다.
+  final ValueChanged<FigmaNavIcon>? onNavTap;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -110,7 +115,18 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final next = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => EditProfileScreen(repository: _repository),
+        builder: (routeContext) => EditProfileScreen(
+          repository: _repository,
+          onNavTap: switch (widget.onNavTap) {
+            null => null,
+            final select => (tab) {
+              // 마이 탭이면 마이페이지로만 돌아가고, 다른 탭이면 돌아간 뒤
+              // 그 탭을 고른다.
+              Navigator.pop(routeContext);
+              if (tab != FigmaNavIcon.my) select(tab);
+            },
+          },
+        ),
       ),
     );
     if (next == null || !mounted) return;

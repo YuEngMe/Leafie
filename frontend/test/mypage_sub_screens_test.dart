@@ -12,7 +12,10 @@ import 'package:yeso_plant/screens/withdraw_screen.dart';
 import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/figma_glyphs.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 
@@ -162,14 +165,40 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('변경하기'));
       await tester.pumpAndSettle();
-      // 2353:440 토스트가 잠깐 떴다가 돌아간다.
+      // 2353:440 토스트가 잠깐 떴다가 돌아간다. 리뉴얼 시안(4534:3041)은
+      // 탭 바 위 y 744에 띄운다.
       expect(find.text('닉네임 변경이 완료되었어요!'), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(LeafieToast)).top,
+        closeTo(744 - 46, 1),
+      );
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
 
       expect(returned, '다다다');
       expect(repository.nickname, '다다다');
     });
+  });
+
+  testWidgets('내 정보 수정도 하단 탭 바를 둔다 (리뉴얼 시안 4534:2939)', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    FigmaNavIcon? tapped;
+    await tester.pumpWidget(
+      MaterialApp(home: EditProfileScreen(onNavTap: (tab) => tapped = tab)),
+    );
+    await tester.pumpAndSettle();
+
+    final nav = tester.getRect(find.byType(AppBottomNav));
+    expect(nav.top, closeTo(795, 1));
+    expect(nav.bottom, closeTo(874, 1));
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) => w is FigmaBottomNavIcon && w.icon == FigmaNavIcon.calendar,
+      ),
+    );
+    expect(tapped, FigmaNavIcon.calendar);
   });
 
   group('회원 탈퇴', () {
