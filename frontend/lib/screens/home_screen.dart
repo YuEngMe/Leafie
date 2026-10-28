@@ -223,6 +223,8 @@ class _HomeScreenState extends State<HomeScreen>
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+  // 우편함을 열기 전 편지가 있는지 확인하는 중이면 다시 누른 탭을 무시한다.
+  bool _checkingMailbox = false;
   final _tabShellKey = GlobalKey<MainTabShellState>();
 
   /// 내 캐릭터에서 돌아올 때마다 올려 캘린더 탭을 새로 만든다.
@@ -575,12 +577,29 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openMailbox(String? plantId) async {
+    if (_checkingMailbox || _mailboxOpen) return;
+    // 편지가 하나도 없으면 빈 우편함 창을 띄우지 않고 아무 반응도 하지
+    // 않는다(디자이너 답 4-C). 목록을 못 불러오면 우편함이 직접 오류를
+    // 보여 주도록 그대로 연다.
+    List<PlantLetter>? letters;
+    if (plantId != null) {
+      _checkingMailbox = true;
+      try {
+        letters = await _letterRepository.listLetters(plantId);
+      } catch (_) {
+        letters = null;
+      } finally {
+        _checkingMailbox = false;
+      }
+      if (!mounted || (letters != null && letters.isEmpty)) return;
+    }
     setState(() => _mailboxOpen = true);
     try {
       await showPlantMailbox(
         context,
         plantId: plantId,
         repository: _letterRepository,
+        initialLetters: letters,
       );
     } finally {
       if (mounted) setState(() => _mailboxOpen = false);
