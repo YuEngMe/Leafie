@@ -1846,6 +1846,7 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       currentLabel: content.currentLabel,
       maxLabel: content.maxLabel,
       alert: content.alert,
+      animateFill: true,
     ),
   );
 }

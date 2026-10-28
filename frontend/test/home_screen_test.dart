@@ -1972,6 +1972,88 @@ void main() {
     });
   });
 
+
+  group('홈 모션 2차 (디자이너 답 5-A·7-B·9-B)', () {
+    HomeDashboardData dashboard(String plantId, {SensorAssessment? sensor}) =>
+        HomeDashboardData(
+          plant: HomePlantData(
+            id: plantId,
+            nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+            personalityType: 'OUTGOING',
+            colorId: 'color_orange',
+            hairId: 'hair_sprout',
+            startedOn: '2026-05-01',
+            daysTogether: 3,
+            primaryPhotoUrl: null,
+          ),
+          room: HomeRoomData(
+            backgroundPhase: 'DAY',
+            dialogueKey: 'NORMAL',
+            dialogue: null,
+            sensor: sensor,
+          ),
+          todayEvents: const [],
+          unreadLetterCount: 0,
+          unreadNotificationCount: 0,
+        );
+
+    testWidgets('조도·습도 게이지는 0에서 현재값까지 차오른다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const sensor = SensorAssessment(
+        connection: SensorConnection.active,
+        soil: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'relative_percent',
+          value: 60,
+          lower: 40,
+          upper: 90,
+        ),
+        light: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'lux_hours',
+          value: 30000,
+          lower: 60000,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => dashboard('plant-a', sensor: sensor),
+          ),
+        ),
+      );
+      // 응답이 들어와 게이지가 처음 그려진 직후.
+      for (var i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+
+      double fill() {
+        final boxes = tester
+            .widgetList<FractionallySizedBox>(
+              find.descendant(
+                of: find.byKey(const ValueKey('home-gauge-humidity')),
+                matching: find.byType(FractionallySizedBox),
+              ),
+            )
+            .toList();
+        return boxes.last.widthFactor!;
+      }
+
+      expect(fill(), lessThan(0.1));
+      await tester.pump(const Duration(milliseconds: 300));
+      final mid = fill();
+      expect(mid, greaterThan(0.05));
+      expect(mid, lessThan(0.6));
+      await tester.pumpAndSettle();
+      expect(fill(), moreOrLessEquals(0.6));
+    });
+  });
 }
 
 class _FakeNotificationRepository implements NotificationRepository {
