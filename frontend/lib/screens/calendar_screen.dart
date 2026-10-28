@@ -13,7 +13,6 @@ import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
-import 'package:yeso_plant/widgets/plant_character_art.dart';
 
 enum CalendarViewMode { month, week }
 
@@ -22,8 +21,6 @@ class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
     super.key,
     this.plantId,
-    this.plantName,
-    this.plantPhotoUrl,
     this.repository,
     this.loadHome,
     this.today,
@@ -32,8 +29,6 @@ class CalendarScreen extends StatefulWidget {
   });
 
   final String? plantId;
-  final String? plantName;
-  final String? plantPhotoUrl;
   final CalendarRepository? repository;
   final Future<HomeDashboardData> Function()? loadHome;
   final DateTime? today;
@@ -52,8 +47,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _visibleMonth = DateTime(_today.year, _today.month);
   CalendarViewMode _mode = CalendarViewMode.month;
   String? _plantId;
-  String? _plantName;
-  String? _plantPhotoUrl;
   List<CalendarItemData> _items = const [];
   bool _loading = true;
   String? _error;
@@ -64,8 +57,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _plantId = widget.plantId;
-    _plantName = widget.plantName;
-    _plantPhotoUrl = widget.plantPhotoUrl;
     _bootstrap();
   }
 
@@ -75,8 +66,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final home = await (widget.loadHome ?? HomeApi().fetchHome)();
         if (!mounted) return;
         _plantId = home.plant?.id;
-        _plantName = home.plant?.nickname;
-        _plantPhotoUrl = home.plant?.primaryPhotoUrl;
       } on LeafieApiException catch (error) {
         if (!mounted) return;
         setState(() {
@@ -239,12 +228,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     fit: BoxFit.fill,
                   ),
                 ),
-                _CalendarHeader(
-                  photoUrl: _plantPhotoUrl,
-                  plantName: _plantName,
-                  mode: _mode,
-                  onModeChanged: _changeMode,
-                ),
+                _CalendarHeader(mode: _mode, onModeChanged: _changeMode),
                 if (_mode == CalendarViewMode.month)
                   _MonthCalendar(
                     month: _visibleMonth,
@@ -357,15 +341,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 /// the circle and plus glyph themselves remain the unmodified Figma asset.
 
 class _CalendarHeader extends StatelessWidget {
-  const _CalendarHeader({
-    required this.photoUrl,
-    required this.plantName,
-    required this.mode,
-    required this.onModeChanged,
-  });
+  const _CalendarHeader({required this.mode, required this.onModeChanged});
 
-  final String? photoUrl;
-  final String? plantName;
   final CalendarViewMode mode;
   final ValueChanged<CalendarViewMode> onModeChanged;
 
@@ -373,38 +350,7 @@ class _CalendarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 3341:333 프로필 원 40.519.
-        Positioned(
-          left: 23,
-          top: 50,
-          width: 40.519,
-          height: 40.519,
-          child: Semantics(
-            label: plantName == null ? '식물 프로필' : '$plantName 프로필',
-            image: true,
-            child: ClipOval(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: kAppleGreen, width: 1),
-                ),
-                child: photoUrl == null
-                    ? const Padding(
-                        padding: EdgeInsets.all(5),
-                        child: PlantCharacterArt(width: 30.519),
-                      )
-                    : Image.network(
-                        photoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: PlantCharacterArt(width: 30.519),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ),
+        // 3341:333 왼쪽 위 식물 프로필 원은 디자이너 답(1-A)으로 뺐다.
         // 3345:667 '캘린더' 43x19 x=179 y=60 → 16 Medium. 타이틀 스타일(kTitleStyle)은 너무 컸다.
         const Positioned(
           left: 0,

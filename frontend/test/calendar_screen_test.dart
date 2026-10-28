@@ -20,7 +20,6 @@ void main() {
       MaterialApp(
         home: CalendarScreen(
           plantId: 'plant-1',
-          plantName: '새싹이',
           repository: repository,
           today: DateTime(2026, 7, 15),
         ),
@@ -237,6 +236,30 @@ void main() {
       ),
     ]);
     expect(repository.requests, hasLength(2));
+  });
+
+  group('디자이너 답 1-A·2-A', () {
+    testWidgets('왼쪽 위 식물 프로필 원을 그리지 않는다', (tester) async {
+      _setIPhone16ProViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CalendarScreen(
+            plantId: 'plant-1',
+            repository: _FakeCalendarRepository(items: const []),
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && (w.properties.label ?? '').contains('프로필'),
+        ),
+        findsNothing,
+      );
+    });
+
   });
 }
 

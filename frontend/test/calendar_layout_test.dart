@@ -624,7 +624,6 @@ Future<void> _pump(
     MaterialApp(
       home: CalendarScreen(
         plantId: 'plant-1',
-        plantName: '새싹이',
         repository: _StubRepository(items),
         today: DateTime(2026, 7, 15),
       ),

@@ -900,7 +900,6 @@ class _HomeScreenState extends State<HomeScreen>
       calendarBuilder: (_) => CalendarScreen(
         key: ValueKey('${plant?.id}#$_careDataVersion'),
         plantId: plant?.id,
-        plantName: plant?.name,
         showBottomNav: false,
       ),
     );
