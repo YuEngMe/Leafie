@@ -194,6 +194,43 @@ void main() {
     expect(find.byType(PlantPhotoIdentifyScreen), findsOneWidget);
   });
 
+  testWidgets('사진에서 식물을 인식하지 못하면 안내 후 카메라를 다시 연다 (디자이너 답 11-B)', (
+    WidgetTester tester,
+  ) async {
+    var cameraCalls = 0;
+    var identifyCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          photoPicker: () async {
+            cameraCalls++;
+            return File('assets/images/character/body_circle_yellow.png');
+          },
+          identifier: (_) async {
+            identifyCalls++;
+            throw const LeafieApiException(
+              code: 'SPECIES_IDENTIFICATION_FAILED',
+              message: '식물을 인식하지 못했어요. 다른 사진으로 다시 시도해 주세요.',
+              statusCode: 422,
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // 실패 화면에 머물지 않고 카메라를 다시 연다(두 번째 사진도 실패해 다시 연다).
+    expect(cameraCalls, greaterThanOrEqualTo(2));
+    expect(identifyCalls, greaterThanOrEqualTo(1));
+    expect(find.text('사진으로 찾지 못했어요'), findsNothing);
+    expect(find.text('식물을 인식하지 못했어요. 다시 찍어 주세요.'), findsOneWidget);
+  });
+
   testWidgets('카메라를 쓸 수 없으면 한국어 안내 후 갤러리로 계속한다', (WidgetTester tester) async {
     var cameraCalls = 0;
     var galleryCalls = 0;
