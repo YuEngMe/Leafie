@@ -72,6 +72,20 @@ void main() {
     expect(find.text('알림이 설정되었어요!'), findsNothing);
   });
 
+  testWidgets('앱 알림을 끄면 해제 토스트를 잠깐 띄운다 (4534:3094)', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
+    await tester.tap(find.byType(FigmaToggleSwitch));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+
+    await tester.tap(find.byType(FigmaToggleSwitch));
+    await tester.pump();
+
+    expect(find.text('알림이 해제되었어요!'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('알림이 해제되었어요!'), findsNothing);
+  });
+
   testWidgets('로그아웃을 누르면 확인 모달이 시안 딤과 함께 뜬다', (tester) async {
     await tester.pumpWidget(MaterialApp(home: MyPageScreen(user: _mockUser())));
 
@@ -163,18 +177,16 @@ void main() {
     expectAt('앱 알림', find.text('앱 알림'), 52, 411.76 - 2);
     // 회원 탈퇴만 앞 행과 49가 아니라 52.93 간격이다.
     expectAt('회원 탈퇴', find.text('회원 탈퇴'), 52, 464.69 - 2);
+    // 리뉴얼 시안(4534:3044, 6049:2481): 로그아웃은 카드 맨 아래 행이다.
+    expectAt('로그아웃', find.text('로그아웃'), 52, 514 - 2);
     expect(
       tester.getSize(find.byType(ProfileMenuCard)).height,
-      closeTo(295, .01),
+      closeTo(351, .01),
     );
     expect(tester.widget<Text>(find.text('프로필 관리')).style!.color, kTextDark);
 
-    // 카드는 폭 344인데 버튼만 334다(2319:23). 세로 위치는 하단 SafeArea가
-    // 정하므로 여기(상태바 없는 조건)서는 보지 않는다 —
-    // device_safe_area_test.dart가 실기기 조건에서 확인한다.
-    final button = tester.getRect(find.byType(PrimaryButton));
-    expect(button.left, closeTo(34, 1));
-    expect(button.width, closeTo(334, 1));
+    // 리뉴얼 시안에는 아래 큰 로그아웃 버튼이 없다.
+    expect(find.byType(PrimaryButton), findsNothing);
 
     // Switch가 48px 터치 영역을 차지해 rect는 시안보다 크다. 트랙이
     // 앉는 자리는 중심으로 본다.

@@ -55,10 +55,6 @@ void main() {
     );
   });
 
-  testWidgets('마이페이지 하단 버튼이 시안 자리에 앉는다', (tester) async {
-    await expectButtonAtMock(tester, '마이페이지', const MyPageScreen());
-  });
-
   testWidgets('비밀번호 변경 하단 버튼이 시안 자리에 앉는다', (tester) async {
     await expectButtonAtMock(
       tester,
@@ -88,9 +84,7 @@ void main() {
     tester.view.padding = _deviceInsets;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      const MaterialApp(home: HomeScreen()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pumpAndSettle();
 
     // SafeArea 안에 두면 홈 인디케이터(34px)만큼 떠서 빈 띠가 생긴다.

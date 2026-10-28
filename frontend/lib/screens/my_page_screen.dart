@@ -8,24 +8,31 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
-import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
-import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
-/// Figma "마이페이지_앱 진입"(2319:2). 알림 토글 켬은 2353:577,
-/// 로그아웃 확인 모달은 2353:624.
+/// Figma 마이페이지 리뉴얼(6247:1145, 기본 4534:3044). 로그아웃 확인
+/// 모달은 2353:624.
 ///
-/// 시안에 하단 네비게이션 바가 없다. 홈에서 밀어 올리는 화면이라
-/// 뒤로가기로 빠져나온다.
+/// 시안은 하단 탭 바를 두고 뒤로 꺾쇠가 없다. 그래서 홈 탭 묶음
+/// (MainTabShell) 안에서는 [inTab]으로 꺾쇠를 빼고 탭 바는 묶음이 그린다.
+/// 독립 화면으로 열 때(예: 다이어리에서 연 캘린더)는 꺾쇠로 돌아간다.
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({super.key, this.user, this.repository});
+  const MyPageScreen({
+    super.key,
+    this.user,
+    this.repository,
+    this.inTab = false,
+  });
 
   /// 로그인한 사용자. 비워 두면 현재 세션에서 읽는다. 테스트에서만 넘긴다.
   final User? user;
   final UserRepository? repository;
+
+  /// 하단 탭 묶음 안의 탭이면 true. 뒤로 꺾쇠를 그리지 않는다.
+  final bool inTab;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -119,15 +126,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Future<void> _updateNotifications(bool value) async {
     final previous = _notificationsEnabled;
     setState(() => _notificationsEnabled = value);
-    // 3562:196 — 켤 때만 "알림이 설정되었어요!" 토스트(y 744, 종 아이콘).
-    if (value) {
-      showLeafieToast(
-        context,
-        text: '알림이 설정되었어요!',
-        top: MediaQuery.paddingOf(context).top + (744 - 46),
-        bell: true,
-      );
-    }
+    // 3562:196 켤 때 "알림이 설정되었어요!", 4534:3094 끌 때 "알림이
+    // 해제되었어요!" 토스트(y 744, 종 아이콘).
+    showLeafieToast(
+      context,
+      text: value ? '알림이 설정되었어요!' : '알림이 해제되었어요!',
+      top: MediaQuery.paddingOf(context).top + (744 - 46),
+      bell: true,
+    );
     if (widget.user != null && widget.repository == null) return;
     try {
       final saved = await _repository.updateNotificationSettings(value);
@@ -143,9 +149,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
   // 시안 4534:3044의 '센서 기기 등록' → 기기연결(5732:849) 흐름.
   void _registerSensor() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<bool>(builder: (_) => const SensorPairingScreen()));
+    Navigator.of(context).push(
+      MaterialPageRoute<bool>(builder: (_) => const SensorPairingScreen()),
+    );
   }
 
   Future<void> _confirmSignOut() async {
@@ -165,7 +171,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '마이페이지'),
+      appBar: YesoAppBar(title: '마이페이지', showBack: !widget.inTab),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -198,23 +204,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     builder: (_) => WithdrawScreen(repository: _repository),
                   ),
                 ),
+                onSignOut: _confirmSignOut,
                 notificationsEnabled: _notificationsEnabled,
                 onNotificationsChanged: _updateNotifications,
-              ),
-              // 카드와 버튼 사이는 시안에서 338px이지만, 고정하면 작은 화면에서
-              // 넘친다. 버튼을 아래에 붙이고 여백으로 위치를 맞춘다.
-              const Spacer(),
-              // 버튼만 카드보다 좌우 5px씩 좁다(2319:23).
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppLayout.myPageButtonInset,
-                ),
-                child: PrimaryButton(
-                  label: '로그아웃',
-                  variant: PrimaryButtonVariant.enabled,
-                  textStyle: kLoginButtonStyle,
-                  onPressed: _confirmSignOut,
-                ),
               ),
             ],
           ),

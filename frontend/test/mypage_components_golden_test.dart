@@ -6,9 +6,9 @@ import 'package:yeso_plant/widgets/mypage_cards.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
 void main() {
-  testWidgets('마이페이지 카드와 토글 384x509 스냅샷', (tester) async {
-    // 센서 기기 등록 행이 추가돼 메뉴 카드가 한 행(49px) 커졌다.
-    tester.view.physicalSize = const Size(384, 509);
+  testWidgets('마이페이지 카드와 토글 384x565 스냅샷', (tester) async {
+    // 센서 기기 등록 행(49px)에 이어 리뉴얼 로그아웃 행으로 카드가 56 더 커졌다.
+    tester.view.physicalSize = const Size(384, 565);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -79,6 +79,7 @@ class _MypageGalleryState extends State<_MypageGallery> {
               onChangePassword: () {},
               onRegisterSensor: () {},
               onWithdraw: () {},
+              onSignOut: () {},
               notificationsEnabled: _notifications,
               onNotificationsChanged: (value) =>
                   setState(() => _notifications = value),
