@@ -165,6 +165,8 @@ void main() {
     expect(repository.completedEventIds, ['repot-1']);
     expect(repository.completedOn, [DateTime(2026, 7, 15)]);
     expect(repository.requests, hasLength(2));
+    // 완료 토스트(1.5초)가 걷힐 때까지 기다린다.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('지난 날짜 일정을 완료하면 그 날짜를 수행일로 보낸다', (tester) async {
@@ -199,6 +201,8 @@ void main() {
     expect(repository.completedEventIds, ['repot-1']);
     expect(repository.completedOn, [DateTime(2026, 7, 12)]);
     expect(repository.requests, hasLength(2));
+    // 완료 토스트(1.5초)가 걷힐 때까지 기다린다.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('일정 추가 시트에서 비료 주기를 골라 등록한다', (tester) async {
@@ -260,6 +264,48 @@ void main() {
       );
     });
 
+    Future<void> completeOn(
+      WidgetTester tester, {
+      required DateTime date,
+      String? tapDay,
+    }) async {
+      _setIPhone16ProViewport(tester);
+      final repository = _FakeCalendarRepository(
+        items: [_item(id: 'repot-1', date: date, careType: 'REPOTTING')],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CalendarScreen(
+            plantId: 'plant-1',
+            repository: repository,
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (tapDay != null) {
+        await tester.tap(find.text(tapDay).first);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.byKey(const ValueKey('calendar-complete-repot-1')));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('일정을 체크하면 완료 토스트를 잠깐 띄운다', (tester) async {
+      await completeOn(tester, date: DateTime(2026, 7, 15));
+
+      expect(find.text('일정을 완료했어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('일정을 완료했어요'), findsNothing);
+    });
+
+    testWidgets('미래 일정을 체크하면 오늘 한 일로 기록했다고 알려 준다', (tester) async {
+      await completeOn(tester, date: DateTime(2026, 7, 17), tapDay: '17');
+
+      expect(find.text('오늘 한 일로 기록했어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+    });
   });
 }
 

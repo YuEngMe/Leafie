@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 enum CalendarViewMode { month, week }
 
@@ -169,8 +171,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       // 지난 날짜의 일정을 뒤늦게 완료하면 그날 한 것으로 기록한다. 늘 오늘을
       // 보내면 다음 예정일이 실제보다 늦게 잡힌다. 서버는 미래 날짜를 받지
       // 않으므로 오늘을 넘지 않게 자른다.
-      final performedOn = item.date.isAfter(_today) ? _today : item.date;
+      final future = item.date.isAfter(_today);
+      final performedOn = future ? _today : item.date;
       await _repository.completeEvent(item.id, performedOn: performedOn);
+      if (mounted) {
+        // 체크한 일정이 목록에서 조용히 사라져 헷갈린다는 요청(디자이너 답
+        // 2-A). 미래 일정은 오늘 한 일로 기록되므로 그렇게 알려 준다.
+        // TODO(design): 문구는 디자이너 확정 전 임시 문구.
+        unawaited(
+          showLeafieToast(
+            context,
+            text: future ? '오늘 한 일로 기록했어요' : '일정을 완료했어요',
+            top: 744,
+          ),
+        );
+      }
       await _loadCalendar();
     } on LeafieApiException catch (error) {
       if (!mounted) return;
