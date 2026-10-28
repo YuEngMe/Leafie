@@ -6,7 +6,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
-import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -89,15 +88,11 @@ class _PlantPhotoIdentifyScreenState extends State<PlantPhotoIdentifyScreen> {
     try {
       final result = await (widget.identifier ?? _identifyPlant)(widget.photo);
       if (mounted) setState(() => _result = result);
-    } on LeafieApiException catch (e) {
-      if (!mounted) return;
-      // 서버가 사진에서 식물을 찾지 못했다고 답하면(422) 검색 화면이 카메라를
-      // 다시 열도록 true를 돌려준다. 연결 오류 같은 나머지는 실패 화면에 둔다.
-      if (e.statusCode == 422) {
-        Navigator.pop(context, true);
-      } else {
-        setState(() => _error = e);
-      }
+    } on SpeciesNotRecognizedException {
+      // 서버가 사진에서 식물을 찾지 못했다고 답하면 검색 화면이 카메라를 다시
+      // 열도록 true를 돌려준다. 사진 형식·연결 오류 같은 나머지는 실패 화면에
+      // 둔다(같은 422라도 인식 실패가 아니다).
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }

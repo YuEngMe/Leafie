@@ -209,10 +209,9 @@ void main() {
           },
           identifier: (_) async {
             identifyCalls++;
-            throw const LeafieApiException(
+            throw const SpeciesNotRecognizedException(
               code: 'SPECIES_IDENTIFICATION_FAILED',
               message: '식물을 인식하지 못했어요. 다른 사진으로 다시 시도해 주세요.',
-              statusCode: 422,
             );
           },
         ),
@@ -229,6 +228,36 @@ void main() {
     expect(identifyCalls, greaterThanOrEqualTo(1));
     expect(find.text('사진으로 찾지 못했어요'), findsNothing);
     expect(find.text('식물을 인식하지 못했어요. 다시 찍어 주세요.'), findsOneWidget);
+  });
+
+  testWidgets('인식 실패가 아닌 422(지원하지 않는 사진 형식)는 다시 찍기로 보내지 않는다', (
+    WidgetTester tester,
+  ) async {
+    var cameraCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          photoPicker: () async {
+            cameraCalls++;
+            return File('assets/images/character/body_circle_yellow.png');
+          },
+          identifier: (_) async => throw const LeafieApiException(
+            code: 'SPECIES_IMAGE_TYPE_UNSUPPORTED',
+            message: '식물 사진 인식은 JPG 또는 PNG 사진만 지원합니다.',
+            statusCode: 422,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(cameraCalls, 1);
+    expect(find.text('사진으로 찾지 못했어요'), findsOneWidget);
   });
 
   testWidgets('카메라를 쓸 수 없으면 한국어 안내 후 갤러리로 계속한다', (WidgetTester tester) async {
