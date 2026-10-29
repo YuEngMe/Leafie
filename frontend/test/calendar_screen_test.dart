@@ -20,7 +20,6 @@ void main() {
       MaterialApp(
         home: CalendarScreen(
           plantId: 'plant-1',
-          plantName: '새싹이',
           repository: repository,
           today: DateTime(2026, 7, 15),
         ),
@@ -166,6 +165,8 @@ void main() {
     expect(repository.completedEventIds, ['repot-1']);
     expect(repository.completedOn, [DateTime(2026, 7, 15)]);
     expect(repository.requests, hasLength(2));
+    // 완료 토스트(1.5초)가 걷힐 때까지 기다린다.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('지난 날짜 일정을 완료하면 그 날짜를 수행일로 보낸다', (tester) async {
@@ -200,6 +201,8 @@ void main() {
     expect(repository.completedEventIds, ['repot-1']);
     expect(repository.completedOn, [DateTime(2026, 7, 12)]);
     expect(repository.requests, hasLength(2));
+    // 완료 토스트(1.5초)가 걷힐 때까지 기다린다.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('일정 추가 시트에서 비료 주기를 골라 등록한다', (tester) async {
@@ -237,6 +240,72 @@ void main() {
       ),
     ]);
     expect(repository.requests, hasLength(2));
+  });
+
+  group('디자이너 답 1-A·2-A', () {
+    testWidgets('왼쪽 위 식물 프로필 원을 그리지 않는다', (tester) async {
+      _setIPhone16ProViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CalendarScreen(
+            plantId: 'plant-1',
+            repository: _FakeCalendarRepository(items: const []),
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && (w.properties.label ?? '').contains('프로필'),
+        ),
+        findsNothing,
+      );
+    });
+
+    Future<void> completeOn(
+      WidgetTester tester, {
+      required DateTime date,
+      String? tapDay,
+    }) async {
+      _setIPhone16ProViewport(tester);
+      final repository = _FakeCalendarRepository(
+        items: [_item(id: 'repot-1', date: date, careType: 'REPOTTING')],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CalendarScreen(
+            plantId: 'plant-1',
+            repository: repository,
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (tapDay != null) {
+        await tester.tap(find.text(tapDay).first);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.byKey(const ValueKey('calendar-complete-repot-1')));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('일정을 체크하면 완료 토스트를 잠깐 띄운다', (tester) async {
+      await completeOn(tester, date: DateTime(2026, 7, 15));
+
+      expect(find.text('일정을 완료했어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('일정을 완료했어요'), findsNothing);
+    });
+
+    testWidgets('미래 일정을 체크하면 오늘 한 일로 기록했다고 알려 준다', (tester) async {
+      await completeOn(tester, date: DateTime(2026, 7, 17), tapDay: '17');
+
+      expect(find.text('오늘 한 일로 기록했어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+    });
   });
 }
 

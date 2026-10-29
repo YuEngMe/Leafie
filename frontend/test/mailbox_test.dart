@@ -133,6 +133,7 @@ Future<void> launch(
   Repository? repository, {
   bool reduced = false,
   bool settleMailbox = true,
+  bool openDirectly = false,
 }) async {
   useDeviceView(tester);
   await tester.pumpWidget(
@@ -176,7 +177,19 @@ Future<void> launch(
       await precacheImage(AssetImage('assets/images/$asset.png'), context);
     }
   });
-  await tester.tap(find.byKey(const ValueKey('home-mailbox')));
+  if (openDirectly) {
+    // 편지가 하나도 없으면 홈 우편함은 눌러도 열리지 않는다(디자이너 답
+    // 4-C). 빈 목록 화면은 편지를 다 지웠을 때 보이므로 우편함을 바로 연다.
+    unawaited(
+      showPlantMailbox(
+        tester.element(find.byType(HomeScreen)),
+        plantId: 'plant',
+        repository: repository,
+      ),
+    );
+  } else {
+    await tester.tap(find.byKey(const ValueKey('home-mailbox')));
+  }
   if (settleMailbox) {
     await tester.pumpAndSettle();
   } else {
@@ -219,7 +232,7 @@ Future<void> openMotionPreview(
 void main() {
   testWidgets('미연동 앱에서도 미리보기 재생과 반복 후 원래 화면으로 돌아온다', (tester) async {
     final repository = Repository([]);
-    await launch(tester, repository);
+    await launch(tester, repository, openDirectly: true);
     expect(find.byKey(const ValueKey('mail-motion-preview')), findsNothing);
     expect(find.text('편지 모션 미리보기'), findsNothing);
     await openMotionPreview(tester, repository);
@@ -409,7 +422,7 @@ void main() {
   });
 
   testWidgets('빈 우편함은 예시 편지를 만들지 않는다', (tester) async {
-    await launch(tester, Repository([]));
+    await launch(tester, Repository([]), openDirectly: true);
     expect(find.text('아직 도착한 편지가 없어요.'), findsOneWidget);
     expect(find.text('NEW!'), findsNothing);
     await tester.tap(find.byTooltip('닫기').first);

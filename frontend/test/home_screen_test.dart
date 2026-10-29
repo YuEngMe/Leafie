@@ -9,6 +9,7 @@ import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/screens/mailbox_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
@@ -1234,7 +1235,7 @@ void main() {
           plantRepository: _FakePlantManagementRepository([
             _managedPlant('plant-a', '첫째', selected: true),
           ]),
-          letterRepository: _EmptyMailbox(),
+          letterRepository: _ReadLetters(),
           loadHomeForPlant: (plantId) async => const HomeDashboardData(
             plant: HomePlantData(
               id: 'plant-a',
@@ -1268,7 +1269,7 @@ void main() {
     expect(bell, findsNothing);
     expect(find.text('4'), findsNothing);
 
-    // 빈 우편함은 바깥 닫기와 목록 닫기가 함께 있다. 맨 위 것을 누른다.
+    // 편지 목록은 바깥 닫기와 목록 닫기가 함께 있다. 맨 위 것을 누른다.
     await tester.tap(find.byTooltip('닫기').last);
     await tester.pumpAndSettle();
     expect(bell, findsOneWidget);
@@ -1973,6 +1974,37 @@ void main() {
   });
 
 
+  testWidgets('편지가 하나도 없으면 우편함을 눌러도 아무 창도 뜨지 않는다 (디자이너 답 4-C)', (
+    tester,
+  ) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          letterRepository: _EmptyMailbox(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-mailbox')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MailboxScreen), findsNothing);
+    expect(find.text('아직 도착한 편지가 없어요.'), findsNothing);
+    expect(find.byKey(const ValueKey('home-notifications')), findsOneWidget);
+  });
+
   group('홈 모션 2차 (디자이너 답 5-A·7-B·9-B)', () {
     HomeDashboardData dashboard(String plantId, {SensorAssessment? sensor}) =>
         HomeDashboardData(
@@ -2208,6 +2240,26 @@ ManagedPlant _managedPlant(
   placeName: '거실',
   isSelected: selected,
 );
+
+class _ReadLetters implements PlantLetterRepository {
+  @override
+  Future<List<PlantLetter>> listLetters(String plantId) async => [
+    PlantLetter(
+      id: 'read-1',
+      recipient: '나',
+      sender: '첫째',
+      body: '지난 편지',
+      createdAt: DateTime(2026, 10, 1),
+      isRead: true,
+    ),
+  ];
+
+  @override
+  Future<int> unreadCount(String plantId) async => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _EmptyMailbox implements PlantLetterRepository {
   @override

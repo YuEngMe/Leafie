@@ -224,6 +224,8 @@ class _HomeScreenState extends State<HomeScreen>
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+  // 우편함을 열기 전 편지가 있는지 확인하는 중이면 다시 누른 탭을 무시한다.
+  bool _checkingMailbox = false;
   // < > 로 방을 옮길 때 캐릭터·방 이름이 미끄러지는 방향(다음 1, 이전 −1).
   // 알림·관리 화면처럼 화살표가 아닌 이동은 0이라 미끄러지지 않는다.
   int _slideDirection = 0;
@@ -599,12 +601,29 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openMailbox(String? plantId) async {
+    if (_checkingMailbox || _mailboxOpen) return;
+    // 편지가 하나도 없으면 빈 우편함 창을 띄우지 않고 아무 반응도 하지
+    // 않는다(디자이너 답 4-C). 목록을 못 불러오면 우편함이 직접 오류를
+    // 보여 주도록 그대로 연다.
+    List<PlantLetter>? letters;
+    if (plantId != null) {
+      _checkingMailbox = true;
+      try {
+        letters = await _letterRepository.listLetters(plantId);
+      } catch (_) {
+        letters = null;
+      } finally {
+        _checkingMailbox = false;
+      }
+      if (!mounted || (letters != null && letters.isEmpty)) return;
+    }
     setState(() => _mailboxOpen = true);
     try {
       await showPlantMailbox(
         context,
         plantId: plantId,
         repository: _letterRepository,
+        initialLetters: letters,
       );
     } finally {
       if (mounted) setState(() => _mailboxOpen = false);
@@ -927,7 +946,6 @@ class _HomeScreenState extends State<HomeScreen>
       calendarBuilder: (_) => CalendarScreen(
         key: ValueKey('${plant?.id}#$_careDataVersion'),
         plantId: plant?.id,
-        plantName: plant?.name,
         showBottomNav: false,
       ),
     );
