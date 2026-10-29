@@ -144,7 +144,10 @@ void main() {
         expectAt(mark('repot'), 27.57, 32.68, 19, 17.61);
       });
 
-      testWidgets('분갈이+물이면 화분이 왼쪽으로 비키고 물방울이 겹친다(10일 칸)', (t) async {
+      // 디자이너가 겹침 전용 아이콘을 따로 그렸다(10/29, 6270:1242·6270:1171).
+      // 두 장을 겹쳐 그리면 주황끼리 한 덩어리로 보였다(현황판 28번).
+      // 크기는 내보낸 SVG viewBox(28x24, 29x23)라 1배로 그린다.
+      testWidgets('분갈이+물이면 겹침 아이콘 하나(6270:1242, 10일 칸)', (t) async {
         tester = t;
         await _pumpMonth(
           t,
@@ -153,18 +156,28 @@ void main() {
             ('r', 'REPOTTING', 15, 'SCHEDULED'),
           ],
         );
-        // 6089:2474 화분 (18.30, 32.68). 물방울은 혼자일 때 자리에 둔다.
-        // 시안 6089:2439는 (29.30, 28.83)이지만 같은 시안의 물방울끼리도
-        // 1px 넘게 다르다(1일 27.59, 15일 29.03). 손으로 놓은 차이로 본다.
-        expectAt(mark('repot'), 18.30, 32.68, 19, 17.61);
-        expectAt(mark('water'), 29.08, 27.59, 17.04, 23.73);
+        expectAt(mark('repotWater'), 18.30, 28.83, 28, 24);
+        expect(mark('repot'), findsNothing);
+        expect(mark('water'), findsNothing);
       });
 
-      testWidgets('분갈이+비료면 화분이 비키고 비료가 제자리에 겹친다', (t) async {
+      testWidgets('분갈이+비료면 겹침 아이콘 하나(6270:1171, 17일 칸)', (t) async {
         tester = t;
         await _pumpMonth(t, items: _twoCards);
-        expectAt(mark('repot'), 27.57 - 9.27, 32.68, 19, 17.61);
-        expectAt(mark('fertilize'), 28.37, 30.83, 14.24, 22.93);
+        expectAt(mark('repotFertilize'), 18.30, 28.09, 29, 23);
+        expect(mark('repot'), findsNothing);
+        expect(mark('fertilize'), findsNothing);
+      });
+
+      testWidgets('셋 다 있으면 분갈이+비료 겹침 아이콘 위에 물방울을 얹는다', (t) async {
+        tester = t;
+        await _pumpMonth(
+          t,
+          items: [..._twoCards, ('w', 'WATERING', 15, 'SCHEDULED')],
+        );
+        // 시안에 없는 조합이라 기존 규칙(앞 표식이 9.27씩 비킨다)을 따른다.
+        expectAt(mark('repotFertilize'), 18.30 - 9.27, 28.09, 29, 23);
+        expectAt(mark('water'), 29.08, 27.59, 17.04, 23.73);
       });
 
       testWidgets('전용 아이콘이 없는 일정은 화분으로 그리고 화분과 겹쳐 두 번 그리지 않는다', (t) async {
