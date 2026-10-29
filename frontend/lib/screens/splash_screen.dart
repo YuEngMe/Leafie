@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/screens/login_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
+import 'package:yeso_plant/widgets/fade_page_route.dart';
 
 /// 앱 시작 스플래시(시안 4918:639). 흰 배경 중앙에 가로형 로고를 두고,
 /// "Leafie" 글자를 왼→오른 계단식으로 드러낸 뒤 오른쪽 심볼이 통통 튀며
@@ -58,9 +59,9 @@ class _SplashScreenState extends State<SplashScreen>
       widget.onDone!();
       return;
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(FadePageRoute(builder: (_) => const LoginScreen()));
   }
 
   @override

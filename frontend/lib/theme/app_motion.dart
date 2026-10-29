@@ -20,4 +20,12 @@ abstract final class AppMotion {
 
   /// 누르는 동안 줄어드는 비율(권장 0.95~0.98).
   static const double pressScale = 0.95;
+
+  /// 스택을 갈아 끼우는 화면 전환([FadePageRoute])의 길이. 화면 전환은 M3
+  /// 기준을 따르기로 해 M3 duration medium2 값을 쓴다.
+  static const Duration pageFade = Duration(milliseconds: 300);
+
+  /// 위 전환의 커브. M3 emphasized decelerate: 새 화면이 빨리 드러나고 천천히
+  /// 자리 잡는다.
+  static const Curve pageFadeCurve = Cubic(0.05, 0.7, 0.1, 1);
 }

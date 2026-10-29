@@ -6,6 +6,7 @@ import 'package:yeso_plant/services/plant_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/fade_page_route.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
@@ -57,7 +58,7 @@ class _PlantRegisterCompleteScreenState
       if (mounted) {
         final snapshot = widget.draft.submissionSnapshot;
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
+          FadePageRoute(
             builder: (_) => HomeScreen(
               plant: HomePlant(
                 id: plantId,
