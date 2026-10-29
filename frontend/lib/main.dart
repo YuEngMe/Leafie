@@ -14,6 +14,7 @@ import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/design_status_bar_inset.dart';
+import 'package:yeso_plant/widgets/fade_page_route.dart';
 import 'package:yeso_plant/widgets/platform_reduce_motion.dart';
 import 'package:yeso_plant/widgets/tap_outside_unfocus.dart';
 
@@ -68,7 +69,7 @@ class _YesoAppState extends State<YesoApp> {
     } else if (navigator != null) {
       // 대기 중인 세션 전환이 없으면(로그아웃 상태) 로그인 화면으로.
       navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        FadePageRoute(builder: (_) => const LoginScreen()),
       );
     }
   }
@@ -129,7 +130,7 @@ class _YesoAppState extends State<YesoApp> {
             // 기존 스택 위에 그대로 얹는다.
             if (deferred) {
               navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                FadePageRoute(builder: (_) => const LoginScreen()),
                 (route) => false,
               );
             }
@@ -171,7 +172,7 @@ class _YesoAppState extends State<YesoApp> {
       final profile = await UserApi().getProfile();
       if (!profile.profileCompleted) {
         navigator.pushAndRemoveUntil(
-          MaterialPageRoute(
+          FadePageRoute(
             builder: (_) =>
                 OAuthNicknameScreen(providerLabel: _providerLabel(user)),
           ),
@@ -183,7 +184,7 @@ class _YesoAppState extends State<YesoApp> {
       // 프로필 확인 실패가 로그인 성공 자체를 막지는 않는다. 홈에서 재시도한다.
     }
     navigator.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => authenticatedLandingScreen()),
+      FadePageRoute(builder: (_) => authenticatedLandingScreen()),
       (route) => false,
     );
   }
@@ -198,7 +199,7 @@ class _YesoAppState extends State<YesoApp> {
 
   void _openLoginScreen(NavigatorState navigator) {
     navigator.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      FadePageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
   }

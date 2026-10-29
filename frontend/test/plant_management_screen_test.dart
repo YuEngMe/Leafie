@@ -6,6 +6,7 @@ import 'package:yeso_plant/screens/plant_edit_info_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
+import 'package:yeso_plant/widgets/plant_detail_components.dart';
 
 ManagedPlant _plant({
   required String id,
@@ -176,6 +177,28 @@ void main() {
     expect(find.byType(PlantDetailScreen), findsOneWidget);
     expect(find.text('캐릭터 편집'), findsOneWidget);
     expect(find.text('초록이'), findsOneWidget);
+  });
+
+  testWidgets('목록의 캐릭터가 상세 화면의 캐릭터로 이어진다', (tester) async {
+    final repository = _FakeRepository([
+      _plant(id: '1', nickname: '새싹이', selected: true),
+    ]);
+    await _pumpScreen(tester, repository);
+    final hero = find.byWidgetPredicate(
+      (widget) => widget is Hero && widget.tag == plantArtHeroTag('1'),
+    );
+    expect(
+      find.descendant(of: find.byType(PlantManagementScreen), matching: hero),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('plant_slot_1')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: find.byType(PlantDetailScreen), matching: hero),
+      findsOneWidget,
+    );
   });
 
   testWidgets('빈 슬롯의 + 를 누르면 등록으로 넘어간다', (tester) async {

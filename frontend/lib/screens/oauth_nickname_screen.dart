@@ -5,6 +5,7 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/fade_page_route.dart';
 import 'package:yeso_plant/widgets/onboarding_copy.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
@@ -82,7 +83,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       await _repository.updateNickname(nickname);
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          FadePageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }

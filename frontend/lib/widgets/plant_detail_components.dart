@@ -31,6 +31,33 @@ const double _kGrassBandTop = 806;
 /// `width`를 돌려준다.
 double plantArtWidthFor(double figmaWidth) => figmaWidth / 0.897;
 
+/// 식물 관리 목록과 상세 화면의 캐릭터를 잇는 [Hero] tag.
+Object plantArtHeroTag(String plantId) => 'plant-art-$plantId';
+
+/// 목록에서 캐릭터를 누르면 그 캐릭터가 상세 화면 자리로 날아간다.
+///
+/// 화면은 iOS slide 그대로 두고 캐릭터만 잇는다(M3 Container transform의
+/// hero image 변형). OpenContainer는 iOS 밀어서 뒤로 가기가 없어 쓰지
+/// 않는다. 밀어서 뒤로 갈 때도 캐릭터가 손가락을 따라오게
+/// [Hero.transitionOnUserGestures]를 켠다.
+class PlantArtHero extends StatelessWidget {
+  const PlantArtHero({super.key, required this.plantId, required this.child});
+
+  final String plantId;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Hero(
+    tag: plantArtHeroTag(plantId),
+    transitionOnUserGestures: true,
+    // 날아가는 동안 상자 크기가 목록과 상세 사이로 바뀐다. 캐릭터는 정한
+    // width로 그려지므로 상자에 맞춰 통째로 줄이고 늘린다.
+    flightShuttleBuilder: (_, _, _, _, toHeroContext) =>
+        FittedBox(child: (toHeroContext.widget as Hero).child),
+    child: child,
+  );
+}
+
 /// 상세 흐름 화면 몸통. SafeArea 안에서 시안 y를 그대로 쓰게 해 준다.
 class PlantDetailBody extends StatelessWidget {
   const PlantDetailBody({
