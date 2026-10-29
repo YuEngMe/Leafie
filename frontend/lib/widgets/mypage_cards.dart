@@ -88,7 +88,8 @@ class ProfileSummaryCard extends StatelessWidget {
 
 /// Figma node 2353:711. 프로필 관리 메뉴 카드.
 ///
-/// 앞의 세 행은 꺾쇠로 다음 화면을 열고, 마지막 앱 알림 행만 토글을 단다.
+/// 꺾쇠 행은 다음 화면을 열고, 앱 알림 행만 토글을 단다. 맨 아래 로그아웃
+/// 행은 꺾쇠 없이 확인 모달을 연다(리뉴얼 시안 4534:3044).
 class ProfileMenuCard extends StatelessWidget {
   const ProfileMenuCard({
     super.key,
@@ -96,13 +97,14 @@ class ProfileMenuCard extends StatelessWidget {
     required this.onChangePassword,
     required this.onRegisterSensor,
     required this.onWithdraw,
+    required this.onSignOut,
     required this.notificationsEnabled,
     required this.onNotificationsChanged,
   });
 
-  // 시안(4534:3101)은 5행: 내 정보 수정·비밀번호 변경·센서 기기 등록·앱 알림·회원 탈퇴.
-  // 카드 4534:3131 높이 295.
-  static const double height = 295;
+  // 리뉴얼 시안(4534:3044)은 6행: 내 정보 수정·비밀번호 변경·센서 기기 등록·
+  // 앱 알림·회원 탈퇴·로그아웃. 카드 6049:2478 높이 351.
+  static const double height = 351;
 
   /// 첫 행 글자 상자 top(4534:3133 y=264.76, 카드 기준 53.76)과 행 간격(49px).
   static const double _firstRowTop = 53.762;
@@ -110,6 +112,9 @@ class ProfileMenuCard extends StatelessWidget {
 
   /// 회원 탈퇴(4534:3143 y=464.69)만 앱 알림 행에서 49가 아니라 52.93 아래다.
   static const double _withdrawRowTop = 253.69;
+
+  /// 로그아웃(6049:2481 y=514, 카드 기준 303).
+  static const double _signOutRowTop = 303;
   static const double _rowTextHeight = 19;
 
   /// Figma 글자 상자(Paperlogy 16 → 19)보다 Flutter 상자(23)가 커서 같은
@@ -120,6 +125,7 @@ class ProfileMenuCard extends StatelessWidget {
   final VoidCallback onChangePassword;
   final VoidCallback onRegisterSensor;
   final VoidCallback onWithdraw;
+  final VoidCallback onSignOut;
   final bool notificationsEnabled;
   final ValueChanged<bool> onNotificationsChanged;
 
@@ -176,6 +182,12 @@ class ProfileMenuCard extends StatelessWidget {
             ),
           ),
           _MenuRow(top: _withdrawRowTop, label: '회원 탈퇴', onTap: onWithdraw),
+          _MenuRow(
+            top: _signOutRowTop,
+            label: '로그아웃',
+            onTap: onSignOut,
+            chevron: false,
+          ),
         ],
       ),
     );
@@ -183,11 +195,17 @@ class ProfileMenuCard extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.top, required this.label, required this.onTap});
+  const _MenuRow({
+    required this.top,
+    required this.label,
+    required this.onTap,
+    this.chevron = true,
+  });
 
   final double top;
   final String label;
   final VoidCallback onTap;
+  final bool chevron;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +228,8 @@ class _MenuRow extends StatelessWidget {
               // Figma는 꺾쇠를 폰트 글리프로 그렸지만, 같은 모양의 벡터가
               // 이미 있어 색만 맞춰 재사용한다(4534:3134 #A1A1A1). 시안 글리프
               // 획이 약 2.5px로 기본 벡터(2)보다 굵다(MM-06).
-              const FigmaChevronRight(color: kTextLight, strokeWidth: 2.5),
+              if (chevron)
+                const FigmaChevronRight(color: kTextLight, strokeWidth: 2.5),
             ],
           ),
         ),

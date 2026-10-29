@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/my_page_screen.dart';
@@ -34,10 +35,7 @@ Finder _navIcon(FigmaNavIcon icon) =>
 
 double _navOpacity(WidgetTester tester, FigmaNavIcon icon) => tester
     .widget<AnimatedOpacity>(
-      find.ancestor(
-        of: _navIcon(icon),
-        matching: find.byType(AnimatedOpacity),
-      ),
+      find.ancestor(of: _navIcon(icon), matching: find.byType(AnimatedOpacity)),
     )
     .opacity;
 
@@ -73,12 +71,29 @@ void main() {
       Navigator.of(tester.element(find.byType(MainTabShell))).canPop(),
       isFalse,
     );
+    // 리뉴얼 시안(4534:3044): 마이페이지도 하단 탭 바를 두고 뒤로 꺾쇠가 없다.
     await tester.tap(_navIcon(FigmaNavIcon.my));
     await tester.pumpAndSettle();
     expect(find.byType(MyPageScreen), findsOneWidget);
-    expect(find.byType(AppBottomNav), findsNothing);
-    await tester.tap(find.byType(FigmaBackChevron));
+    expect(find.byType(AppBottomNav), findsOneWidget);
+    expect(
+      tester.widget<AppBottomNav>(find.byType(AppBottomNav)).activeIcon,
+      FigmaNavIcon.my,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(MyPageScreen),
+        matching: find.byType(FigmaBackChevron),
+      ),
+      findsNothing,
+    );
+    // 내 정보 수정에서도 탭 바로 다른 탭에 바로 간다(4534:2939).
+    await tester.tap(find.text('내 정보 수정'));
     await tester.pumpAndSettle();
+    expect(find.byType(EditProfileScreen), findsOneWidget);
+    await tester.tap(_navIcon(FigmaNavIcon.home).last);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditProfileScreen), findsNothing);
     expect(find.text('home-tab'), findsOneWidget);
     await tester.tap(_navIcon(FigmaNavIcon.calendar));
     await tester.pumpAndSettle();

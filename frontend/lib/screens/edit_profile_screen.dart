@@ -4,6 +4,8 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/user_api.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/app_bottom_nav.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -13,10 +15,14 @@ import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 ///
 /// 닉네임 한 칸만 고친다. 저장하면 바뀐 닉네임을 돌려주고 마이페이지가
 /// 그 값으로 다시 그린다(2353:290).
+///
+/// 리뉴얼 시안(4534:2939)은 하단 탭 바를 둔다. 탭을 누르면 [onNavTap]에
+/// 넘기고, 넘길 곳이 없으면 이 화면을 닫는다.
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({super.key, this.repository});
+  const EditProfileScreen({super.key, this.repository, this.onNavTap});
 
   final UserRepository? repository;
+  final ValueChanged<FigmaNavIcon>? onNavTap;
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -49,11 +55,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final profile = await _repository.updateNickname(next);
       if (!mounted) return;
-      // 2353:440 — 화면 바닥(y 790)에 토스트를 잠깐 띄운 뒤 돌아간다.
+      // 2353:440 토스트를 잠깐 띄운 뒤 돌아간다. 리뉴얼 시안(4534:3041)은
+      // 탭 바 위 y 744에 띄운다.
       await showLeafieToast(
         context,
         text: '닉네임 변경이 완료되었어요!',
-        top: MediaQuery.paddingOf(context).top + (790 - 46),
+        top: MediaQuery.paddingOf(context).top + (744 - 46),
       );
       if (mounted) Navigator.pop(context, profile.nickname);
     } on LeafieApiException catch (error) {
@@ -70,7 +77,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
+      // 키보드가 올라와도 탭 바는 바닥에 둔다(디자이너 요청: 네비 고정).
+      resizeToAvoidBottomInset: false,
       appBar: const YesoAppBar(title: '내 정보 수정'),
+      bottomNavigationBar: AppBottomNav(
+        activeIcon: FigmaNavIcon.my,
+        onTap: widget.onNavTap ?? (_) => Navigator.pop(context),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(

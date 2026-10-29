@@ -5,7 +5,7 @@ import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/edge_swipe_back.dart';
 
-/// Tab pages stay mounted; only detail/profile navigation creates a route.
+/// Tab pages stay mounted; only detail navigation creates a route.
 class MainTabShell extends StatefulWidget {
   const MainTabShell({
     super.key,
@@ -32,14 +32,6 @@ class MainTabShellState extends State<MainTabShell> {
   final _visited = <int>{0};
 
   void select(FigmaNavIcon tab) {
-    if (tab == FigmaNavIcon.my) {
-      // Reset underneath the profile route so every back gesture returns home.
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const MyPageScreen()));
-      setState(() => _index = 0);
-      return;
-    }
     final next = tab.index;
     if (next == _index) return;
     setState(() {
@@ -57,8 +49,8 @@ class MainTabShellState extends State<MainTabShell> {
     child: Stack(
       fit: StackFit.expand,
       children: [
-        // 다이어리·캘린더 탭은 화면 이동이 아니라 돌아갈 화면이 없다. 왼쪽 끝을
-        // 밀면 위 뒤로 가기처럼 홈 탭으로 돌아간다(디자이너 답 13-B).
+        // 다이어리·캘린더·마이 탭은 화면 이동이 아니라 돌아갈 화면이 없다. 왼쪽
+        // 끝을 밀면 위 뒤로 가기처럼 홈 탭으로 돌아간다(디자이너 답 13-B).
         EdgeSwipeBack(
           enabled: _index != 0,
           onSwipe: () => select(FigmaNavIcon.home),
@@ -71,6 +63,11 @@ class MainTabShellState extends State<MainTabShell> {
                   : const SizedBox.shrink(),
               _visited.contains(2)
                   ? widget.calendarBuilder(context)
+                  : const SizedBox.shrink(),
+              // 리뉴얼 시안(4534:3044)은 마이페이지에도 탭 바를 둔다. 그래서
+              // 화면을 따로 올리지 않고 넷째 탭으로 둔다.
+              _visited.contains(3)
+                  ? MyPageScreen(inTab: true, onNavTap: select)
                   : const SizedBox.shrink(),
             ],
           ),
@@ -88,8 +85,7 @@ class MainTabShellState extends State<MainTabShell> {
               fit: BoxFit.fill,
               child: SizedBox(
                 width: AppLayout.referenceViewport.width,
-                // _index 0/1/2 → home/diary/calendar. my 탭은 push 후 _index를
-                // 0으로 되돌리므로 바에서는 늘 home이 활성으로 보인다.
+                // _index 0/1/2/3 → home/diary/calendar/my.
                 child: AppBottomNav(
                   onTap: select,
                   activeIcon: FigmaNavIcon.values[_index],
