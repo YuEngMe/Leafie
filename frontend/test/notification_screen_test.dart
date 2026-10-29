@@ -220,4 +220,22 @@ void main() {
       expect(art(id).hairId, isNull);
     }
   });
+
+  testWidgets('한 번 읽은 알림은 다시 눌러도 열리지 않는다 (디자이너 답 3-B)', (tester) async {
+    final repository = _FakeNotificationRepository([
+      _notification(id: 'read', readAt: DateTime.utc(2026, 9, 6, 9)),
+    ]);
+    NotificationData? selected;
+    await _pumpScreen(
+      tester,
+      repository,
+      onSelected: (value) => selected = value,
+    );
+
+    await tester.tap(find.byKey(const Key('notification-read')));
+    await tester.pump();
+
+    expect(repository.markedIds, isEmpty);
+    expect(selected, isNull);
+  });
 }

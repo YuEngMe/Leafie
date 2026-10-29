@@ -16,12 +16,16 @@ Future<void> showPlantMailbox(
   BuildContext context, {
   required String? plantId,
   PlantLetterRepository? repository,
+  List<PlantLetter>? initialLetters,
 }) => showGeneralDialog<void>(
   context: context,
   barrierDismissible: false,
   barrierColor: Colors.black.withValues(alpha: 0.45),
-  pageBuilder: (_, animation, secondaryAnimation) =>
-      MailboxScreen(plantId: plantId, repository: repository),
+  pageBuilder: (_, animation, secondaryAnimation) => MailboxScreen(
+    plantId: plantId,
+    repository: repository,
+    initialLetters: initialLetters,
+  ),
 );
 
 enum _MailView { loading, house, newLetter, list, opening }
@@ -32,10 +36,15 @@ class MailboxScreen extends StatefulWidget {
     super.key,
     required this.plantId,
     this.repository,
+    this.initialLetters,
     this.debugPreview = false,
   });
   final String? plantId;
   final PlantLetterRepository? repository;
+
+  /// 홈이 열기 전에 이미 받아 둔 목록. 처음 한 번만 쓰고, 다시 불러오기는
+  /// 서버에 묻는다.
+  final List<PlantLetter>? initialLetters;
   final bool debugPreview;
   @override
   State<MailboxScreen> createState() => _MailboxScreenState();
@@ -43,6 +52,7 @@ class MailboxScreen extends StatefulWidget {
 
 class _MailboxScreenState extends State<MailboxScreen> {
   _MailView _view = _MailView.loading;
+  late List<PlantLetter>? _prefetched = widget.initialLetters;
   List<PlantLetter> _letters = [];
   final Set<String> _read = {};
   PlantLetter? _selected;
@@ -125,8 +135,10 @@ class _MailboxScreenState extends State<MailboxScreen> {
       _error = null;
     });
     try {
+      final prefetched = _prefetched;
+      _prefetched = null;
       final letters = List<PlantLetter>.of(
-        await repository.listLetters(widget.plantId!),
+        prefetched ?? await repository.listLetters(widget.plantId!),
       );
       if (!mounted) return;
       letters.sort((a, b) => b.createdAt.compareTo(a.createdAt));

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
@@ -193,6 +194,72 @@ void main() {
     expect(find.byType(PlantPhotoIdentifyScreen), findsOneWidget);
   });
 
+  testWidgets('사진에서 식물을 인식하지 못하면 안내 후 카메라를 다시 연다 (디자이너 답 11-B)', (
+    WidgetTester tester,
+  ) async {
+    var cameraCalls = 0;
+    var identifyCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          photoPicker: () async {
+            cameraCalls++;
+            return File('assets/images/character/body_circle_yellow.png');
+          },
+          identifier: (_) async {
+            identifyCalls++;
+            throw const SpeciesNotRecognizedException(
+              code: 'SPECIES_IDENTIFICATION_FAILED',
+              message: '식물을 인식하지 못했어요. 다른 사진으로 다시 시도해 주세요.',
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // 실패 화면에 머물지 않고 카메라를 다시 연다(두 번째 사진도 실패해 다시 연다).
+    expect(cameraCalls, greaterThanOrEqualTo(2));
+    expect(identifyCalls, greaterThanOrEqualTo(1));
+    expect(find.text('사진으로 찾지 못했어요'), findsNothing);
+    expect(find.text('식물을 인식하지 못했어요. 다시 찍어 주세요.'), findsOneWidget);
+  });
+
+  testWidgets('인식 실패가 아닌 422(지원하지 않는 사진 형식)는 다시 찍기로 보내지 않는다', (
+    WidgetTester tester,
+  ) async {
+    var cameraCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlantSpeciesSearchScreen(
+          name: '씩씩이',
+          photoPicker: () async {
+            cameraCalls++;
+            return File('assets/images/character/body_circle_yellow.png');
+          },
+          identifier: (_) async => throw const LeafieApiException(
+            code: 'SPECIES_IMAGE_TYPE_UNSUPPORTED',
+            message: '식물 사진 인식은 JPG 또는 PNG 사진만 지원합니다.',
+            statusCode: 422,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FigmaCameraIcon));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(cameraCalls, 1);
+    expect(find.text('사진으로 찾지 못했어요'), findsOneWidget);
+  });
+
   testWidgets('카메라를 쓸 수 없으면 한국어 안내 후 갤러리로 계속한다', (WidgetTester tester) async {
     var cameraCalls = 0;
     var galleryCalls = 0;
@@ -288,6 +355,38 @@ void main() {
     expect(draft.personalityType, 'CHIC');
     // #84: 성격 다음은 바디 선택(step 5). 색선택은 그 뒤로 밀렸다.
     expect(find.byType(PlantRegisterBodyScreen), findsOneWidget);
+  });
+
+  testWidgets('성격을 넘기는 동안 캐릭터와 말풍선은 제자리에 있고 이름·말투만 넘어간다 (디자이너 답 10-A)', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterPersonalityScreen(draft: _sampleDraft())),
+    );
+    await tester.pumpAndSettle();
+
+    final character = find.byType(PlantCharacterArt);
+    expect(character, findsOneWidget);
+    final characterBefore = tester.getCenter(character);
+    final titleBefore = tester.getCenter(find.text('활발한 성격'));
+
+    // 손을 떼지 않고 반쯤 민 상태.
+    final gesture = await tester.startGesture(const Offset(300, 400));
+    await gesture.moveBy(const Offset(-40, 0));
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+
+    expect(character, findsOneWidget);
+    expect(tester.getCenter(character), characterBefore);
+    expect(
+      tester.getCenter(find.text('활발한 성격')).dx,
+      lessThan(titleBefore.dx - 100),
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('바디 선택 화면에서 바디를 고르고 완료하면 draft에 반영되어 꾸미기 화면으로 전달된다', (

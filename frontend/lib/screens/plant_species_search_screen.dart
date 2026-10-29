@@ -77,6 +77,7 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
     this.photoPicker,
     this.galleryPhotoPicker,
     this.cameraAvailability,
+    this.identifier,
   });
 
   /// 이름 화면(2315:2189)에서 받은 애칭. 이 값이 있으면 종을 고른 뒤
@@ -88,6 +89,9 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
   final PlantPhotoPicker? photoPicker;
   final PlantPhotoPicker? galleryPhotoPicker;
   final CameraAvailability? cameraAvailability;
+
+  /// 사진 인식 화면에 넘기는 인식기. 테스트에서 서버 없이 갈아끼운다.
+  final PlantIdentifier? identifier;
 
   @override
   State<PlantSpeciesSearchScreen> createState() =>
@@ -137,7 +141,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     }
     try {
       final photo = await (widget.photoPicker ?? _pickCameraPhoto)();
-      await _openPhoto(photo, name);
+      await _openPhoto(photo, name, retake: _pickPhoto);
     } on PlatformException catch (error) {
       if (!mounted) return;
       await _showCameraRecovery(_cameraIssueFor(error), name);
@@ -147,14 +151,29 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     }
   }
 
-  Future<void> _openPhoto(File? photo, String name) async {
+  Future<void> _openPhoto(
+    File? photo,
+    String name, {
+    required Future<void> Function() retake,
+  }) async {
     if (photo == null || !mounted) return;
-    await Navigator.push(
+    final retakeRequested = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PlantPhotoIdentifyScreen(photo: photo, name: name),
+        builder: (_) => PlantPhotoIdentifyScreen(
+          photo: photo,
+          name: name,
+          identifier: widget.identifier,
+        ),
       ),
     );
+    // 사진에서 식물을 찾지 못하면 실패 화면에 세우지 않고 같은 방법으로 다시
+    // 찍게 한다(디자이너 답 11-B). 다시 찍기를 취소하면 이 화면에 남는다.
+    if (retakeRequested != true || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('식물을 인식하지 못했어요. 다시 찍어 주세요.')));
+    await retake();
   }
 
   Future<void> _showCameraRecovery(_CameraIssue issue, String name) async {
@@ -176,9 +195,13 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
       ),
     );
     if (useGallery != true || !mounted) return;
+    await _pickGallery(name);
+  }
+
+  Future<void> _pickGallery(String name) async {
     try {
       final photo = await (widget.galleryPhotoPicker ?? _pickGalleryPhoto)();
-      await _openPhoto(photo, name);
+      await _openPhoto(photo, name, retake: () => _pickGallery(name));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(

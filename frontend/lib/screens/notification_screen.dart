@@ -109,19 +109,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _select(NotificationData notification) async {
-    var selected = notification;
-    if (!notification.isRead) {
-      try {
-        selected = await _repository.markRead(notification.id);
-        if (!mounted) return;
-        setState(() {
-          final index = _items.indexWhere((item) => item.id == notification.id);
-          if (index >= 0) _items[index] = selected;
-        });
-      } on LeafieApiException catch (error) {
-        _showError(error.message);
-        return;
-      }
+    // 한 번 읽은 알림은 다시 눌러도 열지 않는다(디자이너 답 3-B).
+    if (notification.isRead) return;
+    final NotificationData selected;
+    try {
+      selected = await _repository.markRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        final index = _items.indexWhere((item) => item.id == notification.id);
+        if (index >= 0) _items[index] = selected;
+      });
+    } on LeafieApiException catch (error) {
+      _showError(error.message);
+      return;
     }
     widget.onNotificationSelected?.call(selected);
   }

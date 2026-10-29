@@ -3,6 +3,7 @@ import 'package:yeso_plant/screens/my_page_screen.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/edge_swipe_back.dart';
 
 /// Tab pages stay mounted; only detail navigation creates a route.
 class MainTabShell extends StatefulWidget {
@@ -48,22 +49,28 @@ class MainTabShellState extends State<MainTabShell> {
     child: Stack(
       fit: StackFit.expand,
       children: [
-        IndexedStack(
-          index: _index,
-          children: [
-            widget.home,
-            _visited.contains(1)
-                ? widget.diaryBuilder(context)
-                : const SizedBox.shrink(),
-            _visited.contains(2)
-                ? widget.calendarBuilder(context)
-                : const SizedBox.shrink(),
-            // 리뉴얼 시안(4534:3044)은 마이페이지에도 탭 바를 둔다. 그래서
-            // 화면을 따로 올리지 않고 넷째 탭으로 둔다.
-            _visited.contains(3)
-                ? MyPageScreen(inTab: true, onNavTap: select)
-                : const SizedBox.shrink(),
-          ],
+        // 다이어리·캘린더·마이 탭은 화면 이동이 아니라 돌아갈 화면이 없다. 왼쪽
+        // 끝을 밀면 위 뒤로 가기처럼 홈 탭으로 돌아간다(디자이너 답 13-B).
+        EdgeSwipeBack(
+          enabled: _index != 0,
+          onSwipe: () => select(FigmaNavIcon.home),
+          child: IndexedStack(
+            index: _index,
+            children: [
+              widget.home,
+              _visited.contains(1)
+                  ? widget.diaryBuilder(context)
+                  : const SizedBox.shrink(),
+              _visited.contains(2)
+                  ? widget.calendarBuilder(context)
+                  : const SizedBox.shrink(),
+              // 리뉴얼 시안(4534:3044)은 마이페이지에도 탭 바를 둔다. 그래서
+              // 화면을 따로 올리지 않고 넷째 탭으로 둔다.
+              _visited.contains(3)
+                  ? MyPageScreen(inTab: true, onNavTap: select)
+                  : const SizedBox.shrink(),
+            ],
+          ),
         ),
         Positioned(
           left: 0,

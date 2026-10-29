@@ -88,6 +88,11 @@ class _PlantPhotoIdentifyScreenState extends State<PlantPhotoIdentifyScreen> {
     try {
       final result = await (widget.identifier ?? _identifyPlant)(widget.photo);
       if (mounted) setState(() => _result = result);
+    } on SpeciesNotRecognizedException {
+      // 서버가 사진에서 식물을 찾지 못했다고 답하면 검색 화면이 카메라를 다시
+      // 열도록 true를 돌려준다. 사진 형식·연결 오류 같은 나머지는 실패 화면에
+      // 둔다(같은 422라도 인식 실패가 아니다).
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }

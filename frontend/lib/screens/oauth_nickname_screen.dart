@@ -10,6 +10,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/edge_swipe_back.dart';
 
 // Figma "04 앱 진입_회원가입"의 소셜 닉네임 설정 화면(2026-08-11 확인).
 // 카카오·네이버 등 소셜 로그인은 회원가입 화면이 없어 닉네임을 못 받으므로,
@@ -102,60 +103,63 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmExit();
       },
-      child: Scaffold(
-        backgroundColor: kBackgroundWhite,
-        appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
-        body: SafeArea(
-          child: Padding(
-            // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다. 타이틀 top 140
-            // (2307:751) = 앱바 92 + 48.
-            padding: const EdgeInsets.fromLTRB(
-              AppLayout.authHorizontalPadding,
-              48,
-              AppLayout.authHorizontalPadding,
-              AppLayout.signupCompleteBottomGap,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 문구는 라벨처럼 입력칸보다 11px 들여쓴다(2307:751 x45).
-                // 타이틀(4534:1636)은 상자 140·글자 144인데 Flutter 20px
-                // height 1 상자는 글자가 top에서 1 아래라 상자를 143에 둔다.
-                // 부제 상자 175는 그대로라 20px 상자 아래 12를 띄운다.
-                const Padding(
-                  padding: EdgeInsets.only(
-                    left: AppLayout.inputLabelIndent,
-                    top: 3,
+      // 밀어서 뒤로 가도 나가기 확인 창을 거친다.
+      child: EdgeSwipeBack(
+        child: Scaffold(
+          backgroundColor: kBackgroundWhite,
+          appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
+          body: SafeArea(
+            child: Padding(
+              // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다. 타이틀 top 140
+              // (2307:751) = 앱바 92 + 48.
+              padding: const EdgeInsets.fromLTRB(
+                AppLayout.authHorizontalPadding,
+                48,
+                AppLayout.authHorizontalPadding,
+                AppLayout.signupCompleteBottomGap,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 문구는 라벨처럼 입력칸보다 11px 들여쓴다(2307:751 x45).
+                  // 타이틀(4534:1636)은 상자 140·글자 144인데 Flutter 20px
+                  // height 1 상자는 글자가 top에서 1 아래라 상자를 143에 둔다.
+                  // 부제 상자 175는 그대로라 20px 상자 아래 12를 띄운다.
+                  const Padding(
+                    padding: EdgeInsets.only(
+                      left: AppLayout.inputLabelIndent,
+                      top: 3,
+                    ),
+                    child: OnboardingCopy(
+                      title: '닉네임을 설정해주세요!',
+                      subtitle: '당신을 뭐라고 부르면 좋을까요?',
+                      gap: 12,
+                    ),
                   ),
-                  child: OnboardingCopy(
-                    title: '닉네임을 설정해주세요!',
-                    subtitle: '당신을 뭐라고 부르면 좋을까요?',
-                    gap: 12,
+                  // 부제 bottom 189 → 라벨 top 237 (2307:744).
+                  const SizedBox(height: 48),
+                  SignupNicknameField(
+                    controller: _nicknameController,
+                    variant: _nicknameController.text.trim().isEmpty
+                        ? SignupNicknameFieldVariant.empty
+                        : SignupNicknameFieldVariant.filled,
+                    enabled: !_submitting,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
                   ),
-                ),
-                // 부제 bottom 189 → 라벨 top 237 (2307:744).
-                const SizedBox(height: 48),
-                SignupNicknameField(
-                  controller: _nicknameController,
-                  variant: _nicknameController.text.trim().isEmpty
-                      ? SignupNicknameFieldVariant.empty
-                      : SignupNicknameFieldVariant.filled,
-                  enabled: !_submitting,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                ),
-                const Spacer(),
-                // 시안의 유일한 제출 경로다. 그동안은 키보드 done에만 걸려 있었다.
-                PrimaryButton(
-                  label: '다음',
-                  variant: _nicknameController.text.trim().isEmpty
-                      ? PrimaryButtonVariant.disabled
-                      : PrimaryButtonVariant.enabled,
-                  height: AppLayout.onboardingControlHeight,
-                  textStyle: kLoginButtonStyle,
-                  onPressed: _submitting ? null : _submit,
-                ),
-              ],
+                  const Spacer(),
+                  // 시안의 유일한 제출 경로다. 그동안은 키보드 done에만 걸려 있었다.
+                  PrimaryButton(
+                    label: '다음',
+                    variant: _nicknameController.text.trim().isEmpty
+                        ? PrimaryButtonVariant.disabled
+                        : PrimaryButtonVariant.enabled,
+                    height: AppLayout.onboardingControlHeight,
+                    textStyle: kLoginButtonStyle,
+                    onPressed: _submitting ? null : _submit,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

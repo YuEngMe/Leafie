@@ -95,7 +95,11 @@ class EnvironmentGauge extends StatelessWidget {
     required this.currentLabel,
     required this.maxLabel,
     this.alert = false,
+    this.animateFill = false,
   });
+
+  /// 처음 그려질 때 막대와 마커가 0에서 현재값까지 차오르는 시간(디자이너 답 9-B).
+  static const Duration fillDuration = Duration(milliseconds: 900);
 
   /// 막대 높이와 컴포넌트 높이(2435:16764).
   static const double barHeight = 11;
@@ -123,8 +127,24 @@ class EnvironmentGauge extends StatelessWidget {
   /// 현재값이 부족하면 마커 글자 앞에 빨간 점을 찍는다.
   final bool alert;
 
+  /// true면 처음 그려질 때 0에서 현재값까지 차오르고, 값이 바뀌면 새 값까지
+  /// 이어서 움직인다. 동작 줄이기가 켜져 있으면 바로 현재값을 그린다.
+  final bool animateFill;
+
   @override
   Widget build(BuildContext context) {
+    if (!animateFill || MediaQuery.disableAnimationsOf(context)) {
+      return _content(currentRatio);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: currentRatio),
+      duration: fillDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, ratio, _) => _content(ratio),
+    );
+  }
+
+  Widget _content(double currentRatio) {
     return SizedBox(
       height: height,
       child: Stack(

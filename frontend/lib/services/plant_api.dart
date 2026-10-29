@@ -153,12 +153,11 @@ class PlantApi {
         }
       }
       if (status == 'FAILED') {
-        throw LeafieApiException(
+        throw SpeciesNotRecognizedException(
           code:
               response['failure_code']?.toString() ??
               'SPECIES_IDENTIFICATION_FAILED',
           message: '식물을 인식하지 못했어요. 다른 사진으로 다시 시도해 주세요.',
-          statusCode: 422,
         );
       }
       if (status != 'PENDING' && status != 'PROCESSING') {
@@ -305,4 +304,15 @@ DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
 String _nonBlankOr(String? value, String fallback) {
   final normalized = value?.trim();
   return normalized == null || normalized.isEmpty ? fallback : normalized;
+}
+
+/// 서버가 사진에서 식물을 찾지 못했다고(FAILED) 답한 경우.
+///
+/// 지원하지 않는 사진 형식이나 요청 검증 같은 다른 422와 구분해서, 등록
+/// 화면은 이 경우에만 다시 찍게 보낸다(디자이너 답 11-B).
+class SpeciesNotRecognizedException extends LeafieApiException {
+  const SpeciesNotRecognizedException({
+    required super.code,
+    required super.message,
+  }) : super(statusCode: 422);
 }

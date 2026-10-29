@@ -561,6 +561,27 @@ void main() {
       expect(store.entries.single.title, '오늘의 제목');
     });
 
+    testWidgets('화면 왼쪽 끝을 밀어 나가도 쓴 글이 저장된다 (디자이너 답 13-B)', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, '밀어서 나간 글');
+      await tester.pump();
+
+      await tester.dragFrom(const Offset(4, 400), const Offset(220, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+      expect(store.entries.single.title, '밀어서 나간 글');
+    });
+
     testWidgets('빈 글은 저장하지 않는다', (tester) async {
       _setUpView(tester);
       final store = _MemoryStore();

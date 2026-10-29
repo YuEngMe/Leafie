@@ -75,7 +75,9 @@ const _personalities = [
 const Size _bubbleSvgSize = Size(261.253, 55.3058);
 
 /// 시안 순서 그대로의 성격 이름. 테스트가 글자를 고정한다.
-List<String> get kPersonalityLabels => [for (final p in _personalities) p.label];
+List<String> get kPersonalityLabels => [
+  for (final p in _personalities) p.label,
+];
 
 class PlantRegisterPersonalityScreen extends StatefulWidget {
   const PlantRegisterPersonalityScreen({super.key, required this.draft});
@@ -128,103 +130,114 @@ class _PlantRegisterPersonalityScreenState
             const Center(child: RegisterProgressBar(step: 4)),
             const SizedBox(height: 12),
             Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _personalities.length,
-                onPageChanged: (index) =>
-                    setState(() => _selectedIndex = index),
-                itemBuilder: (context, index) {
-                  final personality = _personalities[index];
-                  return Stack(
-                    children: [
-                      Positioned(
-                        top: AppLayout.personalityTitleTop,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
-                          child: Text(
-                            personality.label,
-                            style: kTitleStyle.copyWith(
-                              color: kPersonalityTitle,
+              // 캐릭터·말풍선·점은 제자리에 두고, 넘기면 성격 이름·태그·대사만
+              // 넘어간다(디자이너 답 10-A). 넘기는 손짓은 화면 어디서나 받도록
+              // PageView를 맨 위 전체에 깐다.
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: AppLayout.personalityCharacterTop,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: PlantCharacterArt(
+                        width: AppLayout.personalityCharacterWidth,
+                        body: plantBodyFromId(widget.draft.bodyId),
+                        // 성격 단계엔 아직 헤어를 draft에 저장하기 전이라
+                        // 종 매핑값으로 미리 얹어 보여준다.
+                        hairId:
+                            widget.draft.headItem ??
+                            hairForSpecies(widget.draft.species),
+                      ),
+                    ),
+                  ),
+                  // 말풍선 4534:174. 위로 꼬리가 난 Union(253x47.05)을
+                  // 시안 SVG 그대로 그린다(성격 수정 4889:2259와 같은
+                  // 모양이라 같은 에셋을 쓴다). 그림자(흐림 2.063, 18%)는
+                  // flutter_svg가 그리지 않아 SvgDropShadow로 다시 깐다.
+                  Positioned(
+                    top: AppLayout.personalityBubbleTop,
+                    left: 0,
+                    right: 0,
+                    height: _bubbleSvgSize.height,
+                    child: Center(
+                      child: SvgDropShadow(
+                        stdDeviation: 2.06324,
+                        opacity: 0.18,
+                        child: SvgPicture.asset(
+                          'assets/images/personality_bubble.svg',
+                          width: _bubbleSvgSize.width,
+                          height: _bubbleSvgSize.height,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _personalities.length,
+                      onPageChanged: (index) =>
+                          setState(() => _selectedIndex = index),
+                      itemBuilder: (context, index) {
+                        final personality = _personalities[index];
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: AppLayout.personalityTitleTop,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
+                                child: Text(
+                                  personality.label,
+                                  style: kTitleStyle.copyWith(
+                                    color: kPersonalityTitle,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      // 태그 4534:169/171: 58.69x20.67 알약 둘, 사이 6.62.
-                      Positioned(
-                        top: AppLayout.personalityTagsTop,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: personality.tags
-                              .split('   ')
-                              .map((tag) => _PersonalityTag(label: tag))
-                              .toList(),
-                        ),
-                      ),
-                      Positioned(
-                        top: AppLayout.personalityCharacterTop,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: PlantCharacterArt(
-                            width: AppLayout.personalityCharacterWidth,
-                            body: plantBodyFromId(widget.draft.bodyId),
-                            // 성격 단계엔 아직 헤어를 draft에 저장하기 전이라
-                            // 종 매핑값으로 미리 얹어 보여준다.
-                            hairId:
-                                widget.draft.headItem ??
-                                hairForSpecies(widget.draft.species),
-                          ),
-                        ),
-                      ),
-                      // 말풍선 4534:174. 위로 꼬리가 난 Union(253x47.05)을
-                      // 시안 SVG 그대로 그린다(성격 수정 4889:2259와 같은
-                      // 모양이라 같은 에셋을 쓴다). 그림자(흐림 2.063, 18%)는
-                      // flutter_svg가 그리지 않아 SvgDropShadow로 다시 깐다.
-                      Positioned(
-                        top: AppLayout.personalityBubbleTop,
-                        left: 0,
-                        right: 0,
-                        height: _bubbleSvgSize.height,
-                        child: Center(
-                          child: SvgDropShadow(
-                            stdDeviation: 2.06324,
-                            opacity: 0.18,
-                            child: SvgPicture.asset(
-                              'assets/images/personality_bubble.svg',
-                              width: _bubbleSvgSize.width,
-                              height: _bubbleSvgSize.height,
+                            // 태그 4534:169/171: 58.69x20.67 알약 둘, 사이 6.62.
+                            Positioned(
+                              top: AppLayout.personalityTagsTop,
+                              left: 0,
+                              right: 0,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: personality.tags
+                                    .split('   ')
+                                    .map((tag) => _PersonalityTag(label: tag))
+                                    .toList(),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      // 대사 4534:178: Paperlogy Regular 16.506 검정, 가운데
-                      // y=532.23. 옛 구현은 상자 가운데 정렬이라 4px 위였다.
-                      Positioned(
-                        top: AppLayout.personalityBubbleTextTop,
-                        left: 0,
-                        right: 0,
-                        child: Text(
-                          personality.dialogue,
-                          textAlign: TextAlign.center,
-                          style: kBodyStyle.copyWith(
-                            fontWeight: FontWeight.w400,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: AppLayout.personalityDotsTop,
-                        left: 0,
-                        right: 0,
-                        child: _PersonalityDots(selectedIndex: _selectedIndex),
-                      ),
-                    ],
-                  );
-                },
+                            // 대사 4534:178: Paperlogy Regular 16.506 검정, 가운데
+                            // y=532.23. 옛 구현은 상자 가운데 정렬이라 4px 위였다.
+                            Positioned(
+                              top: AppLayout.personalityBubbleTextTop,
+                              left: 0,
+                              right: 0,
+                              child: Text(
+                                personality.dialogue,
+                                textAlign: TextAlign.center,
+                                style: kBodyStyle.copyWith(
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    top: AppLayout.personalityDotsTop,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: _PersonalityDots(selectedIndex: _selectedIndex),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
