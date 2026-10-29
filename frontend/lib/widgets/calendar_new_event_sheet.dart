@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/date_wheel_column.dart';
@@ -28,9 +29,46 @@ Future<NewCalendarEvent?> showCalendarNewEventSheet(
       barrierColor: kModalBarrier,
       barrierDismissible: true,
       barrierLabel: '일정 추가 닫기',
+      transitionDuration: AppMotion.overlayEnter,
+      reverseTransitionDuration: AppMotion.overlayExit,
       pageBuilder: (_, _, _) =>
           CalendarNewEventSheet(initialDate: initialDate),
+      transitionsBuilder: _sheetTransition,
     ),
+  );
+}
+
+/// M3 enter and exit(화면 안, iOS): 들어올 때는 살짝 작은 크기에서 커지며
+/// 나타나고, 나갈 때는 크기 그대로 흐려지기만 한다.
+Widget _sheetTransition(
+  BuildContext context,
+  Animation<double> animation,
+  Animation<double> _,
+  Widget child,
+) {
+  if (MediaQuery.disableAnimationsOf(context)) return child;
+  return DualTransitionBuilder(
+    animation: animation,
+    forwardBuilder: (_, enter, child) {
+      final curved = enter.drive(CurveTween(curve: AppMotion.pageFadeCurve));
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: curved.drive(
+            Tween(begin: AppMotion.overlayEnterScale, end: 1.0),
+          ),
+          alignment: _CalendarNewEventSheetState._scaleOrigin,
+          child: child,
+        ),
+      );
+    },
+    reverseBuilder: (_, exit, child) => FadeTransition(
+      opacity: exit
+          .drive(CurveTween(curve: AppMotion.overlayExitCurve))
+          .drive(Tween(begin: 1.0, end: 0.0)),
+      child: child,
+    ),
+    child: child,
   );
 }
 
@@ -51,6 +89,15 @@ class _CalendarNewEventSheetState extends State<CalendarNewEventSheet> {
   static const double _cardHeight = 180;
   static const double _confirmTop = 790;
   static const double _confirmHeight = 51;
+
+  /// 카드와 확인 버튼 묶음의 가운데. 나타날 때 이 점을 기준으로 키운다.
+  /// 묶음이 가로 가운데라 x는 0이다.
+  static final Alignment _scaleOrigin = Alignment(
+    0,
+    (_cardTop + _confirmTop + _confirmHeight) /
+            AppLayout.referenceViewport.height -
+        1,
+  );
   // 4534:6100 가운데 줄 중심 y=678.91 → 카드 안 88.91. 위·아래 줄 중심은
   // 625.26 / 729.65라 위 간격 53.65, 아래 간격 50.74로 다르다. 기본 간격을
   // 둘의 평균 52.2로 두고 위는 1.45 더 벌리고 아래는 1.46 좁힌다.

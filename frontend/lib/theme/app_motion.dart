@@ -28,4 +28,18 @@ abstract final class AppMotion {
   /// 위 전환의 커브. M3 emphasized decelerate: 새 화면이 빨리 드러나고 천천히
   /// 자리 잡는다.
   static const Curve pageFadeCurve = Cubic(0.05, 0.7, 0.1, 1);
+
+  /// 화면 위에 떠 있는 카드가 나타나는 시간(M3 short4). 커브는
+  /// [pageFadeCurve]를 같이 쓴다.
+  static const Duration overlayEnter = Duration(milliseconds: 200);
+
+  /// 위 카드가 사라지는 시간(M3 short2). 나가는 건 들어오는 것보다 짧게 둔다.
+  static const Duration overlayExit = Duration(milliseconds: 100);
+
+  /// 위 카드가 사라질 때 커브. M3 emphasized accelerate: 천천히 출발해 빨리
+  /// 빠진다.
+  static const Curve overlayExitCurve = Cubic(0.3, 0, 0.8, 0.15);
+
+  /// 위 카드가 나타나기 시작할 때 크기. 0에서 키우면 튀어나오듯 보인다.
+  static const double overlayEnterScale = 0.95;
 }
