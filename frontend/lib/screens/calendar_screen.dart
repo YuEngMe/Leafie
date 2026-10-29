@@ -618,19 +618,27 @@ class _DayCell extends StatelessWidget {
 }
 
 /// 날짜 칸 표식 종류. 그리는 순서이기도 하다(뒤가 위에 겹친다).
-enum _DayMark { repot, fertilize, water }
+///
+/// repotFertilize·repotWater는 분갈이와 다른 일정이 같은 날일 때 쓰는
+/// 겹침 전용 아이콘이다(디자이너 10/29, 6270:1171·6270:1242). 두 장을
+/// 따로 겹치면 주황끼리 한 덩어리로 보였다.
+enum _DayMark { repotFertilize, repotWater, repot, fertilize, water }
 
 /// 날짜 칸 표식(켈린더 2, 4534:4708). 칸 왼쪽 위 기준 자리와 크기.
 /// 물 4534:5066, 비료 6051:4957, 분갈이 6051:4953.
+/// 겹침 아이콘은 금요일 칸(4534:5090·4534:5104) 기준이고, 크기는 내보낸
+/// SVG viewBox라 1배로 그린다.
 const Map<_DayMark, Rect> _kMarkRects = {
+  _DayMark.repotFertilize: Rect.fromLTWH(18.30, 28.09, 29, 23),
+  _DayMark.repotWater: Rect.fromLTWH(18.30, 28.83, 28, 24),
   _DayMark.water: Rect.fromLTWH(29.08, 27.59, 17.04, 23.73),
   _DayMark.fertilize: Rect.fromLTWH(28.37, 30.83, 14.24, 22.93),
   _DayMark.repot: Rect.fromLTWH(27.57, 32.68, 19, 17.61),
 };
 
-/// 표식이 여럿이면 앞 표식이 이만큼씩 왼쪽으로 비킨다. 시안의 유일한 예
-/// (10일 칸: 분갈이 6089:2474가 혼자일 때 27.57 → 18.30, 물이 그 위)에서
-/// 읽은 값이다. 세 개 이상·비료 조합은 시안에 없어 같은 규칙을 늘려 쓴다.
+/// 표식이 여럿이면 앞 표식이 이만큼씩 왼쪽으로 비킨다. 예전 시안의 10일 칸
+/// (분갈이 6089:2474가 혼자일 때 27.57 → 18.30, 물이 그 위)에서 읽은 값이다.
+/// 겹침 아이콘이 생긴 뒤로는 분갈이+비료+물처럼 시안에 없는 조합에만 쓴다.
 const double _kMarkShift = 27.57 - 18.30;
 
 /// 그날 일정을 표식 종류로 묶는다. 전용 그림이 없는 종류(가지치기·상태
@@ -643,8 +651,27 @@ List<_DayMark> _marksFor(List<CalendarItemData> items) {
         'FERTILIZING' => _DayMark.fertilize,
         _ => _DayMark.repot,
       },
-  }.toList()..sort((a, b) => a.index.compareTo(b.index));
-  return marks;
+  };
+  // 분갈이는 비료와 먼저 묶고, 비료가 없을 때만 물과 묶는다. 셋 다면
+  // 분갈이+비료 위에 물방울이 남는다(시안에 없는 조합).
+  if (marks.contains(_DayMark.repot)) {
+    final partner = marks.contains(_DayMark.fertilize)
+        ? _DayMark.fertilize
+        : marks.contains(_DayMark.water)
+        ? _DayMark.water
+        : null;
+    if (partner != null) {
+      marks
+        ..remove(_DayMark.repot)
+        ..remove(partner)
+        ..add(
+          partner == _DayMark.fertilize
+              ? _DayMark.repotFertilize
+              : _DayMark.repotWater,
+        );
+    }
+  }
+  return marks.toList()..sort((a, b) => a.index.compareTo(b.index));
 }
 
 Widget _markAt(_DayMark mark, {required double shift}) {
@@ -662,6 +689,14 @@ Widget _markAt(_DayMark mark, {required double shift}) {
       ),
       _DayMark.fertilize => const CalendarEventIcon(type: 'FERTILIZING'),
       _DayMark.repot => const CalendarEventIcon(type: 'REPOTTING'),
+      _DayMark.repotFertilize => SvgPicture.asset(
+        'assets/images/calendar_day_repot_fertilize.svg',
+        fit: BoxFit.fill,
+      ),
+      _DayMark.repotWater => SvgPicture.asset(
+        'assets/images/calendar_day_repot_water.svg',
+        fit: BoxFit.fill,
+      ),
     },
   );
 }
