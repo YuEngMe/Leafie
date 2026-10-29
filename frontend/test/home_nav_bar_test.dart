@@ -260,4 +260,31 @@ void main() {
       expect(_navOpacity(tester, icon), 1.0, reason: icon.label);
     }
   });
+
+  testWidgets('다이어리·캘린더 탭에서 화면 왼쪽 끝을 밀면 홈 탭으로 돌아간다 (디자이너 답 13-B)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainTabShell(
+          home: const Center(child: Text('home-tab')),
+          diaryBuilder: (_) => const Center(child: Text('diary-tab')),
+          calendarBuilder: (_) => const Center(child: Text('calendar-tab')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_navIcon(FigmaNavIcon.calendar));
+    await tester.pumpAndSettle();
+    expect(find.text('calendar-tab'), findsOneWidget);
+
+    await tester.dragFrom(const Offset(4, 400), const Offset(220, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('home-tab'), findsOneWidget);
+    expect(find.text('calendar-tab'), findsNothing);
+  });
 }

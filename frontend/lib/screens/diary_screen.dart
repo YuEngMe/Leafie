@@ -11,6 +11,7 @@ import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/edge_swipe_back.dart';
 
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
 class DiaryScreen extends StatefulWidget {
@@ -481,198 +482,202 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _exit();
       },
-      child: Scaffold(
-        backgroundColor: kBackgroundWhite,
-        extendBodyBehindAppBar: true,
-        // 몸통을 줄이면 바닥에 붙은 하단 네비가 키보드를 따라 올라와 본문을
-        // 가린다(디자이너 요청 2026-10: 네비는 고정). 나머지는 시안 절대
-        // 좌표라 몸통 높이와 상관없이 제자리다.
-        resizeToAvoidBottomInset: false,
-        appBar: YesoAppBar(
-          title: '다이어리',
-          backgroundColor: Colors.transparent,
-          backIconColor: kOrangeMain,
-          actions: [_EditAction(onPressed: () => _exit())],
-        ),
-        body: AbsorbPointer(
-          absorbing: _submitting,
-          child: DiaryScaffoldBody(
-            paperTabs: _paperTabs(
-              previousLabel: '이전 날',
-              nextLabel: '다음 날',
-              onPrevious: () => _shiftDay(-1),
-              onNext: () => _shiftDay(1),
-            ),
-            // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
-            onNavTap: (tab) => switch (tab) {
-              FigmaNavIcon.home || FigmaNavIcon.my => _exit(),
-              FigmaNavIcon.calendar => _openCalendar(),
-              _ => null,
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // 사진칸 3496:10622.
-                Positioned(
-                  left: 46,
-                  top: 144.74,
-                  width: 304,
-                  height: 259.58,
-                  child: DiaryPhotoBox(
-                    photoPath: _photoPath,
-                    photoUrl: _photoUrl,
-                    onTap: _pickPhoto,
-                  ),
-                ),
-                // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851). '12월 30일
-                // 수요일'처럼 긴 날짜는 구분선(212.63)에 닿으므로, 선 앞 4를
-                // 남기고 칸이 모자랄 때만 글자를 줄인다.
-                Positioned(
-                  left: 54,
-                  top: 149,
-                  width: 212.63 - 54 - 4,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _dateLabel,
-                      style: kSmallStyle.copyWith(
-                        height: 23 / 14,
-                        color: kTextDark,
-                      ),
+      // 뒤로 가기를 막아 두면 iOS 밀어서 뒤로 가기도 꺼진다. 밀면 위 저장 후
+      // 닫기를 그대로 탄다.
+      child: EdgeSwipeBack(
+        child: Scaffold(
+          backgroundColor: kBackgroundWhite,
+          extendBodyBehindAppBar: true,
+          // 몸통을 줄이면 바닥에 붙은 하단 네비가 키보드를 따라 올라와 본문을
+          // 가린다(디자이너 요청 2026-10: 네비는 고정). 나머지는 시안 절대
+          // 좌표라 몸통 높이와 상관없이 제자리다.
+          resizeToAvoidBottomInset: false,
+          appBar: YesoAppBar(
+            title: '다이어리',
+            backgroundColor: Colors.transparent,
+            backIconColor: kOrangeMain,
+            actions: [_EditAction(onPressed: () => _exit())],
+          ),
+          body: AbsorbPointer(
+            absorbing: _submitting,
+            child: DiaryScaffoldBody(
+              paperTabs: _paperTabs(
+                previousLabel: '이전 날',
+                nextLabel: '다음 날',
+                onPrevious: () => _shiftDay(-1),
+                onNext: () => _shiftDay(1),
+              ),
+              // 시안(2739:39643)은 글쓰기에도 하단 네비를 둔다.
+              onNavTap: (tab) => switch (tab) {
+                FigmaNavIcon.home || FigmaNavIcon.my => _exit(),
+                FigmaNavIcon.calendar => _openCalendar(),
+                _ => null,
+              },
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 사진칸 3496:10622.
+                  Positioned(
+                    left: 46,
+                    top: 144.74,
+                    width: 304,
+                    height: 259.58,
+                    child: DiaryPhotoBox(
+                      photoPath: _photoPath,
+                      photoUrl: _photoUrl,
+                      onTap: _pickPhoto,
                     ),
                   ),
-                ),
-                // 3496:10620 세로 구분선, 3496:10619 가로선.
-                const Positioned(
-                  left: 212.63,
-                  top: 144.74,
-                  child: SizedBox(
-                    width: 1,
-                    height: 38.72,
-                    child: ColoredBox(color: kOrangeMain),
-                  ),
-                ),
-                const Positioned(
-                  left: 46,
-                  top: 183.36,
-                  width: 304,
-                  height: 1,
-                  child: ColoredBox(color: kOrangeMain),
-                ),
-                DiaryWeatherPicker(
-                  selected: _weather,
-                  onSelect: (w) => setState(() => _weather = w),
-                ),
-                // 본문칸 3496:10623.
-                const Positioned(
-                  left: 46,
-                  top: 415,
-                  width: 304,
-                  height: 290,
-                  child: _BodyBox(),
-                ),
-                // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
-                // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
-                // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
-                // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
-                Positioned(
-                  left: 63,
-                  top: 423.4,
-                  width: 270,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '제목: ',
-                        style: kItemStyle.copyWith(color: kTextDark),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _titleController,
-                          readOnly: _submitting,
-                          style: kItemStyle.copyWith(color: kTextDark),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                          ),
+                  // 날짜 줄. 사진칸 위쪽에 겹쳐 놓인다(2739:39851). '12월 30일
+                  // 수요일'처럼 긴 날짜는 구분선(212.63)에 닿으므로, 선 앞 4를
+                  // 남기고 칸이 모자랄 때만 글자를 줄인다.
+                  Positioned(
+                    left: 54,
+                    top: 149,
+                    width: 212.63 - 54 - 4,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _dateLabel,
+                        style: kSmallStyle.copyWith(
+                          height: 23 / 14,
+                          color: kTextDark,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                // 3496:10621 제목 밑줄, 3496:10625 본문.
-                const Positioned(
-                  left: 46,
-                  top: 454.74,
-                  width: 304,
-                  height: 1,
-                  child: ColoredBox(color: kOrangeMain),
-                ),
-                // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
-                // (2026-09-11 디자이너 요청).
-                Positioned(
-                  left: 62,
-                  top: 466,
-                  width: 272,
-                  // 아래 '저장하기'(683)와 겹치지 않게 675까지.
-                  height: 209,
-                  child: TextField(
-                    controller: _bodyController,
-                    readOnly: _submitting,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
-                    // Medium이라 굵기만 내린다.
-                    style: kBodyStyle.copyWith(
-                      fontWeight: FontWeight.w400,
-                      height: 27 / 16,
                     ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: '다이어리를 기록하세요',
-                      hintStyle: kBodyStyle.copyWith(
+                  ),
+                  // 3496:10620 세로 구분선, 3496:10619 가로선.
+                  const Positioned(
+                    left: 212.63,
+                    top: 144.74,
+                    child: SizedBox(
+                      width: 1,
+                      height: 38.72,
+                      child: ColoredBox(color: kOrangeMain),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 46,
+                    top: 183.36,
+                    width: 304,
+                    height: 1,
+                    child: ColoredBox(color: kOrangeMain),
+                  ),
+                  DiaryWeatherPicker(
+                    selected: _weather,
+                    onSelect: (w) => setState(() => _weather = w),
+                  ),
+                  // 본문칸 3496:10623.
+                  const Positioned(
+                    left: 46,
+                    top: 415,
+                    width: 304,
+                    height: 290,
+                    child: _BodyBox(),
+                  ),
+                  // 시안(2739:39792)은 '제목: 귀여운 새싹이'처럼 접두사가 글자
+                  // 앞에 붙어 있다. 힌트로 두면 값을 넣는 순간 사라진다.
+                  // 3496:10624 글자 상자 424.71~445.09의 중심에 23px 줄을 맞춘다.
+                  // 2026-09-11 디자이너 요청: 안쪽 여백을 조금 더 준다(좌우 +8).
+                  Positioned(
+                    left: 63,
+                    top: 423.4,
+                    width: 270,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '제목: ',
+                          style: kItemStyle.copyWith(color: kTextDark),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _titleController,
+                            readOnly: _submitting,
+                            style: kItemStyle.copyWith(color: kTextDark),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 3496:10621 제목 밑줄, 3496:10625 본문.
+                  const Positioned(
+                    left: 46,
+                    top: 454.74,
+                    width: 304,
+                    height: 1,
+                    child: ColoredBox(color: kOrangeMain),
+                  ),
+                  // 본문은 시안(3496:10625)보다 여백 8·행간 23→27로 조금 여유 있게
+                  // (2026-09-11 디자이너 요청).
+                  Positioned(
+                    left: 62,
+                    top: 466,
+                    width: 272,
+                    // 아래 '저장하기'(683)와 겹치지 않게 675까지.
+                    height: 209,
+                    child: TextField(
+                      controller: _bodyController,
+                      readOnly: _submitting,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      // 3496:10625 / 2739:39795: 16 Regular(400). kBodyStyle은
+                      // Medium이라 굵기만 내린다.
+                      style: kBodyStyle.copyWith(
                         fontWeight: FontWeight.w400,
                         height: 27 / 16,
-                        color: kGrayLightest,
                       ),
-                      contentPadding: EdgeInsets.zero,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: '다이어리를 기록하세요',
+                        hintStyle: kBodyStyle.copyWith(
+                          fontWeight: FontWeight.w400,
+                          height: 27 / 16,
+                          color: kGrayLightest,
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
-                ),
-                // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
-                // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
-                // 빈 글쓰기 시안(2739:39308)에는 없다.
-                if (!_currentEntry().isEmpty)
-                  Positioned(
-                    left: 303 + 17 - 24,
-                    top: 683 + 5.5 - 24,
-                    width: 48,
-                    height: 48,
-                    child: GestureDetector(
-                      onTap: () => _exit(),
-                      behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: Semantics(
-                          button: true,
-                          child: Text(
-                            '저장하기',
-                            style: kSmallStyle.copyWith(
-                              fontSize: 9.488,
-                              fontWeight: FontWeight.w500,
-                              height: 1,
-                              color: kTextDark,
+                  // 저장하기(3631:2600): 본문칸 오른쪽 아래 글자 링크, x303 y683
+                  // 9.488px Medium #444. 글자는 작지만 누르는 범위는 48px로 둔다.
+                  // 빈 글쓰기 시안(2739:39308)에는 없다.
+                  if (!_currentEntry().isEmpty)
+                    Positioned(
+                      left: 303 + 17 - 24,
+                      top: 683 + 5.5 - 24,
+                      width: 48,
+                      height: 48,
+                      child: GestureDetector(
+                        onTap: () => _exit(),
+                        behavior: HitTestBehavior.opaque,
+                        child: Center(
+                          child: Semantics(
+                            button: true,
+                            child: Text(
+                              '저장하기',
+                              style: kSmallStyle.copyWith(
+                                fontSize: 9.488,
+                                fontWeight: FontWeight.w500,
+                                height: 1,
+                                color: kTextDark,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

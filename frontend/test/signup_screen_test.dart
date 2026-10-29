@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/signup_screen.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/onboarding_fields.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
 // 화면 순서 고정: 0=이메일, 1=비밀번호, 2=비밀번호 확인, 3=닉네임.
@@ -173,5 +174,30 @@ void main() {
     expect(find.text('회원가입을 중단하시겠습니까?'), findsOneWidget);
     expect(find.text('네'), findsOneWidget);
     expect(find.text('아니오'), findsOneWidget);
+  });
+
+  testWidgets('화면 왼쪽 끝을 밀면 나가기 확인 창을 띄운다 (디자이너 답 13-B)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const SignupScreen()),
+            ),
+            child: const Text('열기'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+
+    await tester.dragFrom(const Offset(4, 300), const Offset(220, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SignupAbortDialog), findsOneWidget);
   });
 }

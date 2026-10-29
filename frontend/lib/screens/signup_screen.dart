@@ -11,6 +11,7 @@ import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/widgets/edge_swipe_back.dart';
 
 // 이메일 형식만 검사 — 실제 서버 확인이 아니라 클라이언트 형식 체크.
 final _emailFormatRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -226,75 +227,78 @@ class _SignupScreenState extends State<SignupScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmExit();
       },
-      child: Scaffold(
-        backgroundColor: kBackgroundWhite,
-        appBar: const YesoAppBar(title: '회원가입'),
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                AppLayout.authHorizontalPadding,
-                AppLayout.authFormTopPadding,
-                AppLayout.authHorizontalPadding,
-                AppLayout.authBottomActionPadding,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight:
-                      constraints.maxHeight -
-                      AppLayout.authFormTopPadding -
-                      AppLayout.authBottomActionPadding,
+      // 밀어서 뒤로 가도 나가기 확인 창을 거친다.
+      child: EdgeSwipeBack(
+        child: Scaffold(
+          backgroundColor: kBackgroundWhite,
+          appBar: const YesoAppBar(title: '회원가입'),
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppLayout.authHorizontalPadding,
+                  AppLayout.authFormTopPadding,
+                  AppLayout.authHorizontalPadding,
+                  AppLayout.authBottomActionPadding,
                 ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SignupEmailField(
-                        controller: _emailcontroller,
-                        variant: _emailVariant,
-                        errorText: _emailFormatError,
-                        onSend: _checkEmailFormat,
-                        countdownText: _countdownText,
-                        // 2395:42: 시간이 다 되면 문구만 바뀌고 재발송은 열려 있다.
-                        message: _expired ? '시간이 만료 되었습니다.' : null,
-                      ),
-                      const SizedBox(height: AppLayout.authFieldGap),
-                      SignupPasswordField(
-                        controller: _passwordController,
-                        variant: _passwordVariant(
-                          _passwordController,
-                          _passwordError,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        constraints.maxHeight -
+                        AppLayout.authFormTopPadding -
+                        AppLayout.authBottomActionPadding,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SignupEmailField(
+                          controller: _emailcontroller,
+                          variant: _emailVariant,
+                          errorText: _emailFormatError,
+                          onSend: _checkEmailFormat,
+                          countdownText: _countdownText,
+                          // 2395:42: 시간이 다 되면 문구만 바뀌고 재발송은 열려 있다.
+                          message: _expired ? '시간이 만료 되었습니다.' : null,
                         ),
-                        errorText: _passwordError,
-                      ),
-                      const SizedBox(height: AppLayout.authFieldGap),
-                      SignupPasswordField(
-                        label: '비밀번호 확인',
-                        controller: _passwordConfirmController,
-                        variant: _passwordVariant(
-                          _passwordConfirmController,
-                          _passwordConfirmError,
+                        const SizedBox(height: AppLayout.authFieldGap),
+                        SignupPasswordField(
+                          controller: _passwordController,
+                          variant: _passwordVariant(
+                            _passwordController,
+                            _passwordError,
+                          ),
+                          errorText: _passwordError,
                         ),
-                        errorText: _passwordConfirmError,
-                      ),
-                      const SizedBox(height: AppLayout.authFieldGap),
-                      SignupNicknameField(
-                        controller: _nicknameController,
-                        variant: _nicknameVariant,
-                      ),
-                      const Spacer(),
-                      PrimaryButton(
-                        label: _loading ? '가입 중...' : '시작하기',
-                        variant: _loading || !_canSubmit
-                            ? PrimaryButtonVariant.disabled
-                            : PrimaryButtonVariant.enabled,
-                        onPressed: _loading || !_canSubmit
-                            ? null
-                            : _showTermsAndSignup,
-                        height: AppLayout.onboardingControlHeight,
-                        textStyle: kLoginButtonStyle,
-                      ),
-                    ],
+                        const SizedBox(height: AppLayout.authFieldGap),
+                        SignupPasswordField(
+                          label: '비밀번호 확인',
+                          controller: _passwordConfirmController,
+                          variant: _passwordVariant(
+                            _passwordConfirmController,
+                            _passwordConfirmError,
+                          ),
+                          errorText: _passwordConfirmError,
+                        ),
+                        const SizedBox(height: AppLayout.authFieldGap),
+                        SignupNicknameField(
+                          controller: _nicknameController,
+                          variant: _nicknameVariant,
+                        ),
+                        const Spacer(),
+                        PrimaryButton(
+                          label: _loading ? '가입 중...' : '시작하기',
+                          variant: _loading || !_canSubmit
+                              ? PrimaryButtonVariant.disabled
+                              : PrimaryButtonVariant.enabled,
+                          onPressed: _loading || !_canSubmit
+                              ? null
+                              : _showTermsAndSignup,
+                          height: AppLayout.onboardingControlHeight,
+                          textStyle: kLoginButtonStyle,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
