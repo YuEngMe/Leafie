@@ -1095,7 +1095,9 @@ class _HomeScreenState extends State<HomeScreen>
                   // 못해 생략한다.)
                   //
                   // 그 위에 _WaterFlowPainter를 얹어 시안의 작은 물방울과 흰
-                  // 하이라이트가 부채꼴 안을 계속 흘러내리게 한다(콸콸 느낌).
+                  // 반짝점이 부채꼴 안을 계속 흘러내리게 한다(콸콸 느낌).
+                  // 흰 선(Vector 1538~1545)은 흩날림 레이어에만 시안대로 두고,
+                  // 따로 길게 흘려보내지 않는다(디자이너 요청, 시안 5038:6698).
                   // 본체 자체는 형태 고정이라 Transform으로 좌우 흔들림 +
                   // 미세 scaleX 맥동을 줘 물이 출렁이게 한다.
                   //
@@ -2267,10 +2269,10 @@ class _WaterSplashLayer extends StatelessWidget {
 }
 
 /// 물줄기 본체 SVG 위에 얹어 물이 흘러내리게 하는 오버레이(시안 4534:11340의
-/// Ellipse 1021~1034 물방울 + Vector 1538~1545 흰 하이라이트를 움직이게 한 것).
+/// Ellipse 1021~1034 물방울·흰 반짝점을 움직이게 한 것).
 ///
 /// 시안 본체 path의 좌우 경계를 y에 따라 선형 보간해(상단 좁고 하단 넓음)
-/// 물방울·하이라이트를 부채꼴 안에만 배치하고, 각자 다른 속도·오프셋으로
+/// 물방울·반짝점을 부채꼴 안에만 배치하고, 각자 다른 속도·오프셋으로
 /// 위→아래를 순환(`(pour*speed + offset) % 1`)시켜 콸콸 흐르는 느낌을 만든다.
 /// 색은 시안 확대본처럼 본체(연하늘)보다 한 단계 진한 하늘색을 써서 물방울이
 /// 또렷하게 대비되게 한다.
@@ -2289,7 +2291,7 @@ class _WaterFlowPainter extends CustomPainter {
 
   /// 본체 그라디언트가 투명해지기 시작하는 세로 위치(0~1). 시안 linear
   /// 그라디언트의 마지막 stop이 로컬 y≈163.8(=241.418의 약 0.68)이라,
-  /// 그 아래로는 물방울·하이라이트가 본체 없이 떠 보이므로 여기서 사라진다.
+  /// 그 아래로는 물방울·반짝점이 본체 없이 떠 보이므로 여기서 사라진다.
   static const double _visibleEnd = 0.62;
 
   /// 흐르는 눈물방울 14개. x는 그 y에서의 부채꼴 폭 대비 위치(0=좌경계,
@@ -2312,17 +2314,6 @@ class _WaterFlowPainter extends CustomPainter {
     _FlowDrop(x: 0.34, speed: 2.2, offset: 0.38, width: 5.5),
     _FlowDrop(x: 0.80, speed: 3.1, offset: 0.66, width: 7.0),
     _FlowDrop(x: 0.50, speed: 2.3, offset: 0.88, width: 6.8),
-  ];
-
-  /// 흐르는 흰 하이라이트 6개. 시안 확대본처럼 물줄기 길이의 30~60%짜리
-  /// 긴 세로 곡선이며, length는 본체 높이 대비 길이.
-  static const List<_FlowHighlight> _highlights = [
-    _FlowHighlight(x: 0.20, speed: 1.5, offset: 0.05, length: 0.46),
-    _FlowHighlight(x: 0.72, speed: 1.3, offset: 0.33, length: 0.55),
-    _FlowHighlight(x: 0.44, speed: 1.7, offset: 0.58, length: 0.34),
-    _FlowHighlight(x: 0.12, speed: 1.4, offset: 0.80, length: 0.42),
-    _FlowHighlight(x: 0.58, speed: 1.2, offset: 0.20, length: 0.58),
-    _FlowHighlight(x: 0.88, speed: 1.6, offset: 0.66, length: 0.31),
   ];
 
   /// 흩뿌려진 작은 흰 반짝점 10개. x가 0 미만/1 초과면 부채꼴 경계 바깥이다
@@ -2355,7 +2346,6 @@ class _WaterFlowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (pour <= 0) return;
-    _paintHighlights(canvas, size);
     _paintSparkles(canvas, size);
     _paintDrops(canvas, size);
   }
@@ -2418,36 +2408,6 @@ class _WaterFlowPainter extends CustomPainter {
         alpha: fade.clamp(0.0, 1.0),
       );
       canvas.drawPath(_teardrop(center, drop.width), paint);
-    }
-  }
-
-  void _paintHighlights(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    for (final h in _highlights) {
-      final v = (pour * h.speed + h.offset) % 1.0;
-      final fade = _fadeAt(v, 0.10);
-      if (fade <= 0) continue;
-      final vEnd = math.min(v + h.length, 1.0);
-      final vMid = (v + vEnd) / 2;
-      final start = _pointAt(size, v, h.x);
-      final mid = _pointAt(size, vMid, h.x);
-      final end = _pointAt(size, vEnd, h.x);
-      // 부채꼴이 벌어지는 방향(중심선에서 멀어지는 쪽)으로 제어점을 밀어
-      // 시안처럼 흐름을 따라 완만히 휘게 한다.
-      final bend = (h.x - 0.5) * size.width * 0.10;
-      final control = Offset(mid.dx + bend, mid.dy);
-      final path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
-      canvas.drawPath(
-        path,
-        paint
-          ..strokeWidth = h.length > 0.45 ? 1.5 : 1.1
-          ..color = Colors.white.withValues(alpha: 0.7 * fade.clamp(0.0, 1.0)),
-      );
     }
   }
 
@@ -2517,26 +2477,4 @@ class _FlowSparkle {
 
   /// 반짝점 반지름(본체 좌표계 px, 0.75~1.5 = 지름 1.5~3).
   final double radius;
-}
-
-/// 흐르는 흰 하이라이트 한 개의 정의.
-class _FlowHighlight {
-  const _FlowHighlight({
-    required this.x,
-    required this.speed,
-    required this.offset,
-    required this.length,
-  });
-
-  /// 그 y에서의 부채꼴 폭 대비 가로 위치(0=좌경계, 1=우경계).
-  final double x;
-
-  /// 한 번 붓는 동안 위→아래를 도는 횟수.
-  final double speed;
-
-  /// 시작 위상(0~1).
-  final double offset;
-
-  /// 본체 높이 대비 하이라이트 길이.
-  final double length;
 }
