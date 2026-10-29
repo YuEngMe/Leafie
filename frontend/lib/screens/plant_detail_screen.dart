@@ -197,11 +197,14 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               child: OverflowBox(
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
-                child: PlantCharacterArt(
-                  width: plantArtWidthFor(139.78),
-                  body: plantBodyFromId(_plant.bodyId),
-                  colorId: _plant.colorId,
-                  hairId: _plant.hairId,
+                child: PlantArtHero(
+                  plantId: _plant.id,
+                  child: PlantCharacterArt(
+                    width: plantArtWidthFor(139.78),
+                    body: plantBodyFromId(_plant.bodyId),
+                    colorId: _plant.colorId,
+                    hairId: _plant.hairId,
+                  ),
                 ),
               ),
             ),

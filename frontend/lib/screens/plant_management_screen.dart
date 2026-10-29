@@ -278,11 +278,14 @@ class _PlantShelfHouse extends StatelessWidget {
               child: Semantics(
                 button: true,
                 label: visible[index].nickname,
-                child: PlantCharacterArt(
-                  width: plantArtWidthFor(_kCharacterWidth),
-                  body: plantBodyFromId(visible[index].bodyId),
-                  colorId: visible[index].colorId,
-                  hairId: visible[index].hairId,
+                child: PlantArtHero(
+                  plantId: visible[index].id,
+                  child: PlantCharacterArt(
+                    width: plantArtWidthFor(_kCharacterWidth),
+                    body: plantBodyFromId(visible[index].bodyId),
+                    colorId: visible[index].colorId,
+                    hairId: visible[index].hairId,
+                  ),
                 ),
               ),
             ),
