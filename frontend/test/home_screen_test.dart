@@ -1972,6 +1972,190 @@ void main() {
     });
   });
 
+
+  group('홈 모션 2차 (디자이너 답 5-A·7-B·9-B)', () {
+    HomeDashboardData dashboard(String plantId, {SensorAssessment? sensor}) =>
+        HomeDashboardData(
+          plant: HomePlantData(
+            id: plantId,
+            nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+            personalityType: 'OUTGOING',
+            colorId: 'color_orange',
+            hairId: 'hair_sprout',
+            startedOn: '2026-05-01',
+            daysTogether: 3,
+            primaryPhotoUrl: null,
+          ),
+          room: HomeRoomData(
+            backgroundPhase: 'DAY',
+            dialogueKey: 'NORMAL',
+            dialogue: null,
+            sensor: sensor,
+          ),
+          todayEvents: const [],
+          unreadLetterCount: 0,
+          unreadNotificationCount: 0,
+        );
+
+    Finder characters() => find.byKey(const ValueKey('home-character-pet'));
+
+    testWidgets('> 를 누르면 지금 캐릭터는 왼쪽으로, 다음 캐릭터는 오른쪽에서 밀려 들어온다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: const HomePlant(
+              id: 'plant-a',
+              name: '첫째',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialGaugesExpanded: false,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+              _managedPlant('plant-b', '둘째'),
+            ]),
+            loadHomeForPlant: (plantId) async => dashboard(plantId!),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final restingX = tester.getCenter(characters()).dx;
+
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 150));
+
+      // 전환 중에는 두 캐릭터가 함께 있고, 하나는 왼쪽·하나는 오른쪽에 있다.
+      final xs = characters().evaluate().map((e) {
+        final box = e.renderObject! as RenderBox;
+        return box.localToGlobal(box.size.center(Offset.zero)).dx;
+      }).toList()..sort();
+      expect(xs, hasLength(2));
+      expect(xs.first, lessThan(restingX - 20));
+      expect(xs.last, greaterThan(restingX + 20));
+      expect(find.text('첫째 방'), findsOneWidget);
+      expect(find.text('둘째 방'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(characters(), findsOneWidget);
+      expect(tester.getCenter(characters()).dx, moreOrLessEquals(restingX));
+      expect(find.text('첫째 방'), findsNothing);
+      expect(find.text('둘째 방'), findsOneWidget);
+    });
+
+    testWidgets('캐릭터를 좌우로 문지르는 동안 계속 흔들리고 웃는다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plant: HomePlant(
+              name: '실제식물',
+              startedOn: null,
+              personalityType: null,
+            ),
+            initialScene: HomeScene.idle,
+            initialGaugesExpanded: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Set<String> faces() => tester
+          .widgetList<Image>(
+            find.descendant(of: characters(), matching: find.byType(Image)),
+          )
+          .map((image) => (image.image as AssetImage).assetName)
+          .where((asset) => asset.contains('/face_'))
+          .toSet();
+      bool tilted() => tester
+          .widgetList<Transform>(
+            find.descendant(of: characters(), matching: find.byType(Transform)),
+          )
+          .any((t) => t.transform.storage[1].abs() > 1e-4);
+
+      final gesture = await tester.startGesture(tester.getCenter(characters()));
+      var tiltedLate = false;
+      // 1.6초 동안 좌우로 문지른다. 탭 한 번의 흔들림(550ms)보다 훨씬 길다.
+      for (var i = 0; i < 16; i++) {
+        await gesture.moveBy(Offset(i.isEven ? 30 : -30, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        if (i >= 8 && tilted()) tiltedLate = true;
+      }
+      expect(tiltedLate, isTrue);
+      expect(faces(), contains(_happyFace));
+
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(faces(), {_defaultFace});
+    });
+
+    testWidgets('조도·습도 게이지는 0에서 현재값까지 차오른다', (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const sensor = SensorAssessment(
+        connection: SensorConnection.active,
+        soil: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'relative_percent',
+          value: 60,
+          lower: 40,
+          upper: 90,
+        ),
+        light: SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'lux_hours',
+          value: 30000,
+          lower: 60000,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => dashboard('plant-a', sensor: sensor),
+          ),
+        ),
+      );
+      // 응답이 들어와 게이지가 처음 그려진 직후.
+      for (var i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+
+      double fill() {
+        final boxes = tester
+            .widgetList<FractionallySizedBox>(
+              find.descendant(
+                of: find.byKey(const ValueKey('home-gauge-humidity')),
+                matching: find.byType(FractionallySizedBox),
+              ),
+            )
+            .toList();
+        return boxes.last.widthFactor!;
+      }
+
+      expect(fill(), lessThan(0.1));
+      await tester.pump(const Duration(milliseconds: 300));
+      final mid = fill();
+      expect(mid, greaterThan(0.05));
+      expect(mid, lessThan(0.6));
+      await tester.pumpAndSettle();
+      expect(fill(), moreOrLessEquals(0.6));
+    });
+  });
 }
 
 class _FakeNotificationRepository implements NotificationRepository {
