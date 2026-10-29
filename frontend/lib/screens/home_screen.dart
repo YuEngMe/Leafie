@@ -30,6 +30,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
+import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
 
 /// 홈 API가 반환한 등록 식물 정보.
@@ -225,6 +226,11 @@ class _HomeScreenState extends State<HomeScreen>
   bool _switchingPlant = false;
   // 우편함을 열기 전 편지가 있는지 확인하는 중이면 다시 누른 탭을 무시한다.
   bool _checkingMailbox = false;
+  // < > 로 방을 옮길 때 캐릭터·방 이름이 미끄러지는 방향(다음 1, 이전 −1).
+  // 알림·관리 화면처럼 화살표가 아닌 이동은 0이라 미끄러지지 않는다.
+  int _slideDirection = 0;
+  // 캐릭터를 좌우로 문지르는 중이면 쓰담 반응을 계속 이어 간다(디자이너 답 7-B).
+  bool _rubbing = false;
   final _tabShellKey = GlobalKey<MainTabShellState>();
 
   /// 내 캐릭터에서 돌아올 때마다 올려 캘린더 탭을 새로 만든다.
@@ -314,6 +320,23 @@ class _HomeScreenState extends State<HomeScreen>
     _petController.forward(from: 0);
   }
 
+  void _startRub() {
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    setState(() => _rubbing = true);
+    _petController.forward(from: 0);
+  }
+
+  /// 문지르는 동안 흔들림이 끝날 때마다 다시 흔든다. 도중에 처음부터 다시
+  /// 돌리면 흔들림이 끊겨 떨리는 것처럼 보여서 끝난 뒤에만 잇는다.
+  void _continueRub() {
+    if (!_rubbing || _petController.isAnimating) return;
+    _petController.forward(from: 0);
+  }
+
+  void _endRub() {
+    if (_rubbing) setState(() => _rubbing = false);
+  }
+
   void _waterPlant() {
     _showCareToast('물을 줬어요!');
     if (MediaQuery.disableAnimationsOf(context)) return;
@@ -335,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen>
       _wateringController.isAnimating ||
       _wateringAfterglow ||
       _sunActive ||
+      _rubbing ||
       _petController.isAnimating;
 
   /// 물이 주둥이에서 떨어지는 구간(0.2~0.85)의 표시 세기(0~1).
@@ -640,6 +664,8 @@ class _HomeScreenState extends State<HomeScreen>
     _raysController.value = 0;
     _wateringController.value = 0;
     _petController.value = 0;
+    _rubbing = false;
+    _slideDirection = 0;
     _sunActive = false;
     _wateringAfterglow = false;
     _careToastLabel = null;
@@ -707,6 +733,7 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _switchingPlant = true;
       _resetRoomMotion();
+      _slideDirection = delta.sign;
     });
     try {
       await _selectAndLoad(next.id);
@@ -946,6 +973,8 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 _HomeHeader(
                   roomName: plant?.name,
+                  roomKey: plant?.id,
+                  slideDirection: _slideDirection,
                   dayCount: plant?.dayCount,
                   period: period,
                   unreadNotificationCount: _unreadNotificationCount,
@@ -1264,63 +1293,79 @@ class _HomeScreenState extends State<HomeScreen>
                   // 박스 가로 가운데에 그리므로 폭은 155.2/0.897≈173.02다.
                   // 몸통 위쪽은 박스 위에서 8.74 아래(박스 높이 160.87 − 바닥
                   // 여백 9.17 − 몸통 높이 142.96)라 그만큼 위로 당긴다.
+                  // 화살표로 방을 옮기면 지금 캐릭터는 밀려 나가고 다음 캐릭터가
+                  // 반대쪽에서 들어온다(디자이너 답 5-A). 배경은 시간대 그림이라
+                  // 그대로 둔다.
                   Positioned(
+                    // 앞쪽 말풍선·배지가 생기고 사라져도 전환 중인 캐릭터 상태를
+                    // 다른 자리와 바꿔 쓰지 않도록 키로 묶는다.
+                    key: const ValueKey('home-character-slot'),
                     left: 123 - (173.02 - 155.2) / 2,
                     top: 396 - 8.74,
                     width: 173.02,
-                    child: Semantics(
-                      button: true,
-                      label: '쓰담쓰담',
-                      child: GestureDetector(
-                        key: const ValueKey('home-character-pet'),
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _petCharacter,
-                        child: AnimatedBuilder(
-                          // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
-                          // 표정 전환도 여기서 함께 재평가된다.
-                          animation: Listenable.merge([
-                            _petController,
-                            _wateringController,
-                          ]),
-                          builder: (context, _) {
-                            // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
-                            final wiggle = _petController.isAnimating
-                                ? math.sin(
-                                        _petController.value * math.pi * 6,
-                                      ) *
-                                      0.03 *
-                                      (1 - _petController.value)
-                                : 0.0;
-                            // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
-                            final bouncePhase =
-                                ((_wateringController.value - 0.35) / 0.4)
-                                    .clamp(0.0, 1.0);
-                            final bounce =
-                                math.sin(bouncePhase * math.pi) * 6;
-                            // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
-                            // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
-                            // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
-                            final expression = _isBeingCaredFor
-                                ? PlantExpression.happy
-                                : plantExpressionFromId(plant.expressionId);
-                            return Transform.translate(
-                              offset: Offset(0, -bounce),
-                              child: Transform.rotate(
-                                angle: wiggle,
-                                child: PlantCharacterArt(
-                                  width: 173.02,
-                                  body: plantBodyFromId(plant.bodyId),
-                                  expression: expression,
-                                  colorId: plant.colorId,
-                                  hairId: plant.hairId,
-                                  faceSwitchDuration:
-                                      MediaQuery.disableAnimationsOf(context)
-                                      ? Duration.zero
-                                      : const Duration(milliseconds: 200),
+                    child: RoomSlideSwitcher(
+                      direction: _slideDirection,
+                      // 캐릭터 폭 두 배를 밀어야 402 화면 밖으로 완전히 나간다.
+                      distance: 2,
+                      child: Semantics(
+                        key: ValueKey('home-room-${plant.id}'),
+                        button: true,
+                        label: '쓰담쓰담',
+                        child: GestureDetector(
+                          key: const ValueKey('home-character-pet'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _petCharacter,
+                          onHorizontalDragStart: (_) => _startRub(),
+                          onHorizontalDragUpdate: (_) => _continueRub(),
+                          onHorizontalDragEnd: (_) => _endRub(),
+                          onHorizontalDragCancel: _endRub,
+                          child: AnimatedBuilder(
+                            // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
+                            // 표정 전환도 여기서 함께 재평가된다.
+                            animation: Listenable.merge([
+                              _petController,
+                              _wateringController,
+                            ]),
+                            builder: (context, _) {
+                              // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
+                              final wiggle = _petController.isAnimating
+                                  ? math.sin(
+                                          _petController.value * math.pi * 6,
+                                        ) *
+                                        0.03 *
+                                        (1 - _petController.value)
+                                  : 0.0;
+                              // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
+                              final bouncePhase =
+                                  ((_wateringController.value - 0.35) / 0.4)
+                                      .clamp(0.0, 1.0);
+                              final bounce =
+                                  math.sin(bouncePhase * math.pi) * 6;
+                              // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
+                              // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
+                              // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
+                              final expression = _isBeingCaredFor
+                                  ? PlantExpression.happy
+                                  : plantExpressionFromId(plant.expressionId);
+                              return Transform.translate(
+                                offset: Offset(0, -bounce),
+                                child: Transform.rotate(
+                                  angle: wiggle,
+                                  child: PlantCharacterArt(
+                                    width: 173.02,
+                                    body: plantBodyFromId(plant.bodyId),
+                                    expression: expression,
+                                    colorId: plant.colorId,
+                                    hairId: plant.hairId,
+                                    faceSwitchDuration:
+                                        MediaQuery.disableAnimationsOf(context)
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 200),
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -1433,6 +1478,8 @@ class _HomeHeader extends StatelessWidget {
     required this.unreadNotificationCount,
     required this.showNotifications,
     required this.canSwitchPlant,
+    this.roomKey,
+    this.slideDirection = 0,
     required this.onPreviousPlant,
     required this.onNextPlant,
     required this.onManagePlants,
@@ -1448,6 +1495,11 @@ class _HomeHeader extends StatelessWidget {
   /// 우편함이 떠 있는 동안에는 벨을 통째로 뺀다.
   final bool showNotifications;
   final bool canSwitchPlant;
+
+  /// 방 이름이 바뀔 때 미끄러지는 기준. 식물 id가 바뀌면 [slideDirection]
+  /// 쪽으로 밀려 나가고 새 이름이 반대쪽에서 들어온다.
+  final String? roomKey;
+  final int slideDirection;
   final VoidCallback onPreviousPlant;
   final VoidCallback onNextPlant;
   final VoidCallback onManagePlants;
@@ -1495,11 +1547,19 @@ class _HomeHeader extends StatelessWidget {
                   key: const ValueKey('home-manage-plants'),
                   onTap: onManagePlants,
                   // 시안 4534:17207 방 이름: Paperlogy 5 Medium(500) 16.
-                  child: Text(
-                    roomName == null ? '내 식물' : '$roomName 방',
-                    style: kItemStyle.copyWith(
-                      color: titleColor,
-                      fontWeight: FontWeight.w500,
+                  // 이름 칸 안에서만 미끄러지게 잘라 화살표 위로 넘치지 않게 한다.
+                  child: ClipRect(
+                    child: RoomSlideSwitcher(
+                      direction: slideDirection,
+                      distance: 1,
+                      child: Text(
+                        roomName == null ? '내 식물' : '$roomName 방',
+                        key: ValueKey('home-room-name-$roomKey'),
+                        style: kItemStyle.copyWith(
+                          color: titleColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1864,6 +1924,7 @@ class _HomeEnvironmentPanel extends StatelessWidget {
       currentLabel: content.currentLabel,
       maxLabel: content.maxLabel,
       alert: content.alert,
+      animateFill: true,
     ),
   );
 }
@@ -2284,7 +2345,8 @@ class _WaterFlowPainter extends CustomPainter {
   /// SVG 좌표(122.778 기준)를 폭 비율로 정규화해 쓴다.
   static (double, double) _bounds(double v) {
     // 상단은 주둥이 폭만큼 좁고, 아래로 갈수록 부채꼴이 벌어진다.
-    final left = (75.0 + (12.0 - 75.0) * math.pow(v, 0.75)) / _kWaterStreamWidth;
+    final left =
+        (75.0 + (12.0 - 75.0) * math.pow(v, 0.75)) / _kWaterStreamWidth;
     final right =
         (84.5 + (119.0 - 84.5) * math.pow(v, 1.6)) / _kWaterStreamWidth;
     return (left, right);
@@ -2323,15 +2385,23 @@ class _WaterFlowPainter extends CustomPainter {
     return Path()
       ..moveTo(center.dx, apex)
       // 오른쪽 옆구리: 꼭짓점에서 가장 넓은 지점까지.
-      ..quadraticBezierTo(center.dx + r * 0.62, center.dy - r * 0.5,
-          center.dx + r, belly)
+      ..quadraticBezierTo(
+        center.dx + r * 0.62,
+        center.dy - r * 0.5,
+        center.dx + r,
+        belly,
+      )
       // 오른쪽 아래 둥근 부분.
       ..quadraticBezierTo(center.dx + r, bottom, center.dx, bottom)
       // 왼쪽 아래 둥근 부분.
       ..quadraticBezierTo(center.dx - r, bottom, center.dx - r, belly)
       // 왼쪽 옆구리: 다시 꼭짓점으로.
-      ..quadraticBezierTo(center.dx - r * 0.62, center.dy - r * 0.5,
-          center.dx, apex)
+      ..quadraticBezierTo(
+        center.dx - r * 0.62,
+        center.dy - r * 0.5,
+        center.dx,
+        apex,
+      )
       ..close();
   }
 
@@ -2376,9 +2446,7 @@ class _WaterFlowPainter extends CustomPainter {
         path,
         paint
           ..strokeWidth = h.length > 0.45 ? 1.5 : 1.1
-          ..color = Colors.white.withValues(
-            alpha: 0.7 * fade.clamp(0.0, 1.0),
-          ),
+          ..color = Colors.white.withValues(alpha: 0.7 * fade.clamp(0.0, 1.0)),
       );
     }
   }
@@ -2390,8 +2458,7 @@ class _WaterFlowPainter extends CustomPainter {
       final fade = _fadeAt(v, 0.10);
       if (fade <= 0) continue;
       // 각자 다른 주기로 미세하게 깜빡인다.
-      final twinkle =
-          0.8 + 0.2 * math.sin((pour * 6 + s.offset * 7) * math.pi);
+      final twinkle = 0.8 + 0.2 * math.sin((pour * 6 + s.offset * 7) * math.pi);
       // 본체가 반투명이라 흰 점도 알파를 낮추면 묻힌다. 거의 불투명하게 둔다.
       paint.color = Colors.white.withValues(
         alpha: (twinkle * fade).clamp(0.0, 1.0),
@@ -2401,8 +2468,7 @@ class _WaterFlowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WaterFlowPainter oldDelegate) =>
-      oldDelegate.pour != pour;
+  bool shouldRepaint(_WaterFlowPainter oldDelegate) => oldDelegate.pour != pour;
 }
 
 /// 흐르는 눈물방울 한 개의 정의.
