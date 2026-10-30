@@ -1537,22 +1537,33 @@ class _HomeHeader extends StatelessWidget {
               style: kCaptionStyle.copyWith(color: counterColor, height: 1),
             ),
           ),
+        // 방 이름 줄(시안 y 55, 높이 31)의 가운데를 그대로 두고 높이만 44로
+        // 넓혀, 좌우 꺾쇠를 44x44 안 어디를 눌러도 방이 넘어가게 한다(10/31
+        // 피드백: 누르는 범위가 좁았다). 꺾쇠 그림은 이름 쪽에 붙여 자리를
+        // 그대로 두고, 넓힌 영역은 바깥쪽으로 늘어난다.
         Positioned(
           left: 0,
           right: 0,
-          top: 55,
-          height: 31,
+          top: 55 - (_kHeaderArrowHit - 31) / 2,
+          height: _kHeaderArrowHit,
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
                   key: const ValueKey('home-previous-plant'),
+                  behavior: HitTestBehavior.opaque,
                   onTap: canSwitchPlant ? onPreviousPlant : null,
-                  child: Icon(
-                    Icons.chevron_left_rounded,
-                    color: titleColor,
-                    size: 24,
+                  child: SizedBox.square(
+                    dimension: _kHeaderArrowHit,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        Icons.chevron_left_rounded,
+                        color: titleColor,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 3),
@@ -1579,11 +1590,18 @@ class _HomeHeader extends StatelessWidget {
                 const SizedBox(width: 3),
                 GestureDetector(
                   key: const ValueKey('home-next-plant'),
+                  behavior: HitTestBehavior.opaque,
                   onTap: canSwitchPlant ? onNextPlant : null,
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: titleColor,
-                    size: 24,
+                  child: SizedBox.square(
+                    dimension: _kHeaderArrowHit,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: titleColor,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -2176,6 +2194,9 @@ class _CareToast extends StatelessWidget {
 /// (113.804 / 83.98). 돌려 감싼 상자 145.79×140.11에서 역산했다.
 const double _kWateringPourAngle = 34.48 * math.pi / 180;
 const double _kWateringPourScale = 113.804 / 83.98;
+
+/// 홈 헤더 방 이름 좌우 꺾쇠의 터치 영역 한 변(iOS 최소 터치 크기).
+const double _kHeaderArrowHit = 44;
 
 /// 홈 캐릭터 자리를 몸통 박스 위로 넓히는 높이. 어떤 머리를 얹어도 다 들어가도록
 /// 모든 머리 중 가장 높이 넘치는 값으로 잡아, 방을 옮겨도 자리 크기가 같다.

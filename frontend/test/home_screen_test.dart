@@ -1078,7 +1078,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+    // 꺾쇠 그림(24)보다 넓은 44x44 안, 그림 바깥 구석을 눌러도 넘어간다.
+    final next = find.byKey(const ValueKey('home-next-plant'));
+    expect(tester.getSize(next), const Size(44, 44));
+    await tester.tapAt(tester.getRect(next).topRight.translate(-3, 3));
     await tester.pumpAndSettle();
 
     expect(repository.selectedIds, ['plant-b']);
