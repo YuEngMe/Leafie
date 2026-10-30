@@ -1592,6 +1592,37 @@ void main() {
     expect(after, isNot(before));
   });
 
+  testWidgets('오른쪽 집 아이콘을 누르면 캐릭터 전체보기를 연다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository(const []),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: null,
+            room: null,
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+          plantManagementBuilder: (_, _, _, _) =>
+              const Scaffold(body: Text('전체보기 화면')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 시안 4534:9620: 알약 333,113 45x117.
+    final viewSwitch = find.byType(FigmaHomeViewSwitch);
+    expect(tester.getTopLeft(viewSwitch), const Offset(333, 113));
+    expect(tester.getSize(viewSwitch), const Size(45, 117));
+
+    await tester.tap(find.byKey(const ValueKey('home-overview-switch')));
+    await tester.pumpAndSettle();
+    expect(find.text('전체보기 화면'), findsOneWidget);
+  });
+
   testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (
     tester,
   ) async {

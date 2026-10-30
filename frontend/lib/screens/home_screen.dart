@@ -1065,7 +1065,7 @@ class _HomeScreenState extends State<HomeScreen>
                   left: 333,
                   top: 113,
                   child: FigmaHomeViewSwitch(
-                    onOverviewTap: () {},
+                    onOverviewTap: _openPlantManagement,
                     onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
