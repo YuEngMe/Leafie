@@ -435,18 +435,105 @@ class CalendarPaper extends StatelessWidget {
 
 /// 압정 두 개. 월간은 332.876x52@(35.06,110), 주간은 342x39@(30,120)로 크기가 다르다.
 /// `Stack` 안에 그대로 넣으면 되도록 Positioned를 스스로 만든다.
+///
+/// 예전에는 내보낸 SVG를 썼는데, 시안의 안쪽 그림자(Inner shadow)를
+/// flutter_svg가 그리지 못해 납작한 단색으로 보였다(10/31 디자이너: "노란색
+/// 더 뜨기, 그림자 띄우기"). 그래서 [_CalendarPinsPainter]가 직접 그린다.
 Widget calendarPins({required bool week}) => Positioned(
   left: week ? 30 : 35.063,
   top: week ? 120 : 110,
   width: week ? 342 : 332.876,
   height: week ? 39 : 52,
-  child: SvgPicture.asset(
-    week
-        ? 'assets/images/calendar_paper_pins_week.svg'
-        : 'assets/images/calendar_paper_pins.svg',
-    fit: BoxFit.fill,
+  child: CustomPaint(
+    key: const ValueKey('calendar-pins'),
+    painter: week ? _CalendarPinsPainter.week : _CalendarPinsPainter.month,
   ),
 );
+
+/// 압정 노란 원(Ellipse 742) 위에 회색 막대(Rectangle 161127420)를 겹친다.
+/// 좌표는 압정 그룹 상자 기준(시안 켈린더 2 4534:4708 / 캘린더 4 4534:5212).
+class _CalendarPinsPainter extends CustomPainter {
+  const _CalendarPinsPainter({required this.circles, required this.rods});
+
+  static const month = _CalendarPinsPainter(
+    circles: [
+      Rect.fromLTWH(0, 32, 20.0528, 20),
+      Rect.fromLTWH(312.8236, 32, 20.0528, 20),
+    ],
+    rods: [
+      Rect.fromLTWH(4.01065, 0, 12.0317, 46),
+      Rect.fromLTWH(316.834, 0, 12.0317, 46),
+    ],
+  );
+
+  static const week = _CalendarPinsPainter(
+    circles: [Rect.fromLTWH(0, 19, 20, 20), Rect.fromLTWH(322, 19, 20, 20)],
+    rods: [Rect.fromLTWH(5, 0, 10, 30), Rect.fromLTWH(327, 0, 10, 30)],
+  );
+
+  final List<Rect> circles;
+  final List<Rect> rods;
+
+  static const Color _circleColor = Color(0xFFFFF3C8);
+  static const Color _rodColor = Color(0xFFD9D9D9);
+
+  /// 시안 Inner shadow는 둘 다 흐림 4, 검정 25%. 원은 아래로 2, 막대는
+  /// 위로 13 밀어 막대 아래쪽이 둥글게 어두워진다.
+  static const Color _shadowColor = Color(0x40000000);
+  static const Offset _circleShadowOffset = Offset(0, 2);
+  static const Offset _rodShadowOffset = Offset(0, -13);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final circle in circles) {
+      _paintWithInnerShadow(
+        canvas,
+        Path()..addOval(circle),
+        _circleColor,
+        _circleShadowOffset,
+      );
+    }
+    for (final rod in rods) {
+      _paintWithInnerShadow(
+        canvas,
+        Path()
+          ..addRRect(RRect.fromRectAndRadius(rod, const Radius.circular(5))),
+        _rodColor,
+        _rodShadowOffset,
+      );
+    }
+  }
+
+  /// 도형을 칠한 뒤, 도형 안쪽으로만 [offset]만큼 밀린 그림자를 얹는다.
+  /// 밀린 도형의 바깥(구멍 뚫린 큰 사각형)을 흐리게 칠하고 원래 도형으로
+  /// 잘라 낸다.
+  static void _paintWithInnerShadow(
+    Canvas canvas,
+    Path shape,
+    Color color,
+    Offset offset,
+  ) {
+    canvas.drawPath(shape, Paint()..color = color);
+    final bounds = shape.getBounds().inflate(20);
+    canvas.save();
+    canvas.clipPath(shape);
+    canvas.drawPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(bounds),
+        shape.shift(offset),
+      ),
+      Paint()
+        ..color = _shadowColor
+        // Figma 흐림 4 = CSS blur 4 = sigma 2.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CalendarPinsPainter oldDelegate) => false;
+}
 
 /// 45px 원형 버튼의 드롭 섀도(3341:493, 3496:12213 공통: blur σ1.958, 검정 20%,
 /// 오프셋 0). 에셋 캔버스 52.833은 그림자 여백 3.917을 사방에 둔다.
