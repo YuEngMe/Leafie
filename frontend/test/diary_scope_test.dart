@@ -160,8 +160,9 @@ void main() {
     );
     await tester.pump();
 
-    final calendar = tester.widget<DiaryCalendar>(find.byType(DiaryCalendar));
-    calendar.onSelect(DateTime(2026, 9, 15));
+    tester
+        .widget<DiaryScaffoldBody>(find.byType(DiaryScaffoldBody))
+        .onFabPressed!();
     await tester.pump();
     expect(plantAStore.loadDayCalls, 1);
 

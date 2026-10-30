@@ -259,7 +259,7 @@ void main() {
       expect(tester.getRect(find.text('31')).bottom, lessThan(626));
     });
 
-    testWidgets('날짜를 누르면 그 날 글로 넘어간다', (tester) async {
+    testWidgets('날짜를 누르면 고른 날 표시만 바뀌고 글로 넘어가지 않는다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
         MaterialApp(
@@ -271,11 +271,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('10'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DiaryEntryScreen), findsOneWidget);
-      expect(find.text('2026년 7월 10일 금요일'), findsOneWidget);
+      // 지난 날도, 오늘 이후 날도 넘어가지 않는다.
+      for (final day in ['10', '20']) {
+        await tester.tap(find.text(day));
+        await tester.pumpAndSettle();
+        expect(find.byType(DiaryEntryScreen), findsNothing);
+        expect(
+          tester.widget<DiaryCalendar>(find.byType(DiaryCalendar)).selected,
+          DateTime(2026, 7, int.parse(day)),
+        );
+      }
+      expect(find.byType(SnackBar), findsNothing);
     });
 
     testWidgets('연필 버튼은 다른 날을 골랐어도 오늘 글을 연다', (tester) async {
@@ -290,10 +296,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 다른 날을 한 번 열었다 닫고, 지난달로 넘긴다.
+      // 다른 날을 고르고, 지난달로 넘긴다.
       await tester.tap(find.text('10'));
-      await tester.pumpAndSettle();
-      Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
       await tester.pumpAndSettle();
       await tester.tap(find.bySemanticsLabel('이전 달'));
       await tester.pumpAndSettle();
@@ -308,28 +312,6 @@ void main() {
       Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
       await tester.pumpAndSettle();
       expect(find.text('31'), findsOneWidget);
-    });
-
-    testWidgets('오늘 이후 날짜는 글을 열지 않고 안내한다', (tester) async {
-      _setUpView(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DiaryScreen(
-            store: _MemoryStore(),
-            today: DateTime(2026, 7, 15),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('20'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DiaryEntryScreen), findsNothing);
-      expect(
-        find.text('오늘 이후 날짜에는 다이어리를 쓸 수 없어요.'),
-        findsOneWidget,
-      );
     });
   });
 
@@ -579,7 +561,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('15'));
+      await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).first, '오늘의 제목');
@@ -602,7 +584,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('15'));
+      await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, '밀어서 나간 글');
       await tester.pump();
@@ -624,7 +606,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('15'));
+      await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
       await tester.pumpAndSettle();
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
