@@ -136,6 +136,42 @@ void main() {
     });
   });
 
+  testWidgets('기간 꺾쇠는 그림 위아래를 눌러도 달을 넘긴다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeCalendarRepository(items: const []);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CalendarScreen(
+          plantId: 'plant-1',
+          repository: repository,
+          today: DateTime(2026, 7, 15),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 3341:402 꺾쇠 114.33x10.01 @ (143.348, 149). 왼쪽 꺾쇠 바로 위,
+    // 오른쪽 꺾쇠 바로 아래를 누른다. 예전에는 라벨 줄(16pt) 밖이라 안 눌렸다.
+    const chevrons = Rect.fromLTWH(143.348, 149, 114.333, 10.01);
+    await tester.tapAt(chevrons.topLeft.translate(4, -10));
+    await tester.pumpAndSettle();
+    expect(
+      repository.requests.last,
+      _CalendarRequest(
+        plantId: 'plant-1',
+        from: DateTime(2026, 6, 1),
+        to: DateTime(2026, 6, 30),
+      ),
+    );
+    expect(find.text('2026. 6'), findsOneWidget);
+
+    await tester.tapAt(chevrons.bottomRight.translate(-4, 10));
+    await tester.pumpAndSettle();
+    await tester.tapAt(chevrons.bottomRight.translate(-4, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('2026. 8'), findsOneWidget);
+  });
+
   testWidgets('완료 가능한 일정을 누르면 완료 API를 호출하고 다시 조회한다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(

@@ -293,6 +293,11 @@ class CalendarModeSwitch extends StatelessWidget {
 
 /// 기간 라벨(3341:401)과 좌우 꺾쇠(3341:402).
 /// 라벨은 16 SemiBold, 꺾쇠는 SVG 그룹 114.33x10.01.
+///
+/// 위젯 상자는 그림보다 [touchPadding]만큼 넓다. 누르는 영역을 그림 상자
+/// 밖으로 넘치게 두면 Flutter가 그 부분을 터치로 받지 않아, 예전에는 꺾쇠
+/// 위아래를 누르면 달이 안 넘어갔다(10/31 피드백). 놓을 때는 [placeAt]으로
+/// 그림 자리(시안 좌표)를 넘긴다.
 class CalendarPeriodBar extends StatelessWidget {
   const CalendarPeriodBar({
     super.key,
@@ -303,18 +308,40 @@ class CalendarPeriodBar extends StatelessWidget {
   static const double chevronsWidth = 114.333;
   static const double chevronsHeight = 10.01;
 
+  /// 라벨 줄 높이(3341:401).
+  static const double labelHeight = 16.366;
+
+  /// 그림 상자 바깥으로 넓힌 터치 여유. 꺾쇠마다 44x44(iOS 최소 터치
+  /// 크기)를 누를 수 있게 잡았다.
+  static const EdgeInsets touchPadding = EdgeInsets.fromLTRB(10, 14, 10, 14);
+
+  /// 좌우 꺾쇠 하나의 터치 폭.
+  static const double _hitWidth = 44;
+
+  /// 그림 좌상단이 시안 ([left], [top])에 오도록 넓힌 상자에 놓는다.
+  static Widget placeAt({
+    required double left,
+    required double top,
+    required Widget bar,
+  }) => Positioned(
+    left: left - touchPadding.left,
+    top: top - touchPadding.top,
+    width: chevronsWidth + touchPadding.horizontal,
+    height: labelHeight + touchPadding.vertical,
+    child: bar,
+  );
+
   final String label;
   final ValueChanged<int> onShift;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      clipBehavior: Clip.none,
       children: [
         // 꺾쇠는 라벨 줄(y=146, h=16.366) 안에서 3px 아래(y=149)에 앉는다.
         Positioned(
-          left: 0,
-          top: 3,
+          left: touchPadding.left,
+          top: touchPadding.top + 3,
           width: chevronsWidth,
           height: chevronsHeight,
           child: SvgPicture.asset(
@@ -323,7 +350,11 @@ class CalendarPeriodBar extends StatelessWidget {
           ),
         ),
         // 3341:401 `2026. 7` 16 SemiBold #444, 꺾쇠 그룹 안 가운데.
-        Positioned.fill(
+        Positioned(
+          left: touchPadding.left,
+          top: touchPadding.top,
+          width: chevronsWidth,
+          height: labelHeight,
           child: Center(
             child: Text(
               label,
@@ -336,16 +367,20 @@ class CalendarPeriodBar extends StatelessWidget {
           ),
         ),
         // 터치 영역만 넓힌다. 그림은 위 SVG가 그린다.
-        for (final (key, delta, left) in const [
-          ('calendar-period-prev', -1, -8.0),
-          ('calendar-period-next', 1, chevronsWidth - 24),
+        for (final (key, delta, left) in [
+          ('calendar-period-prev', -1, 0.0),
+          (
+            'calendar-period-next',
+            1,
+            chevronsWidth + touchPadding.horizontal - _hitWidth,
+          ),
         ])
           Positioned(
             key: ValueKey(key),
             left: left,
-            top: -12,
-            width: 32,
-            height: 34,
+            top: 0,
+            bottom: 0,
+            width: _hitWidth,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onShift(delta),

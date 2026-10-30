@@ -447,12 +447,10 @@ class _MonthCalendar extends StatelessWidget {
         ),
         calendarPins(week: false),
         // 3341:401 라벨 중심 (201.45, 154.18) / 3341:402 꺾쇠 (143.348, 149).
-        Positioned(
+        CalendarPeriodBar.placeAt(
           left: 143.348,
           top: 146,
-          width: CalendarPeriodBar.chevronsWidth,
-          height: 16.366,
-          child: CalendarPeriodBar(
+          bar: CalendarPeriodBar(
             label: '${month.year}. ${month.month}',
             onShift: onShift,
           ),
@@ -519,12 +517,10 @@ class _WeekCalendar extends StatelessWidget {
         ),
         calendarPins(week: true),
         // 2687:15579 라벨 (159, 152) / 2687:15580 꺾쇠 (144, 155).
-        Positioned(
+        CalendarPeriodBar.placeAt(
           left: 144,
           top: 152,
-          width: CalendarPeriodBar.chevronsWidth,
-          height: 16.366,
-          child: CalendarPeriodBar(
+          bar: CalendarPeriodBar(
             label: '${selected.year}. ${selected.month}',
             onShift: onShift,
           ),
