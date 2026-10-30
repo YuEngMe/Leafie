@@ -10,14 +10,24 @@ import 'package:yeso_plant/theme/app_layout.dart';
 /// 아이콘은 직접 그리지 않는다. 단색 도형에 색만 바꿔 쓰는 아이콘은
 /// figma_glyphs.dart에 CustomPainter로 남겨 두었다.
 class _AssetIcon extends StatelessWidget {
-  const _AssetIcon({required this.asset, required this.size});
+  const _AssetIcon({required this.asset, required this.size, this.color});
 
   final String asset;
   final Size size;
 
+  /// 단색 SVG를 이 색으로 다시 칠한다. null이면 SVG 원래 색.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(asset, width: size.width, height: size.height);
+    return SvgPicture.asset(
+      asset,
+      width: size.width,
+      height: size.height,
+      colorFilter: color == null
+          ? null
+          : ColorFilter.mode(color!, BlendMode.srcIn),
+    );
   }
 }
 
@@ -246,16 +256,19 @@ enum FigmaNavIcon {
 /// 네비게이션 아이콘 하나. 시안(3628:2411)은 선택 상태를 따로 그리지 않아
 /// 넷이 같은 오렌지다.
 class FigmaBottomNavIcon extends StatelessWidget {
-  const FigmaBottomNavIcon(this.icon, {super.key});
+  const FigmaBottomNavIcon(this.icon, {super.key, this.color});
 
   final FigmaNavIcon icon;
+
+  /// 아이콘 색. null이면 SVG 원래 색(#FFB52A).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: icon.label,
     button: true,
     container: true,
-    child: _AssetIcon(asset: icon.asset, size: icon.figmaSize),
+    child: _AssetIcon(asset: icon.asset, size: icon.figmaSize, color: color),
   );
 }
 

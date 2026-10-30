@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/screens/edit_profile_screen.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
@@ -33,11 +34,8 @@ class _StatefulTabState extends State<_StatefulTab> {
 Finder _navIcon(FigmaNavIcon icon) =>
     find.byWidgetPredicate((w) => w is FigmaBottomNavIcon && w.icon == icon);
 
-double _navOpacity(WidgetTester tester, FigmaNavIcon icon) => tester
-    .widget<AnimatedOpacity>(
-      find.ancestor(of: _navIcon(icon), matching: find.byType(AnimatedOpacity)),
-    )
-    .opacity;
+Color? _navColor(WidgetTester tester, FigmaNavIcon icon) =>
+    tester.widget<FigmaBottomNavIcon>(_navIcon(icon)).color;
 
 void main() {
   testWidgets('탭은 바와 상태를 유지하고 마이페이지 뒤로가기는 홈으로 간다', (tester) async {
@@ -213,7 +211,7 @@ void main() {
     expect(find.byType(CalendarScreen), findsOneWidget);
   });
 
-  testWidgets('활성 탭은 진하게, 나머지는 흐리게 그린다', (tester) async {
+  testWidgets('활성 탭만 밝은 오렌지, 나머지는 메인 오렌지 그대로 그린다(4534:4216)', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -230,16 +228,16 @@ void main() {
     await tester.pumpAndSettle();
 
     // 처음엔 home이 활성.
-    expect(_navOpacity(tester, FigmaNavIcon.home), 1.0);
-    expect(_navOpacity(tester, FigmaNavIcon.diary), 0.5);
-    expect(_navOpacity(tester, FigmaNavIcon.calendar), 0.5);
-    expect(_navOpacity(tester, FigmaNavIcon.my), 0.5);
+    expect(_navColor(tester, FigmaNavIcon.home), kBrightOrange);
+    expect(_navColor(tester, FigmaNavIcon.diary), kOrangeMain);
+    expect(_navColor(tester, FigmaNavIcon.calendar), kOrangeMain);
+    expect(_navColor(tester, FigmaNavIcon.my), kOrangeMain);
 
     // diary로 옮기면 강조가 따라간다.
     await tester.tap(_navIcon(FigmaNavIcon.diary));
     await tester.pumpAndSettle();
-    expect(_navOpacity(tester, FigmaNavIcon.diary), 1.0);
-    expect(_navOpacity(tester, FigmaNavIcon.home), 0.5);
+    expect(_navColor(tester, FigmaNavIcon.diary), kBrightOrange);
+    expect(_navColor(tester, FigmaNavIcon.home), kOrangeMain);
   });
 
   testWidgets('탭 튕김 모션은 크래시 없이 끝난다', (tester) async {
@@ -267,7 +265,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('바만 그리면 activeIcon 없이 넷 다 진하게 둔다', (tester) async {
+  testWidgets('바만 그리면 activeIcon 없이 넷 다 메인 오렌지로 둔다', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Center(child: SizedBox(width: 402, child: AppBottomNav())),
@@ -276,7 +274,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final icon in FigmaNavIcon.values) {
-      expect(_navOpacity(tester, icon), 1.0, reason: icon.label);
+      expect(_navColor(tester, icon), kOrangeMain, reason: icon.label);
     }
   });
 
