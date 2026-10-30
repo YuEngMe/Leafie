@@ -212,10 +212,10 @@ void main() {
       await _pumpScreen(tester, PlantManagementScreen(repository: repository));
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
-      // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
+      // 프레임보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
       // PlantCharacterArt 박스(width × 649/698)에서 circle 몸통은
       // 가로 89.7%, 아래 여백은 박스 높이의 37/649 = 5.70%.
-      final drawn = plantArtWidthFor(61.219);
+      final drawn = plantArtWidthFor(53.4);
       final drawnHeight = drawn * 649 / 698;
       final inkBottomGap = drawnHeight * (649 - 612) / 649;
 
@@ -226,8 +226,8 @@ void main() {
         );
         expect(rect.center.dx, _closeTo1px(entry.value));
         expect(rect.bottom - inkBottomGap, _closeTo1px(319));
-        // 시안 캐릭터 61.22 폭이 실제로 그만큼 보이도록 그려진다.
-        expect(rect.width * 0.897, _closeTo1px(61.219));
+        // 시안 몸통 53.4 폭이 실제로 그만큼 보이도록 그려진다.
+        expect(rect.width * 0.897, _closeTo1px(53.4));
       }
 
       // 4번째는 2행 첫 칸. 선반 2는 y=441.
