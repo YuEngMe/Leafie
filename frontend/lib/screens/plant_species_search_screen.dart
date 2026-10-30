@@ -1,10 +1,11 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/models/plant_species_candidate.dart';
+import 'package:yeso_plant/screens/diagnosis_camera_screen.dart';
+import 'package:yeso_plant/screens/plant_photo_confirm_screen.dart';
 import 'package:yeso_plant/screens/plant_photo_identify_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
@@ -86,6 +87,8 @@ class PlantSpeciesSearchScreen extends StatefulWidget {
 
   /// 네트워크 없이 화면 상태를 검증할 때 갈아끼운다.
   final PlantSpeciesSearch? search;
+
+  /// 촬영. 기본은 앱 안 카메라(4534:1068)와 확인 화면(4534:1110)이다.
   final PlantPhotoPicker? photoPicker;
   final PlantPhotoPicker? galleryPhotoPicker;
   final CameraAvailability? cameraAvailability;
@@ -140,7 +143,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
       return;
     }
     try {
-      final photo = await (widget.photoPicker ?? _pickCameraPhoto)();
+      final photo = await (widget.photoPicker ?? _captureInApp)();
       await _openPhoto(photo, name, retake: _pickPhoto);
     } on PlatformException catch (error) {
       if (!mounted) return;
@@ -148,6 +151,34 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     } catch (_) {
       if (!mounted) return;
       await _showCameraRecovery(_CameraIssue.failed, name);
+    }
+  }
+
+  /// 앱 안 카메라로 찍고 확인 화면을 거친다. '다시 촬영'이면 카메라로
+  /// 돌아가고, '다음'이면 사진을 임시 파일로 돌려준다. 카메라는 진단과 같은
+  /// 화면이다(시안 4534:1068과 진단 4534:20001이 같은 구성).
+  Future<File?> _captureInApp() async {
+    while (true) {
+      if (!mounted) return null;
+      final bytes = await Navigator.push<Uint8List>(
+        context,
+        MaterialPageRoute(builder: (_) => const DiagnosisCameraScreen()),
+      );
+      if (bytes == null || !mounted) return null;
+      final next = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlantPhotoConfirmScreen(bytes: bytes),
+        ),
+      );
+      if (next == null) return null;
+      if (next) {
+        final file = File(
+          '${Directory.systemTemp.path}/'
+          'plant_${DateTime.now().microsecondsSinceEpoch}.jpg',
+        );
+        return file.writeAsBytes(bytes);
+      }
     }
   }
 
@@ -487,15 +518,6 @@ class _SearchFieldActions extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<File?> _pickCameraPhoto() async {
-  final photo = await ImagePicker().pickImage(
-    source: ImageSource.camera,
-    maxWidth: 1600,
-    imageQuality: 85,
-  );
-  return photo == null ? null : File(photo.path);
 }
 
 Future<File?> _pickGalleryPhoto() async {
