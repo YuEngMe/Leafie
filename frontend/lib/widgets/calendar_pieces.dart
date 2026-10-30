@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -391,7 +393,12 @@ class CalendarPeriodBar extends StatelessWidget {
   }
 }
 
-/// 종이 패널(3341:394 / 2687:15578)과 압정(3341:395 / 2687:17780).
+/// 종이 패널(4534:5045 월간 / 4534:5566 주간).
+///
+/// 시안 사각형에는 Figma Texture 효과(r 1.1)가 걸려 가장자리가 찢긴 듯
+/// 들쭉날쭉하다. Figma는 이 효과를 노이즈로 가장자리를 밀어 그리므로
+/// ([_TornPaperClipper]) 같은 폭(±1.1)으로 흔든 윤곽에 종이를 잘라 그린다.
+/// 그림자는 검정 25% · 흐림 4.09 · 아래 4.09다.
 class CalendarPaper extends StatelessWidget {
   const CalendarPaper({super.key, required this.width, required this.height});
 
@@ -400,30 +407,26 @@ class CalendarPaper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final clipper = _TornPaperClipper();
     return SizedBox(
       width: width,
       height: height,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFDFDFD),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x4D444444),
-              blurRadius: 4,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        // 3345:633 Mask group: `image 309` 구겨진 종이를 90도 돌려
-        // mix-blend-multiply 20%로 덮는다.
-        child: ClipRect(
-          child: Opacity(
-            opacity: 0.2,
-            child: RotatedBox(
-              quarterTurns: 1,
-              child: Image.asset(
-                'assets/images/calendar_paper_texture.png',
-                fit: BoxFit.cover,
+      child: CustomPaint(
+        painter: _TornPaperShadowPainter(clipper),
+        child: ClipPath(
+          clipper: clipper,
+          child: ColoredBox(
+            color: const Color(0xFFFDFDFD),
+            // 3345:633 Mask group: `image 309` 구겨진 종이를 90도 돌려
+            // mix-blend-multiply 20%로 덮는다.
+            child: Opacity(
+              opacity: 0.2,
+              child: RotatedBox(
+                quarterTurns: 1,
+                child: Image.asset(
+                  'assets/images/calendar_paper_texture.png',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -431,6 +434,67 @@ class CalendarPaper extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 사각형 네 변을 노이즈로 ±[_kTornAmplitude] 흔든 윤곽. 같은 크기면 늘
+/// 같은 모양이 나오도록 시드를 고정한다.
+class _TornPaperClipper extends CustomClipper<Path> {
+  /// Figma Texture r 1.1. 변위 폭이 곧 반지름이다.
+  static const double _kTornAmplitude = 1.1;
+
+  /// 노이즈 한 칸(px). Figma 텍스처 노이즈 주기(약 2.7px)에 맞춘다.
+  static const double _kTornStep = 2.7;
+
+  @override
+  Path getClip(Size size) {
+    final random = math.Random(7);
+    double jitter() => (random.nextDouble() * 2 - 1) * _kTornAmplitude;
+    final path = Path();
+    void edge(Offset from, Offset to, Offset normal, {bool first = false}) {
+      final length = (to - from).distance;
+      final steps = math.max(1, (length / _kTornStep).round());
+      for (var i = 0; i < steps; i++) {
+        final t = i / steps;
+        final point = Offset.lerp(from, to, t)! + normal * jitter();
+        if (first && i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+    }
+
+    final w = size.width;
+    final h = size.height;
+    edge(Offset.zero, Offset(w, 0), const Offset(0, -1), first: true);
+    edge(Offset(w, 0), Offset(w, h), const Offset(1, 0));
+    edge(Offset(w, h), Offset(0, h), const Offset(0, 1));
+    edge(Offset(0, h), Offset.zero, const Offset(-1, 0));
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_TornPaperClipper oldClipper) => false;
+}
+
+class _TornPaperShadowPainter extends CustomPainter {
+  _TornPaperShadowPainter(this.clipper);
+
+  final _TornPaperClipper clipper;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPath(
+      clipper.getClip(size).shift(const Offset(0, 4.0916)),
+      Paint()
+        ..color = const Color(0x40000000)
+        // Figma 흐림 4.09 = sigma 2.05.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0458),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_TornPaperShadowPainter oldDelegate) => false;
 }
 
 /// 압정 두 개. 월간은 332.876x52@(35.06,110), 주간은 342x39@(30,120)로 크기가 다르다.
