@@ -360,10 +360,10 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
                         ('생년월일', _shortDate(data.plant.startedOn)),
                         ('진단일', _shortDate(diagnosis.diagnosedAt)),
                       ],
-                      symptoms: _condenseItems(diagnosis.observations),
+                      symptoms: _symptomsFor(diagnosis),
                       causes: _prescriptionCauses(diagnosis.possibleCauses),
                       recommendations: _condenseItems(
-                        diagnosis.recommendedCare,
+                        diagnosis.recommendedCare.map(_firstSentence).toList(),
                       ),
                       onClose: () => Navigator.maybePop(context),
                       plantName: data.plant.nickname,
@@ -972,6 +972,49 @@ String _summaryStatusMessage(String status) => switch (status) {
   'CANCELLED' => '취소된 진단이에요.',
   _ => '아직 처방전을 열 수 없는 진단이에요.',
 };
+
+/// 원인 이름 속 말로 짐작한 증상(시안 4534:19767처럼 '잎 마름' 같은 짧은 말).
+///
+/// 서버 증상은 '건강 이상 가능성' 하나뿐이다. Kindwise는 원인 후보만 주고
+/// 증상은 주지 않아 백엔드가 지어내지 않았다(kindwise.py 주석). 시안처럼
+/// 짧은 증상을 보여 달라는 요청(10/31)에 따라 원인에서 흔히 나타나는 증상을
+/// 짐작해 보여 준다. 사진에서 본 증상이 아니라는 점을 알고 쓴다.
+const List<(List<String>, String)> _kCauseSymptoms = [
+  (['과습', '배수'], '잎 처짐'),
+  (['물 부족', '건조', '가뭄'], '잎 마름'),
+  (['영양', '결핍', '질소', '칼륨'], '잎 변색'),
+  (['빛 부족', '햇빛 부족', '그늘'], '웃자람'),
+  (['화상', '일소'], '잎 탐'),
+  (['곰팡이', '흰가루', '녹병', '균'], '잎 반점'),
+  (['해충', '벌레', '진딧물', '응애', '깍지'], '벌레 흔적'),
+  (['세균', '박테리아', '무름'], '잎 무름'),
+  (['냉해', '저온'], '냉해 흔적'),
+  (['뿌리'], '뿌리 상함'),
+];
+
+/// 원인 순서대로 짐작한 증상을 최대 3개 고른다. 하나도 못 짐작하면 서버
+/// 증상을 그대로 쓴다.
+List<String> _symptomsFor(DiagnosisDetailData diagnosis) {
+  final symptoms = <String>[];
+  for (final cause in diagnosis.possibleCauses) {
+    for (final (keywords, symptom) in _kCauseSymptoms) {
+      if (keywords.any(cause.name.contains) && !symptoms.contains(symptom)) {
+        symptoms.add(symptom);
+        break;
+      }
+    }
+  }
+  if (symptoms.isEmpty) return _condenseItems(diagnosis.observations);
+  return symptoms.take(3).toList();
+}
+
+/// 추천 관리는 Kindwise 관리법을 옮긴 여러 문장이라 처방전 한 줄을 넘친다.
+/// 시안(4534:19777 등)처럼 짧게 첫 문장만 보여 준다(10/31 피드백).
+String _firstSentence(String text) {
+  final trimmed = text.trim();
+  final end = RegExp(r'[.!?。](?=\s|$)').firstMatch(trimmed);
+  return end == null ? trimmed : trimmed.substring(0, end.end);
+}
 
 List<String> _condenseItems(List<String> items) {
   if (items.length <= 3) return items;

@@ -402,13 +402,16 @@ class PrescriptionCard extends StatelessWidget {
               width: 66,
               child: Text(
                 symptoms[index],
-                maxLines: 1,
+                // 서버 증상은 '건강 이상 가능성'처럼 칸(66)보다 길다. 아래에
+                // 다음 항목이 없는 마지막 줄은 두 줄까지 보여 준다.
+                maxLines: index == symptoms.take(3).length - 1 ? 2 : 1,
                 overflow: TextOverflow.ellipsis,
                 style: kPrescriptionBodyStyle.copyWith(
                   fontSize: 12.393 + _kRxFontBump,
                   fontWeight: FontWeight.w500,
                   color: kTextDark,
                   letterSpacing: 0.2479,
+                  height: 1.15,
                 ),
               ),
             ),

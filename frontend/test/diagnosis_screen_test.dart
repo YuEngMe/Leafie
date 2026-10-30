@@ -238,6 +238,14 @@ void main() {
     expect(find.text('조금 관리가 필요해요'), findsOneWidget);
     expect(find.text('해바라기'), findsOneWidget);
     expect(find.text('다시 진단하기'), findsOneWidget);
+    // 추천관리는 시안처럼 첫 문장만 짧게 보여 준다.
+    expect(find.text('물을 줄여주세요.'), findsOneWidget);
+    expect(find.textContaining('흙이 마른 뒤에'), findsNothing);
+    // 증상은 원인에서 짐작한 짧은 말이다. 짐작 못 한 원인은 건너뛴다.
+    expect(find.text('잎 처짐'), findsOneWidget);
+    expect(find.text('잎 변색'), findsOneWidget);
+    expect(find.text('03.'), findsNothing);
+    expect(find.text('건강 이상 가능성'), findsNothing);
   });
 
   testWidgets('홈 우측 진단 아이콘이 진단 기록 화면을 연다', (tester) async {
@@ -425,9 +433,14 @@ class _FakeDiagnosisRepository implements DiagnosisRepository {
       diagnosedAt: DateTime(2026, 9, 6),
       photoUrl: 'https://example.com/$diagnosisId.jpg',
       conditionLabel: '조금 관리가 필요해요',
-      observations: const ['잎 처짐'],
-      possibleCauses: const [DiagnosisCauseData(name: '과습', confidence: 0.76)],
-      recommendedCare: const ['물을 줄여주세요.'],
+      observations: const ['건강 이상 가능성'],
+      possibleCauses: const [
+        DiagnosisCauseData(name: '과습', confidence: 0.76),
+        DiagnosisCauseData(name: '영양 결핍', confidence: 0.4),
+        DiagnosisCauseData(name: '알 수 없는 원인', confidence: 0.2),
+      ],
+      // 실제 서버처럼 여러 문장이 이어진 관리법.
+      recommendedCare: const ['물을 줄여주세요. 흙이 마른 뒤에 주는 것이 좋습니다.'],
     );
   }
 
