@@ -712,6 +712,96 @@ void main() {
       await tester.pumpAndSettle();
       expect(faceAssets(tester), {_defaultFace});
     });
+
+    group('머리(잎)', () {
+      Future<void> pumpLeafHome(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(402, 874);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: HomeScreen(
+              period: HomeTimePeriod.day,
+              plant: HomePlant(
+                name: '실제식물',
+                startedOn: null,
+                personalityType: null,
+                bodyId: 'body_circle',
+                hairId: 'hair_monstera',
+              ),
+              initialScene: HomeScene.idle,
+              initialGaugesExpanded: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      /// 몸통 박스 좌상단(화면 좌표). 터치 영역은 그 위로 머리 자리만큼 넓다.
+      Offset bodyBoxTopLeft(WidgetTester tester) =>
+          tester.getTopLeft(find.byKey(const ValueKey('home-character-pet'))) +
+          Offset(0, PlantCharacterArt.maxHairOverflow(173.02));
+
+      testWidgets('몸통 위로 넘친 잎을 눌러도 쓰담는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        // 잎은 몸통 박스 위로 넘쳐 그려진다.
+        expect(leaf.top, lessThan(0));
+
+        await tester.tapAt(bodyBoxTopLeft(tester) + leaf.center);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), contains(_happyFace));
+
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('잎 옆 빈 하늘은 쓰담하지 않는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+
+        // 잎 오른쪽 바깥, 잎 높이 가운데.
+        await tester.tapAt(
+          bodyBoxTopLeft(tester) + Offset(leaf.right + 12, leaf.center.dy),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), {_defaultFace});
+      });
+
+      testWidgets('기울어진 잎을 감싼 사각형의 빈 모서리는 쓰담하지 않는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        // 몬스테라 잎은 왼쪽으로 기울어 오른쪽 위 모서리가 빈 하늘이다.
+        final corner = leaf.topRight + const Offset(-6, 6);
+        final hit = PlantCharacterArt.hairHitPath(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        expect(hit.contains(corner), isFalse);
+        expect(hit.contains(leaf.center), isTrue);
+
+        await tester.tapAt(bodyBoxTopLeft(tester) + corner);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), {_defaultFace});
+      });
+    });
   });
 
   testWidgets('GET /home 결과로 이름과 D+를 갱신한다', (tester) async {

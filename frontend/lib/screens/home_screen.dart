@@ -1110,12 +1110,17 @@ class _HomeScreenState extends State<HomeScreen>
                   // 화살표로 방을 옮기면 지금 캐릭터는 밀려 나가고 다음 캐릭터가
                   // 반대쪽에서 들어온다(디자이너 답 5-A). 배경은 시간대 그림이라
                   // 그대로 둔다.
+                  //
+                  // 머리(잎)는 박스 위로 넘쳐 그려져 박스만으로는 눌리지 않는다.
+                  // 그래서 자리를 _kCharacterHairRoom만큼 위로 넓히고, 그 안에서
+                  // 몸통 박스와 머리 그림 영역만 터치를 받게 해 잎을 눌러도
+                  // 쓰다듬는다(10/31 피드백). 잎 옆 빈 하늘은 그대로 통과한다.
                   Positioned(
                     // 앞쪽 말풍선·배지가 생기고 사라져도 전환 중인 캐릭터 상태를
                     // 다른 자리와 바꿔 쓰지 않도록 키로 묶는다.
                     key: const ValueKey('home-character-slot'),
                     left: 123 - (173.02 - 155.2) / 2,
-                    top: 396 - 8.74,
+                    top: 396 - 8.74 - _kCharacterHairRoom,
                     width: 173.02,
                     child: RoomSlideSwitcher(
                       direction: _slideDirection,
@@ -1127,58 +1132,67 @@ class _HomeScreenState extends State<HomeScreen>
                         label: '쓰담쓰담',
                         child: GestureDetector(
                           key: const ValueKey('home-character-pet'),
-                          behavior: HitTestBehavior.opaque,
+                          behavior: HitTestBehavior.deferToChild,
                           onTap: _petCharacter,
                           onHorizontalDragStart: (_) => _startRub(),
                           onHorizontalDragUpdate: (_) => _continueRub(),
                           onHorizontalDragEnd: (_) => _endRub(),
                           onHorizontalDragCancel: _endRub,
-                          child: AnimatedBuilder(
-                            // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
-                            // 표정 전환도 여기서 함께 재평가된다.
-                            animation: Listenable.merge([
-                              _petController,
-                              _wateringController,
-                            ]),
-                            builder: (context, _) {
-                              // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
-                              final wiggle = _petController.isAnimating
-                                  ? math.sin(
-                                          _petController.value * math.pi * 6,
-                                        ) *
-                                        0.03 *
-                                        (1 - _petController.value)
-                                  : 0.0;
-                              // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
-                              final bouncePhase =
-                                  ((_wateringController.value - 0.35) / 0.4)
-                                      .clamp(0.0, 1.0);
-                              final bounce =
-                                  math.sin(bouncePhase * math.pi) * 6;
-                              // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
-                              // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
-                              // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
-                              final expression = _isBeingCaredFor
-                                  ? PlantExpression.happy
-                                  : plantExpressionFromId(plant.expressionId);
-                              return Transform.translate(
-                                offset: Offset(0, -bounce),
-                                child: Transform.rotate(
-                                  angle: wiggle,
-                                  child: PlantCharacterArt(
-                                    width: 173.02,
-                                    body: plantBodyFromId(plant.bodyId),
-                                    expression: expression,
-                                    colorId: plant.colorId,
-                                    hairId: plant.hairId,
-                                    faceSwitchDuration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 200),
+                          child: _CharacterHitArea(
+                            hairPath: PlantCharacterArt.hairHitPath(
+                              width: 173.02,
+                              body: plantBodyFromId(plant.bodyId),
+                              hairId: plant.hairId,
+                            ),
+                            child: AnimatedBuilder(
+                              // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
+                              // 표정 전환도 여기서 함께 재평가된다.
+                              animation: Listenable.merge([
+                                _petController,
+                                _wateringController,
+                              ]),
+                              builder: (context, _) {
+                                // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
+                                final wiggle = _petController.isAnimating
+                                    ? math.sin(
+                                            _petController.value * math.pi * 6,
+                                          ) *
+                                          0.03 *
+                                          (1 - _petController.value)
+                                    : 0.0;
+                                // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
+                                final bouncePhase =
+                                    ((_wateringController.value - 0.35) / 0.4)
+                                        .clamp(0.0, 1.0);
+                                final bounce =
+                                    math.sin(bouncePhase * math.pi) * 6;
+                                // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
+                                // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
+                                // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
+                                final expression = _isBeingCaredFor
+                                    ? PlantExpression.happy
+                                    : plantExpressionFromId(plant.expressionId);
+                                return Transform.translate(
+                                  offset: Offset(0, -bounce),
+                                  child: Transform.rotate(
+                                    angle: wiggle,
+                                    child: PlantCharacterArt(
+                                      width: 173.02,
+                                      body: plantBodyFromId(plant.bodyId),
+                                      expression: expression,
+                                      colorId: plant.colorId,
+                                      hairId: plant.hairId,
+                                      faceSwitchDuration:
+                                          MediaQuery.disableAnimationsOf(
+                                            context,
+                                          )
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 200),
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -2158,6 +2172,64 @@ class _CareToast extends StatelessWidget {
 /// (113.804 / 83.98). 돌려 감싼 상자 145.79×140.11에서 역산했다.
 const double _kWateringPourAngle = 34.48 * math.pi / 180;
 const double _kWateringPourScale = 113.804 / 83.98;
+
+/// 홈 캐릭터 자리를 몸통 박스 위로 넓히는 높이. 어떤 머리를 얹어도 다 들어가도록
+/// 모든 머리 중 가장 높이 넘치는 값으로 잡아, 방을 옮겨도 자리 크기가 같다.
+final double _kCharacterHairRoom = PlantCharacterArt.maxHairOverflow(173.02);
+
+/// 홈 캐릭터의 터치 영역. 위 [_kCharacterHairRoom] 자리에 머리 그림을 감싼
+/// 다각형을, 그 아래에 몸통 박스(예전 터치 영역 그대로)를 둔다. 둘 다 아니면
+/// 터치가 뒤로 통과한다. [child]는 몸통 박스 자리에 그린다.
+class _CharacterHitArea extends StatelessWidget {
+  const _CharacterHitArea({required this.hairPath, required this.child});
+
+  /// 몸통 박스 좌표의 머리 터치 영역([PlantCharacterArt.hairHitPath]).
+  final Path? hairPath;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final hair = hairPath;
+    return Stack(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: _kCharacterHairRoom),
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: Listener(behavior: HitTestBehavior.opaque),
+              ),
+              child,
+            ],
+          ),
+        ),
+        if (hair != null)
+          // ClipPath는 다각형 밖 터치를 받지 않는다.
+          Positioned.fill(
+            child: ClipPath(
+              clipper: _PathClipper(
+                hair.shift(Offset(0, _kCharacterHairRoom)),
+              ),
+              child: const Listener(behavior: HitTestBehavior.opaque),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PathClipper extends CustomClipper<Path> {
+  const _PathClipper(this.path);
+
+  final Path path;
+
+  @override
+  Path getClip(Size size) => path;
+
+  @override
+  bool shouldReclip(_PathClipper oldClipper) => oldClipper.path != path;
+}
 
 /// 시안 물줄기 본체(Vector 1537) PNG(home_water_stream.png)의 크기. 시안이
 /// 내보낸 SVG(viewBox 122.778×241.418)를 3배로 렌더한 것이라, 오버레이
