@@ -10,6 +10,7 @@ import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
+import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 
 /// 시안이 그려진 기기 조건.
 void _setUpView(WidgetTester tester) {
@@ -184,6 +185,16 @@ void main() {
       expect(rects[2].top, closeTo(405, 1));
       expect(rects[0].width, closeTo(16.22, 0.1));
       expect(rects[0].height, closeTo(16.49, 0.1));
+    });
+
+    testWidgets('탭 첫 화면이라 뒤로 꺾쇠가 없다(4534:3781)', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: DiaryScreen(today: DateTime(2026, 7, 15))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FigmaBackChevron), findsNothing);
     });
 
     testWidgets('그 달의 날짜를 빠짐없이 그린다', (tester) async {

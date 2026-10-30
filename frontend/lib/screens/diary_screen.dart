@@ -136,10 +136,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
       // 배경 일러스트가 상태바 뒤까지 이어진다(2739:34593). 시안 좌표를
       // 화면 절대값 그대로 쓸 수 있게 앱바를 띄운다.
       extendBodyBehindAppBar: true,
-      appBar: YesoAppBar(
+      // 탭 첫 화면이라 돌아갈 곳이 없다. 시안(4534:3781)도 꺾쇠가 없다.
+      appBar: const YesoAppBar(
         title: '다이어리',
         backgroundColor: Colors.transparent,
-        backIconColor: kOrangeMain,
+        showBack: false,
       ),
       body: DiaryScaffoldBody(
         onFabPressed: _openToday,
