@@ -141,6 +141,7 @@ class _PlantRegisterPersonalityScreenState
                     right: 0,
                     child: Center(
                       child: PlantCharacterArt(
+                        dropShadow: true,
                         width: AppLayout.personalityCharacterWidth,
                         body: plantBodyFromId(widget.draft.bodyId),
                         // 성격 단계엔 아직 헤어를 draft에 저장하기 전이라

@@ -144,6 +144,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
+                  dropShadow: true,
                   width: 182.4,
                   body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,

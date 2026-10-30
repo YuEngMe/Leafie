@@ -14,6 +14,7 @@ class SvgDropShadow extends StatelessWidget {
     super.key,
     required this.stdDeviation,
     required this.opacity,
+    this.color = Colors.black,
     required this.child,
   });
 
@@ -22,6 +23,9 @@ class SvgDropShadow extends StatelessWidget {
 
   /// 그림자 색 행렬의 알파 값.
   final double opacity;
+
+  /// 그림자 색(알파 제외). 시안 대부분은 검정이다.
+  final Color color;
 
   final Widget child;
 
@@ -36,7 +40,7 @@ class SvgDropShadow extends StatelessWidget {
           ),
           child: ColorFiltered(
             colorFilter: ColorFilter.mode(
-              Colors.black.withValues(alpha: opacity),
+              color.withValues(alpha: opacity),
               BlendMode.srcIn,
             ),
             child: child,

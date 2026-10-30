@@ -153,6 +153,7 @@ class _PlantRegisterCompleteScreenState
                       Positioned(
                         top: AppLayout.completionCharacterTop * scale,
                         child: PlantCharacterArt(
+                          dropShadow: true,
                           width: AppLayout.completionCharacterWidth * scale,
                           body: plantBodyFromId(widget.draft.bodyId),
                           colorId: widget.draft.bodyColorId,

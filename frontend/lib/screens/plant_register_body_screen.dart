@@ -112,6 +112,7 @@ class _BodyState extends State<PlantRegisterBodyScreen> {
                     setState(() => _selectedBodyId = _bodies[index].id),
                 itemBuilder: (context, index) => Center(
                   child: PlantCharacterArt(
+                    dropShadow: true,
                     width: _kArtWidth,
                     body: plantBodyFromId(_bodies[index].id),
                     colorId: widget.draft.bodyColorId,

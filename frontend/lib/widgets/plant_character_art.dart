@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
+import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 /// 캐릭터 바디 모양. 등록 시 사용자가 고른다.
 enum PlantBody { circle, thumb, square }
@@ -57,6 +58,7 @@ class PlantCharacterArt extends StatelessWidget {
     this.colorId,
     this.hairId,
     this.faceSwitchDuration = Duration.zero,
+    this.dropShadow = false,
   });
 
   /// circle 몸통의 보이는 폭이 `width × 0.897`이 되는 기준 폭.
@@ -79,6 +81,14 @@ class PlantCharacterArt extends StatelessWidget {
   /// 캐릭터가 유령처럼 비쳤다(디자이너 지적 2026-10). 몸통·머리는 그대로
   /// 두고 얼굴 PNG만 바꾼다. 얼굴 PNG는 몸통과 캔버스가 같아 자리가 안 튄다.
   final Duration faceSwitchDuration;
+
+  /// 캐릭터 전체(몸통·얼굴·헤어)에 회색 그림자를 깐다. 흰 배경 화면용.
+  ///
+  /// 몸통 PNG의 흰 glow는 흰 배경에 묻혀 안 보여서, 시안은 흰 배경
+  /// 화면(등록 단계·캐릭터 편집, 예: 5038:6608)에만 캐릭터 그룹에
+  /// #A7A7A7 40% · blur 10 · offset 0 그림자를 더 줬다. 홈·내 캐릭터 목록은
+  /// 그림자가 없다.
+  final bool dropShadow;
 
   /// 박스 좌표에서 헤어 그림(시안 레이어 영역, PNG 여백 제외)이 차지하는
   /// 사각형. 헤어가 없으면 null.
@@ -171,7 +181,7 @@ class PlantCharacterArt extends StatelessWidget {
 
     final hair = hairId == null ? null : _kHairSpecs[hairId];
 
-    return SizedBox(
+    final art = SizedBox(
       width: width,
       height: boxHeight,
       child: Stack(
@@ -202,6 +212,15 @@ class PlantCharacterArt extends StatelessWidget {
             ),
         ],
       ),
+    );
+    if (!dropShadow) return art;
+    // Figma blur 값은 가우스 sigma의 2배다. 시안 캐릭터 크기에서 잰 값이라
+    // 캐릭터 배율(u)을 따라 키운다.
+    return SvgDropShadow(
+      stdDeviation: _kDropShadowBlur / 2 * u,
+      opacity: 0.4,
+      color: const Color(0xFFA7A7A7),
+      child: art,
     );
   }
 
@@ -238,6 +257,9 @@ const double _kCircleBodyUnitWidth = 155.23;
 /// 박스 바닥에서 circle 몸통 바닥까지(width 대비). 옛 circle PNG의 아래
 /// 여백 37/698과 같다.
 const double _kBodyBottomInset = 37 / 698;
+
+/// 흰 배경 캐릭터 그림자 blur(Figma unit). [PlantCharacterArt.dropShadow].
+const double _kDropShadowBlur = 10;
 
 /// 몸통·얼굴 PNG 캔버스가 몸통 bbox를 사방으로 넓힌 그림자 여백(unit).
 const double _kShadowMargin = 10.745;
