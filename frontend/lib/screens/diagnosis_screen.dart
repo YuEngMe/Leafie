@@ -137,7 +137,13 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   Future<void> _openRecord(DiagnosisSummary record) async {
     if (record.status != 'COMPLETED') {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_summaryStatusMessage(record.status))),
+        SnackBar(
+          content: Text(
+            record.status == 'NEEDS_RETAKE'
+                ? retakeReasonMessage(record.retakeReasonCode)
+                : _summaryStatusMessage(record.status),
+          ),
+        ),
       );
       return;
     }
@@ -445,7 +451,9 @@ class _DiagnosisPhotoConfirmScreenState
       if (diagnosis.status != 'COMPLETED') {
         setState(() {
           _submitting = false;
-          _error = _submissionStatusMessage(diagnosis.status);
+          _error = diagnosis.status == 'NEEDS_RETAKE'
+              ? retakeReasonMessage(diagnosis.retakeReasonCode)
+              : _submissionStatusMessage(diagnosis.status);
         });
         return;
       }
@@ -636,8 +644,21 @@ Future<DiagnosisPhoto?> _captureDiagnosisPhoto(
   }
 }
 
+/// 서버가 사진을 다시 찍으라고 한 이유(`retake_reason_code`)를 사용자 문구로
+/// 바꾼다. 예전에는 이유와 상관없이 같은 문구라 무엇을 고칠지 몰랐다(10/31).
+/// 코드는 백엔드 integrations/diagnosis.py(사진 품질)·kindwise.py(식물 여부).
+String retakeReasonMessage(String? reasonCode) => switch (reasonCode) {
+  'PLANT_NOT_VISIBLE' => '사진에서 식물을 찾지 못했어요. 식물이 잘 보이게 다시 찍어 주세요.',
+  'IMAGE_TOO_DARK' => '사진이 너무 어두워요. 밝은 곳에서 다시 찍어 주세요.',
+  'IMAGE_TOO_BRIGHT' => '사진이 너무 밝아요. 빛이 덜 비치는 곳에서 다시 찍어 주세요.',
+  'IMAGE_BLURRY' => '사진이 흐려요. 흔들리지 않게 초점을 맞춰 다시 찍어 주세요.',
+  'IMAGE_TOO_SMALL' => '사진이 너무 작아요. 식물을 가까이에서 다시 찍어 주세요.',
+  'IMAGE_TYPE_UNSUPPORTED' => '지원하지 않는 사진 형식이에요. 카메라로 다시 찍어 주세요.',
+  'IMAGE_INVALID' => '사진을 읽지 못했어요. 다시 찍어 주세요.',
+  _ => '사진을 다시 촬영해주세요.',
+};
+
 String _submissionStatusMessage(String status) => switch (status) {
-  'NEEDS_RETAKE' => '식물을 더 밝고 선명하게 촬영해 주세요.',
   'FAILED' => '진단을 완료하지 못했습니다. 새 사진으로 다시 시도해 주세요.',
   'CANCELLED' => '진단 요청이 취소됐습니다.',
   _ => '진단이 진행 중이에요. 잠시 후 진단 기록에서 확인해 주세요.',

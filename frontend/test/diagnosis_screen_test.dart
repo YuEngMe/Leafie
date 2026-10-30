@@ -304,6 +304,60 @@ void main() {
     expect(find.text('처방전'), findsNothing);
   });
 
+  testWidgets('다시 찍어야 하는 기록은 서버가 거절한 이유를 알린다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeDiagnosisRepository(
+      records: [
+        DiagnosisSummary(
+          id: 'retake',
+          status: 'NEEDS_RETAKE',
+          diagnosedAt: DateTime(2026, 9, 6, 10),
+          photoUrl: 'https://example.com/retake.jpg',
+          conditionLabel: null,
+          retakeReasonCode: 'PLANT_NOT_VISIBLE',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisScreen(
+          plantId: 'plant-id',
+          plantName: '새싹이',
+          repository: repository,
+          now: () => DateTime(2026, 9, 6, 12),
+          imageProviderBuilder: (_) => MemoryImage(_greenPixelPng),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새싹이 진단 기록'));
+    await tester.pump();
+
+    expect(
+      find.text('사진에서 식물을 찾지 못했어요. 식물이 잘 보이게 다시 찍어 주세요.'),
+      findsOneWidget,
+    );
+    expect(find.text('처방전'), findsNothing);
+  });
+
+  test('재촬영 사유마다 고칠 점을 알려 주고, 모르는 사유는 기본 문구다', () {
+    const codes = [
+      'PLANT_NOT_VISIBLE',
+      'IMAGE_TOO_DARK',
+      'IMAGE_TOO_BRIGHT',
+      'IMAGE_BLURRY',
+      'IMAGE_TOO_SMALL',
+      'IMAGE_TYPE_UNSUPPORTED',
+      'IMAGE_INVALID',
+    ];
+    final messages = codes.map(retakeReasonMessage).toSet();
+    expect(messages, hasLength(codes.length));
+    expect(messages, isNot(contains('사진을 다시 촬영해주세요.')));
+    expect(retakeReasonMessage(null), '사진을 다시 촬영해주세요.');
+    expect(retakeReasonMessage('NEW_CODE'), '사진을 다시 촬영해주세요.');
+  });
+
   testWidgets('진단하기는 촬영 사진 확인 후 실제 진단 요청으로 이어진다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeDiagnosisRepository(records: const []);

@@ -31,6 +31,15 @@ void main() {
                 'retake_reason_code': null,
                 'failure_code': null,
               },
+              {
+                'id': 'retake-id',
+                'status': 'NEEDS_RETAKE',
+                'diagnosed_at': '2026-09-05T01:02:03Z',
+                'photo_url': 'https://example.com/face.jpg',
+                'condition_label': null,
+                'retake_reason_code': 'PLANT_NOT_VISIBLE',
+                'failure_code': null,
+              },
             ],
             'has_next': false,
             'next_cursor': null,
@@ -41,9 +50,12 @@ void main() {
 
     final records = await api.listDiagnoses('plant-id');
 
-    expect(records.single.id, 'diagnosis-id');
-    expect(records.single.status, 'COMPLETED');
-    expect(records.single.conditionLabel, '조금 관리가 필요해요');
+    expect(records.first.id, 'diagnosis-id');
+    expect(records.first.status, 'COMPLETED');
+    expect(records.first.conditionLabel, '조금 관리가 필요해요');
+    expect(records.first.retakeReasonCode, isNull);
+    // 다시 찍어야 하는 기록은 거절 이유를 함께 읽는다.
+    expect(records.last.retakeReasonCode, 'PLANT_NOT_VISIBLE');
   });
 
   test('진단 상세와 식물 상세를 실제 경로에서 읽는다', () async {
