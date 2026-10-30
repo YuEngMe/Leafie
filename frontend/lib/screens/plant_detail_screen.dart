@@ -200,7 +200,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 child: PlantArtHero(
                   plantId: _plant.id,
                   child: PlantCharacterArt(
-                    dropShadow: true,
+                    shadow: CharacterShadow.onWhite,
                     width: plantArtWidthFor(139.78),
                     body: plantBodyFromId(_plant.bodyId),
                     colorId: _plant.colorId,
@@ -404,7 +404,7 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                           maxWidth: double.infinity,
                           maxHeight: double.infinity,
                           child: PlantCharacterArt(
-                            dropShadow: true,
+                            shadow: CharacterShadow.onWhite,
                             width: _kCharacterWidth,
                             body: plantBodyFromId(widget.plant.bodyId),
                             colorId: widget.plant.colorId,

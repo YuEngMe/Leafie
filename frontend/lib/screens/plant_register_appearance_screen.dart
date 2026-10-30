@@ -113,7 +113,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                     maxWidth: double.infinity,
                     maxHeight: double.infinity,
                     child: PlantCharacterArt(
-                      dropShadow: true,
+                      shadow: CharacterShadow.onWhite,
                       width: 182.4,
                       body: plantBodyFromId(widget.draft.bodyId),
                       colorId: _selectedColorId,

@@ -126,7 +126,7 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
             const SizedBox(height: AppLayout.registrationNameCharacterTopGap),
             const Center(
               child: PlantCharacterArt(
-                dropShadow: true,
+                shadow: CharacterShadow.onWhite,
                 width: AppLayout.registrationNameCharacterWidth,
               ),
             ),

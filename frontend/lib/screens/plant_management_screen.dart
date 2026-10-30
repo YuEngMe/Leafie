@@ -283,6 +283,7 @@ class _PlantShelfHouse extends StatelessWidget {
                   plantId: visible[index].id,
                   child: PlantCharacterArt(
                     width: plantArtWidthFor(_kCharacterWidth),
+                    shadow: CharacterShadow.myCharacters,
                     body: plantBodyFromId(visible[index].bodyId),
                     colorId: visible[index].colorId,
                     hairId: visible[index].hairId,

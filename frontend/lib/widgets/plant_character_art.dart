@@ -58,7 +58,7 @@ class PlantCharacterArt extends StatelessWidget {
     this.colorId,
     this.hairId,
     this.faceSwitchDuration = Duration.zero,
-    this.dropShadow = false,
+    this.shadow,
   });
 
   /// circle 몸통의 보이는 폭이 `width × 0.897`이 되는 기준 폭.
@@ -82,13 +82,12 @@ class PlantCharacterArt extends StatelessWidget {
   /// 두고 얼굴 PNG만 바꾼다. 얼굴 PNG는 몸통과 캔버스가 같아 자리가 안 튄다.
   final Duration faceSwitchDuration;
 
-  /// 캐릭터 전체(몸통·얼굴·헤어)에 회색 그림자를 깐다. 흰 배경 화면용.
+  /// 캐릭터 전체(몸통·얼굴·헤어)에 까는 그림자. null이면 없다(홈·알림).
   ///
-  /// 몸통 PNG의 흰 glow는 흰 배경에 묻혀 안 보여서, 시안은 흰 배경
-  /// 화면(등록 단계·캐릭터 편집, 예: 5038:6608)에만 캐릭터 그룹에
-  /// #A7A7A7 40% · blur 10 · offset 0 그림자를 더 줬다. 홈·내 캐릭터 목록은
-  /// 그림자가 없다.
-  final bool dropShadow;
+  /// 몸통 PNG의 흰 glow는 밝은 배경에 묻혀 안 보여서, 시안은 흰 배경
+  /// 화면에 캐릭터 그룹 그림자를 따로 줬다. 화면마다 값이 달라
+  /// [CharacterShadow] 프리셋으로 넘긴다.
+  final CharacterShadow? shadow;
 
   /// 박스 좌표에서 헤어 그림(시안 레이어 영역, PNG 여백 제외)이 차지하는
   /// 사각형. 헤어가 없으면 null.
@@ -213,13 +212,14 @@ class PlantCharacterArt extends StatelessWidget {
         ],
       ),
     );
-    if (!dropShadow) return art;
-    // Figma blur 값은 가우스 sigma의 2배다. 시안 캐릭터 크기에서 잰 값이라
-    // 캐릭터 배율(u)을 따라 키운다.
+    final shadow = this.shadow;
+    if (shadow == null) return art;
+    // Figma blur 값은 가우스 sigma의 2배다. unit으로 적어 두었으니 캐릭터
+    // 배율(u)을 따라 키운다.
     return SvgDropShadow(
-      stdDeviation: _kDropShadowBlur / 2 * u,
-      opacity: 0.4,
-      color: const Color(0xFFA7A7A7),
+      stdDeviation: shadow.blur / 2 * u,
+      opacity: shadow.opacity,
+      color: shadow.color,
       child: art,
     );
   }
@@ -258,8 +258,36 @@ const double _kCircleBodyUnitWidth = 155.23;
 /// 여백 37/698과 같다.
 const double _kBodyBottomInset = 37 / 698;
 
-/// 흰 배경 캐릭터 그림자 blur(Figma unit). [PlantCharacterArt.dropShadow].
-const double _kDropShadowBlur = 10;
+/// [PlantCharacterArt.shadow] 값. [blur]는 circle 몸통 155.23 unit 기준
+/// Figma blur라 캐릭터를 키우거나 줄여도 같은 비율로 번진다.
+class CharacterShadow {
+  const CharacterShadow({
+    required this.color,
+    required this.opacity,
+    required this.blur,
+  });
+
+  /// 흰 배경 화면(등록 단계·꾸미기 편집·캐릭터 편집, 예: 5038:6608).
+  /// 캐릭터 그룹에 #A7A7A7 40% · blur 10 · offset 0. 시안 캐릭터가 거의
+  /// 원래 크기(몸통 약 155)라 blur가 곧 unit 값이다.
+  static const onWhite = CharacterShadow(
+    color: Color(0xFFA7A7A7),
+    opacity: 0.4,
+    blur: 10,
+  );
+
+  /// 내 캐릭터 목록(4534:6665, 그룹 4743:451 등). 검정 20% · blur 5 ·
+  /// offset 0. 몸통 53.4pt(4743:195)에서 잰 5pt를 unit으로 옮긴다.
+  static const myCharacters = CharacterShadow(
+    color: Color(0xFF000000),
+    opacity: 0.2,
+    blur: 5 * _kCircleBodyUnitWidth / 53.4,
+  );
+
+  final Color color;
+  final double opacity;
+  final double blur;
+}
 
 /// 몸통·얼굴 PNG 캔버스가 몸통 bbox를 사방으로 넓힌 그림자 여백(unit).
 const double _kShadowMargin = 10.745;
