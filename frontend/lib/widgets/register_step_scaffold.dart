@@ -83,7 +83,12 @@ class RegisterStepScaffold extends StatelessWidget {
                     // top 175까지 36, 헤드라인 글자 상자(20px)가 29라 남는
                     // 7px이 간격이다(2315:2234).
                     const SizedBox(height: 7),
-                    Text(subtitle, style: kSmallStyle),
+                    // 부제는 #757575(4534:954·1007). kSmallStyle 기본
+                    // #A1A1A1보다 진하다. 닉네임 부제와 같은 색이다.
+                    Text(
+                      subtitle,
+                      style: kSmallStyle.copyWith(color: kOnboardingSubtitle),
+                    ),
                   ],
                 ],
               ),

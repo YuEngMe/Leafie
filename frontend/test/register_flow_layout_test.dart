@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/models/plant_registration_draft.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_body_screen.dart';
@@ -81,6 +82,11 @@ void main() {
         closeTo(175, 0.5),
       );
       _expectAt(tester, '부제', find.text('당신의 식물을 뭐라고 부를까요?'), 45, 175);
+      // 부제 색 #757575(4534:954). 연한 회색 #A1A1A1이 아니다.
+      expect(
+        tester.widget<Text>(find.text('당신의 식물을 뭐라고 부를까요?')).style!.color,
+        kOnboardingSubtitle,
+      );
       _expectAt(tester, '다음 버튼', find.byType(PrimaryButton), 34, 790);
 
       // 4534:954: 애칭 라벨 top 493 → 칸 top 517. 옛 시안(2315:2189)
