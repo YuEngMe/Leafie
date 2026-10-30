@@ -366,6 +366,7 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
                         diagnosis.recommendedCare,
                       ),
                       onClose: () => Navigator.maybePop(context),
+                      plantName: data.plant.nickname,
                     ),
                   ),
                   // 서버가 받아 주는 동작만 띄운다. 재시도 가능한 실패는
