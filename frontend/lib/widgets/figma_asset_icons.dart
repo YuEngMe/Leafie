@@ -142,7 +142,8 @@ class FigmaHomeAssetIcon extends StatelessWidget {
   );
 }
 
-/// Figma 3436:4357. 홈 전체보기와 진단 전환 컨트롤.
+/// 시안 4534:9620. 홈 전체보기와 진단 전환 컨트롤. 예전 3436:4357은 높이
+/// 96이었고, 지금 시안은 아이콘 사이를 넓혀 117이다.
 class FigmaHomeViewSwitch extends StatelessWidget {
   const FigmaHomeViewSwitch({
     super.key,
@@ -150,7 +151,7 @@ class FigmaHomeViewSwitch extends StatelessWidget {
     this.onDiagnosisTap,
   });
 
-  static const Size figmaSize = Size(45, 96);
+  static const Size figmaSize = Size(45, 117);
 
   final VoidCallback? onOverviewTap;
   final VoidCallback? onDiagnosisTap;
@@ -170,23 +171,24 @@ class FigmaHomeViewSwitch extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 두 아이콘은 시안(4534:9620) 노드 크기로 그리고 PNG의 그림자
-            // 여백은 바깥으로 넘친다. top 14·50은 높이 96 알약의 상하 여백 14다.
+            // 두 아이콘은 시안(4534:9620) 노드 크기·자리로 그리고 PNG의
+            // 그림자 여백은 바깥으로 넘친다.
             const Positioned(
-              left: 7.87,
-              top: 14,
+              left: 8,
+              top: 15,
               child: _HomeIconImage(FigmaHomeIcon.viewAll),
             ),
             const Positioned(
-              left: 11.5,
-              top: 50,
+              left: 11,
+              top: 67,
               child: _HomeIconImage(FigmaHomeIcon.viewDiagnosis),
             ),
+            // 누르는 영역은 알약을 위아래 반으로 나눈다.
             Positioned(
               left: 0,
               top: 0,
               width: 45,
-              height: 48,
+              height: 117 / 2,
               child: Semantics(
                 label: '전체보기',
                 button: true,
@@ -200,9 +202,9 @@ class FigmaHomeViewSwitch extends StatelessWidget {
             ),
             Positioned(
               left: 0,
-              top: 48,
+              top: 117 / 2,
               width: 45,
-              height: 48,
+              height: 117 / 2,
               child: Semantics(
                 label: '진단',
                 button: true,

@@ -237,17 +237,17 @@ void main() {
       const Rect.fromLTWH(28, 113, 79.9966, 79.9966),
       'sun node',
     );
-    // 시안 4534:9620: 전체보기 29.256×28.775, 진단 22×32 노드에 사방 5·4.4
-    // 그림자 여백. 알약은 일부러 높이 96으로 줄여 둔 상태라 세로 자리는
-    // 상하 여백 14 기준이다(커밋 7c0ab64).
+    // 시안 4534:9620: 전체보기 29.256×28.775(8, 15), 진단 22×32(11, 67)
+    // 노드에 사방 5·4.4 그림자 여백. 알약은 시안대로 높이 117이다(10/31
+    // 피드백으로 7c0ab64의 96을 되돌림).
     expectRect(
       assetRect(FigmaHomeIcon.viewAll.asset),
-      const Rect.fromLTWH(333 + 7.87 - 5, 113 + 14 - 5, 39.256, 38.775),
+      const Rect.fromLTWH(333 + 8 - 5, 113 + 15 - 5, 39.256, 38.775),
       'view all',
     );
     expectRect(
       assetRect(FigmaHomeIcon.viewDiagnosis.asset),
-      const Rect.fromLTWH(333 + 11.5 - 4.4, 113 + 50 - 4.4, 30.8, 40.8),
+      const Rect.fromLTWH(333 + 11 - 4.4, 113 + 67 - 4.4, 30.8, 40.8),
       'diagnosis',
     );
     // 우체통 노드 4534:9607 (310,461) 74.1×120, PNG는 사방 5 바깥.
