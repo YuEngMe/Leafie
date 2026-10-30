@@ -211,7 +211,7 @@ void main() {
     expect(find.byType(CalendarScreen), findsOneWidget);
   });
 
-  testWidgets('활성 탭만 밝은 오렌지, 나머지는 메인 오렌지 그대로 그린다(4534:4216)', (tester) async {
+  testWidgets('활성 탭만 밝은 오렌지, 나머지는 메인 오렌지 그대로 그린다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
