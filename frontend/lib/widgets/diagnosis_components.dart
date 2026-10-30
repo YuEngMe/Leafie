@@ -245,11 +245,13 @@ class PrescriptionCard extends StatelessWidget {
               ),
             ),
           ),
+          // 4534:19741 흰 상자 (34, 229) 334x141 → 카드 기준 (22, 131).
+          // 카드 원점은 시안 화면 (12, 98)이다(증상 띠 34.1 → 22.1).
           Positioned(
-            left: 39,
-            top: 131.29,
-            width: 307,
-            height: 140.592,
+            left: 22,
+            top: 131,
+            width: 334,
+            height: 141,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -260,9 +262,10 @@ class PrescriptionCard extends StatelessWidget {
               ),
             ),
           ),
+          // 4534:19742 사진 틀 (44, 238) 136x124.05 → 카드 기준 (32, 140).
           Positioned(
-            left: 47,
-            top: 139.56,
+            left: 32,
+            top: 140,
             width: 136,
             height: 124.051,
             child: ClipRRect(
@@ -331,12 +334,13 @@ class PrescriptionCard extends StatelessWidget {
             height: 13,
             child: Row(
               children: [
+                // 4534:19748 상태 점 8.02x8.30 #FFEE83.
                 const SizedBox.square(
                   dimension: 8.025,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: kAppleGreen,
+                      color: Color(0xFFFFEE83),
                     ),
                   ),
                 ),
