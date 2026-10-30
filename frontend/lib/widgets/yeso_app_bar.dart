@@ -12,6 +12,7 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.backgroundColor,
     this.backIconColor,
     this.titleColor,
+    this.titleShift = 0,
   });
 
   final String title;
@@ -25,6 +26,10 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// 제목 글자색. 대부분의 시안은 진한 텍스트(#444)지만 내 캐릭터 흐름
   /// (4534:6665/7390/20068)처럼 검정으로 둔 화면이 있다.
   final Color? titleColor;
+
+  /// 제목을 가운데에서 가로로 옮기는 양. 비밀번호 재설정 시안(4534:1856 등
+  /// 다섯 프레임)은 제목 가운데가 196.5로 화면 가운데보다 4.5 왼쪽이다.
+  final double titleShift;
 
   /// 시안(2319:2, 3345:996)의 앱바는 상태바 아래 46이다. Material 기본
   /// 56을 쓰면 꺾쇠와 제목이 5px 아래로 내려간다.
@@ -57,11 +62,14 @@ class YesoAppBar extends StatelessWidget implements PreferredSizeWidget {
       // 시안 제목 상자는 y60·h19(회원가입 4534:1713)로, 46 띠 가운데보다
       // 0.5 아래다. 앱바 기본 줄 높이(1.27)로 가운데 두면 글자가 1.25px
       // 위로 뜨므로 상자를 19로 맞추고 1 내린다.
-      title: Padding(
-        padding: const EdgeInsets.only(top: 1),
-        child: Text(
-          title,
-          style: kBodyStyle.copyWith(color: titleColor, height: 19 / 16),
+      title: Transform.translate(
+        offset: Offset(titleShift, 0),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Text(
+            title,
+            style: kBodyStyle.copyWith(color: titleColor, height: 19 / 16),
+          ),
         ),
       ),
       actions: actions,

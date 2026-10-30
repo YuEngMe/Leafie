@@ -166,7 +166,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
       // 완료 화면(4534:2261)은 앱바·뒤로가기 없이 문구와 로그인 버튼만 있다.
-      appBar: _step == _Step.done ? null : const YesoAppBar(title: '비밀번호 재설정'),
+      appBar: _step == _Step.done ? null : const YesoAppBar(title: '비밀번호 재설정', titleShift: -4.5),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
