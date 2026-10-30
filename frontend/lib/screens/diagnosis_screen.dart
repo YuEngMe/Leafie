@@ -8,6 +8,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diagnosis_components.dart';
+import 'package:yeso_plant/widgets/photo_confirm_bar.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
@@ -479,21 +480,8 @@ class _DiagnosisPhotoConfirmScreenState
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final actionBarHeight = bottomInset > 34 ? bottomInset + 39 : 73.0;
-    // 시안(4534:20043) 막대 4534:20064 top 801·높이 73, 글자 중심 y 831.57.
-    // 디자이너가 막대를 14 올리고 글자를 10씩 안쪽·12 위로 옮겼다(메모
-    // 6049:2755, 이전 815·59·843.57). 글자는 홈 인디케이터 구역에 걸쳐
-    // 있다. 안전 영역을 빼고 남은 칸에 TextButton(위아래 여백 8)을 넣으면
-    // 글자 칸이 줄어 잘렸으므로 막대 top 기준으로 놓는다.
-    const labelCenterFromBarTop = 831.57 - 801;
-    const hitHeight = 44.0;
-    const hitPadding = 12.0;
-    final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: hitPadding),
-      minimumSize: const Size(0, hitHeight),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
+    // 시안(4534:20043) 막대 4534:20064. 자리와 버튼은 [PhotoConfirmBar].
+    final actionBarHeight = PhotoConfirmBar.heightOf(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: PopScope(
@@ -523,36 +511,11 @@ class _DiagnosisPhotoConfirmScreenState
                 right: 0,
                 bottom: 0,
                 height: actionBarHeight,
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  child: Stack(
-                    children: [
-                      // '다시 촬영' 글자 x=40, '다음' 글자 오른쪽 끝 x=361.04.
-                      Positioned(
-                        left: 40 - hitPadding,
-                        top: labelCenterFromBarTop - hitHeight / 2,
-                        child: TextButton(
-                          key: const ValueKey('diagnosis-retake-button'),
-                          style: buttonStyle,
-                          onPressed: _submitting ? null : _retake,
-                          child: const Text(
-                            '다시 촬영',
-                            style: _captureActionStyle,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 402 - 361.04 - hitPadding,
-                        top: labelCenterFromBarTop - hitHeight / 2,
-                        child: TextButton(
-                          key: const ValueKey('diagnosis-submit-button'),
-                          style: buttonStyle,
-                          onPressed: _submitting ? null : _submit,
-                          child: const Text('다음', style: _captureActionStyle),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: PhotoConfirmBar(
+                  retakeKey: const ValueKey('diagnosis-retake-button'),
+                  nextKey: const ValueKey('diagnosis-submit-button'),
+                  onRetake: _submitting ? null : _retake,
+                  onNext: _submitting ? null : _submit,
                 ),
               ),
               if (_submitting)
@@ -611,13 +574,6 @@ class _DiagnosisPhotoConfirmScreenState
     );
   }
 }
-
-const _captureActionStyle = TextStyle(
-  color: Colors.white,
-  fontFamily: 'Paperlogy',
-  fontSize: 16,
-  fontWeight: FontWeight.w500,
-);
 
 /// 시안 4534:20001의 인앱 카메라를 띄운다. 예전에는 OS 카메라를 썼지만
 /// 초점 가이드·플래시·앨범이 시안에 있어 앱 안에서 찍는다.
