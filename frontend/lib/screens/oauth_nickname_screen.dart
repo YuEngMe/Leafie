@@ -108,7 +108,12 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       child: EdgeSwipeBack(
         child: Scaffold(
           backgroundColor: kBackgroundWhite,
-          appBar: YesoAppBar(title: '${widget.providerLabel} 로그인'),
+          // 4534:1609 제목은 검정이다(공용 앱바 기본 #444). 이메일
+          // 회원가입(4534:1673)은 #444라 공용 기본을 바꾸지 않는다.
+          appBar: YesoAppBar(
+            title: '${widget.providerLabel} 로그인',
+            titleColor: Colors.black,
+          ),
           body: SafeArea(
             child: Padding(
               // 2395:38은 입력칸·버튼이 좌우 34로 대칭이다. 타이틀 top 140

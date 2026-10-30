@@ -123,7 +123,11 @@ class _PlantRegisterPersonalityScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 성격'),
+      // 6049:2564 제목은 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 성격',
+        titleColor: Colors.black,
+      ),
       body: SafeArea(
         child: Column(
           children: [

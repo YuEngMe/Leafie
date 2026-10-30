@@ -83,6 +83,7 @@ class _BodyState extends State<PlantRegisterBodyScreen> {
   @override
   Widget build(BuildContext context) => RegisterStepScaffold(
     appBarTitle: '캐릭터 꾸미기',
+    appBarTitleColor: Colors.black,
     step: 5,
     title: '리피의 외형을 정해주세요!',
     centerTitle: true,

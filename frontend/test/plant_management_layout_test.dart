@@ -429,8 +429,12 @@ void main() {
         PlantPersonalityScreen(plant: _plant(personalityType: 'OUTGOING')),
       );
 
-      // 4889:2239 앱바 "캐릭터 성격".
+      // 4889:2239 앱바 "캐릭터 성격". 제목은 검정(공용 기본 #444 아님).
       expect(find.text('캐릭터 성격'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('캐릭터 성격')).style!.color,
+        Colors.black,
+      );
 
       // 옛 시안(2568:1714)으로 그려 요소가 20~33px 위에 있었다.
       // 4889:2258 성격 이름: 보이는 글자 꼭대기 156 → Flutter 상자 151.
@@ -772,8 +776,12 @@ void main() {
     testWidgets('앱바·바디 스위처·컬러 휠·체크 배지 좌표', (tester) async {
       await pump(tester);
 
-      // 5038:6523 앱바.
+      // 5038:6523 앱바. 제목은 검정(6049:2649, 공용 기본 #444 아님).
       expect(find.text('캐릭터 꾸미기'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('캐릭터 꾸미기')).style!.color,
+        Colors.black,
+      );
       // 5038:6460 시안: 헤드라인 자리에 바디 스위처가 온다(헤드라인 없음).
       expect(find.text('식물을 꾸며주세요!'), findsNothing);
       // 바디 스위처는 앱바 아래 top 143, 화면 중앙 정렬(dx≈201).

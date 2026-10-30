@@ -19,6 +19,7 @@ class RegisterStepScaffold extends StatelessWidget {
     this.bottomButton,
     this.scrollable = false,
     this.centerTitle = false,
+    this.appBarTitleColor,
   });
 
   final String appBarTitle;
@@ -39,11 +40,15 @@ class RegisterStepScaffold extends StatelessWidget {
   /// 가운데에 둔다. 나머지 단계는 왼쪽 정렬이다.
   final bool centerTitle;
 
+  /// 앱바 제목 색. null이면 공용 기본(#444). 캐릭터 꾸미기 단계 시안
+  /// (5028:1193, 4534:507)은 제목이 검정이다.
+  final Color? appBarTitleColor;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: YesoAppBar(title: appBarTitle),
+      appBar: YesoAppBar(title: appBarTitle, titleColor: appBarTitleColor),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -334,7 +334,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
     final selectedType = kPlantPersonalityOrder[_selectedIndex];
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 성격'),
+      // 4889:2219 제목은 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 성격',
+        titleColor: Colors.black,
+      ),
       body: PlantDetailBody(
         children: [
           // 이름(152)+태그(190)+캐릭터(294)+말풍선(꼬리 포함 504.68,
