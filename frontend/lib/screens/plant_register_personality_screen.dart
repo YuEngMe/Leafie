@@ -202,10 +202,12 @@ class _PlantRegisterPersonalityScreenState
                               ),
                             ),
                             // 태그 4534:169/171: 58.69x20.67 알약 둘, 사이 6.62.
+                            // 둘의 가운데가 197로 화면 가운데보다 4 왼쪽이다
+                            // (성격 시안 8프레임 공통). 오른쪽을 8 비워 맞춘다.
                             Positioned(
                               top: AppLayout.personalityTagsTop,
                               left: 0,
-                              right: 0,
+                              right: 8,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: personality.tags

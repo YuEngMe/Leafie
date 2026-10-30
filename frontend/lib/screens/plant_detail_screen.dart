@@ -376,10 +376,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ),
                       ),
                     ),
-                    // 태그 칩 4889:2254/2256. top 190.
+                    // 태그 칩 4889:2254/2256. top 190. 둘의 가운데가 197로
+                    // 화면 가운데보다 4 왼쪽이라 오른쪽을 8 비운다.
                     Positioned(
                       left: 0,
-                      right: 0,
+                      right: 8,
                       top: 190 - _kSlotTop,
                       height: 20.667,
                       child: Row(
