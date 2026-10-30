@@ -20,6 +20,7 @@ import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/instant_page_route.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/retry_feedback.dart';
 
@@ -1444,7 +1445,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('home-notifications')));
-    await tester.pumpAndSettle();
+    // 알림센터는 슬라이드 없이 한 프레임 만에 다 뜬다.
+    await tester.pump();
+    final route = ModalRoute.of(tester.element(find.text('알림 하나')))!;
+    expect(route, isA<InstantPageRoute<NotificationData>>());
+    expect(route.animation!.value, 1);
     await tester.tap(find.text('알림 하나'));
     await tester.pumpAndSettle();
 
@@ -1619,6 +1624,12 @@ void main() {
     expect(tester.getSize(viewSwitch), const Size(45, 117));
 
     await tester.tap(find.byKey(const ValueKey('home-overview-switch')));
+    // 전체보기도 슬라이드 없이 한 번에 뜬다.
+    await tester.pump();
+    expect(
+      ModalRoute.of(tester.element(find.text('전체보기 화면'))),
+      isA<InstantPageRoute<Object?>>(),
+    );
     await tester.pumpAndSettle();
     expect(find.text('전체보기 화면'), findsOneWidget);
   });
@@ -2078,6 +2089,12 @@ void main() {
 
       await tester.tap(
         find.byKey(const ValueKey('home-dialogue-prompt-DIAGNOSIS_PROMPT')),
+      );
+      // 진단은 슬라이드 없이 한 번에 뜬다.
+      await tester.pump();
+      expect(
+        ModalRoute.of(tester.element(find.byType(DiagnosisScreen))),
+        isA<InstantPageRoute<void>>(),
       );
       await tester.pumpAndSettle();
 

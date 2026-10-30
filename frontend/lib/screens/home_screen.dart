@@ -24,6 +24,7 @@ import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/instant_page_route.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -583,7 +584,8 @@ class _HomeScreenState extends State<HomeScreen>
   void _openDiagnosis() {
     final plant = _serverPlant ?? widget.plant;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      // 홈에서 잠깐 열어 보는 화면이라 슬라이드 없이 한 번에 띄운다(10/31).
+      InstantPageRoute<void>(
         builder: (_) =>
             DiagnosisScreen(plantId: plant?.id, plantName: plant?.name),
       ),
@@ -751,7 +753,8 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openPlantManagement() async {
     String? selectedPlantId;
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      // 내 캐릭터(전체보기)도 홈에서 잠깐 열어 보는 화면이라 한 번에 띄운다.
+      InstantPageRoute(
         builder: (routeContext) =>
             widget.plantManagementBuilder?.call(
               routeContext,
@@ -787,7 +790,8 @@ class _HomeScreenState extends State<HomeScreen>
     // 알림을 누르면 목록을 닫고 그 알림을 돌려받아 홈에서 이동한다. 우편함은
     // 홈 위에 뜨는 화면이고 캘린더는 홈의 탭이라, 알림 화면 위에 쌓지 않는다.
     final selected = await Navigator.of(context).push<NotificationData>(
-      MaterialPageRoute(
+      // 알림센터는 슬라이드 없이 한 번에 띄운다(10/31 피드백).
+      InstantPageRoute(
         builder:
             widget.notificationBuilder ??
             (routeContext) => NotificationScreen(
