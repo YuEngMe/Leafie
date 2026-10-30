@@ -747,12 +747,13 @@ class _DiagnosisHistoryBody extends StatelessWidget {
     final past = data.records.where((item) => !_sameDay(item.diagnosedAt, now));
     return Stack(
       children: [
-        // 4534:19874·19875 절 제목은 SemiBold 16(항목 스타일). 글자 상자가
-        // 시안보다 커서 시안 top(140·267.2)에서 2를 빼야 보이는 글자가 맞는다.
-        const Positioned(
+        // 4534:19874·19875 절 제목은 시안 SemiBold 16에서 디자이너 요청으로
+        // 1 키운 17. 글자 상자가 시안보다 커서 시안 top(140·267.2)에서 2를
+        // 빼야 보이는 글자가 맞는다.
+        Positioned(
           left: 34,
           top: 46,
-          child: Text('오늘의 진단', style: kItemStyle),
+          child: Text('오늘의 진단', style: kItemStyle.copyWith(fontSize: 17)),
         ),
         Positioned(
           left: 14,
@@ -767,10 +768,10 @@ class _DiagnosisHistoryBody extends StatelessWidget {
             emptyLabel: '오늘 진단한 기록이 없습니다.',
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 34,
           top: 173.2,
-          child: Text('지난 진단', style: kItemStyle),
+          child: Text('지난 진단', style: kItemStyle.copyWith(fontSize: 17)),
         ),
         Positioned(
           left: 14,
@@ -820,7 +821,7 @@ class _DiagnosisRecordList extends StatelessWidget {
     if (records.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(left: 20, top: 17),
-        child: Text(emptyLabel, style: kCaptionStyle),
+        child: Text(emptyLabel, style: kCaptionStyle.copyWith(fontSize: 13)),
       );
     }
     return ListView.separated(

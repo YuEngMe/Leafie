@@ -67,9 +67,12 @@ class DiagnosisRecordTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 38.5),
-            Text(title, style: kBodyStyle.copyWith(color: kDiagnosisTitle)),
+            Text(
+              title,
+              style: kBodyStyle.copyWith(fontSize: 17, color: kDiagnosisTitle),
+            ),
             const SizedBox(width: 10),
-            Text(dateLabel, style: kCaptionStyle),
+            Text(dateLabel, style: kCaptionStyle.copyWith(fontSize: 13)),
             const Spacer(),
             // 4534:19852 꺾쇠: 위로 향한 채운 꺾쇠(#CCCBCB)를 90° 돌린 것.
             // 돌린 뒤 8.29×13 상자가 행 오른쪽 끝에서 18.7 안쪽(x 361)에 온다.
