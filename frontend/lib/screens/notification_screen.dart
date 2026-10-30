@@ -5,6 +5,7 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/notification_tile.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 typedef NotificationSelected = void Function(NotificationData notification);
@@ -54,11 +55,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
+  /// [keepError]면 오류 문구와 '다시 시도'를 둔 채 불러온다. 진행은 그
+  /// 버튼(RetryFeedback)이 보여 준다.
+  Future<void> _load({bool keepError = false}) async {
+    if (!keepError) {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final page = await _repository.getNotifications();
       if (!mounted) return;
@@ -68,12 +73,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ..addAll(page.items);
         _nextCursor = page.nextCursor;
         _hasNext = page.hasNext;
+        _errorMessage = null;
       });
     } on LeafieApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<bool> _retry() async {
+    await _load(keepError: true);
+    return mounted && _errorMessage == null;
   }
 
   void _loadMoreNearEnd() {
@@ -147,11 +158,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return const Center(child: CircularProgressIndicator(color: kOrangeMain));
     }
     if (_errorMessage != null) {
-      return _NotificationMessage(
-        message: _errorMessage!,
-        actionLabel: '다시 시도',
-        onAction: _load,
-      );
+      return _NotificationMessage(message: _errorMessage!, onRetry: _retry);
     }
     if (_items.isEmpty) {
       return const _NotificationMessage(message: '도착한 알림이 없어요.');
@@ -233,29 +240,37 @@ class _NotificationScreenState extends State<NotificationScreen> {
 }
 
 class _NotificationMessage extends StatelessWidget {
-  const _NotificationMessage({
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-  });
+  const _NotificationMessage({required this.message, this.onRetry});
 
   final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
+  final Future<bool> Function()? onRetry;
 
   @override
   Widget build(BuildContext context) {
+    final onRetry = this.onRetry;
+    if (onRetry == null) return _content(message, null, null);
+    return RetryFeedback(
+      onRetry: onRetry,
+      builder: (context, phase, retry) => _content(
+        phase == RetryPhase.failed ? kRetryFailedMessage : message,
+        phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도',
+        retry,
+      ),
+    );
+  }
+
+  Widget _content(String text, String? actionLabel, VoidCallback? onAction) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(message, style: kBodyStyle.copyWith(color: kTextLight)),
+          Text(text, style: kBodyStyle.copyWith(color: kTextLight)),
           if (actionLabel != null) ...[
             const SizedBox(height: 12),
             TextButton(
               onPressed: onAction,
               child: Text(
-                actionLabel!,
+                actionLabel,
                 style: kSmallStyle.copyWith(color: kOrangeMain),
               ),
             ),

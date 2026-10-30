@@ -30,6 +30,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
 
@@ -1936,31 +1937,22 @@ class _HomeEnvironmentPanel extends StatelessWidget {
 /// 상자·제목·부제 자리는 확인 모달(ConfirmDialog, 부제 있는 경우)과 같다:
 /// (47, 358) 308x158.829, 제목 top 40, 부제 top 68. 아래만 구분선·두 버튼
 /// 대신 주황 버튼 하나(4955:3673, 상자 기준 x22 y108 264x40)라 따로 둔다.
-class _HomeDisconnectedDialog extends StatefulWidget {
+class _HomeDisconnectedDialog extends StatelessWidget {
   const _HomeDisconnectedDialog({required this.onRetry});
 
+  /// 모달을 닫아도 되면 true.
   final Future<bool> Function() onRetry;
 
   @override
-  State<_HomeDisconnectedDialog> createState() =>
-      _HomeDisconnectedDialogState();
-}
-
-class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
-  bool _retrying = false;
-
-  Future<void> _retry() async {
-    // 버튼을 회색(비활성)으로 바꾸지 않고 겹친 탭만 막는다.
-    if (_retrying) return;
-    _retrying = true;
-    final close = await widget.onRetry();
-    if (!mounted) return;
-    _retrying = false;
-    if (close) Navigator.of(context).pop();
+  Widget build(BuildContext context) {
+    return RetryFeedback(
+      onRetry: onRetry,
+      onSucceeded: () => Navigator.of(context).pop(),
+      builder: (context, phase, retry) => _dialog(phase, retry),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _dialog(RetryPhase phase, VoidCallback retry) {
     return Dialog(
       elevation: 0,
       backgroundColor: Colors.transparent,
@@ -2007,7 +1999,9 @@ class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
               height: 14,
               child: Center(
                 child: Text(
-                  '인터넷 연결을 확인하고 다시 시도해주세요.',
+                  phase == RetryPhase.failed
+                      ? kRetryFailedMessage
+                      : '인터넷 연결을 확인하고 다시 시도해주세요.',
                   style: kCaptionStyle.copyWith(
                     color: kGrayLightest,
                     height: 1,
@@ -2022,12 +2016,12 @@ class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
               top: 108,
               child: PrimaryButton(
                 key: const ValueKey('home-disconnected-retry'),
-                label: '다시 시도',
+                label: phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도',
                 width: 264,
                 height: 40,
                 variant: PrimaryButtonVariant.enabled,
                 textStyle: kButtonStyle.copyWith(color: kTextDark),
-                onPressed: _retry,
+                onPressed: retry,
               ),
             ),
           ],

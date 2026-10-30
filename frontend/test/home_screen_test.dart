@@ -16,10 +16,12 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 
 import 'support/device_view.dart';
 
@@ -857,6 +859,21 @@ void main() {
       expect(calls, hasLength(3));
       expect(find.text('리피와 연결이 끊겼어요'), findsNothing);
       expect(find.text('서버새싹 방'), findsOneWidget);
+    });
+
+    testWidgets('다시 시도를 누르면 연결 중을 보이고, 또 끊기면 잠깐 알린다', (tester) async {
+      await pumpHome(tester, [offline, offline]);
+
+      await tester.tap(retry);
+      await tester.pump();
+      expect(find.text(kRetryBusyLabel), findsOneWidget);
+
+      await tester.pump(AppMotion.retryMinBusy);
+      expect(find.text('다시 시도'), findsOneWidget);
+      expect(find.text(kRetryFailedMessage), findsOneWidget);
+
+      await tester.pump(AppMotion.retryFailedHold);
+      expect(find.text('인터넷 연결을 확인하고 다시 시도해주세요.'), findsOneWidget);
     });
 
     testWidgets('이미 띄운 식물을 다시 불러오다 끊기면 게이지를 그대로 둔다', (tester) async {

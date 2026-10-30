@@ -42,4 +42,11 @@ abstract final class AppMotion {
 
   /// 위 카드가 나타나기 시작할 때 크기. 0에서 키우면 튀어나오듯 보인다.
   static const double overlayEnterScale = 0.95;
+
+  /// '다시 시도'를 누른 뒤 진행 상태를 최소한 보여 주는 시간. 연결이 끊기면
+  /// 요청이 곧바로 실패해 진행 상태가 한 프레임에 지나가 눌렸는지 모른다.
+  static const Duration retryMinBusy = Duration(milliseconds: 500);
+
+  /// 다시 실패했다는 문구를 원래 문구로 되돌리기 전까지 보여 주는 시간.
+  static const Duration retryFailedHold = Duration(seconds: 2);
 }

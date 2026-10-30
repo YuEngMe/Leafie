@@ -9,6 +9,7 @@ import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diagnosis_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 typedef DiagnosisImageProviderBuilder =
@@ -89,6 +90,19 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
   }
 
+  /// 오류 화면을 둔 채 다시 불러오고, 성공했을 때만 갈아 끼운다. 실패한
+  /// Future로 바꾸면 오류 화면이 새로 그려져 RetryFeedback 상태가 사라진다.
+  Future<bool> _retryFromError() async {
+    final next = _load();
+    try {
+      await next;
+    } catch (_) {
+      return false;
+    }
+    if (mounted) setState(() => _history = next);
+    return true;
+  }
+
   Future<void> _startDiagnosis(_DiagnosisHistoryData data) async {
     if (data.plantId == null) {
       ScaffoldMessenger.of(
@@ -159,7 +173,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
               ),
               _ when snapshot.hasError => _DiagnosisErrorState(
                 message: _errorMessage(snapshot.error),
-                onRetry: _retry,
+                onRetry: _retryFromError,
               ),
               _ => _diagnosisBody(snapshot.requireData),
             },
@@ -229,10 +243,16 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
     return _PrescriptionData(diagnosis: diagnosis, plant: plant);
   }
 
-  void _retry() {
-    setState(() {
-      _prescription = _load();
-    });
+  /// 오류 화면을 둔 채 다시 불러오고, 성공했을 때만 갈아 끼운다.
+  Future<bool> _retryFromError() async {
+    final next = _load();
+    try {
+      await next;
+    } catch (_) {
+      return false;
+    }
+    if (mounted) setState(() => _prescription = next);
+    return true;
   }
 
   /// 서버가 받아 주는 실패만 같은 사진으로 다시 맡긴다. 재시도 불가한
@@ -318,7 +338,7 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
             if (snapshot.hasError) {
               return _DiagnosisErrorState(
                 message: _errorMessage(snapshot.error),
-                onRetry: _retry,
+                onRetry: _retryFromError,
               );
             }
             final data = snapshot.requireData;
@@ -802,18 +822,28 @@ class _DiagnosisErrorState extends StatelessWidget {
   const _DiagnosisErrorState({required this.message, required this.onRetry});
 
   final String message;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message, style: kSmallStyle, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
-        ],
+    return RetryFeedback(
+      onRetry: onRetry,
+      builder: (context, phase, retry) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              phase == RetryPhase.failed ? kRetryFailedMessage : message,
+              style: kSmallStyle,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: retry,
+              child: Text(phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 
 Future<void> showPlantMailbox(
@@ -95,7 +96,9 @@ class _MailboxScreenState extends State<MailboxScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  /// [keepError]면 오류 문구와 '다시 시도'를 둔 채 불러온다. 진행은 그
+  /// 버튼(RetryFeedback)이 보여 준다.
+  Future<void> _load({bool keepError = false}) async {
     if (_isPreview) {
       // Only this isolated debug route owns sample data; never query the server.
       final sample = PlantLetter(
@@ -130,10 +133,12 @@ class _MailboxScreenState extends State<MailboxScreen> {
     }
     _detailEpoch++;
     _scheduledAutoOpenLetterId = null;
-    setState(() {
-      _view = _MailView.loading;
-      _error = null;
-    });
+    if (!keepError) {
+      setState(() {
+        _view = _MailView.loading;
+        _error = null;
+      });
+    }
     try {
       final prefetched = _prefetched;
       _prefetched = null;
@@ -149,6 +154,7 @@ class _MailboxScreenState extends State<MailboxScreen> {
         _letters = List.of(letters);
         _selected = unread;
         _view = unread == null ? _MailView.list : _MailView.newLetter;
+        _error = null;
       });
       if (unread != null) _scheduleUnreadOpening(unread);
     } catch (_) {
@@ -189,17 +195,23 @@ class _MailboxScreenState extends State<MailboxScreen> {
     });
   }
 
-  Future<void> _open(PlantLetter letter, Rect globalBounds) async {
+  /// [retry]면 실패 문구와 '다시 시도'를 둔 채 불러온다(로딩 표시로 바꾸면
+  /// 진행을 보여 주는 RetryFeedback이 사라진다).
+  Future<void> _open(
+    PlantLetter letter,
+    Rect globalBounds, {
+    bool retry = false,
+  }) async {
     if (_view == _MailView.opening || _loadingDetail) return;
     _pendingLetter = letter;
     _pendingBounds = globalBounds;
-    _detailError = null;
+    if (!retry) _detailError = null;
     if (letter.contentLoaded || _isPreview) {
       _beginOpening(letter, globalBounds);
       return;
     }
     final request = ++_detailEpoch;
-    setState(() => _loadingDetail = true);
+    if (!retry) setState(() => _loadingDetail = true);
     try {
       final detail = await widget.repository!.getLetter(
         widget.plantId!,
@@ -248,10 +260,17 @@ class _MailboxScreenState extends State<MailboxScreen> {
     _pendingBounds = null;
   }
 
-  void _retryDetail() {
+  Future<bool> _retryLoad() async {
+    await _load(keepError: true);
+    return mounted && _error == null;
+  }
+
+  Future<bool> _retryDetail() async {
     final letter = _pendingLetter;
     final bounds = _pendingBounds;
-    if (letter != null && bounds != null) _open(letter, bounds);
+    if (letter == null || bounds == null) return false;
+    await _open(letter, bounds, retry: true);
+    return mounted && _detailError == null;
   }
 
   Future<bool> _deleteLetter(String letterId) async {
@@ -306,15 +325,13 @@ class _MailboxScreenState extends State<MailboxScreen> {
     ),
   );
 
-  Future<void> _markRead() async {
-    if (_isPreview) return;
+  /// 읽음으로 저장됐으면(이미 저장돼 있었어도) true.
+  Future<bool> _markRead() async {
+    if (_isPreview) return true;
     final letter = _selected;
-    if (letter == null ||
-        letter.isRead ||
-        _read.contains(letter.id) ||
-        _savingRead.contains(letter.id)) {
-      return;
-    }
+    if (letter == null) return false;
+    if (letter.isRead || _read.contains(letter.id)) return true;
+    if (_savingRead.contains(letter.id)) return false;
     _savingRead.add(letter.id);
     try {
       await widget.repository!.markRead(widget.plantId!, letter.id);
@@ -324,12 +341,14 @@ class _MailboxScreenState extends State<MailboxScreen> {
           if (_selected?.id == letter.id) _error = null;
         });
       }
+      return true;
     } catch (_) {
       if (mounted && _selected?.id == letter.id && _view == _MailView.opening) {
         setState(() {
           _error = '읽음 상태를 저장하지 못했어요.';
         });
       }
+      return false;
     } finally {
       _savingRead.remove(letter.id);
     }
@@ -449,7 +468,7 @@ class _MailboxScreenState extends State<MailboxScreen> {
                                   widget.repository == null ||
                                       widget.plantId == null
                                   ? null
-                                  : _load,
+                                  : _retryLoad,
                               onDelete: _deleteLetter,
                               registerPlant: widget.plantId == null
                                   ? () {
@@ -490,11 +509,15 @@ class _MailboxScreenState extends State<MailboxScreen> {
                   left: 35,
                   right: 35,
                   top: 610,
-                  child: TextButton(
-                    onPressed: _markRead,
-                    child: Text(
-                      '$_error 다시 시도',
-                      style: kSmallStyle.copyWith(color: Colors.white),
+                  child: RetryFeedback(
+                    onRetry: _markRead,
+                    builder: (context, phase, retry) => TextButton(
+                      onPressed: retry,
+                      child: Text(switch (phase) {
+                        RetryPhase.idle => '$_error 다시 시도',
+                        RetryPhase.busy => kRetryBusyLabel,
+                        RetryPhase.failed => '$kRetryFailedMessage 다시 시도',
+                      }, style: kSmallStyle.copyWith(color: Colors.white)),
                     ),
                   ),
                 ),
@@ -637,7 +660,7 @@ class _LetterList extends StatefulWidget {
   final void Function(PlantLetter, Rect) onOpen;
   final VoidCallback onClose;
   final Future<bool> Function(String) onDelete;
-  final VoidCallback? onRetry;
+  final Future<bool> Function()? onRetry;
   final VoidCallback? registerPlant;
   final String? error;
 
@@ -690,14 +713,16 @@ class _LetterListState extends State<_LetterList> {
     await _delete(id);
   }
 
-  Future<void> _delete(String id) async {
-    if (_deletingId != null) return;
+  /// [retry]면 실패 안내와 '다시 시도'를 둔 채 지운다. 진행은 그
+  /// 버튼(RetryFeedback)이 보여 준다.
+  Future<bool> _delete(String id, {bool retry = false}) async {
+    if (_deletingId != null) return false;
     setState(() {
       _deletingId = id;
-      _deleteErrorId = null;
+      if (!retry) _deleteErrorId = null;
     });
     final deleted = await widget.onDelete(id);
-    if (!mounted) return;
+    if (!mounted) return deleted;
     setState(() {
       _deletingId = null;
       if (deleted) {
@@ -707,6 +732,7 @@ class _LetterListState extends State<_LetterList> {
         _deleteErrorId = id;
       }
     });
+    return deleted;
   }
 
   @override
@@ -789,15 +815,7 @@ class _LetterListState extends State<_LetterList> {
           width: 332.135,
           bottom: 5.8,
           child: widget.error != null
-              ? _ListMessage(
-                  message: widget.error!,
-                  actionLabel: widget.registerPlant != null
-                      ? '식물 등록하기'
-                      : widget.onRetry != null
-                      ? '다시 시도'
-                      : null,
-                  onAction: widget.registerPlant ?? widget.onRetry,
-                )
+              ? _errorMessage(widget.error!)
               : widget.letters.isEmpty
               ? const _ListMessage(message: '아직 도착한 편지가 없어요.')
               : ListView.separated(
@@ -828,16 +846,44 @@ class _LetterListState extends State<_LetterList> {
             child: Material(
               color: Colors.white.withValues(alpha: .94),
               borderRadius: BorderRadius.circular(22),
-              child: TextButton(
-                key: ValueKey('mail-delete-retry-$id'),
-                onPressed: _deletingId == null ? () => _delete(id) : null,
-                child: const Text('삭제하지 못했어요. 다시 시도'),
+              child: RetryFeedback(
+                onRetry: () => _delete(id, retry: true),
+                builder: (context, phase, retry) => TextButton(
+                  key: ValueKey('mail-delete-retry-$id'),
+                  onPressed: retry,
+                  child: Text(switch (phase) {
+                    RetryPhase.idle => '삭제하지 못했어요. 다시 시도',
+                    RetryPhase.busy => kRetryBusyLabel,
+                    RetryPhase.failed => '$kRetryFailedMessage. 다시 시도',
+                  }),
+                ),
               ),
             ),
           ),
       ],
     ),
   );
+
+  Widget _errorMessage(String error) {
+    final registerPlant = widget.registerPlant;
+    final onRetry = widget.onRetry;
+    if (registerPlant != null) {
+      return _ListMessage(
+        message: error,
+        actionLabel: '식물 등록하기',
+        onAction: registerPlant,
+      );
+    }
+    if (onRetry == null) return _ListMessage(message: error);
+    return RetryFeedback(
+      onRetry: onRetry,
+      builder: (context, phase, retry) => _ListMessage(
+        message: phase == RetryPhase.failed ? kRetryFailedMessage : error,
+        actionLabel: phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도',
+        onAction: retry,
+      ),
+    );
+  }
 
   Widget _buildRow(PlantLetter letter) {
     final date = letter.createdAt.toLocal();
@@ -1072,7 +1118,7 @@ class _DetailLoadOverlay extends StatelessWidget {
   });
   final bool loading;
   final String? message;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
   final VoidCallback onCancel;
 
   @override
@@ -1093,15 +1139,30 @@ class _DetailLoadOverlay extends StatelessWidget {
               const CircularProgressIndicator(color: kOrangeMain),
               const SizedBox(height: 14),
               const Text('편지를 펼치고 있어요.', style: kSmallStyle),
-            ] else ...[
-              Text(message!, style: kSmallStyle, textAlign: TextAlign.center),
-              const SizedBox(height: 6),
-              TextButton(
-                key: const ValueKey('mail-detail-retry'),
-                onPressed: onRetry,
-                child: const Text('다시 시도'),
+            ] else
+              RetryFeedback(
+                onRetry: onRetry,
+                builder: (context, phase, retry) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      phase == RetryPhase.failed
+                          ? kRetryFailedMessage
+                          : message!,
+                      style: kSmallStyle,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      key: const ValueKey('mail-detail-retry'),
+                      onPressed: retry,
+                      child: Text(
+                        phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
             TextButton(onPressed: onCancel, child: const Text('취소')),
           ],
         ),
