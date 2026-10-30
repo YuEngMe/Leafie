@@ -278,6 +278,38 @@ void main() {
       expect(find.text('2026년 7월 10일 금요일'), findsOneWidget);
     });
 
+    testWidgets('연필 버튼은 다른 날을 골랐어도 오늘 글을 연다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(
+            store: _MemoryStore(),
+            today: DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 다른 날을 한 번 열었다 닫고, 지난달로 넘긴다.
+      await tester.tap(find.text('10'));
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('이전 달'));
+      await tester.pumpAndSettle();
+      // 6월은 30일까지다.
+      expect(find.text('31'), findsNothing);
+
+      await tester.tapAt(DiaryLayout.fab.center);
+      await tester.pumpAndSettle();
+      expect(find.text('2026년 7월 15일 수요일'), findsOneWidget);
+
+      // 글을 닫으면 오늘이 있는 7월(31일까지)로 돌아와 있다.
+      Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('31'), findsOneWidget);
+    });
+
     testWidgets('오늘 이후 날짜는 글을 열지 않고 안내한다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(

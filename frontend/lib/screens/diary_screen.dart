@@ -118,6 +118,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
     }
   }
 
+  /// 연필 버튼은 마지막에 고른 날이 아니라 늘 오늘 글을 연다(10/31 피드백).
+  /// 다른 달을 보고 있었으면 오늘이 있는 달로 돌아와, 글을 닫았을 때 달력에
+  /// 오늘이 골라져 보이게 한다.
+  void _openToday() {
+    final todayMonth = DateTime(_today.year, _today.month);
+    if (_month != todayMonth) {
+      setState(() => _month = todayMonth);
+      _reload();
+    }
+    _openDay(_today);
+  }
+
   void _shiftMonth(int delta) {
     setState(() {
       _month = DateTime(_month.year, _month.month + delta);
@@ -138,7 +150,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         backIconColor: kOrangeMain,
       ),
       body: DiaryScaffoldBody(
-        onFabPressed: () => _openDay(_selected),
+        onFabPressed: _openToday,
         paperTabs: _paperTabs(
           previousLabel: '이전 달',
           nextLabel: '다음 달',
