@@ -171,66 +171,103 @@ class FigmaHomeViewSwitch extends StatelessWidget {
     return Semantics(
       label: '전체보기와 진단 전환',
       container: true,
-      child: Container(
-        width: figmaSize.width,
-        height: figmaSize.height,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(35),
-          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
-        ),
-        child: Stack(
-          children: [
-            // 두 아이콘은 시안(4534:9620) 노드 크기·자리로 그리고 PNG의
-            // 그림자 여백은 바깥으로 넘친다.
-            const Positioned(
-              left: 8,
-              top: 15,
-              child: _HomeIconImage(FigmaHomeIcon.viewAll),
-            ),
-            const Positioned(
-              left: 11,
-              top: 67,
-              child: _HomeIconImage(FigmaHomeIcon.viewDiagnosis),
-            ),
-            // 누르는 영역은 알약을 위아래 반으로 나눈다.
-            Positioned(
-              left: 0,
-              top: 0,
-              width: 45,
-              height: 117 / 2,
-              child: Semantics(
-                label: '전체보기',
-                button: true,
-                child: GestureDetector(
-                  key: const ValueKey('home-overview-switch'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onOverviewTap,
-                  child: const SizedBox.expand(),
+      // 시안 4534:17788: 채움 흰색 30%, Drop shadow 검정 20% · 흐림 4,
+      // "Show behind transparent areas" 꺼짐. BoxShadow는 반투명 채움 밑에
+      // 그림자가 비쳐 알약 안이 배경보다 어두워졌다. 그림자를 알약 바깥에만
+      // 칠한다.
+      child: CustomPaint(
+        painter: const _PillPainter(),
+        child: SizedBox.fromSize(
+          size: figmaSize,
+          child: Stack(
+            children: [
+              // 두 아이콘은 시안(4534:9620) 노드 크기·자리로 그리고 PNG의
+              // 그림자 여백은 바깥으로 넘친다.
+              const Positioned(
+                left: 8,
+                top: 15,
+                child: _HomeIconImage(FigmaHomeIcon.viewAll),
+              ),
+              const Positioned(
+                left: 11,
+                top: 67,
+                child: _HomeIconImage(FigmaHomeIcon.viewDiagnosis),
+              ),
+              // 누르는 영역은 알약을 위아래 반으로 나눈다.
+              Positioned(
+                left: 0,
+                top: 0,
+                width: 45,
+                height: 117 / 2,
+                child: Semantics(
+                  label: '전체보기',
+                  button: true,
+                  child: GestureDetector(
+                    key: const ValueKey('home-overview-switch'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onOverviewTap,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              top: 117 / 2,
-              width: 45,
-              height: 117 / 2,
-              child: Semantics(
-                label: '진단',
-                button: true,
-                child: GestureDetector(
-                  key: const ValueKey('home-diagnosis-switch'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onDiagnosisTap,
-                  child: const SizedBox.expand(),
+              Positioned(
+                left: 0,
+                top: 117 / 2,
+                width: 45,
+                height: 117 / 2,
+                child: Semantics(
+                  label: '진단',
+                  button: true,
+                  child: GestureDetector(
+                    key: const ValueKey('home-diagnosis-switch'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onDiagnosisTap,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// [FigmaHomeViewSwitch] 알약. 반투명 흰 채움 + 바깥에만 번지는 그림자.
+class _PillPainter extends CustomPainter {
+  const _PillPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pill = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(35),
+    );
+    canvas.save();
+    canvas.clipPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect((Offset.zero & size).inflate(12)),
+        Path()..addRRect(pill),
+      ),
+    );
+    canvas.drawRRect(
+      pill,
+      Paint()
+        ..color = const Color(0x33000000)
+        // Figma 흐림 4 = sigma 2.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.restore();
+    canvas.drawRRect(
+      pill,
+      Paint()..color = Colors.white.withValues(alpha: 0.3),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PillPainter oldDelegate) => false;
 }
 
 /// Figma 컴포넌트 3628:2411의 하단 네비게이션 아이콘 넷.
