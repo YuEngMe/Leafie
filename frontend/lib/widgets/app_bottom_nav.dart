@@ -35,6 +35,9 @@ class AppBottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: kBackgroundWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        // 시안 네비 그룹(Group 1597881250) Drop shadow 흐림 5.3, 검정 25%.
+        // 마이페이지처럼 흰 배경에서는 이 그림자로만 네비가 구분된다.
+        boxShadow: [BoxShadow(color: Color(0x40000000), blurRadius: 5.3)],
       ),
       child: Stack(
         children: [

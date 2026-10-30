@@ -100,7 +100,7 @@ void main() {
     expect(find.text('calendar:1'), findsOneWidget);
   });
 
-  testWidgets('3628:2412 기본 바는 그림자 없이 위쪽만 30px 둥글다', (tester) async {
+  testWidgets('네비 바는 위쪽만 30px 둥글고 시안 화면의 그림자를 단다', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Center(child: SizedBox(width: 402, child: AppBottomNav())),
@@ -117,7 +117,11 @@ void main() {
     final decoration = container.decoration! as BoxDecoration;
     expect(tester.getSize(find.byType(AppBottomNav)), const Size(402, 79));
     expect(decoration.color, Colors.white);
-    expect(decoration.boxShadow, isNull);
+    // 컴포넌트 3628:2412에는 그림자가 없지만, 시안 화면들은 네비를 감싼
+    // 그룹(Group 1597881250)에 흐림 5.3 검정 25%를 준다.
+    expect(decoration.boxShadow, const [
+      BoxShadow(color: Color(0x40000000), blurRadius: 5.3),
+    ]);
     expect(
       decoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(30)),
