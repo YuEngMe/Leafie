@@ -797,7 +797,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// 다시 받는다. 연결된 센서의 순간 조도가 홈 배경을 정하기 때문이다.
   /// 게이지를 보고 있을 때만 자주 받고, 접어 둔 동안은 배경만 정하면 되니
   /// 천천히 받는다.
-  /// TEMP: 시연용으로 측정이 10초 주기라 펼친 동안 10초마다 받는다. 원래는 1분.
+  /// TEMP: 시연용으로 측정 주기가 짧아 펼친 동안 5초마다 받는다. 원래는 1분.
   void _syncSensorRefresh({bool fetchNow = true}) {
     _sensorTimer?.cancel();
     _sensorTimer = null;
@@ -805,7 +805,7 @@ class _HomeScreenState extends State<HomeScreen>
     if ((!_panelOpen && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
-      _panelOpen ? const Duration(seconds: 10) : const Duration(seconds: 60),
+      _panelOpen ? const Duration(seconds: 5) : const Duration(seconds: 60),
       (_) => _refreshSensor(plantId),
     );
   }

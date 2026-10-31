@@ -2122,7 +2122,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
   });
 
-  testWidgets('연결된 센서는 접어도 10초마다 새로 받는다', (tester) async {
+  testWidgets('연결된 센서는 펼치면 5초, 접어도 60초마다 새로 받는다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -2179,7 +2179,7 @@ void main() {
     expect(find.text('현재습도 25%'), findsOneWidget);
     expect(find.text('현재조도 900lx'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     expect(sensors.requests, ['plant-a', 'plant-a']);
 
@@ -2188,7 +2188,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(sensors.requests.length, 2, reason: '접을 때는 이미 받은 값이 있어 다시 받지 않는다');
     await tester.pump(const Duration(seconds: 50));
-    expect(sensors.requests.length, 2, reason: '접어 둔 동안은 10초마다 받지 않는다');
+    expect(sensors.requests.length, 2, reason: '접어 둔 동안은 5초마다 받지 않는다');
     await tester.pump(const Duration(seconds: 10));
     expect(sensors.requests.length, 3, reason: '접어 둔 동안은 60초마다 받는다');
 
