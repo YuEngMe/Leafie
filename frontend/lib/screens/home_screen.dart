@@ -294,6 +294,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+
+  /// 꺾쇠로 고른, 아직 서버 응답을 받지 못한 방. 응답을 기다리지 않고 머리글
+  /// 이름을 바로 바꾸고, 불러오는 중에 또 누르면 이 방에서 이어서 넘긴다.
+  ManagedPlant? _pendingPlant;
+
+  /// 옆 방의 /home을 미리 받아 둔 것. 꺾쇠를 누르면 이걸로 캐릭터까지 바로
+  /// 그리고, 뒤에서 받은 새 응답으로 다시 갈아 끼운다.
+  final Map<String, ({HomeDashboardData data, DateTime at})> _homeCache = {};
+  static const Duration _homeCacheFresh = Duration(minutes: 1);
   // 우편함을 열기 전 편지가 있는지 확인하는 중이면 다시 누른 탭을 무시한다.
   bool _checkingMailbox = false;
   // < > 로 방을 옮길 때 캐릭터·방 이름이 미끄러지는 방향(다음 1, 이전 −1).
@@ -540,59 +549,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<bool> _loadHome([String? plantId]) async {
     final request = ++_homeRequest;
     try {
-      final data = widget.loadHomeForPlant != null
-          ? await widget.loadHomeForPlant!(plantId)
-          : plantId == null && widget.loadHome != null
-          ? await widget.loadHome!()
-          : await HomeApi().fetchHome(plantId: plantId);
+      final data = await _fetchHome(plantId);
       if (!mounted || request != _homeRequest) return false;
-      final room = data.room;
-      final hasWateringRequest = data.todayEvents.any(
-        (event) => event.careType == 'WATERING' && event.completable,
-      );
-      setState(() {
-        final plant = data.plant;
-        _serverPlant = plant == null
-            ? null
-            : HomePlant(
-                id: plant.id,
-                name: plant.nickname,
-                startedOn: DateTime.tryParse(plant.startedOn),
-                personalityType: plant.personalityType,
-                daysTogether: plant.daysTogether,
-                bodyId: plant.bodyId,
-                hairId: plant.hairId,
-                expressionId: plant.expressionId,
-                colorId: plant.colorId,
-              );
-        _serverDialogue = room?.dialogue?.trim();
-        _serverDialogueKey = room?.dialogueKey;
-        _serverSensor = room?.sensor;
-        // 새 응답의 조도로 갈아 끼운다. 옛 서버처럼 없으면 비워 이전 식물의
-        // 조도가 새 판에 섞이지 않게 하고, 아래에서 센서 상태로 바로 받는다.
-        _currentLux = room?.sensor?.currentLux;
-        _unreadNotificationCount = data.unreadNotificationCount;
-        _loadingHome = false;
-        _homeError = null;
-        _homeOffline = false;
-        // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
-        // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
-        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
-        // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
-        _scene = switch (room?.dialogueKey) {
-          _ when hasWateringRequest => HomeScene.needsWater,
-          'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
-          'LIGHT_LOW' => HomeScene.needsLight,
-          _ => HomeScene.idle,
-        };
-      });
-      unawaited(_refreshLetterBadge());
-      unawaited(
-        _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
-      );
-      // /home 판정에 순간 조도(currentLux)가 오면 센서 상태를 바로 다시
-      // 받지 않는다. 옛 서버처럼 없으면 지금처럼 바로 받는다.
-      _syncSensorRefresh(fetchNow: room?.sensor?.currentLux == null);
+      _applyHome(data);
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -610,6 +569,96 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         unawaited(_showDisconnectedDialog());
       }
       return false;
+    }
+  }
+
+  Future<HomeDashboardData> _fetchHome(String? plantId) =>
+      widget.loadHomeForPlant != null
+      ? widget.loadHomeForPlant!(plantId)
+      : plantId == null && widget.loadHome != null
+      ? widget.loadHome!()
+      : HomeApi().fetchHome(plantId: plantId);
+
+  /// [data]로 화면을 그린다. [fromCache]면 미리 받아 둔 응답이라 그림만
+  /// 바꾸고, 대사·배지·센서 조회는 곧 올 새 응답에 맡긴다.
+  void _applyHome(HomeDashboardData data, {bool fromCache = false}) {
+    final room = data.room;
+    final hasWateringRequest = data.todayEvents.any(
+      (event) => event.careType == 'WATERING' && event.completable,
+    );
+    setState(() {
+      final plant = data.plant;
+      _serverPlant = plant == null
+          ? null
+          : HomePlant(
+              id: plant.id,
+              name: plant.nickname,
+              startedOn: DateTime.tryParse(plant.startedOn),
+              personalityType: plant.personalityType,
+              daysTogether: plant.daysTogether,
+              bodyId: plant.bodyId,
+              hairId: plant.hairId,
+              expressionId: plant.expressionId,
+              colorId: plant.colorId,
+            );
+      _serverDialogue = room?.dialogue?.trim();
+      _serverDialogueKey = room?.dialogueKey;
+      _serverSensor = room?.sensor;
+      // 새 응답의 조도로 갈아 끼운다. 옛 서버처럼 없으면 비워 이전 식물의
+      // 조도가 새 판에 섞이지 않게 하고, 아래에서 센서 상태로 바로 받는다.
+      _currentLux = room?.sensor?.currentLux;
+      _unreadNotificationCount = data.unreadNotificationCount;
+      _loadingHome = false;
+      _homeError = null;
+      _homeOffline = false;
+      // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
+      // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
+      // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
+      // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
+      _scene = switch (room?.dialogueKey) {
+        _ when hasWateringRequest => HomeScene.needsWater,
+        'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
+        'LIGHT_LOW' => HomeScene.needsLight,
+        _ => HomeScene.idle,
+      };
+    });
+    if (fromCache) return;
+    if (data.plant?.id case final id?) {
+      _homeCache[id] = (data: data, at: DateTime.now());
+      unawaited(_prefetchNeighbors(id));
+    }
+    unawaited(_refreshLetterBadge());
+    unawaited(
+      _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
+    );
+    // /home 판정에 순간 조도(currentLux)가 오면 센서 상태를 바로 다시
+    // 받지 않는다. 옛 서버처럼 없으면 지금처럼 바로 받는다.
+    _syncSensorRefresh(fetchNow: room?.sensor?.currentLux == null);
+  }
+
+  /// 지금 방 좌우의 /home을 미리 받아 둔다. 1분 안에 받은 건 다시 받지 않고,
+  /// 실패해도 화면에는 영향이 없다(누르면 그때 받는다).
+  Future<void> _prefetchNeighbors(String plantId) async {
+    if (_plants.length < 2) return;
+    final index = _plants.indexWhere((plant) => plant.id == plantId);
+    if (index < 0) return;
+    final ids = {
+      _plants[(index + 1) % _plants.length].id,
+      _plants[(index - 1 + _plants.length) % _plants.length].id,
+    }..remove(plantId);
+    for (final id in ids) {
+      final cached = _homeCache[id];
+      if (cached != null &&
+          DateTime.now().difference(cached.at) < _homeCacheFresh) {
+        continue;
+      }
+      try {
+        final data = await _fetchHome(id);
+        if (!mounted) return;
+        _homeCache[id] = (data: data, at: DateTime.now());
+      } on LeafieApiException {
+        // 미리 받기는 덤이다. 누르면 그때 다시 받는다.
+      }
     }
   }
 
@@ -754,7 +803,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadPlants() async {
     try {
       final plants = await _plantRepository.listPlants();
-      if (mounted) setState(() => _plants = plants);
+      if (!mounted) return;
+      setState(() => _plants = plants);
+      // 처음 열 때는 목록이 /home보다 늦게 와 옆 방을 몰랐을 수 있다.
+      if ((_serverPlant ?? widget.plant)?.id case final id?) {
+        unawaited(_prefetchNeighbors(id));
+      }
     } on LeafieApiException {
       // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
     }
@@ -860,29 +914,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _switchPlant(int delta) async {
-    if (_switchingPlant || _plants.length < 2) return;
-    final currentId = (_serverPlant ?? widget.plant)?.id;
-    var currentIndex = _plants.indexWhere((plant) => plant.id == currentId);
+    if (_plants.length < 2) return;
+    // 불러오는 중에 또 누르면 머리글에 보이는 방에서 이어서 넘긴다.
+    final shownId = _pendingPlant?.id ?? (_serverPlant ?? widget.plant)?.id;
+    var currentIndex = _plants.indexWhere((plant) => plant.id == shownId);
     if (currentIndex < 0) {
       currentIndex = _plants.indexWhere((plant) => plant.isSelected);
     }
     if (currentIndex < 0) currentIndex = 0;
-    final nextIndex = (currentIndex + delta) % _plants.length;
-    final next = _plants[nextIndex];
+    final next = _plants[(currentIndex + delta) % _plants.length];
+    final cached = _homeCache[next.id]?.data;
     setState(() {
-      _switchingPlant = true;
       _resetRoomMotion();
       _slideDirection = delta.sign;
+      _pendingPlant = next;
     });
+    // 미리 받아 둔 방이면 응답을 기다리지 않고 캐릭터까지 바로 넘긴다.
+    // 늦게 오던 이전 응답이 이 그림을 덮지 않게 요청 번호를 올린다.
+    if (cached != null) {
+      _homeRequest++;
+      _applyHome(cached, fromCache: true);
+    }
+    // 돌고 있는 전환이 끝나면 아래 반복이 바뀐 _pendingPlant를 이어 받는다.
+    if (_switchingPlant) return;
+    setState(() => _switchingPlant = true);
     try {
-      await _selectAndLoad(next.id);
+      while (mounted) {
+        final target = _pendingPlant;
+        if (target == null) break;
+        final loaded = await _selectAndLoad(target.id);
+        if (!loaded || _pendingPlant?.id == target.id) break;
+      }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
-      if (mounted) setState(() => _switchingPlant = false);
+      if (mounted) {
+        setState(() {
+          _switchingPlant = false;
+          _pendingPlant = null;
+        });
+      }
     }
   }
 
@@ -1157,14 +1231,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 _HomeHeader(
-                  roomName: plant?.name,
-                  roomKey: plant?.id,
+                  roomName: _pendingPlant?.nickname ?? plant?.name,
+                  roomKey: _pendingPlant?.id ?? plant?.id,
                   slideDirection: _slideDirection,
-                  dayCount: plant?.dayCount,
+                  dayCount: switch (_pendingPlant) {
+                    // 미리 받은 응답이 없으면 서버 일수 대신 등록일로 센다.
+                    final pending? when pending.id != plant?.id =>
+                      DateTime.now().difference(pending.startedOn).inDays + 1,
+                    _ => plant?.dayCount,
+                  },
                   period: period,
                   unreadNotificationCount: _unreadNotificationCount,
                   showNotifications: !_mailboxOpen,
-                  canSwitchPlant: _plants.length > 1 && !_switchingPlant,
+                  canSwitchPlant: _plants.length > 1,
                   onPreviousPlant: () => _switchPlant(-1),
                   onNextPlant: () => _switchPlant(1),
                   onManagePlants: _openPlantManagement,

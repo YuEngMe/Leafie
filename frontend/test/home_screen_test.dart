@@ -1158,7 +1158,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-next-plant')));
     await tester.pump();
     expect(repository.selectedIds, ['plant-b']);
-    expect(homeRequests, ['plant-b']);
+    // 둘째 방 조회가 선택 저장을 기다리지 않고 먼저 나간다. 뒤따르는 건
+    // 둘째 방 옆(첫째)을 미리 받는 조회다.
+    expect(homeRequests.first, 'plant-b');
+    expect(homeRequests.skip(1), everyElement('plant-a'));
 
     repository.selectGate!.complete();
     await tester.pumpAndSettle();
@@ -1170,6 +1173,139 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.selectedIds, ['plant-b', 'plant-a']);
     expect(find.text('첫째 방'), findsOneWidget);
+  });
+
+  group('방 전환은 서버 응답을 기다리지 않는다', () {
+    const names = {'plant-a': '첫째', 'plant-b': '둘째', 'plant-c': '셋째'};
+    const active = SensorAssessment(
+      connection: SensorConnection.active,
+      soil: SensorMetricAssessment(
+        state: SensorLevel.ok,
+        unit: 'relative_percent',
+        value: 50,
+      ),
+      light: SensorMetricAssessment(state: SensorLevel.ok, unit: 'lux_hours'),
+      currentLux: 500,
+    );
+
+    HomeDashboardData dashboard(String id, SensorAssessment sensor) =>
+        HomeDashboardData(
+          plant: HomePlantData(
+            id: id,
+            nickname: names[id]!,
+            personalityType: 'OUTGOING',
+            colorId: 'color_orange',
+            hairId: 'hair_sprout',
+            startedOn: '2026-05-01',
+            daysTogether: 3,
+            primaryPhotoUrl: null,
+          ),
+          room: HomeRoomData(
+            backgroundPhase: 'DAY',
+            dialogueKey: 'NORMAL',
+            dialogue: null,
+            sensor: sensor,
+          ),
+          todayEvents: const [],
+          unreadLetterCount: 0,
+          unreadNotificationCount: 0,
+        );
+
+    /// [gateFrom]번째 조회부터 [gates]에 걸려 응답을 붙잡는다(앞은 미리 받기).
+    Future<
+      (
+        _FakePlantManagementRepository,
+        Map<String, Completer<void>>,
+        _PerPlantSensors,
+      )
+    >
+    pump(
+      WidgetTester tester, {
+      required int gateFrom,
+      Map<String, SensorAssessment> sensors = const {},
+      bool expanded = true,
+    }) async {
+      useDeviceView(tester);
+      final repository = _FakePlantManagementRepository([
+        for (final MapEntry(:key, :value) in names.entries)
+          _managedPlant(key, value, selected: key == 'plant-a'),
+      ]);
+      final gates = <String, Completer<void>>{};
+      final calls = <String, int>{};
+      final sensorRepo = _PerPlantSensors({});
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            initialGaugesExpanded: expanded,
+            sensorRepository: sensorRepo,
+            plantRepository: repository,
+            letterRepository: _UnreadLetters(),
+            loadHomeForPlant: (plantId) async {
+              final id = plantId ?? 'plant-a';
+              final n = calls[id] = (calls[id] ?? 0) + 1;
+              if (id != 'plant-a' && n >= gateFrom) {
+                await (gates[id] = Completer<void>()).future;
+              }
+              return dashboard(id, sensors[id] ?? active);
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (repository, gates, sensorRepo);
+    }
+
+    Finder character(String id) => find.byKey(ValueKey('home-room-$id'));
+
+    testWidgets('미리 받아 둔 옆 방은 응답 전에 캐릭터까지 넘어간다', (tester) async {
+      final (_, gates, _) = await pump(tester, gateFrom: 2);
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pump();
+
+      // 둘째 방 새 응답(gates)은 아직인데 캐릭터와 이름이 이미 둘째다.
+      expect(gates.keys, contains('plant-b'));
+      expect(character('plant-b'), findsOneWidget);
+      expect(find.text('둘째 방'), findsWidgets);
+
+      gates['plant-b']!.complete();
+      await tester.pumpAndSettle();
+      expect(character('plant-b'), findsOneWidget);
+      expect(character('plant-a'), findsNothing);
+    });
+
+    testWidgets('미리 받지 못한 방도 이름은 누르자마자 바뀐다', (tester) async {
+      final (_, gates, _) = await pump(tester, gateFrom: 1);
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('둘째 방'), findsOneWidget);
+      expect(character('plant-a'), findsOneWidget, reason: '캐릭터는 응답 뒤에 넘어간다');
+
+      for (final gate in gates.values) {
+        if (!gate.isCompleted) gate.complete();
+      }
+      await tester.pumpAndSettle();
+      expect(character('plant-b'), findsOneWidget);
+    });
+
+    testWidgets('불러오는 중에 또 누르면 그 방에서 이어서 넘긴다', (tester) async {
+      final (repository, gates, _) = await pump(tester, gateFrom: 1);
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      expect(find.text('셋째 방'), findsOneWidget);
+
+      for (var i = 0; i < 4; i++) {
+        for (final gate in gates.values) {
+          if (!gate.isCompleted) gate.complete();
+        }
+        await tester.pumpAndSettle();
+      }
+      expect(repository.selectedIds.last, 'plant-c');
+      expect(character('plant-c'), findsOneWidget);
+    });
   });
 
   group('다음 식물을 못 불러오면 화면과 서버 선택을 맞춘다 (HG-ISS-009)', () {
@@ -2764,9 +2900,11 @@ class _PerPlantSensors implements SensorRepository {
   _PerPlantSensors(this.assessments);
 
   final Map<String, SensorAssessment> assessments;
+  final requests = <String>[];
 
   @override
   Future<PlantSensorStatus> getPlantSensorStatus(String plantId) async {
+    requests.add(plantId);
     final assessment =
         assessments[plantId] ??
         const SensorAssessment(
