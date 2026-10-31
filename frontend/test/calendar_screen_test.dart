@@ -40,6 +40,38 @@ void main() {
     ]);
   });
 
+  testWidgets('화면을 좌우로 밀면 이전·다음 달로 넘어간다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CalendarScreen(
+          plantId: 'plant-1',
+          repository: _FakeCalendarRepository(items: const []),
+          today: DateTime(2026, 7, 15),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 손가락을 왼쪽으로 밀면 다음 달.
+    await tester.dragFrom(const Offset(250, 300), const Offset(-200, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('2026. 8'), findsOneWidget);
+
+    // 오른쪽으로 두 번 밀면 6월. 짧게 스친 건 넘기지 않는다.
+    await tester.dragFrom(const Offset(150, 300), const Offset(200, 0));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(const Offset(150, 300), const Offset(200, 0));
+    await tester.pumpAndSettle();
+    await tester.timedDragFrom(
+      const Offset(150, 300),
+      const Offset(20, 0),
+      const Duration(milliseconds: 500),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2026. 6'), findsOneWidget);
+  });
+
   testWidgets('주간 모드로 바꾸면 선택 날짜가 속한 일주일을 조회한다', (tester) async {
     _setIPhone16ProViewport(tester);
     final repository = _FakeCalendarRepository(items: const []);

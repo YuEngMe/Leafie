@@ -187,6 +187,26 @@ void main() {
       expect(rects[0].height, closeTo(16.49, 0.1));
     });
 
+    testWidgets('화면을 좌우로 밀면 이전·다음 달로 넘어간다', (tester) async {
+      _setUpView(tester);
+      await tester.pumpWidget(
+        MaterialApp(home: DiaryScreen(today: DateTime(2026, 7, 15))),
+      );
+      await tester.pumpAndSettle();
+      DateTime month() =>
+          tester.widget<DiaryCalendar>(find.byType(DiaryCalendar)).month;
+
+      await tester.dragFrom(const Offset(250, 400), const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      expect(month(), DateTime(2026, 8));
+
+      await tester.dragFrom(const Offset(150, 400), const Offset(200, 0));
+      await tester.pumpAndSettle();
+      await tester.dragFrom(const Offset(150, 400), const Offset(200, 0));
+      await tester.pumpAndSettle();
+      expect(month(), DateTime(2026, 6));
+    });
+
     testWidgets('탭 첫 화면이라 뒤로 꺾쇠가 없다(4534:3781)', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
