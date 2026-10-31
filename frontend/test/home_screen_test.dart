@@ -300,8 +300,11 @@ void main() {
 
     // '히히'만 말풍선 전체가 60%, 나머지 둘은 불투명.
     double? bubbleOpacity(String label) => tester
-        .widgetList<Opacity>(
-          find.ancestor(of: find.text(label), matching: find.byType(Opacity)),
+        .widgetList<AnimatedOpacity>(
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byType(AnimatedOpacity),
+          ),
         )
         .map((o) => o.opacity)
         .where((o) => o < 1)
@@ -1467,8 +1470,9 @@ void main() {
     Future<void> pumpHome(
       WidgetTester tester,
       Future<HomeDashboardData> Function(String?) load,
-      _FakePlantManagementRepository repository,
-    ) async {
+      _FakePlantManagementRepository repository, {
+      bool settle = true,
+    }) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1482,6 +1486,13 @@ void main() {
           ),
         ),
       );
+      if (!settle) {
+        // 떠오르는 말풍선(3.2초)이 끝나기 전에 확인하려고 끝까지 돌리지 않는다.
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump();
+        await tester.pump();
+        return;
+      }
       await tester.pumpAndSettle();
     }
 
@@ -1493,13 +1504,11 @@ void main() {
         _FakePlantManagementRepository([
           _managedPlant('plant-a', '첫째', selected: true),
         ]),
+        settle: false,
       );
 
       expect(find.text('나 지금 목말라.. 물이 필요해'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('home-dialogue-fallback')),
-        findsOneWidget,
-      );
+      // 평소 대사는 머리 위로 떠오르는 말풍선으로 한 번 띄운다.
       expect(find.text('오늘도 힘차게 자라 볼게!'), findsOneWidget);
     });
 
@@ -2244,7 +2253,9 @@ void main() {
       sensors.lux = 20;
       // 접어 둔 홈은 60초마다 조도를 받는다.
       await tester.pump(const Duration(seconds: 60));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 650));
+      await tester.pump();
 
       // 전환 중에는 두 배경이 겹쳐 있고, 나가는 낮 배경은 흐려지지 않는다.
       expect(background(HomeTimePeriod.day), findsOneWidget);
@@ -2589,13 +2600,21 @@ void main() {
       await pumpQueueHome(tester);
       expect(find.text('물 고마워!'), findsOneWidget);
 
-      await tester.pump(const Duration(seconds: 15));
-      expect(find.text('물 고마워!'), findsNothing);
+      // 대기 대사는 2초 간격으로 머리 위에서 차례로 떠오르고, 다 끝나면
+      // 평소 대사를 이어서 띄운다. 각 말풍선은 약 3.2초 뒤 사라진다.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
       expect(find.text('편지 보냈어!'), findsOneWidget);
 
-      await tester.pump(const Duration(seconds: 10));
-      expect(find.text('편지 보냈어!'), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
       expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+      expect(find.text('물 고마워!'), findsNothing);
+      expect(find.text('편지 보냈어!'), findsNothing);
+      expect(find.text('오늘도 좋은 하루!'), findsNothing);
     });
 
     testWidgets('한 번 보여 준 대사는 홈을 다시 열어도 다시 띄우지 않는다', (tester) async {
@@ -2608,20 +2627,6 @@ void main() {
       expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
     });
 
-    testWidgets('재생 중에 게이지를 펼치면 멈추고, 끝까지 못 본 대사는 다시 나온다', (tester) async {
-      await pumpQueueHome(tester);
-      expect(find.text('물 고마워!'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 5));
-
-      await tester.tap(find.byKey(const ValueKey('home-environment-card')));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 30));
-
-      await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
-      await tester.pump();
-      expect(find.text('물 고마워!'), findsOneWidget, reason: '봤음으로 저장되지 않았다');
-    });
-
     testWidgets('돌봄 반응 말풍선이 뜨면 큐 대사는 비켜 준다', (tester) async {
       await pumpQueueHome(tester, dialogueKey: 'LIGHT_LOW', dialogue: '빛이 모자라');
       expect(find.text('물 고마워!'), findsOneWidget);
@@ -2629,12 +2634,17 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('home-period-control')));
       await tester.pump();
       expect(find.text('아 따뜻해~고마워!'), findsOneWidget);
-      expect(find.text('물 고마워!'), findsNothing);
 
-      // 광선이 사라지면(3초 + 페이드) 멈춰 둔 큐 대사가 다시 나온다.
-      await tester.pump(const Duration(seconds: 3));
-      await tester.pumpAndSettle();
-      expect(find.text('물 고마워!'), findsOneWidget);
+      // 감사 말풍선이 떠 있는 동안은 다음 대기 대사를 띄우지 않는다.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(find.text('편지 보냈어!'), findsNothing);
+
+      // 광선이 사라지면(3초 + 페이드) 다음 대기 대사가 이어서 떠오른다.
+      for (var i = 0; i < 10 && find.text('편지 보냈어!').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      expect(find.text('편지 보냈어!'), findsOneWidget);
       await tester.pump(const Duration(seconds: 30));
     });
 
@@ -2645,7 +2655,8 @@ void main() {
         dialogue: '내 상태 좀 봐 줄래?',
         events: [queue.first],
       );
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pump();
 
       expect(find.text('물 고마워!'), findsNothing);
       expect(find.text('내 상태 좀 봐 줄래?'), findsNothing);
@@ -2695,10 +2706,7 @@ void main() {
     testWidgets('평소 대사는 눌러도 화면을 옮기지 않는다', (tester) async {
       await pumpQueueHome(tester, events: const []);
 
-      expect(
-        find.byKey(const ValueKey('home-dialogue-fallback')),
-        findsOneWidget,
-      );
+      expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
           (w) =>
@@ -2711,14 +2719,77 @@ void main() {
       );
     });
 
-    testWidgets('게이지가 펼쳐져 말풍선이 가려진 동안에는 재생하지 않는다', (tester) async {
-      await pumpQueueHome(tester, gaugesExpanded: true);
-      await tester.pump(const Duration(seconds: 30));
-
-      await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+    Future<void> fade(WidgetTester tester) async {
       await tester.pump();
-      // 가려진 동안 시간이 지나도 소비되지 않고, 접은 뒤에야 첫 대사부터 나온다.
+      await tester.pump(const Duration(milliseconds: 650));
+      await tester.pump();
+    }
+
+    testWidgets('게이지를 펼쳐 둬도 말풍선을 보여 주고 대사를 이어서 재생한다', (tester) async {
+      await pumpQueueHome(tester, gaugesExpanded: true);
+      expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
       expect(find.text('물 고마워!'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(find.text('편지 보냈어!'), findsOneWidget);
+    });
+
+    testWidgets('평소 대사는 머리 위로 떠오르며 사라진다', (tester) async {
+      await pumpQueueHome(tester, events: const []);
+      final bubble = find.text('오늘도 좋은 하루!');
+      await tester.pump(const Duration(milliseconds: 300));
+      final start = tester.getTopLeft(bubble).dy;
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.getTopLeft(bubble).dy, lessThan(start - 40));
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(bubble, findsNothing);
+    });
+
+    testWidgets('습도·조도 이상 알림은 흐려지지 않고 계속 떠 있다', (tester) async {
+      await pumpQueueHome(
+        tester,
+        dialogueKey: 'LIGHT_HIGH',
+        dialogue: '햇빛이 너무 강해..',
+        events: const [],
+      );
+      await tester.pump(const Duration(seconds: 30));
+      await fade(tester);
+      expect(find.text('햇빛이 너무 강해..'), findsOneWidget);
+    });
+
+    testWidgets('쓰다듬을 때마다 히히 → 신난다 → 좋은 하루야! 가 차례로 떠오른다', (tester) async {
+      await pumpQueueHome(tester, events: const []);
+      final pet = find.byKey(const ValueKey('home-character-pet'));
+
+      await tester.tap(pet);
+      await tester.pump();
+      expect(find.text('히히'), findsOneWidget);
+      expect(find.text('신난다'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(pet);
+      await tester.pump();
+      expect(find.text('신난다'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(pet);
+      await tester.pump();
+      expect(find.text('좋은 하루야!'), findsOneWidget);
+
+      // 네 번째는 다시 '히히'부터. 앞의 히히가 아직 떠 있어 두 개가 된다.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(pet);
+      await tester.pump();
+      expect(find.text('히히'), findsNWidgets(2));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+      expect(find.text('히히'), findsNothing);
+      expect(find.text('좋은 하루야!'), findsNothing);
     });
   });
 
