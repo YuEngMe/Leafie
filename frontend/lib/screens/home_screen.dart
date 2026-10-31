@@ -242,6 +242,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late HomeScene _scene;
   late bool _gaugesExpanded;
+
+  /// 기기가 없는 방에서 사용자가 직접 카드를 눌러 연 방. 기기가 없는 방은
+  /// 판을 펼쳐 둔 상태여도 '기기연결이 필요합니다' 대신 접힌 카드로 둔다.
+  String? _noDeviceOpenedFor;
+
+  /// 판이 실제로 펼쳐져 보이는가. [_gaugesExpanded]는 사용자가 정한 상태이고,
+  /// 기기가 없는 방은 그 방에서 직접 열었을 때만 펼친다.
+  bool get _panelOpen =>
+      _gaugesExpanded &&
+      (_serverSensor?.connection != SensorConnection.noDevice ||
+          _noDeviceOpenedFor == (_serverPlant ?? widget.plant)?.id);
   Timer? _sensorTimer;
   HomePlant? _serverPlant;
   String? _serverDialogue;
@@ -270,6 +281,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   HomeDialogueEvent? _playingDialogue;
   Timer? _dialogueTimer;
 
+  /// 이어서 쓰다듬은 횟수. 1번 '히히', 2번 '신난다', 3번 '좋은 하루야!'를
+  /// 차례로 띄우고 그다음은 다시 '히히'부터다. 마지막으로 쓰다듬고
+  /// [_petHold]가 지나면 0으로 돌아가고, 멈췄던 대기 대사를 잇는다.
+  int _petCount = 0;
+  Timer? _petTimer;
+  static const Duration _petHold = Duration(seconds: 3);
+  static const _petLines = ['히히', '신난다', '좋은 하루야!'];
+
+  /// 머리 위에서 튀어나와 위로 떠오르며 사라지는 말풍선들(평소 대사·대기
+  /// 대사·쓰다듬기). 습도·조도 이상 같은 중요한 알림은 여기 넣지 않고
+  /// 제자리에 고정한다([_HomeConversation.stickyKeys]).
+  final List<_Floater> _floaters = [];
+  int _floaterSeq = 0;
+  final math.Random _floaterRandom = math.Random();
+
+  /// 대기 대사를 하나 띄운 뒤 다음 것을 띄우기까지의 간격. 앞 말풍선이 아직
+  /// 떠오르는 동안 다음 말풍선이 나오게 한다(참고 영상 약 1.5~2초).
+  static const Duration _floatSpacing = Duration(seconds: 2);
+
   /// 이 화면에서 큐 대사를 하나라도 끝까지 보여 줬는가. 그랬다면 진단 유도
   /// 대사(DIAGNOSIS_PROMPT)는 다시 띄우지 않는다(api-spec 홈 §8).
   bool _playedDialogue = false;
@@ -294,6 +324,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
+
+  /// 꺾쇠로 고른, 아직 서버 응답을 받지 못한 방. 응답을 기다리지 않고 머리글
+  /// 이름을 바로 바꾸고, 불러오는 중에 또 누르면 이 방에서 이어서 넘긴다.
+  ManagedPlant? _pendingPlant;
+
+  /// 옆 방의 /home을 미리 받아 둔 것. 꺾쇠를 누르면 이걸로 캐릭터까지 바로
+  /// 그리고, 뒤에서 받은 새 응답으로 다시 갈아 끼운다.
+  final Map<String, ({HomeDashboardData data, DateTime at})> _homeCache = {};
+  static const Duration _homeCacheFresh = Duration(minutes: 1);
   // 우편함을 열기 전 편지가 있는지 확인하는 중이면 다시 누른 탭을 무시한다.
   bool _checkingMailbox = false;
   // < > 로 방을 옮길 때 캐릭터·방 이름이 미끄러지는 방향(다음 1, 이전 −1).
@@ -376,6 +415,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
+    _petTimer?.cancel();
     _careToastTimer?.cancel();
     _sunHideTimer?.cancel();
     _wateringAfterglowTimer?.cancel();
@@ -387,14 +427,64 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _petCharacter() {
+    _countPet();
     if (MediaQuery.disableAnimationsOf(context)) return;
     _petController.forward(from: 0);
   }
 
   void _startRub() {
+    _countPet();
     if (MediaQuery.disableAnimationsOf(context)) return;
     setState(() => _rubbing = true);
     _petController.forward(from: 0);
+  }
+
+  /// 쓰다듬을 때마다 다음 말을 머리 위로 띄운다. 쓰다듬는 동안은 대기
+  /// 대사를 멈추고, 그친 뒤에 이어서 재생한다.
+  void _countPet() {
+    _petTimer?.cancel();
+    final line = _petLines[_petCount % _petLines.length];
+    _petCount++;
+    _float(line, pet: true);
+    _syncDialoguePlayback();
+    _petTimer = Timer(_petHold, () {
+      if (!mounted) return;
+      _petCount = 0;
+      _syncDialoguePlayback();
+    });
+  }
+
+  void _float(String text, {String? dialogueKey, bool pet = false}) {
+    if (text.isEmpty) return;
+    setState(() {
+      _floaters.add(
+        _Floater(
+          id: _floaterSeq++,
+          text: text,
+          dialogueKey: dialogueKey,
+          pet: pet,
+          // 참고 영상처럼 떠오르며 조금씩 옆으로 비껴간다.
+          drift: (_floaterRandom.nextDouble() * 2 - 1) * 28,
+        ),
+      );
+    });
+  }
+
+  void _removeFloater(int id) {
+    if (!mounted) return;
+    setState(() => _floaters.removeWhere((floater) => floater.id == id));
+  }
+
+  /// 서버 기본 대사가 평소 대사면 머리 위로 한 번 띄워 보낸다. 중요한
+  /// 알림이면 제자리 말풍선([_stickyMessage])이 맡는다.
+  void _floatCasualDialogue() {
+    if (_scene != HomeScene.idle) return;
+    final key = _serverDialogueKey;
+    if (_HomeConversation.stickyKeys.contains(key)) return;
+    if (key == 'DIAGNOSIS_PROMPT' && _playedDialogue) return;
+    final message = _serverDialogue;
+    if (message == null || message.isEmpty) return;
+    _float(message, dialogueKey: key);
   }
 
   /// 문지르는 동안 흔들림이 끝날 때마다 다시 흔든다. 도중에 처음부터 다시
@@ -540,59 +630,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<bool> _loadHome([String? plantId]) async {
     final request = ++_homeRequest;
     try {
-      final data = widget.loadHomeForPlant != null
-          ? await widget.loadHomeForPlant!(plantId)
-          : plantId == null && widget.loadHome != null
-          ? await widget.loadHome!()
-          : await HomeApi().fetchHome(plantId: plantId);
+      final data = await _fetchHome(plantId);
       if (!mounted || request != _homeRequest) return false;
-      final room = data.room;
-      final hasWateringRequest = data.todayEvents.any(
-        (event) => event.careType == 'WATERING' && event.completable,
-      );
-      setState(() {
-        final plant = data.plant;
-        _serverPlant = plant == null
-            ? null
-            : HomePlant(
-                id: plant.id,
-                name: plant.nickname,
-                startedOn: DateTime.tryParse(plant.startedOn),
-                personalityType: plant.personalityType,
-                daysTogether: plant.daysTogether,
-                bodyId: plant.bodyId,
-                hairId: plant.hairId,
-                expressionId: plant.expressionId,
-                colorId: plant.colorId,
-              );
-        _serverDialogue = room?.dialogue?.trim();
-        _serverDialogueKey = room?.dialogueKey;
-        _serverSensor = room?.sensor;
-        // 새 응답의 조도로 갈아 끼운다. 옛 서버처럼 없으면 비워 이전 식물의
-        // 조도가 새 판에 섞이지 않게 하고, 아래에서 센서 상태로 바로 받는다.
-        _currentLux = room?.sensor?.currentLux;
-        _unreadNotificationCount = data.unreadNotificationCount;
-        _loadingHome = false;
-        _homeError = null;
-        _homeOffline = false;
-        // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
-        // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
-        // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
-        // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
-        _scene = switch (room?.dialogueKey) {
-          _ when hasWateringRequest => HomeScene.needsWater,
-          'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
-          'LIGHT_LOW' => HomeScene.needsLight,
-          _ => HomeScene.idle,
-        };
-      });
-      unawaited(_refreshLetterBadge());
-      unawaited(
-        _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
-      );
-      // /home 판정에 순간 조도(currentLux)가 오면 센서 상태를 바로 다시
-      // 받지 않는다. 옛 서버처럼 없으면 지금처럼 바로 받는다.
-      _syncSensorRefresh(fetchNow: room?.sensor?.currentLux == null);
+      _applyHome(data);
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -610,6 +650,101 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         unawaited(_showDisconnectedDialog());
       }
       return false;
+    }
+  }
+
+  Future<HomeDashboardData> _fetchHome(String? plantId) =>
+      widget.loadHomeForPlant != null
+      ? widget.loadHomeForPlant!(plantId)
+      : plantId == null && widget.loadHome != null
+      ? widget.loadHome!()
+      : HomeApi().fetchHome(plantId: plantId);
+
+  /// [data]로 화면을 그린다. [fromCache]면 미리 받아 둔 응답이라 그림만
+  /// 바꾸고, 대사·배지·센서 조회는 곧 올 새 응답에 맡긴다.
+  void _applyHome(HomeDashboardData data, {bool fromCache = false}) {
+    final room = data.room;
+    final hasWateringRequest = data.todayEvents.any(
+      (event) => event.careType == 'WATERING' && event.completable,
+    );
+    setState(() {
+      final plant = data.plant;
+      _serverPlant = plant == null
+          ? null
+          : HomePlant(
+              id: plant.id,
+              name: plant.nickname,
+              startedOn: DateTime.tryParse(plant.startedOn),
+              personalityType: plant.personalityType,
+              daysTogether: plant.daysTogether,
+              bodyId: plant.bodyId,
+              hairId: plant.hairId,
+              expressionId: plant.expressionId,
+              colorId: plant.colorId,
+            );
+      _serverDialogue = room?.dialogue?.trim();
+      _serverDialogueKey = room?.dialogueKey;
+      _serverSensor = room?.sensor;
+      // 새 응답의 조도로 갈아 끼운다. 옛 서버처럼 없으면 비워 이전 식물의
+      // 조도가 새 판에 섞이지 않게 하고, 아래에서 센서 상태로 바로 받는다.
+      _currentLux = room?.sensor?.currentLux;
+      _unreadNotificationCount = data.unreadNotificationCount;
+      _loadingHome = false;
+      _homeError = null;
+      _homeOffline = false;
+      // 씬은 매 응답에서 다시 정한다. 한 번 needsWater가 되면 되돌리는
+      // 곳이 없어 다른 식물로 넘어가도 목마른 말풍선이 남았다. 서버 대사는
+      // 성격별 평소 대사(NORMAL)도 항상 채워 오므로 대사 유무가 아니라
+      // 상황으로 정한다. 물은 오늘 할 일이라 햇빛보다 먼저 띄운다.
+      _scene = switch (room?.dialogueKey) {
+        _ when hasWateringRequest => HomeScene.needsWater,
+        'SOIL_MOISTURE_LOW' => HomeScene.needsWater,
+        'LIGHT_LOW' => HomeScene.needsLight,
+        _ => HomeScene.idle,
+      };
+    });
+    if (fromCache) return;
+    if (data.plant?.id case final id?) {
+      _homeCache[id] = (data: data, at: DateTime.now());
+      unawaited(_prefetchNeighbors(id));
+    }
+    unawaited(_refreshLetterBadge());
+    unawaited(
+      _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
+    );
+    // 순간 조도가 필요한 건 센서가 연결된 방뿐이다. /home 판정에 조도가
+    // 오면 센서 상태를 바로 다시 받지 않는다.
+    final sensor = room?.sensor;
+    _syncSensorRefresh(
+      fetchNow:
+          sensor?.connection == SensorConnection.active &&
+          sensor?.currentLux == null,
+    );
+  }
+
+  /// 지금 방 좌우의 /home을 미리 받아 둔다. 1분 안에 받은 건 다시 받지 않고,
+  /// 실패해도 화면에는 영향이 없다(누르면 그때 받는다).
+  Future<void> _prefetchNeighbors(String plantId) async {
+    if (_plants.length < 2) return;
+    final index = _plants.indexWhere((plant) => plant.id == plantId);
+    if (index < 0) return;
+    final ids = {
+      _plants[(index + 1) % _plants.length].id,
+      _plants[(index - 1 + _plants.length) % _plants.length].id,
+    }..remove(plantId);
+    for (final id in ids) {
+      final cached = _homeCache[id];
+      if (cached != null &&
+          DateTime.now().difference(cached.at) < _homeCacheFresh) {
+        continue;
+      }
+      try {
+        final data = await _fetchHome(id);
+        if (!mounted) return;
+        _homeCache[id] = (data: data, at: DateTime.now());
+      } on LeafieApiException {
+        // 미리 받기는 덤이다. 누르면 그때 다시 받는다.
+      }
     }
   }
 
@@ -645,12 +780,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _sensorTimer?.cancel();
     _sensorTimer = null;
     final plantId = (_serverPlant ?? widget.plant)?.id;
-    if ((!_gaugesExpanded && !_sensorConnected) || plantId == null) return;
+    if ((!_panelOpen && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
-      _gaugesExpanded
-          ? const Duration(seconds: 10)
-          : const Duration(seconds: 60),
+      _panelOpen ? const Duration(seconds: 10) : const Duration(seconds: 60),
       (_) => _refreshSensor(plantId),
     );
   }
@@ -754,7 +887,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadPlants() async {
     try {
       final plants = await _plantRepository.listPlants();
-      if (mounted) setState(() => _plants = plants);
+      if (!mounted) return;
+      setState(() => _plants = plants);
+      // 처음 열 때는 목록이 /home보다 늦게 와 옆 방을 몰랐을 수 있다.
+      if ((_serverPlant ?? widget.plant)?.id case final id?) {
+        unawaited(_prefetchNeighbors(id));
+      }
     } on LeafieApiException {
       // 홈 본문은 /home 응답으로 표시할 수 있으므로 목록 실패만으로 막지 않는다.
     }
@@ -860,29 +998,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _switchPlant(int delta) async {
-    if (_switchingPlant || _plants.length < 2) return;
-    final currentId = (_serverPlant ?? widget.plant)?.id;
-    var currentIndex = _plants.indexWhere((plant) => plant.id == currentId);
+    if (_plants.length < 2) return;
+    // 불러오는 중에 또 누르면 머리글에 보이는 방에서 이어서 넘긴다.
+    final shownId = _pendingPlant?.id ?? (_serverPlant ?? widget.plant)?.id;
+    var currentIndex = _plants.indexWhere((plant) => plant.id == shownId);
     if (currentIndex < 0) {
       currentIndex = _plants.indexWhere((plant) => plant.isSelected);
     }
     if (currentIndex < 0) currentIndex = 0;
-    final nextIndex = (currentIndex + delta) % _plants.length;
-    final next = _plants[nextIndex];
+    final next = _plants[(currentIndex + delta) % _plants.length];
+    final cached = _homeCache[next.id]?.data;
     setState(() {
-      _switchingPlant = true;
       _resetRoomMotion();
       _slideDirection = delta.sign;
+      _pendingPlant = next;
     });
+    // 미리 받아 둔 방이면 응답을 기다리지 않고 캐릭터까지 바로 넘긴다.
+    // 늦게 오던 이전 응답이 이 그림을 덮지 않게 요청 번호를 올린다.
+    if (cached != null) {
+      _homeRequest++;
+      _applyHome(cached, fromCache: true);
+    }
+    // 돌고 있는 전환이 끝나면 아래 반복이 바뀐 _pendingPlant를 이어 받는다.
+    if (_switchingPlant) return;
+    setState(() => _switchingPlant = true);
     try {
-      await _selectAndLoad(next.id);
+      while (mounted) {
+        final target = _pendingPlant;
+        if (target == null) break;
+        final loaded = await _selectAndLoad(target.id);
+        if (!loaded || _pendingPlant?.id == target.id) break;
+      }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
-      if (mounted) setState(() => _switchingPlant = false);
+      if (mounted) {
+        setState(() {
+          _switchingPlant = false;
+          _pendingPlant = null;
+        });
+      }
     }
   }
 
@@ -973,14 +1131,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               event.dialogueKey != fallbackKey,
         ),
       );
+    // 대기 대사가 없으면 평소 대사를 바로 띄운다. 있으면 다 끝난 뒤에 띄운다.
+    if (_pendingDialogues.isEmpty && _playingDialogue == null) {
+      _floatCasualDialogue();
+    }
     _syncDialoguePlayback();
+  }
+
+  /// 제자리에 고정해 둘 서버 대사. 중요한 알림(습도·조도 이상)만 해당하고,
+  /// 평소 대사는 떠오르는 말풍선으로 한 번 띄우고 만다.
+  String? get _stickyMessage =>
+      _HomeConversation.stickyKeys.contains(_serverDialogueKey)
+      ? _serverDialogue
+      : null;
+
+  /// 고정 말풍선 자리에 지금 무엇이 보이는지. 바뀌면 흐려지며 갈아 끼운다.
+  String get _conversationKey {
+    if (_scene != HomeScene.idle) return 'scene-${_scene.name}';
+    final sticky = _stickyMessage;
+    return sticky == null || sticky.isEmpty
+        ? 'none'
+        : 'sticky-$_serverDialogueKey-$sticky';
   }
 
   /// 큐 대사가 실제로 보이는 상태인가. 게이지 패널이 펼쳐졌거나 돌봄 반응
   /// 말풍선이 떠 있으면 가려진 것으로 본다. 해를 눌러 생긴 감사 반응
   /// ("아 따뜻해~고마워!")은 광선이 떠 있는 동안(약 3초)만 큐를 비켜 준다.
   bool get _dialogueVisible =>
-      !_gaugesExpanded &&
+      _petCount == 0 &&
       !(_scene == HomeScene.cared && _sunActive) &&
       _scene != HomeScene.happy;
 
@@ -994,9 +1172,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
     final playing = _playingDialogue;
     if (playing == null) return;
+    // 이미 띄워 보낸 말풍선이라 다시 넣지 않고 본 것으로 친다.
     _dialogueTimer?.cancel();
-    _pendingDialogues.insert(0, playing);
+    _markDialogueSeen(playing);
     setState(() => _playingDialogue = null);
+  }
+
+  void _markDialogueSeen(HomeDialogueEvent event) {
+    _seenDialogueIds?.add(event.eventId);
+    unawaited(_seenDialogues.markSeen(event.eventId));
   }
 
   void _playNextDialogue() {
@@ -1008,17 +1192,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
     final next = _pendingDialogues.removeAt(0);
     setState(() => _playingDialogue = next);
+    _float(next.dialogue, dialogueKey: next.dialogueKey);
     _dialogueTimer?.cancel();
-    _dialogueTimer = Timer(next.duration, () {
+    _dialogueTimer = Timer(_floatSpacing, () {
       if (!mounted) return;
-      // 끝까지 보여 준 대사만 본 것으로 남긴다. 중간에 가려지면 다시 나온다.
-      _seenDialogueIds?.add(next.eventId);
-      unawaited(_seenDialogues.markSeen(next.eventId));
+      _markDialogueSeen(next);
       setState(() {
         _playingDialogue = null;
         _playedDialogue = true;
       });
       _playNextDialogue();
+      // 대기 대사가 다 끝나면 평소 대사를 이어서 띄운다.
+      if (_playingDialogue == null) _floatCasualDialogue();
     });
   }
 
@@ -1157,14 +1342,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 _HomeHeader(
-                  roomName: plant?.name,
-                  roomKey: plant?.id,
+                  roomName: _pendingPlant?.nickname ?? plant?.name,
+                  roomKey: _pendingPlant?.id ?? plant?.id,
                   slideDirection: _slideDirection,
-                  dayCount: plant?.dayCount,
+                  dayCount: switch (_pendingPlant) {
+                    // 미리 받은 응답이 없으면 서버 일수 대신 등록일로 센다.
+                    final pending? when pending.id != plant?.id =>
+                      DateTime.now().difference(pending.startedOn).inDays + 1,
+                    _ => plant?.dayCount,
+                  },
                   period: period,
                   unreadNotificationCount: _unreadNotificationCount,
                   showNotifications: !_mailboxOpen,
-                  canSwitchPlant: _plants.length > 1 && !_switchingPlant,
+                  canSwitchPlant: _plants.length > 1,
                   onPreviousPlant: () => _switchPlant(-1),
                   onNextPlant: () => _switchPlant(1),
                   onManagePlants: _openPlantManagement,
@@ -1240,21 +1430,61 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
-                if (plant != null && !_gaugesExpanded)
-                  _HomeConversation(
-                    scene: _scene,
-                    serverDialogue: _requestDialogue,
-                    queueMessage: _playingDialogue?.dialogue,
-                    queueKey: _playingDialogue?.dialogueKey,
-                    fallbackKey: _serverDialogueKey,
-                    onPromptTap: _openPrompt,
-                    // 상황 말풍선이 없을 때는 서버의 기본 대사(평소·일기·진단
-                    // 권유·조도 적당 등)를 띄운다.
-                    fallbackMessage:
-                        _serverDialogueKey == 'DIAGNOSIS_PROMPT' &&
-                            _playedDialogue
-                        ? null
-                        : _serverDialogue,
+                // 평소 대사·대기 대사·쓰다듬기는 머리 위에서 튀어나와 위로
+                // 떠오르며 사라진다(10/31 사용자 참고 영상). 고정 알림보다
+                // 아래에 그려 중요한 알림이 늘 읽히게 한다.
+                for (final floater in _floaters)
+                  _FloatingBubble(
+                    key: ValueKey('home-floater-${floater.id}'),
+                    drift: floater.drift,
+                    onDone: () => _removeFloater(floater.id),
+                    child: floater.pet
+                        ? _RoomBubble(
+                            label: floater.text,
+                            width: 102,
+                            height: 38,
+                          )
+                        : _HomeConversation.promptKeys.contains(
+                            floater.dialogueKey,
+                          )
+                        ? GestureDetector(
+                            key: ValueKey(
+                              'home-dialogue-prompt-${floater.dialogueKey}',
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openPrompt(floater.dialogueKey!),
+                            child: PlantRequestBubble(message: floater.text),
+                          )
+                        : PlantRequestBubble(message: floater.text),
+                  ),
+                // 판을 펼쳐도 말풍선은 그대로 둔다(10/31 사용자 요청: 펼침·접힘
+                // 일관성). 말풍선(top 209)은 판(top 575)과 겹치지 않는다.
+                // 보이는 말풍선이 바뀌거나 사라질 때는 흐려지며 바뀐다.
+                if (plant != null)
+                  Positioned.fill(
+                    child: AnimatedSwitcher(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 600),
+                      layoutBuilder: (current, previous) => Stack(
+                        fit: StackFit.expand,
+                        children: [...previous, ?current],
+                      ),
+                      child: Stack(
+                        key: ValueKey(_conversationKey),
+                        fit: StackFit.expand,
+                        children: [
+                          _HomeConversation(
+                            scene: _scene,
+                            serverDialogue: _requestDialogue,
+                            fallbackKey: _serverDialogueKey,
+                            onPromptTap: _openPrompt,
+                            // 상황 말풍선이 없을 때는 중요한 알림만 고정해 둔다.
+                            fallbackMessage: _stickyMessage,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 if (plant != null && _unreadLetterCount > 0)
                   // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. 노드는 x=319
@@ -1626,7 +1856,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       onTap: () => _startPlantRegistration(context),
                     ),
                   )
-                else if (_gaugesExpanded)
+                else if (_panelOpen)
                   _HomeEnvironmentPanel(
                     roomKey: plant.id,
                     slideDirection: _slideDirection,
@@ -1634,7 +1864,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     lux: _currentLux,
                     plantName: plant.name,
                     onCollapse: () {
-                      setState(() => _gaugesExpanded = false);
+                      setState(() {
+                        _gaugesExpanded = false;
+                        _noDeviceOpenedFor = null;
+                      });
                       _syncDialoguePlayback();
                       _syncSensorRefresh(fetchNow: false);
                     },
@@ -1642,7 +1875,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 else
                   _HomeStatusCard(
                     onTap: () {
-                      setState(() => _gaugesExpanded = true);
+                      setState(() {
+                        _gaugesExpanded = true;
+                        _noDeviceOpenedFor = plant.id;
+                      });
                       _syncDialoguePlayback();
                       _syncSensorRefresh();
                     },
@@ -1852,9 +2088,7 @@ class _HomeConversation extends StatelessWidget {
   const _HomeConversation({
     required this.scene,
     required this.serverDialogue,
-    this.queueMessage,
     this.fallbackMessage,
-    this.queueKey,
     this.fallbackKey,
     this.onPromptTap,
   });
@@ -1862,15 +2096,19 @@ class _HomeConversation extends StatelessWidget {
   /// 누르면 화면을 옮기는 권유 대사 키.
   static const promptKeys = {'DIARY_PROMPT', 'DIAGNOSIS_PROMPT'};
 
-  final String? queueKey;
+  /// 흐려지지 않고 계속 떠 있는 중요한 알림 키(습도·조도 이상).
+  static const stickyKeys = {
+    'SOIL_MOISTURE_LOW',
+    'SOIL_MOISTURE_HIGH',
+    'LIGHT_LOW',
+    'LIGHT_HIGH',
+  };
+
   final String? fallbackKey;
   final ValueChanged<String>? onPromptTap;
 
   final HomeScene scene;
   final String? serverDialogue;
-
-  /// 지금 재생 중인 큐 대사. 있으면 상황 말풍선보다 먼저 보인다.
-  final String? queueMessage;
 
   /// 상황 말풍선이 없을 때(idle) 띄울 서버 기본 대사.
   final String? fallbackMessage;
@@ -1899,15 +2137,43 @@ class _HomeConversation extends StatelessWidget {
     );
   }
 
+  /// 시안 4534:17213 / 17219 / 17211 — 102×38 흰 말풍선. 쓰다듬을 때마다
+  /// 하나씩 나타난다. 시안에서 '히히'만 투명도 60%인 건 먼저 나온 말이라서
+  /// 다음 말이 나오면 옅어지게 한다. 손가락을 가리지 않게 터치는 통과시킨다.
+  Widget _petBubbles(BuildContext context, int count) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 250);
+    Widget bubble(int index, double left, double top, String label) =>
+        Positioned(
+          left: left,
+          top: top,
+          child: AnimatedOpacity(
+            key: ValueKey('home-pet-bubble-$index'),
+            duration: duration,
+            opacity: count <= index
+                ? 0
+                : index == 0 && count > 1
+                ? 0.6
+                : 1,
+            child: _RoomBubble(label: label, width: 102, height: 38),
+          ),
+        );
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            bubble(0, 130, 156, '히히'),
+            bubble(1, 169, 184, '신난다'),
+            bubble(2, 145, 251, '좋은 하루야!'),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (queueMessage case final message? when message.isNotEmpty) {
-      return _serverBubble(
-        const ValueKey('home-dialogue-queue'),
-        message,
-        queueKey,
-      );
-    }
     return switch (scene) {
       HomeScene.needsWater => Positioned(
         left: 0,
@@ -1946,34 +2212,7 @@ class _HomeConversation extends StatelessWidget {
           ),
         ),
       ),
-      // 시안 4534:17213 / 17219 / 17211 — 102×38 흰 말풍선. '히히'만
-      // 말풍선 전체(글자·그림자 포함)가 투명도 60%이고 나머지 둘은 불투명이다.
-      HomeScene.happy => const Positioned.fill(
-        child: Stack(
-          children: [
-            Positioned(
-              left: 130,
-              top: 156,
-              child: _RoomBubble(
-                label: '히히',
-                width: 102,
-                height: 38,
-                opacity: 0.6,
-              ),
-            ),
-            Positioned(
-              left: 169,
-              top: 184,
-              child: _RoomBubble(label: '신난다', width: 102, height: 38),
-            ),
-            Positioned(
-              left: 145,
-              top: 251,
-              child: _RoomBubble(label: '좋은 하루야!', width: 102, height: 38),
-            ),
-          ],
-        ),
-      ),
+      HomeScene.happy => _petBubbles(context, 3),
       HomeScene.idle => switch (fallbackMessage) {
         final message? when message.isNotEmpty => _serverBubble(
           const ValueKey('home-dialogue-fallback'),
@@ -2422,14 +2661,12 @@ class _RoomBubble extends StatelessWidget {
     required this.width,
     this.height = 40,
     this.color = kTextDark,
-    this.opacity = 1,
   });
 
   final String label;
   final double width;
   final double height;
   final Color color;
-  final double opacity;
 
   @override
   Widget build(BuildContext context) {
@@ -2449,9 +2686,9 @@ class _RoomBubble extends StatelessWidget {
         style: kSmallStyle.copyWith(fontSize: 13.353, color: color),
       ),
     );
-    // 시안은 노드 투명도라 배경만이 아니라 글자·그림자까지 함께 옅어진다.
-    // 배경 알파만 낮추면 그림자가 비쳐 회색 말풍선처럼 보였다.
-    return opacity == 1 ? bubble : Opacity(opacity: opacity, child: bubble);
+    // 시안의 옅은 말풍선은 노드 투명도라 글자·그림자까지 함께 옅어진다.
+    // 그래서 배경 알파가 아니라 바깥에서 통째로 투명도를 건다(_petBubbles).
+    return bubble;
   }
 }
 
@@ -2937,4 +3174,96 @@ class _FlowSparkle {
 
   /// 반짝점 반지름(본체 좌표계 px).
   final double radius;
+}
+
+/// 떠오르는 말풍선 하나의 내용.
+class _Floater {
+  const _Floater({
+    required this.id,
+    required this.text,
+    required this.drift,
+    this.dialogueKey,
+    this.pet = false,
+  });
+
+  final int id;
+  final String text;
+  final double drift;
+  final String? dialogueKey;
+  final bool pet;
+}
+
+/// 머리 위(top [startTop])에서 작게 튀어나와 커진 뒤, 위로 [rise]만큼
+/// 떠오르며 옆으로 [drift]만큼 비껴가고 끝 무렵 흐려져 사라진다.
+/// 끝나면 [onDone]을 불러 목록에서 빠진다. 동작 줄이기면 제자리에 있다가
+/// 흐려진다.
+class _FloatingBubble extends StatefulWidget {
+  const _FloatingBubble({
+    super.key,
+    required this.child,
+    required this.drift,
+    required this.onDone,
+  });
+
+  static const Duration life = Duration(milliseconds: 3200);
+  static const double startTop = 250;
+  static const double rise = 150;
+
+  final Widget child;
+  final double drift;
+  final VoidCallback onDone;
+
+  @override
+  State<_FloatingBubble> createState() => _FloatingBubbleState();
+}
+
+class _FloatingBubbleState extends State<_FloatingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _life = AnimationController(
+    vsync: this,
+    duration: _FloatingBubble.life,
+  )..forward().whenComplete(() => widget.onDone());
+
+  @override
+  void dispose() {
+    _life.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: _life,
+      builder: (context, child) {
+        final t = _life.value;
+        // 처음 0.25초(8%)에 톡 튀어나오고, 60%부터 흐려진다.
+        final pop = Curves.easeOutBack.transform((t / 0.08).clamp(0.0, 1.0));
+        final rise = still ? 0.0 : Curves.easeOut.transform(t);
+        final opacity = t < 0.08
+            ? t / 0.08
+            : t < 0.6
+            ? 1.0
+            : 1 - (t - 0.6) / 0.4;
+        return Positioned(
+          left: 0,
+          right: 0,
+          top: _FloatingBubble.startTop - _FloatingBubble.rise * rise,
+          child: Center(
+            child: Transform.translate(
+              offset: Offset(widget.drift * rise, 0),
+              child: Opacity(
+                opacity: opacity.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: still ? 1 : 0.6 + 0.4 * pop,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
 }
