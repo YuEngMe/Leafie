@@ -1933,6 +1933,9 @@ class _HomeEnvironmentPanel extends StatefulWidget {
 class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
     with SingleTickerProviderStateMixin {
   static const double _height = 220;
+  // 시안 4534:8611은 판이 화면 끝(874)까지 깔린다. 탭바 윗변(795)에서
+  // 끊으면 탭바 둥근 모서리 사이로 흰 30%가 안 덮인 배경이 드러난다.
+  static const double _panelHeight = 874 - 575;
   static const double _collapseDistance = 60;
   static const double _collapseVelocity = 500;
 
@@ -1972,7 +1975,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
       left: 0,
       right: 0,
       top: 575,
-      height: _height,
+      height: _panelHeight,
       child: GestureDetector(
         key: const ValueKey('home-environment-panel'),
         onVerticalDragUpdate: _onDragUpdate,
