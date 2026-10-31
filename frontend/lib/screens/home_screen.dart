@@ -1558,15 +1558,16 @@ class _HomeHeader extends StatelessWidget {
                     dimension: _kHeaderArrowHit,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Icon(
-                        Icons.chevron_left_rounded,
+                      child: _RoomChevron(
+                        'assets/images/home_room_chevron_left.svg',
                         color: titleColor,
-                        size: 24,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 3),
+                // 시안 꺾쇠 글자와 이름 칸 사이 14.37. 왼쪽 SVG는 글자가
+                // 오른쪽 끝에서 0.62 안쪽에 그려진다.
+                const SizedBox(width: 14.37 - 0.62),
                 GestureDetector(
                   key: const ValueKey('home-manage-plants'),
                   onTap: onManagePlants,
@@ -1587,7 +1588,7 @@ class _HomeHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 14.37),
                 GestureDetector(
                   key: const ValueKey('home-next-plant'),
                   behavior: HitTestBehavior.opaque,
@@ -1596,10 +1597,9 @@ class _HomeHeader extends StatelessWidget {
                     dimension: _kHeaderArrowHit,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Icon(
-                        Icons.chevron_right_rounded,
+                      child: _RoomChevron(
+                        'assets/images/home_room_chevron_right.svg',
                         color: titleColor,
-                        size: 24,
                       ),
                     ),
                   ),
@@ -1849,6 +1849,29 @@ class _HomeStatusCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 방 이름 좌우 꺾쇠. 시안(4534:9649·9650)은 Sandoll CreamPang `<` 글자라
+/// 앱에 없는 폰트 대신 글자 윤곽을 SVG로 받아 쓴다. 글자 가운데가 이름 줄
+/// 가운데보다 0.67 위에 있다.
+class _RoomChevron extends StatelessWidget {
+  const _RoomChevron(this.asset, {required this.color});
+
+  final String asset;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(0, -0.67),
+      child: SvgPicture.asset(
+        asset,
+        width: 8,
+        height: 14,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       ),
     );
   }
