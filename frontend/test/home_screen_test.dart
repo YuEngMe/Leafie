@@ -418,6 +418,19 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-environment-card')));
     await tester.pump();
     expect(find.text('기기연결이 필요합니다'), findsOneWidget);
+
+    // 판을 조금만 끌어내리면 제자리로 돌아온다.
+    final panel = find.byKey(const ValueKey('home-environment-panel'));
+    await tester.drag(panel, const Offset(0, 30));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-environment-card')), findsNothing);
+    expect(tester.getTopLeft(find.text('기기연결이 필요합니다')).dy, 683);
+
+    // 충분히 끌어내리면 끝까지 내려간 뒤 접힌다.
+    await tester.drag(panel, const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(find.text('기기연결이 필요합니다'), findsNothing);
+    expect(find.byKey(const ValueKey('home-environment-card')), findsOneWidget);
   });
 
   testWidgets('햇빛 요청에서 해를 누르면 감사 상태가 된다', (tester) async {

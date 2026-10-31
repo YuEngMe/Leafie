@@ -1913,7 +1913,7 @@ class _OutsideShadowPainter extends CustomPainter {
       oldDelegate.radius != radius;
 }
 
-class _HomeEnvironmentPanel extends StatelessWidget {
+class _HomeEnvironmentPanel extends StatefulWidget {
   const _HomeEnvironmentPanel({
     required this.sensor,
     required this.plantName,
@@ -1925,74 +1925,134 @@ class _HomeEnvironmentPanel extends StatelessWidget {
   final VoidCallback onCollapse;
 
   @override
+  State<_HomeEnvironmentPanel> createState() => _HomeEnvironmentPanelState();
+}
+
+/// 판을 손가락으로 끌어내리면 손을 따라 내려가고, 충분히 내렸거나 빠르게
+/// 튕기면 끝까지 내려간 뒤 접힌다. 덜 내리면 제자리로 돌아온다.
+class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
+    with SingleTickerProviderStateMixin {
+  static const double _height = 220;
+  static const double _collapseDistance = 60;
+  static const double _collapseVelocity = 500;
+
+  /// 0 = 제자리, [_height] = 다 내려감.
+  late final AnimationController _drag = AnimationController(
+    vsync: this,
+    upperBound: _height,
+    duration: const Duration(milliseconds: 220),
+  );
+
+  @override
+  void dispose() {
+    _drag.dispose();
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    _drag.value = (_drag.value + details.delta.dy).clamp(0, _height);
+  }
+
+  Future<void> _onDragEnd(DragEndDetails details) async {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_drag.value > _collapseDistance || velocity > _collapseVelocity) {
+      await _drag.animateTo(_height, curve: AppMotion.easeOut);
+      if (mounted) widget.onCollapse();
+    } else {
+      await _drag.animateTo(0, curve: AppMotion.easeOut);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sensor = widget.sensor;
+    final plantName = widget.plantName;
+    final onCollapse = widget.onCollapse;
     return Positioned(
       left: 0,
       right: 0,
       top: 575,
-      height: 220,
-      // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
-      // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
-      // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.3),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+      height: _height,
+      child: GestureDetector(
+        key: const ValueKey('home-environment-panel'),
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        child: AnimatedBuilder(
+          animation: _drag,
+          builder: (context, child) =>
+              Transform.translate(offset: Offset(0, _drag.value), child: child),
+          child: _panel(sensor, plantName, onCollapse),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 1,
-              height: 18,
-              child: GestureDetector(
-                key: const ValueKey('home-environment-collapse'),
-                behavior: HitTestBehavior.opaque,
-                onTap: onCollapse,
-                child: const Center(
-                  child: SizedBox(
-                    width: 71.6,
-                    height: 2,
-                    child: ColoredBox(color: Colors.white),
-                  ),
+      ),
+    );
+  }
+
+  Widget _panel(
+    SensorAssessment? sensor,
+    String plantName,
+    VoidCallback onCollapse,
+  ) {
+    // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
+    // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
+    // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.3),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 1,
+            height: 18,
+            child: GestureDetector(
+              key: const ValueKey('home-environment-collapse'),
+              behavior: HitTestBehavior.opaque,
+              onTap: onCollapse,
+              child: const Center(
+                child: SizedBox(
+                  width: 71.6,
+                  height: 2,
+                  child: ColoredBox(color: Colors.white),
                 ),
               ),
             ),
-            if (sensorPanelMessage(sensor) case final message?)
-              Positioned(
-                left: 34,
-                right: 34,
-                // Figma 3822:601: y=683, relative to the panel at y=575.
-                top: 108,
-                child: Text(
-                  message,
-                  key: const ValueKey('home-environment-message'),
-                  textAlign: TextAlign.center,
-                  // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
-                  // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
-                  style: kTitleStyle.copyWith(
-                    fontSize: 21,
-                    color: const Color(0xFF434343),
-                  ),
+          ),
+          if (sensorPanelMessage(sensor) case final message?)
+            Positioned(
+              left: 34,
+              right: 34,
+              // Figma 3822:601: y=683, relative to the panel at y=575.
+              top: 108,
+              child: Text(
+                message,
+                key: const ValueKey('home-environment-message'),
+                textAlign: TextAlign.center,
+                // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
+                // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
+                style: kTitleStyle.copyWith(
+                  fontSize: 21,
+                  color: const Color(0xFF434343),
                 ),
-              )
-            else ...[
-              // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
-              // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
-              _gauge(
-                top: 606 - 575,
-                kind: EnvironmentGaugeKind.humidity,
-                content: soilGaugeContent(sensor!.soil, plantName),
               ),
-              _gauge(
-                top: 697 - 575,
-                kind: EnvironmentGaugeKind.light,
-                content: lightGaugeContent(sensor!.light, plantName),
-              ),
-            ],
+            )
+          else ...[
+            // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+            // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+            _gauge(
+              top: 606 - 575,
+              kind: EnvironmentGaugeKind.humidity,
+              content: soilGaugeContent(sensor!.soil, plantName),
+            ),
+            _gauge(
+              top: 697 - 575,
+              kind: EnvironmentGaugeKind.light,
+              content: lightGaugeContent(sensor.light, plantName),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
