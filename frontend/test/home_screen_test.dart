@@ -1881,12 +1881,14 @@ void main() {
       WidgetTester tester, {
       required SensorConnection connection,
       double? lux,
+      double? roomLux,
     }) async {
       tester.view.physicalSize = const Size(402, 874);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final sensor = SensorAssessment(
         connection: connection,
+        currentLux: roomLux,
         soil: const SensorMetricAssessment(
           state: SensorLevel.ok,
           unit: 'relative_percent',
@@ -1954,6 +1956,16 @@ void main() {
         lux: 20,
       );
       expect(sensors.requests, ['plant-a']);
+      expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
+    });
+
+    testWidgets('/home이 순간 조도를 주면 센서 상태를 바로 다시 받지 않는다', (tester) async {
+      final sensors = await pumpHome(
+        tester,
+        connection: SensorConnection.active,
+        roomLux: 20,
+      );
+      expect(sensors.requests, isEmpty);
       expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
     });
 

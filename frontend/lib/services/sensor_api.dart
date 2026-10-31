@@ -105,12 +105,16 @@ class SensorAssessment {
     required this.connection,
     required this.soil,
     required this.light,
+    this.currentLux,
   });
 
   factory SensorAssessment.fromJson(Map<String, dynamic> json) {
     final soil = json['soil'];
     final light = json['light'];
-    if (soil is! Map<String, dynamic> || light is! Map<String, dynamic>) {
+    final currentLux = json['currentLux'];
+    if (soil is! Map<String, dynamic> ||
+        light is! Map<String, dynamic> ||
+        (currentLux != null && currentLux is! num)) {
       throw const FormatException('Invalid sensor assessment');
     }
     return SensorAssessment(
@@ -121,12 +125,16 @@ class SensorAssessment {
       ),
       soil: SensorMetricAssessment.fromJson(soil),
       light: SensorMetricAssessment.fromJson(light),
+      currentLux: (currentLux as num?)?.toDouble(),
     );
   }
 
   final SensorConnection connection;
   final SensorMetricAssessment soil;
   final SensorMetricAssessment light;
+
+  /// 가장 최근 측정의 순간 조도(lx). 옛 서버는 보내지 않아 null이다.
+  final double? currentLux;
 }
 
 abstract interface class SensorRepository {

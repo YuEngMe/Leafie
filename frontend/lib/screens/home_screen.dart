@@ -568,6 +568,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _serverDialogue = room?.dialogue?.trim();
         _serverDialogueKey = room?.dialogueKey;
         _serverSensor = room?.sensor;
+        // 새 응답의 조도로 갈아 끼운다. 옛 서버처럼 없으면 비워 이전 식물의
+        // 조도가 새 판에 섞이지 않게 하고, 아래에서 센서 상태로 바로 받는다.
+        _currentLux = room?.sensor?.currentLux;
         _unreadNotificationCount = data.unreadNotificationCount;
         _loadingHome = false;
         _homeError = null;
@@ -587,8 +590,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       unawaited(
         _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
       );
-      // /home 응답에는 순간 조도가 없어 게이지가 펼쳐져 있으면 바로 받는다.
-      _syncSensorRefresh();
+      // /home 판정에 순간 조도(currentLux)가 오면 센서 상태를 바로 다시
+      // 받지 않는다. 옛 서버처럼 없으면 지금처럼 바로 받는다.
+      _syncSensorRefresh(fetchNow: room?.sensor?.currentLux == null);
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
