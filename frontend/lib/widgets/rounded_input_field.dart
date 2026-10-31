@@ -156,6 +156,7 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
     // 눈이 나타났다 사라져도 TextField가 같은 자리에 있어야 포커스가 유지된다.
     // 그래서 눈을 쓸 수 있는 칸은 값 유무와 관계없이 겹쳐 그리는 배치를 쓴다.
     final hasEyeSlot = widget.obscureText && widget.suffix == null;
+    final showsError = widget.errorText != null || widget.hasError;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -189,10 +190,10 @@ class _RoundedInputFieldState extends State<RoundedInputField> {
               decoration: BoxDecoration(
                 color: kBackgroundWhite,
                 borderRadius: BorderRadius.circular(kButtonRadius),
-                border: widget.errorText == null && !widget.hasError
-                    ? null
-                    : Border.all(color: kErrorRed),
-                boxShadow: widget.showShadow
+                border: showsError ? Border.all(color: kErrorRed) : null,
+                // 시안의 빨간 테두리 칸(4534:1884·2010·2028·2393)은 모두
+                // 그림자가 없다.
+                boxShadow: widget.showShadow && !showsError
                     ? const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)]
                     : null,
               ),
