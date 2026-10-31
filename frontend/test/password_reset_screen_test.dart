@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yeso_plant/screens/password_reset_screen.dart';
+import 'package:yeso_plant/widgets/onboarding_fields.dart';
 
 void main() {
   testWidgets('이메일 형식이 틀리면 발송을 눌러도 에러만 뜬다', (WidgetTester tester) async {
@@ -18,6 +19,27 @@ void main() {
     expect(find.text('이메일 형식이 올바르지 않습니다.'), findsOneWidget);
     // 형식 오류 상태에서는 여전히 이메일 입력 단계에 머문다.
     expect(find.text('시작하기'), findsOneWidget);
+  });
+
+  testWidgets('형식 오류 뒤 이메일을 고치면 오류가 지워지고 발송이 다시 켜진다', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PasswordResetScreen()));
+
+    await tester.enterText(find.byType(TextField).first, 'not-an-email');
+    await tester.pump();
+    await tester.tap(find.text('발송'));
+    await tester.pump();
+    expect(find.text('이메일 형식이 올바르지 않습니다.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'me@example.com');
+    await tester.pump();
+
+    expect(find.text('이메일 형식이 올바르지 않습니다.'), findsNothing);
+    final button = tester.widget<SignupSendButton>(
+      find.byType(SignupSendButton),
+    );
+    expect(button.onPressed, isNotNull);
   });
 
   testWidgets('startAtSetNewPassword로 열면 이메일 UI 없이 바로 새 비밀번호 입력이 보인다', (

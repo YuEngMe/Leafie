@@ -11,7 +11,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     final paperlogyLoader = FontLoader('Paperlogy')
       ..addFont(rootBundle.load('assets/fonts/Paperlogy-4Regular.ttf'))
       ..addFont(rootBundle.load('assets/fonts/Paperlogy-5Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Paperlogy-6SemiBold.ttf'));
+      ..addFont(rootBundle.load('assets/fonts/Paperlogy-6SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Paperlogy-7Bold.ttf'));
     final materialIconsLoader = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
 

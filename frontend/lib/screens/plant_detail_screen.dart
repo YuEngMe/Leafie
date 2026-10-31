@@ -200,6 +200,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 child: PlantArtHero(
                   plantId: _plant.id,
                   child: PlantCharacterArt(
+                    shadow: CharacterShadow.onWhite,
                     width: plantArtWidthFor(139.78),
                     body: plantBodyFromId(_plant.bodyId),
                     colorId: _plant.colorId,
@@ -333,7 +334,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
     final selectedType = kPlantPersonalityOrder[_selectedIndex];
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 성격'),
+      // 4889:2219 제목은 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 성격',
+        titleColor: Colors.black,
+      ),
       body: PlantDetailBody(
         children: [
           // 이름(152)+태그(190)+캐릭터(294)+말풍선(꼬리 포함 504.68,
@@ -356,10 +361,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                   children: [
                     // 성격 이름 4889:2258. 시안 글자 상자 152(높이 24)인데
                     // Flutter 상자는 글자 위 여백이 1px 더 커서, 보이는 글자
-                    // 꼭대기(시안 156)를 맞추려고 상자를 151에 둔다.
+                    // 꼭대기(시안 156)를 맞추려고 상자를 151에 둔다. 가로
+                    // 가운데는 196.5(x150 w93)로 화면 가운데보다 4.5 왼쪽이다.
                     Positioned(
                       left: 0,
-                      right: 0,
+                      right: 9,
                       top: 151 - _kSlotTop,
                       height: 25,
                       child: Center(
@@ -371,10 +377,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                         ),
                       ),
                     ),
-                    // 태그 칩 4889:2254/2256. top 190.
+                    // 태그 칩 4889:2254/2256. top 190. 둘의 가운데가 197로
+                    // 화면 가운데보다 4 왼쪽이라 오른쪽을 8 비운다.
                     Positioned(
                       left: 0,
-                      right: 0,
+                      right: 8,
                       top: 190 - _kSlotTop,
                       height: 20.667,
                       child: Row(
@@ -403,6 +410,7 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                           maxWidth: double.infinity,
                           maxHeight: double.infinity,
                           child: PlantCharacterArt(
+                            shadow: CharacterShadow.onWhite,
                             width: _kCharacterWidth,
                             body: plantBodyFromId(widget.plant.bodyId),
                             colorId: widget.plant.colorId,

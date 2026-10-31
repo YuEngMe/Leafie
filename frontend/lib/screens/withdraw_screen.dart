@@ -102,12 +102,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 onTap: () => setState(() => _agreed = !_agreed),
               ),
             ),
-            // 2570:2108. 폭 354라 좌우 24에서 시작한다.
+            // 2570:2108. 폭 354라 좌우 24에서 시작한다. 색은 #CCCBCB.
             const Positioned(
               left: 24,
               top: 354,
               width: 354,
-              child: Divider(height: 1, thickness: 1, color: kGaugeTrack),
+              child: Divider(height: 1, thickness: 1, color: kGrayLightest),
             ),
             Positioned(
               left: AppLayout.myPageSubHorizontalPadding,

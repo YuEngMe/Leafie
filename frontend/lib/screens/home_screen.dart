@@ -24,12 +24,14 @@ import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/instant_page_route.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
 import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
 
@@ -129,9 +131,9 @@ enum HomeTimePeriod {
   /// 방이름: 늦저녁(2431:14981)만 `#CCCBCB`, 나머지는 진한 텍스트.
   Color get titleColor => this == lateEvening ? kGrayLightest : kTextDark;
 
-  /// D+와 알림 벨: 주간은 진한 텍스트·오렌지, 그 외 세 시간대는 연노랑
+  /// D+와 알림 벨: 주간은 검정(4534:9685)·오렌지, 그 외 세 시간대는 연노랑
   /// `#FFECA6`(2431:14986, 3429:1965).
-  Color get counterColor => this == day ? kTextDark : kPaleYellow;
+  Color get counterColor => this == day ? Colors.black : kPaleYellow;
   Color get notificationColor => this == day ? kOrangeMain : kPaleYellow;
 }
 
@@ -582,7 +584,8 @@ class _HomeScreenState extends State<HomeScreen>
   void _openDiagnosis() {
     final plant = _serverPlant ?? widget.plant;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      // 홈에서 잠깐 열어 보는 화면이라 슬라이드 없이 한 번에 띄운다(10/31).
+      InstantPageRoute<void>(
         builder: (_) =>
             DiagnosisScreen(plantId: plant?.id, plantName: plant?.name),
       ),
@@ -750,7 +753,8 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openPlantManagement() async {
     String? selectedPlantId;
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      // 내 캐릭터(전체보기)도 홈에서 잠깐 열어 보는 화면이라 한 번에 띄운다.
+      InstantPageRoute(
         builder: (routeContext) =>
             widget.plantManagementBuilder?.call(
               routeContext,
@@ -786,7 +790,8 @@ class _HomeScreenState extends State<HomeScreen>
     // 알림을 누르면 목록을 닫고 그 알림을 돌려받아 홈에서 이동한다. 우편함은
     // 홈 위에 뜨는 화면이고 캘린더는 홈의 탭이라, 알림 화면 위에 쌓지 않는다.
     final selected = await Navigator.of(context).push<NotificationData>(
-      MaterialPageRoute(
+      // 알림센터는 슬라이드 없이 한 번에 띄운다(10/31 피드백).
+      InstantPageRoute(
         builder:
             widget.notificationBuilder ??
             (routeContext) => NotificationScreen(
@@ -1064,7 +1069,7 @@ class _HomeScreenState extends State<HomeScreen>
                   left: 333,
                   top: 113,
                   child: FigmaHomeViewSwitch(
-                    onOverviewTap: () {},
+                    onOverviewTap: _openPlantManagement,
                     onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
@@ -1084,27 +1089,136 @@ class _HomeScreenState extends State<HomeScreen>
                         ? null
                         : _serverDialogue,
                   ),
+                if (plant != null && _unreadLetterCount > 0)
+                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. 노드는 x=319
+                  // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
+                  // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
+                  // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
+                  Positioned(
+                    left: 319 - 4,
+                    top: 390 - 4,
+                    width: 55 + 8,
+                    height: 62.188 + 8,
+                    child: Image.asset(
+                      'assets/images/home_letter_badge.png',
+                      fit: BoxFit.contain,
+                      semanticLabel: '새 편지가 도착했어요',
+                    ),
+                  ),
+                if (plant != null)
+                  // 시안(4534:8101) 캐릭터 몸통: x=123 y=396 155.2x143.
+                  // PlantCharacterArt는 circle 몸통을 `width × 0.897` 폭으로
+                  // 박스 가로 가운데에 그리므로 폭은 155.2/0.897≈173.02다.
+                  // 몸통 위쪽은 박스 위에서 8.74 아래(박스 높이 160.87 − 바닥
+                  // 여백 9.17 − 몸통 높이 142.96)라 그만큼 위로 당긴다.
+                  // 화살표로 방을 옮기면 지금 캐릭터는 밀려 나가고 다음 캐릭터가
+                  // 반대쪽에서 들어온다(디자이너 답 5-A). 배경은 시간대 그림이라
+                  // 그대로 둔다.
+                  //
+                  // 머리(잎)는 박스 위로 넘쳐 그려져 박스만으로는 눌리지 않는다.
+                  // 그래서 자리를 _kCharacterHairRoom만큼 위로 넓히고, 그 안에서
+                  // 몸통 박스와 머리 그림 영역만 터치를 받게 해 잎을 눌러도
+                  // 쓰다듬는다(10/31 피드백). 잎 옆 빈 하늘은 그대로 통과한다.
+                  Positioned(
+                    // 앞쪽 말풍선·배지가 생기고 사라져도 전환 중인 캐릭터 상태를
+                    // 다른 자리와 바꿔 쓰지 않도록 키로 묶는다.
+                    key: const ValueKey('home-character-slot'),
+                    left: 123 - (173.02 - 155.2) / 2,
+                    top: 396 - 8.74 - _kCharacterHairRoom,
+                    width: 173.02,
+                    child: RoomSlideSwitcher(
+                      direction: _slideDirection,
+                      // 캐릭터 폭 두 배를 밀어야 402 화면 밖으로 완전히 나간다.
+                      distance: 2,
+                      child: Semantics(
+                        key: ValueKey('home-room-${plant.id}'),
+                        button: true,
+                        label: '쓰담쓰담',
+                        child: GestureDetector(
+                          key: const ValueKey('home-character-pet'),
+                          behavior: HitTestBehavior.deferToChild,
+                          onTap: _petCharacter,
+                          onHorizontalDragStart: (_) => _startRub(),
+                          onHorizontalDragUpdate: (_) => _continueRub(),
+                          onHorizontalDragEnd: (_) => _endRub(),
+                          onHorizontalDragCancel: _endRub,
+                          child: _CharacterHitArea(
+                            hairPath: PlantCharacterArt.hairHitPath(
+                              width: 173.02,
+                              body: plantBodyFromId(plant.bodyId),
+                              hairId: plant.hairId,
+                            ),
+                            child: AnimatedBuilder(
+                              // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
+                              // 표정 전환도 여기서 함께 재평가된다.
+                              animation: Listenable.merge([
+                                _petController,
+                                _wateringController,
+                              ]),
+                              builder: (context, _) {
+                                // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
+                                final wiggle = _petController.isAnimating
+                                    ? math.sin(
+                                            _petController.value * math.pi * 6,
+                                          ) *
+                                          0.03 *
+                                          (1 - _petController.value)
+                                    : 0.0;
+                                // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
+                                final bouncePhase =
+                                    ((_wateringController.value - 0.35) / 0.4)
+                                        .clamp(0.0, 1.0);
+                                final bounce =
+                                    math.sin(bouncePhase * math.pi) * 6;
+                                // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
+                                // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
+                                // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
+                                final expression = _isBeingCaredFor
+                                    ? PlantExpression.happy
+                                    : plantExpressionFromId(plant.expressionId);
+                                return Transform.translate(
+                                  offset: Offset(0, -bounce),
+                                  child: Transform.rotate(
+                                    angle: wiggle,
+                                    child: PlantCharacterArt(
+                                      width: 173.02,
+                                      body: plantBodyFromId(plant.bodyId),
+                                      expression: expression,
+                                      colorId: plant.colorId,
+                                      hairId: plant.hairId,
+                                      faceSwitchDuration:
+                                          MediaQuery.disableAnimationsOf(
+                                            context,
+                                          )
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 200),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (plant != null)
                   // 물줄기(시안 4534:11340 "Group 1597881924").
                   //
-                  // 본체는 시안 vector를 그대로 쓴다(home_water_stream_vec.svg,
-                  // viewBox 122.778×241.418). 주둥이(로컬 x≈83.5 y≈4)에서 좁게
-                  // 시작해 아래로 넓어지는 부채꼴이고, 색은 시안 linear
-                  // 그라디언트(위 #AAE7F1 → 아래 투명)라 직접 그리지 않는다.
-                  // (시안의 feTurbulence 물결 텍스처는 flutter_svg가 렌더하지
-                  // 못해 생략한다.)
+                  // 시안 "물 주는 모션"(4534:10942)에서 물줄기·물뿌리개 그룹은
+                  // 캐릭터 그룹 위에 있다. 물이 잎 앞으로 쏟아지도록 캐릭터
+                  // 다음에 둔다.
                   //
-                  // 그 위에 _WaterFlowPainter를 얹어 시안의 작은 물방울과 흰
-                  // 반짝점이 부채꼴 안을 계속 흘러내리게 한다(콸콸 느낌).
-                  // 흰 선(Vector 1538~1545)은 흩날림 레이어에만 시안대로 두고,
-                  // 따로 길게 흘려보내지 않는다(디자이너 요청, 시안 5038:6698).
-                  // 본체 자체는 형태 고정이라 Transform으로 좌우 흔들림 +
-                  // 미세 scaleX 맥동을 줘 물이 출렁이게 한다.
+                  // 본체는 시안 vector(Vector 1537)를 3배로 렌더한 PNG다. 주둥이
+                  // (로컬 x≈83.5 y≈4~24)에서 왼쪽으로 휘어 나간 뒤 아래로
+                  // 떨어지는 곡선이고, 색은 시안 linear 그라디언트(위 #AAE7F1 →
+                  // 아래 투명), 가장자리는 시안 feTurbulence 물결 질감이다.
+                  // flutter_svg가 이 질감을 못 그려서 SVG 대신 PNG를 쓴다.
                   //
-                  // 맨 위에는 시안 5055:181의 흩날림 레이어
-                  // (home_water_splash.svg)를 얹는다. 물줄기 주변으로 튀어
-                  // 흩어지며 떨어지는 눈물방울들이며, 정적 프레임이라
-                  // _WaterSplashLayer가 세로로 이어붙여 아래로 흘려보낸다.
+                  // 그 위에 _WaterFlowPainter가 시안의 흰 선·물방울·반짝점을
+                  // 물줄기 곡선을 따라 주둥이에서 흘려보낸다(콸콸 느낌). 본체
+                  // 자체는 형태 고정이라 Transform으로 좌우 흔들림 + 미세 scaleX
+                  // 맥동을 줘 물이 출렁이게 한다.
                   //
                   // 물뿌리개 앞이 아니라 뒤에 둬 주둥이가 물줄기 위를 덮는다.
                   AnimatedBuilder(
@@ -1127,40 +1241,36 @@ class _HomeScreenState extends State<HomeScreen>
                           ? 1.0
                           : 1 + math.sin(wobblePhase + math.pi / 3) * 0.02;
                       return Positioned(
-                        // 기운 주둥이 아래(화면 ≈x240 y200)에 시안 부채꼴의 시작
-                        // 점(로컬 x83.5 y4)이 오도록 맞춘다. 하단 부채꼴은
-                        // 화면 y≈433, x≈169~275로 퍼져 캐릭터 정수리(y≈400)를
-                        // 덮는다. 붓는 동안 물이 주둥이에서 살짝 흘러내린다.
-                        left: 156,
-                        top: 196 + 8 * (1 - phase),
+                        // 시안 절대좌표. 붓는 동안 물이 주둥이에서 살짝
+                        // 흘러내린다.
+                        left: _kWaterStreamLeft,
+                        top: _kWaterStreamTop + 8 * (1 - phase),
                         width: _kWaterStreamWidth,
                         height: _kWaterStreamHeight,
                         child: IgnorePointer(
                           child: Opacity(
                             opacity: phase,
                             child: Transform(
-                              alignment: Alignment.topCenter,
+                              // 주둥이 쪽을 축으로 흔들어 입구는 제자리에 둔다.
+                              alignment: const Alignment(0.36, -1),
                               transform: Matrix4.identity()
                                 ..translateByDouble(sway, 0, 0, 1)
                                 ..scaleByDouble(scaleX, 1, 1, 1),
                               child: Stack(
                                 children: [
-                                  SvgPicture.asset(
-                                    'assets/images/home_water_stream_vec.svg',
+                                  Image.asset(
+                                    'assets/images/home_water_stream.png',
                                     width: _kWaterStreamWidth,
                                     height: _kWaterStreamHeight,
                                     fit: BoxFit.fill,
                                   ),
-                                  if (!reduceMotion)
-                                    Positioned.fill(
-                                      child: CustomPaint(
-                                        painter: _WaterFlowPainter(pour: pour),
-                                      ),
-                                    ),
                                   Positioned.fill(
-                                    child: _WaterSplashLayer(
-                                      pour: pour,
-                                      reduceMotion: reduceMotion,
+                                    child: CustomPaint(
+                                      painter: _WaterFlowPainter(
+                                        pour: reduceMotion
+                                            ? _kWaterStillPour
+                                            : pour,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1268,105 +1378,6 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (plant != null && _unreadLetterCount > 0)
-                  // 시안(4534:9698) 편지 배지: 우편함 위에 뜬다. 노드는 x=319
-                  // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
-                  // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
-                  // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
-                  Positioned(
-                    left: 319 - 4,
-                    top: 390 - 4,
-                    width: 55 + 8,
-                    height: 62.188 + 8,
-                    child: Image.asset(
-                      'assets/images/home_letter_badge.png',
-                      fit: BoxFit.contain,
-                      semanticLabel: '새 편지가 도착했어요',
-                    ),
-                  ),
-                if (plant != null)
-                  // 시안(4534:8101) 캐릭터 몸통: x=123 y=396 155.2x143.
-                  // PlantCharacterArt는 circle 몸통을 `width × 0.897` 폭으로
-                  // 박스 가로 가운데에 그리므로 폭은 155.2/0.897≈173.02다.
-                  // 몸통 위쪽은 박스 위에서 8.74 아래(박스 높이 160.87 − 바닥
-                  // 여백 9.17 − 몸통 높이 142.96)라 그만큼 위로 당긴다.
-                  // 화살표로 방을 옮기면 지금 캐릭터는 밀려 나가고 다음 캐릭터가
-                  // 반대쪽에서 들어온다(디자이너 답 5-A). 배경은 시간대 그림이라
-                  // 그대로 둔다.
-                  Positioned(
-                    // 앞쪽 말풍선·배지가 생기고 사라져도 전환 중인 캐릭터 상태를
-                    // 다른 자리와 바꿔 쓰지 않도록 키로 묶는다.
-                    key: const ValueKey('home-character-slot'),
-                    left: 123 - (173.02 - 155.2) / 2,
-                    top: 396 - 8.74,
-                    width: 173.02,
-                    child: RoomSlideSwitcher(
-                      direction: _slideDirection,
-                      // 캐릭터 폭 두 배를 밀어야 402 화면 밖으로 완전히 나간다.
-                      distance: 2,
-                      child: Semantics(
-                        key: ValueKey('home-room-${plant.id}'),
-                        button: true,
-                        label: '쓰담쓰담',
-                        child: GestureDetector(
-                          key: const ValueKey('home-character-pet'),
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _petCharacter,
-                          onHorizontalDragStart: (_) => _startRub(),
-                          onHorizontalDragUpdate: (_) => _continueRub(),
-                          onHorizontalDragEnd: (_) => _endRub(),
-                          onHorizontalDragCancel: _endRub,
-                          child: AnimatedBuilder(
-                            // 쓰담 wiggle과 물주기 bounce를 함께 반영한다.
-                            // 표정 전환도 여기서 함께 재평가된다.
-                            animation: Listenable.merge([
-                              _petController,
-                              _wateringController,
-                            ]),
-                            builder: (context, _) {
-                              // 쓰담: ±0.03rad를 몇 번 왕복하며 감쇠.
-                              final wiggle = _petController.isAnimating
-                                  ? math.sin(
-                                          _petController.value * math.pi * 6,
-                                        ) *
-                                        0.03 *
-                                        (1 - _petController.value)
-                                  : 0.0;
-                              // 물이 캐릭터에 닿는 붓는 구간(0.35~0.75)에 통통 튄다.
-                              final bouncePhase =
-                                  ((_wateringController.value - 0.35) / 0.4)
-                                      .clamp(0.0, 1.0);
-                              final bounce =
-                                  math.sin(bouncePhase * math.pi) * 6;
-                              // 돌보기 중엔 기쁜 표정, 평소엔 서버가 정한 표정
-                              // (#124: 센서가 부족·과다면 슬픔, 둘 다 적당하면
-                              // 기쁨, 그 외 기본). 얼굴만 크로스페이드한다.
-                              final expression = _isBeingCaredFor
-                                  ? PlantExpression.happy
-                                  : plantExpressionFromId(plant.expressionId);
-                              return Transform.translate(
-                                offset: Offset(0, -bounce),
-                                child: Transform.rotate(
-                                  angle: wiggle,
-                                  child: PlantCharacterArt(
-                                    width: 173.02,
-                                    body: plantBodyFromId(plant.bodyId),
-                                    expression: expression,
-                                    colorId: plant.colorId,
-                                    hairId: plant.hairId,
-                                    faceSwitchDuration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 200),
-                                  ),
-                                ),
-                              );
-                            },
                           ),
                         ),
                       ),
@@ -1526,25 +1537,37 @@ class _HomeHeader extends StatelessWidget {
               style: kCaptionStyle.copyWith(color: counterColor, height: 1),
             ),
           ),
+        // 방 이름 줄(시안 y 55, 높이 31)의 가운데를 그대로 두고 높이만 44로
+        // 넓혀, 좌우 꺾쇠를 44x44 안 어디를 눌러도 방이 넘어가게 한다(10/31
+        // 피드백: 누르는 범위가 좁았다). 꺾쇠 그림은 이름 쪽에 붙여 자리를
+        // 그대로 두고, 넓힌 영역은 바깥쪽으로 늘어난다.
         Positioned(
           left: 0,
           right: 0,
-          top: 55,
-          height: 31,
+          top: 55 - (_kHeaderArrowHit - 31) / 2,
+          height: _kHeaderArrowHit,
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
                   key: const ValueKey('home-previous-plant'),
+                  behavior: HitTestBehavior.opaque,
                   onTap: canSwitchPlant ? onPreviousPlant : null,
-                  child: Icon(
-                    Icons.chevron_left_rounded,
-                    color: titleColor,
-                    size: 24,
+                  child: SizedBox.square(
+                    dimension: _kHeaderArrowHit,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _RoomChevron(
+                        'assets/images/home_room_chevron_left.svg',
+                        color: titleColor,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 3),
+                // 시안 꺾쇠 글자와 이름 칸 사이 14.37. 왼쪽 SVG는 글자가
+                // 오른쪽 끝에서 0.62 안쪽에 그려진다.
+                const SizedBox(width: 14.37 - 0.62),
                 GestureDetector(
                   key: const ValueKey('home-manage-plants'),
                   onTap: onManagePlants,
@@ -1565,14 +1588,20 @@ class _HomeHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 14.37),
                 GestureDetector(
                   key: const ValueKey('home-next-plant'),
+                  behavior: HitTestBehavior.opaque,
                   onTap: canSwitchPlant ? onNextPlant : null,
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: titleColor,
-                    size: 24,
+                  child: SizedBox.square(
+                    dimension: _kHeaderArrowHit,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _RoomChevron(
+                        'assets/images/home_room_chevron_right.svg',
+                        color: titleColor,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -1785,10 +1814,12 @@ class _HomeStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
+      // 4534:9687: (21,725) 360×51, 흰색 30%, 모서리 35, 바깥 그림자
+      // 검정 20% 흐림 5, GLASS 흐림 3.
       left: 21,
       right: 21,
-      top: 727,
-      height: 49,
+      top: 725,
+      height: 51,
       child: Semantics(
         button: true,
         label: '조도 습도 체크하기',
@@ -1796,25 +1827,23 @@ class _HomeStatusCard extends StatelessWidget {
           key: const ValueKey('home-environment-card'),
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.42),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x26000000), blurRadius: 4),
-                  ],
-                ),
-                child: const Row(
-                  children: [
-                    SizedBox(width: 8),
-                    FigmaHomeAssetIcon(FigmaHomeIcon.environmentCheck),
-                    SizedBox(width: 14),
-                    Text('조도 습도 체크하기', style: kItemStyle),
-                  ],
+          child: CustomPaint(
+            painter: const _OutsideShadowPainter(radius: _kStatusCardRadius),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_kStatusCardRadius),
+              child: BackdropFilter(
+                // Figma 흐림 3 = sigma 1.5.
+                filter: ui.ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  child: const Row(
+                    children: [
+                      SizedBox(width: 8),
+                      FigmaHomeAssetIcon(FigmaHomeIcon.environmentCheck),
+                      SizedBox(width: 14),
+                      Text('조도 습도 체크하기', style: kItemStyle),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1825,7 +1854,66 @@ class _HomeStatusCard extends StatelessWidget {
   }
 }
 
-class _HomeEnvironmentPanel extends StatelessWidget {
+/// 방 이름 좌우 꺾쇠. 시안(4534:9649·9650)은 Sandoll CreamPang `<` 글자라
+/// 앱에 없는 폰트 대신 글자 윤곽을 SVG로 받아 쓴다. 글자 가운데가 이름 줄
+/// 가운데보다 0.67 위에 있다.
+class _RoomChevron extends StatelessWidget {
+  const _RoomChevron(this.asset, {required this.color});
+
+  final String asset;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(0, -0.67),
+      child: SvgPicture.asset(
+        asset,
+        width: 8,
+        height: 14,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      ),
+    );
+  }
+}
+
+const double _kStatusCardRadius = 35;
+
+/// 반투명 카드의 그림자를 카드 바깥에만 그린다. 시안은 "Show behind
+/// transparent areas"가 꺼져 있어 흰색 30% 아래로 그림자가 비치지 않는다.
+class _OutsideShadowPainter extends CustomPainter {
+  const _OutsideShadowPainter({required this.radius});
+
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final card = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    canvas.clipPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect((Offset.zero & size).inflate(12)),
+        Path()..addRRect(card),
+      ),
+    );
+    canvas.drawRRect(
+      card,
+      Paint()
+        ..color = const Color(0x33000000)
+        // Figma 흐림 5 = sigma 2.5.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_OutsideShadowPainter oldDelegate) =>
+      oldDelegate.radius != radius;
+}
+
+class _HomeEnvironmentPanel extends StatefulWidget {
   const _HomeEnvironmentPanel({
     required this.sensor,
     required this.plantName,
@@ -1837,74 +1925,134 @@ class _HomeEnvironmentPanel extends StatelessWidget {
   final VoidCallback onCollapse;
 
   @override
+  State<_HomeEnvironmentPanel> createState() => _HomeEnvironmentPanelState();
+}
+
+/// 판을 손가락으로 끌어내리면 손을 따라 내려가고, 충분히 내렸거나 빠르게
+/// 튕기면 끝까지 내려간 뒤 접힌다. 덜 내리면 제자리로 돌아온다.
+class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
+    with SingleTickerProviderStateMixin {
+  static const double _height = 220;
+  static const double _collapseDistance = 60;
+  static const double _collapseVelocity = 500;
+
+  /// 0 = 제자리, [_height] = 다 내려감.
+  late final AnimationController _drag = AnimationController(
+    vsync: this,
+    upperBound: _height,
+    duration: const Duration(milliseconds: 220),
+  );
+
+  @override
+  void dispose() {
+    _drag.dispose();
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    _drag.value = (_drag.value + details.delta.dy).clamp(0, _height);
+  }
+
+  Future<void> _onDragEnd(DragEndDetails details) async {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_drag.value > _collapseDistance || velocity > _collapseVelocity) {
+      await _drag.animateTo(_height, curve: AppMotion.easeOut);
+      if (mounted) widget.onCollapse();
+    } else {
+      await _drag.animateTo(0, curve: AppMotion.easeOut);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sensor = widget.sensor;
+    final plantName = widget.plantName;
+    final onCollapse = widget.onCollapse;
     return Positioned(
       left: 0,
       right: 0,
       top: 575,
-      height: 220,
-      // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
-      // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
-      // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.3),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+      height: _height,
+      child: GestureDetector(
+        key: const ValueKey('home-environment-panel'),
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        child: AnimatedBuilder(
+          animation: _drag,
+          builder: (context, child) =>
+              Transform.translate(offset: Offset(0, _drag.value), child: child),
+          child: _panel(sensor, plantName, onCollapse),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 1,
-              height: 18,
-              child: GestureDetector(
-                key: const ValueKey('home-environment-collapse'),
-                behavior: HitTestBehavior.opaque,
-                onTap: onCollapse,
-                child: const Center(
-                  child: SizedBox(
-                    width: 71.6,
-                    height: 2,
-                    child: ColoredBox(color: Colors.white),
-                  ),
+      ),
+    );
+  }
+
+  Widget _panel(
+    SensorAssessment? sensor,
+    String plantName,
+    VoidCallback onCollapse,
+  ) {
+    // 시안 4534:7922: 흰 30%. 배경 흐림(background blur) 효과는 없어 뒤
+    // 풀밭이 또렷하게 비친다. 시안의 바깥 그림자(0 0 5, 20%)는 Flutter
+    // BoxShadow가 반투명 판 안쪽까지 깔려 판 전체가 어두워지므로 넣지 않는다.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.3),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 1,
+            height: 18,
+            child: GestureDetector(
+              key: const ValueKey('home-environment-collapse'),
+              behavior: HitTestBehavior.opaque,
+              onTap: onCollapse,
+              child: const Center(
+                child: SizedBox(
+                  width: 71.6,
+                  height: 2,
+                  child: ColoredBox(color: Colors.white),
                 ),
               ),
             ),
-            if (sensorPanelMessage(sensor) case final message?)
-              Positioned(
-                left: 34,
-                right: 34,
-                // Figma 3822:601: y=683, relative to the panel at y=575.
-                top: 108,
-                child: Text(
-                  message,
-                  key: const ValueKey('home-environment-message'),
-                  textAlign: TextAlign.center,
-                  // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
-                  // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
-                  style: kTitleStyle.copyWith(
-                    fontSize: 21,
-                    color: const Color(0xFF434343),
-                  ),
+          ),
+          if (sensorPanelMessage(sensor) case final message?)
+            Positioned(
+              left: 34,
+              right: 34,
+              // Figma 3822:601: y=683, relative to the panel at y=575.
+              top: 108,
+              child: Text(
+                message,
+                key: const ValueKey('home-environment-message'),
+                textAlign: TextAlign.center,
+                // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
+                // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
+                style: kTitleStyle.copyWith(
+                  fontSize: 21,
+                  color: const Color(0xFF434343),
                 ),
-              )
-            else ...[
-              // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
-              // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
-              _gauge(
-                top: 606 - 575,
-                kind: EnvironmentGaugeKind.humidity,
-                content: soilGaugeContent(sensor!.soil, plantName),
               ),
-              _gauge(
-                top: 697 - 575,
-                kind: EnvironmentGaugeKind.light,
-                content: lightGaugeContent(sensor!.light, plantName),
-              ),
-            ],
+            )
+          else ...[
+            // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+            // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+            _gauge(
+              top: 606 - 575,
+              kind: EnvironmentGaugeKind.humidity,
+              content: soilGaugeContent(sensor!.soil, plantName),
+            ),
+            _gauge(
+              top: 697 - 575,
+              kind: EnvironmentGaugeKind.light,
+              content: lightGaugeContent(sensor.light, plantName),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1936,31 +2084,22 @@ class _HomeEnvironmentPanel extends StatelessWidget {
 /// 상자·제목·부제 자리는 확인 모달(ConfirmDialog, 부제 있는 경우)과 같다:
 /// (47, 358) 308x158.829, 제목 top 40, 부제 top 68. 아래만 구분선·두 버튼
 /// 대신 주황 버튼 하나(4955:3673, 상자 기준 x22 y108 264x40)라 따로 둔다.
-class _HomeDisconnectedDialog extends StatefulWidget {
+class _HomeDisconnectedDialog extends StatelessWidget {
   const _HomeDisconnectedDialog({required this.onRetry});
 
+  /// 모달을 닫아도 되면 true.
   final Future<bool> Function() onRetry;
 
   @override
-  State<_HomeDisconnectedDialog> createState() =>
-      _HomeDisconnectedDialogState();
-}
-
-class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
-  bool _retrying = false;
-
-  Future<void> _retry() async {
-    // 버튼을 회색(비활성)으로 바꾸지 않고 겹친 탭만 막는다.
-    if (_retrying) return;
-    _retrying = true;
-    final close = await widget.onRetry();
-    if (!mounted) return;
-    _retrying = false;
-    if (close) Navigator.of(context).pop();
+  Widget build(BuildContext context) {
+    return RetryFeedback(
+      onRetry: onRetry,
+      onSucceeded: () => Navigator.of(context).pop(),
+      builder: (context, phase, retry) => _dialog(phase, retry),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _dialog(RetryPhase phase, VoidCallback retry) {
     return Dialog(
       elevation: 0,
       backgroundColor: Colors.transparent,
@@ -2007,7 +2146,9 @@ class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
               height: 14,
               child: Center(
                 child: Text(
-                  '인터넷 연결을 확인하고 다시 시도해주세요.',
+                  phase == RetryPhase.failed
+                      ? kRetryFailedMessage
+                      : '인터넷 연결을 확인하고 다시 시도해주세요.',
                   style: kCaptionStyle.copyWith(
                     color: kGrayLightest,
                     height: 1,
@@ -2022,12 +2163,12 @@ class _HomeDisconnectedDialogState extends State<_HomeDisconnectedDialog> {
               top: 108,
               child: PrimaryButton(
                 key: const ValueKey('home-disconnected-retry'),
-                label: '다시 시도',
+                label: phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도',
                 width: 264,
                 height: 40,
                 variant: PrimaryButtonVariant.enabled,
                 textStyle: kButtonStyle.copyWith(color: kTextDark),
-                onPressed: _retry,
+                onPressed: retry,
               ),
             ),
           ],
@@ -2173,199 +2314,289 @@ class _CareToast extends StatelessWidget {
 const double _kWateringPourAngle = 34.48 * math.pi / 180;
 const double _kWateringPourScale = 113.804 / 83.98;
 
-/// 시안 물줄기 본체 SVG(home_water_stream_vec.svg)의 viewBox 크기.
-/// 오버레이 페인터가 같은 좌표계를 쓰도록 위젯 박스도 이 값으로 맞춘다.
-const double _kWaterStreamWidth = 122.778;
-const double _kWaterStreamHeight = 241.418;
+/// 홈 헤더 방 이름 좌우 꺾쇠의 터치 영역 한 변(iOS 최소 터치 크기).
+const double _kHeaderArrowHit = 44;
 
-/// 시안 흩날림 SVG(home_water_splash.svg, 5055:181)의 viewBox 크기.
-const double _kWaterSplashWidth = 93.0651;
-const double _kWaterSplashHeight = 164.783;
+/// 홈 캐릭터 자리를 몸통 박스 위로 넓히는 높이. 어떤 머리를 얹어도 다 들어가도록
+/// 모든 머리 중 가장 높이 넘치는 값으로 잡아, 방을 옮겨도 자리 크기가 같다.
+final double _kCharacterHairRoom = PlantCharacterArt.maxHairOverflow(173.02);
 
-/// 물줄기 본체 박스 기준 흩날림 레이어의 좌상단 오프셋.
-/// 시안 절대좌표(x 151.9, y 205.8) - 본체 Positioned(left 156, top 196).
-const double _kWaterSplashLeft = -4.1;
-const double _kWaterSplashTop = 9.8;
+/// 홈 캐릭터의 터치 영역. 위 [_kCharacterHairRoom] 자리에 머리 그림을 감싼
+/// 다각형을, 그 아래에 몸통 박스(예전 터치 영역 그대로)를 둔다. 둘 다 아니면
+/// 터치가 뒤로 통과한다. [child]는 몸통 박스 자리에 그린다.
+class _CharacterHitArea extends StatelessWidget {
+  const _CharacterHitArea({required this.hairPath, required this.child});
 
-/// 물줄기 본체 SVG 위에 얹는 흩날림 레이어(시안 5055:181 = 물줄기 주변으로
-/// 튀어 흩어지며 떨어지는 눈물방울들).
-///
-/// SVG 자체는 한 프레임의 정적 배치라 그대로 두면 물방울이 공중에 멈춰 있다.
-/// 그래서 같은 SVG를 세로로 2장 이어붙인 뒤(위·아래) 전체를 아래로
-/// `translateY = -(1 - p) * 높이` 만큼 흘려보내(p는 0→1 순환) 위 장이 내려가면
-/// 아래 장이 이어지게 한다 — 끊김 없이 계속 떨어지는 것처럼 보인다.
-/// 바깥은 `ClipRect`로 잘라 본체 영역 밖으로 튀어나오지 않게 한다.
-///
-/// 하단은 `ShaderMask`로 페이드아웃한다. 본체 그라디언트가 로컬
-/// y≈164(68%)에서 투명해지므로 _WaterFlowPainter의 `_visibleEnd`(0.62)와 같은
-/// 감각으로 그 언저리부터 물방울을 지워, 본체 없는 허공에 물방울만 떠 보이지
-/// 않게 한다.
-///
-/// 접근성으로 애니메이션이 꺼져 있으면 한 장을 정적으로만 표시한다.
-class _WaterSplashLayer extends StatelessWidget {
-  const _WaterSplashLayer({required this.pour, required this.reduceMotion});
+  /// 몸통 박스 좌표의 머리 터치 영역([PlantCharacterArt.hairHitPath]).
+  final Path? hairPath;
 
-  /// 붓는 구간(0.2~0.85) 진행도(0~1). 흐름의 시간축.
-  final double pour;
-
-  final bool reduceMotion;
-
-  /// 한 번 붓는 동안 도는 바퀴 수. 본체 안 물방울(speed 2.0~3.1)보다 살짝
-  /// 느리게 잡아 흩날림이 따로 튀어 보이지 않게 한다.
-  static const double _cycles = 2.4;
-
-  /// 페이드아웃 시작/끝(본체 박스 높이 대비). `_WaterFlowPainter._visibleEnd`와
-  /// 같은 지점에서 지워지기 시작해 0.76에서 완전히 사라진다.
-  static const double _fadeStart = 0.62;
-  static const double _fadeEnd = 0.76;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final splash = SvgPicture.asset(
-      'assets/images/home_water_splash.svg',
-      width: _kWaterSplashWidth,
-      height: _kWaterSplashHeight,
-      fit: BoxFit.fill,
-    );
-
-    final Widget flow;
-    if (reduceMotion) {
-      flow = Positioned(
-        left: _kWaterSplashLeft,
-        top: _kWaterSplashTop,
-        width: _kWaterSplashWidth,
-        height: _kWaterSplashHeight,
-        child: splash,
-      );
-    } else {
-      // 0→1 순환. 0일 때 위 장의 아래끝이 시작 위치에 오고, 1에 가까워지면
-      // 아래 장이 그 자리를 이어받아 같은 배치로 돌아온다(끊김 없음).
-      final p = (pour * _cycles) % 1.0;
-      final dy = (p - 1) * _kWaterSplashHeight;
-      flow = Positioned(
-        left: _kWaterSplashLeft,
-        top: _kWaterSplashTop + dy,
-        width: _kWaterSplashWidth,
-        height: _kWaterSplashHeight * 2,
-        child: Column(children: [splash, splash]),
-      );
-    }
-
-    return IgnorePointer(
-      child: ClipRect(
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: const [Colors.white, Colors.white, Colors.transparent],
-            stops: const [0.0, _fadeStart, _fadeEnd],
-          ).createShader(bounds),
-          child: Stack(clipBehavior: Clip.none, children: [flow]),
+    final hair = hairPath;
+    return Stack(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: _kCharacterHairRoom),
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: Listener(behavior: HitTestBehavior.opaque),
+              ),
+              child,
+            ],
+          ),
         ),
-      ),
+        if (hair != null)
+          // ClipPath는 다각형 밖 터치를 받지 않는다.
+          Positioned.fill(
+            child: ClipPath(
+              clipper: _PathClipper(
+                hair.shift(Offset(0, _kCharacterHairRoom)),
+              ),
+              child: const Listener(behavior: HitTestBehavior.opaque),
+            ),
+          ),
+      ],
     );
   }
 }
 
-/// 물줄기 본체 SVG 위에 얹어 물이 흘러내리게 하는 오버레이(시안 4534:11340의
-/// Ellipse 1021~1034 물방울·흰 반짝점을 움직이게 한 것).
+class _PathClipper extends CustomClipper<Path> {
+  const _PathClipper(this.path);
+
+  final Path path;
+
+  @override
+  Path getClip(Size size) => path;
+
+  @override
+  bool shouldReclip(_PathClipper oldClipper) => oldClipper.path != path;
+}
+
+/// 시안 물줄기 본체(Vector 1537) PNG(home_water_stream.png)의 크기. 시안이
+/// 내보낸 SVG(viewBox 122.778×241.418)를 3배로 렌더한 것이라, 오버레이
+/// 페인터도 이 좌표계를 그대로 쓴다.
+const double _kWaterStreamWidth = 122.778;
+const double _kWaterStreamHeight = 241.418;
+
+/// 물줄기 박스의 시안 절대좌표. 시안 Vector 1537은 (142.68, 198)에 있고 박스
+/// 안에서 경로 앞에 (3.80, 3.80) 여백이 있어 박스는 그만큼 위·왼쪽이다.
+/// 예전 (156, 196)은 물줄기가 16pt 오른쪽으로 밀려 주둥이 뒤에서 나왔다.
+const double _kWaterStreamLeft = 138.875;
+const double _kWaterStreamTop = 194.2;
+
+/// 애니메이션이 꺼져 있을 때 오버레이를 멈춰 그릴 시점.
+const double _kWaterStillPour = 0.3;
+
+/// 물줄기 본체 위에 얹어 물이 흘러내리게 하는 오버레이(시안 5038:6698의
+/// 흩날림 5055:181과 Ellipse 1022~1034를 움직이게 한 것).
 ///
-/// 시안 본체 path의 좌우 경계를 y에 따라 선형 보간해(상단 좁고 하단 넓음)
-/// 물방울·반짝점을 부채꼴 안에만 배치하고, 각자 다른 속도·오프셋으로
-/// 위→아래를 순환(`(pour*speed + offset) % 1`)시켜 콸콸 흐르는 느낌을 만든다.
-/// 색은 시안 확대본처럼 본체(연하늘)보다 한 단계 진한 하늘색을 써서 물방울이
-/// 또렷하게 대비되게 한다.
+/// 시안 물줄기는 주둥이(오른쪽 위)에서 왼쪽으로 휘어 나간 뒤 아래로 떨어진다.
+/// 본체 경로의 바깥 가장자리(왼쪽 위 곡선)와 안쪽 가장자리(오른쪽 곡선)를 길이
+/// 비율 s(0=주둥이, 1=끝)로 맞대고, 그 사이를 x(0=바깥, 1=안쪽)로 보간한 자리에
+/// 흰 선·물방울·반짝점을 둔다. 각자 `(pour*speed + offset) % 1`로 s를 돌려
+/// 주둥이에서 나와 곡선을 따라 흘러내린다.
+///
+/// 예전에는 시안 흩날림 SVG를 통째로 세로로 흘렸다. 곡선을 따라가지 못해
+/// 흰 선이 물줄기 위 허공에서 내려왔다(10/31 피드백).
 class _WaterFlowPainter extends CustomPainter {
   _WaterFlowPainter({required this.pour});
 
   /// 붓는 구간(0.2~0.85) 진행도(0~1). 흐름의 시간축.
   final double pour;
 
-  /// 시안 확대본 물방울에서 직접 뽑은 진한 하늘색 rgb(173,224,238).
-  /// 본체(rgb 217,240,239)보다 확실히 진해 또렷하게 대비된다.
-  static const Color _dropDeep = Color(0xFFADE0EE);
+  /// 시안 물방울 색. 위쪽은 진하고(#99E2EF), 떨어질수록 옅다(#C0F1FA).
+  static const Color _dropDeep = Color(0xFF99E2EF);
+  static const Color _dropLight = Color(0xFFC0F1FA);
 
-  /// 물방울 밝은 쪽 색(시안의 흰빛 물방울). 소수만 이 색을 쓴다.
-  static const Color _dropLight = Color(0xFFECF8EE);
+  /// 본체 그라디언트는 y≈164에서 완전히 투명해진다. 시안 물방울은 그보다
+  /// 조금 아래(y≈176)까지 떨어지므로 그 사이에서 지운다.
+  static const double _fadeStartY = 140;
+  static const double _fadeEndY = 180;
 
-  /// 본체 그라디언트가 투명해지기 시작하는 세로 위치(0~1). 시안 linear
-  /// 그라디언트의 마지막 stop이 로컬 y≈163.8(=241.418의 약 0.68)이라,
-  /// 그 아래로는 물방울·반짝점이 본체 없이 떠 보이므로 여기서 사라진다.
-  static const double _visibleEnd = 0.62;
+  /// 주둥이에서 막 나온 구간(s). 여기서 서서히 나타나 입구에서 나오게 보인다.
+  static const double _emerge = 0.06;
 
-  /// 흐르는 눈물방울 14개. x는 그 y에서의 부채꼴 폭 대비 위치(0=좌경계,
-  /// 1=우경계), speed는 한 번 붓는 동안 도는 횟수, offset은 시작 위상,
-  /// width는 물방울 폭(본체 좌표계 px). 분포는 시안 Ellipse 1021~1034를
-  /// 따르되, 확대본처럼 보이도록 크기를 5~11px로 키웠다. light가 true면
-  /// 흰빛 물방울(소수만).
-  static const List<_FlowDrop> _drops = [
-    _FlowDrop(x: 0.46, speed: 2.2, offset: 0.00, width: 10.0),
-    _FlowDrop(x: 0.18, speed: 2.6, offset: 0.17, width: 6.5),
-    _FlowDrop(x: 0.74, speed: 2.0, offset: 0.34, width: 8.5),
-    _FlowDrop(x: 0.30, speed: 2.9, offset: 0.52, width: 5.2),
-    _FlowDrop(x: 0.60, speed: 2.3, offset: 0.70, width: 9.0, light: true),
-    _FlowDrop(x: 0.86, speed: 2.7, offset: 0.09, width: 6.0),
-    _FlowDrop(x: 0.24, speed: 2.1, offset: 0.26, width: 11.0),
-    _FlowDrop(x: 0.68, speed: 3.0, offset: 0.44, width: 5.0),
-    _FlowDrop(x: 0.12, speed: 2.4, offset: 0.61, width: 7.5),
-    _FlowDrop(x: 0.40, speed: 2.8, offset: 0.79, width: 5.8, light: true),
-    _FlowDrop(x: 0.55, speed: 2.5, offset: 0.13, width: 9.5),
-    _FlowDrop(x: 0.34, speed: 2.2, offset: 0.38, width: 5.5),
-    _FlowDrop(x: 0.80, speed: 3.1, offset: 0.66, width: 7.0),
-    _FlowDrop(x: 0.50, speed: 2.3, offset: 0.88, width: 6.8),
+  /// 흰 선 8개(시안 Vector 1538~1545). 길이는 시안처럼 25~45px.
+  static const List<_FlowStreak> _streaks = [
+    _FlowStreak(x: 0.30, speed: 2.2, offset: 0.00, length: 0.16),
+    _FlowStreak(x: 0.55, speed: 2.5, offset: 0.40, length: 0.12),
+    _FlowStreak(x: 0.42, speed: 2.0, offset: 0.65, length: 0.18),
+    _FlowStreak(x: 0.70, speed: 2.4, offset: 0.20, length: 0.13),
+    _FlowStreak(x: 0.20, speed: 2.6, offset: 0.85, length: 0.11),
+    _FlowStreak(x: 0.62, speed: 2.1, offset: 0.55, length: 0.16),
+    _FlowStreak(x: 0.36, speed: 2.3, offset: 0.30, length: 0.13),
+    _FlowStreak(x: 0.80, speed: 2.5, offset: 0.75, length: 0.11),
   ];
 
-  /// 흩뿌려진 작은 흰 반짝점 10개. x가 0 미만/1 초과면 부채꼴 경계 바깥이다
-  /// (시안처럼 물줄기 가장자리 밖에도 점이 튄다).
+  /// 눈물방울 12개(시안 Vector 1045·1546~1553). 폭은 시안처럼 5~10px. 아래쪽
+  /// 끝에서 사라지는 동안을 빼면 한 번에 9개 안팎이 보여 시안 수와 맞는다.
+  static const List<_FlowDrop> _drops = [
+    _FlowDrop(x: 0.45, speed: 1.8, offset: 0.00, width: 9.5),
+    _FlowDrop(x: 0.20, speed: 2.1, offset: 0.17, width: 6.5),
+    _FlowDrop(x: 0.70, speed: 1.7, offset: 0.34, width: 8.0),
+    _FlowDrop(x: 0.32, speed: 2.3, offset: 0.52, width: 5.5),
+    _FlowDrop(x: 0.58, speed: 1.9, offset: 0.70, width: 10.0),
+    _FlowDrop(x: 0.82, speed: 2.2, offset: 0.09, width: 6.0),
+    _FlowDrop(x: 0.26, speed: 1.6, offset: 0.26, width: 9.0),
+    _FlowDrop(x: 0.64, speed: 2.4, offset: 0.44, width: 5.5),
+    _FlowDrop(x: 0.12, speed: 2.0, offset: 0.61, width: 7.0),
+    _FlowDrop(x: 0.40, speed: 2.2, offset: 0.79, width: 6.5),
+    _FlowDrop(x: 0.52, speed: 1.8, offset: 0.13, width: 8.5),
+    _FlowDrop(x: 0.75, speed: 2.0, offset: 0.88, width: 6.0),
+  ];
+
+  /// 흰 반짝점 10개(시안 Ellipse 1022~1034). x가 0~1 밖이면 가장자리 밖으로
+  /// 튄다.
   static const List<_FlowSparkle> _sparkles = [
     _FlowSparkle(x: 0.34, speed: 1.1, offset: 0.04, radius: 1.3),
     _FlowSparkle(x: -0.12, speed: 0.9, offset: 0.21, radius: 1.0),
     _FlowSparkle(x: 0.70, speed: 1.3, offset: 0.37, radius: 1.5),
-    _FlowSparkle(x: 1.10, speed: 1.0, offset: 0.50, radius: 1.1),
+    _FlowSparkle(x: 1.15, speed: 1.0, offset: 0.50, radius: 1.1),
     _FlowSparkle(x: 0.48, speed: 1.2, offset: 0.63, radius: 0.9),
     _FlowSparkle(x: 0.20, speed: 0.8, offset: 0.76, radius: 1.4),
     _FlowSparkle(x: 0.88, speed: 1.1, offset: 0.12, radius: 1.2),
     _FlowSparkle(x: -0.08, speed: 1.4, offset: 0.45, radius: 0.8),
     _FlowSparkle(x: 0.60, speed: 0.9, offset: 0.88, radius: 1.3),
-    _FlowSparkle(x: 1.06, speed: 1.2, offset: 0.29, radius: 1.0),
+    _FlowSparkle(x: 1.10, speed: 1.2, offset: 0.29, radius: 1.0),
   ];
 
-  /// 시안 본체 path의 세로 위치 v(0=상단, 1=하단)에서의 좌/우 경계 x.
-  /// 상단 주둥이(로컬 x≈75~84)에서 시작해 하단(x≈12~119)으로 벌어진다.
-  /// SVG 좌표(122.778 기준)를 폭 비율로 정규화해 쓴다.
-  static (double, double) _bounds(double v) {
-    // 상단은 주둥이 폭만큼 좁고, 아래로 갈수록 부채꼴이 벌어진다.
-    final left =
-        (75.0 + (12.0 - 75.0) * math.pow(v, 0.75)) / _kWaterStreamWidth;
-    final right =
-        (84.5 + (119.0 - 84.5) * math.pow(v, 1.6)) / _kWaterStreamWidth;
-    return (left, right);
+  /// 가장자리를 길이 기준으로 고르게 나눈 점 개수.
+  static const int _samples = 64;
+
+  /// 바깥 가장자리: 주둥이 위 → 왼쪽으로 휘어 → 왼쪽 아래 끝. 시안 경로의
+  /// cubic 두 개를 주둥이 쪽에서부터 이었다.
+  static final List<Offset> _outer = _sampleEdge(const [
+    [
+      Offset(83.4833, 3.8003),
+      Offset(74.9936, 4.0148),
+      Offset(53.3991, 4.0671),
+      Offset(28.1245, 41.2637),
+    ],
+    [
+      Offset(28.1245, 41.2637),
+      Offset(-7.1298, 93.1474),
+      Offset(4.1098, 212.165),
+      Offset(11.7985, 236.987),
+    ],
+  ]);
+
+  /// 안쪽 가장자리: 주둥이 아래 → 오른쪽 아래 끝.
+  static final List<Offset> _inner = _sampleEdge(const [
+    [
+      Offset(82.502, 24.4589),
+      Offset(75.5481, 35.6265),
+      Offset(67.0672, 66.4276),
+      Offset(70.1246, 94.2637),
+    ],
+    [
+      Offset(70.1246, 94.2637),
+      Offset(73.0823, 121.192),
+      Offset(106.061, 200.53),
+      Offset(118.713, 215.312),
+    ],
+  ]);
+
+  static List<Offset> _sampleEdge(List<List<Offset>> cubics) {
+    const steps = 40;
+    final dense = <Offset>[];
+    for (final c in cubics) {
+      for (var i = dense.isEmpty ? 0 : 1; i <= steps; i++) {
+        final t = i / steps;
+        final u = 1 - t;
+        dense.add(
+          c[0] * (u * u * u) +
+              c[1] * (3 * u * u * t) +
+              c[2] * (3 * u * t * t) +
+              c[3] * (t * t * t),
+        );
+      }
+    }
+    final lengths = <double>[0];
+    for (var i = 1; i < dense.length; i++) {
+      lengths.add(lengths.last + (dense[i] - dense[i - 1]).distance);
+    }
+    final out = <Offset>[];
+    var j = 0;
+    for (var k = 0; k <= _samples; k++) {
+      final target = lengths.last * k / _samples;
+      while (j < lengths.length - 2 && lengths[j + 1] < target) {
+        j++;
+      }
+      final segment = lengths[j + 1] - lengths[j];
+      final f = segment == 0 ? 0.0 : (target - lengths[j]) / segment;
+      out.add(Offset.lerp(dense[j], dense[j + 1], f)!);
+    }
+    return out;
+  }
+
+  static Offset _edgeAt(List<Offset> edge, double s) {
+    final p = s.clamp(0.0, 1.0) * _samples;
+    final i = p.floor().clamp(0, _samples - 1);
+    return Offset.lerp(edge[i], edge[i + 1], p - i)!;
+  }
+
+  /// 물줄기 안 (s, x) 자리. x가 0~1 밖이면 가장자리 바깥이다.
+  static Offset _at(double s, double x) =>
+      Offset.lerp(_edgeAt(_outer, s), _edgeAt(_inner, s), x)!;
+
+  /// 주둥이에서 나타나고, 본체가 투명해지는 아래쪽에서 사라진다.
+  static double _alphaAt(double s, Offset p) {
+    final emerge = (s / _emerge).clamp(0.0, 1.0);
+    final fall =
+        ((p.dy - _fadeStartY) / (_fadeEndY - _fadeStartY)).clamp(0.0, 1.0);
+    return emerge * (1 - fall);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (pour <= 0) return;
-    _paintSparkles(canvas, size);
-    _paintDrops(canvas, size);
+    canvas.save();
+    canvas.scale(
+      size.width / _kWaterStreamWidth,
+      size.height / _kWaterStreamHeight,
+    );
+    _paintStreaks(canvas);
+    _paintSparkles(canvas);
+    _paintDrops(canvas);
+    canvas.restore();
   }
 
-  /// 상단 페이드인 + `_visibleEnd`부터 페이드아웃. 본체 그라디언트가 로컬
-  /// y≈164(68%)에서 투명해지므로 그 밑에서 디테일만 떠 보이지 않게 한다.
-  static double _fadeAt(double v, double fadeIn) {
-    if (v < fadeIn) return v / fadeIn;
-    if (v > _visibleEnd) return 1 - (v - _visibleEnd) / 0.14;
-    return 1.0;
+  /// 흰 선은 머리(s)에서 꼬리(s - length)까지 물줄기 곡선을 따라 긋는다.
+  /// 꼬리까지 주둥이를 빠져나가도록 머리는 0 ~ 1+length를 돈다.
+  void _paintStreaks(Canvas canvas) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    for (final streak in _streaks) {
+      final head =
+          ((pour * streak.speed + streak.offset) % 1.0) * (1 + streak.length);
+      final tail = math.max(0.0, head - streak.length);
+      final end = math.min(1.0, head);
+      if (end <= tail) continue;
+      final mid = _at((tail + end) / 2, streak.x);
+      final alpha = _alphaAt(end, mid);
+      if (alpha <= 0) continue;
+      final path = Path();
+      const segments = 8;
+      for (var i = 0; i <= segments; i++) {
+        final p = _at(tail + (end - tail) * i / segments, streak.x);
+        if (i == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+      // 시안 흰 선은 흰색 50%다.
+      paint.color = Colors.white.withValues(alpha: 0.5 * alpha);
+      canvas.drawPath(path, paint);
+    }
   }
 
-  /// 세로 위치 v에서 부채꼴 폭 대비 x(0=좌경계, 1=우경계)의 캔버스 좌표.
-  /// x가 0~1 밖이면 경계 바깥으로 벗어난다(반짝점이 가장자리 밖에 튄다).
-  Offset _pointAt(Size size, double v, double x) {
-    final (left, right) = _bounds(v);
-    return Offset(size.width * (left + (right - left) * x), size.height * v);
-  }
-
-  /// 위가 뾰족하고 아래가 둥근 눈물방울 path(시안 확대본 모양).
+  /// 위가 뾰족하고 아래가 둥근 눈물방울 path(시안 물방울 모양).
   static Path _teardrop(Offset center, double width) {
     final r = width / 2;
     // 전체 높이는 폭의 약 1.8배. 꼭짓점은 중심보다 위, 둥근 배는 아래.
@@ -2374,18 +2605,14 @@ class _WaterFlowPainter extends CustomPainter {
     final bottom = center.dy + r * 1.1;
     return Path()
       ..moveTo(center.dx, apex)
-      // 오른쪽 옆구리: 꼭짓점에서 가장 넓은 지점까지.
       ..quadraticBezierTo(
         center.dx + r * 0.62,
         center.dy - r * 0.5,
         center.dx + r,
         belly,
       )
-      // 오른쪽 아래 둥근 부분.
       ..quadraticBezierTo(center.dx + r, bottom, center.dx, bottom)
-      // 왼쪽 아래 둥근 부분.
       ..quadraticBezierTo(center.dx - r, bottom, center.dx - r, belly)
-      // 왼쪽 옆구리: 다시 꼭짓점으로.
       ..quadraticBezierTo(
         center.dx - r * 0.62,
         center.dy - r * 0.5,
@@ -2395,40 +2622,66 @@ class _WaterFlowPainter extends CustomPainter {
       ..close();
   }
 
-  void _paintDrops(Canvas canvas, Size size) {
+  void _paintDrops(Canvas canvas) {
     final paint = Paint()..style = PaintingStyle.fill;
     for (final drop in _drops) {
-      final v = (pour * drop.speed + drop.offset) % 1.0;
-      final fade = _fadeAt(v, 0.08);
-      if (fade <= 0) continue;
-      final center = _pointAt(size, v, drop.x);
-      // 불투명하게 칠한다. 본체 SVG가 반투명이라 알파를 낮추면 뒤 배경색이
+      final s = (pour * drop.speed + drop.offset) % 1.0;
+      final center = _at(s, drop.x);
+      final alpha = _alphaAt(s, center);
+      if (alpha <= 0) continue;
+      final depth = ((center.dy - 40) / 100).clamp(0.0, 1.0);
+      // 불투명하게 칠한다. 본체가 반투명이라 알파를 낮추면 뒤 배경색이
       // 배어들어 시안의 또렷한 하늘색 물방울이 탁해진다.
-      paint.color = (drop.light ? _dropLight : _dropDeep).withValues(
-        alpha: fade.clamp(0.0, 1.0),
-      );
+      paint.color = Color.lerp(
+        _dropDeep,
+        _dropLight,
+        depth,
+      )!.withValues(alpha: alpha);
       canvas.drawPath(_teardrop(center, drop.width), paint);
     }
   }
 
-  void _paintSparkles(Canvas canvas, Size size) {
+  void _paintSparkles(Canvas canvas) {
     final paint = Paint()..style = PaintingStyle.fill;
-    for (final s in _sparkles) {
-      final v = (pour * s.speed + s.offset) % 1.0;
-      final fade = _fadeAt(v, 0.10);
-      if (fade <= 0) continue;
+    for (final sparkle in _sparkles) {
+      final s = (pour * sparkle.speed + sparkle.offset) % 1.0;
+      final center = _at(s, sparkle.x);
+      final alpha = _alphaAt(s, center);
+      if (alpha <= 0) continue;
       // 각자 다른 주기로 미세하게 깜빡인다.
-      final twinkle = 0.8 + 0.2 * math.sin((pour * 6 + s.offset * 7) * math.pi);
-      // 본체가 반투명이라 흰 점도 알파를 낮추면 묻힌다. 거의 불투명하게 둔다.
+      final twinkle =
+          0.8 + 0.2 * math.sin((pour * 6 + sparkle.offset * 7) * math.pi);
       paint.color = Colors.white.withValues(
-        alpha: (twinkle * fade).clamp(0.0, 1.0),
+        alpha: (twinkle * alpha).clamp(0.0, 1.0),
       );
-      canvas.drawCircle(_pointAt(size, v, s.x), s.radius, paint);
+      canvas.drawCircle(center, sparkle.radius, paint);
     }
   }
 
   @override
   bool shouldRepaint(_WaterFlowPainter oldDelegate) => oldDelegate.pour != pour;
+}
+
+/// 물줄기를 따라 흐르는 흰 선 한 개의 정의.
+class _FlowStreak {
+  const _FlowStreak({
+    required this.x,
+    required this.speed,
+    required this.offset,
+    required this.length,
+  });
+
+  /// 물줄기 폭 대비 위치(0=바깥 가장자리, 1=안쪽 가장자리).
+  final double x;
+
+  /// 한 번 붓는 동안 주둥이→끝을 도는 횟수.
+  final double speed;
+
+  /// 시작 위상(0~1).
+  final double offset;
+
+  /// 선 길이(물줄기 길이 대비 s).
+  final double length;
 }
 
 /// 흐르는 눈물방울 한 개의 정의.
@@ -2438,23 +2691,19 @@ class _FlowDrop {
     required this.speed,
     required this.offset,
     required this.width,
-    this.light = false,
   });
 
-  /// 그 y에서의 부채꼴 폭 대비 가로 위치(0=좌경계, 1=우경계).
+  /// 물줄기 폭 대비 위치(0=바깥 가장자리, 1=안쪽 가장자리).
   final double x;
 
-  /// 한 번 붓는 동안 위→아래를 도는 횟수.
+  /// 한 번 붓는 동안 주둥이→끝을 도는 횟수.
   final double speed;
 
   /// 시작 위상(0~1). 물방울마다 달라 흩어져 흐른다.
   final double offset;
 
-  /// 눈물방울 폭(본체 좌표계 px, 5~11).
+  /// 눈물방울 폭(본체 좌표계 px).
   final double width;
-
-  /// true면 밝은 하늘색(소수), false면 진한 하늘색.
-  final bool light;
 }
 
 /// 흩뿌려진 작은 흰 반짝점 한 개의 정의.
@@ -2466,15 +2715,15 @@ class _FlowSparkle {
     required this.radius,
   });
 
-  /// 부채꼴 폭 대비 가로 위치. 0~1 밖이면 경계 바깥이다.
+  /// 물줄기 폭 대비 위치. 0~1 밖이면 가장자리 바깥이다.
   final double x;
 
-  /// 한 번 붓는 동안 위→아래를 도는 횟수(물방울보다 느리다).
+  /// 한 번 붓는 동안 주둥이→끝을 도는 횟수(물방울보다 느리다).
   final double speed;
 
   /// 시작 위상(0~1).
   final double offset;
 
-  /// 반짝점 반지름(본체 좌표계 px, 0.75~1.5 = 지름 1.5~3).
+  /// 반짝점 반지름(본체 좌표계 px).
   final double radius;
 }

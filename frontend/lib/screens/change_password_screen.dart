@@ -225,7 +225,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '비밀번호 재설정'),
+      appBar: const YesoAppBar(title: '비밀번호 재설정', titleShift: -4.5),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(

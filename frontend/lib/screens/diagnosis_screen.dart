@@ -8,7 +8,9 @@ import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diagnosis_components.dart';
+import 'package:yeso_plant/widgets/photo_confirm_bar.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 
 typedef DiagnosisImageProviderBuilder =
@@ -89,6 +91,19 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
   }
 
+  /// 오류 화면을 둔 채 다시 불러오고, 성공했을 때만 갈아 끼운다. 실패한
+  /// Future로 바꾸면 오류 화면이 새로 그려져 RetryFeedback 상태가 사라진다.
+  Future<bool> _retryFromError() async {
+    final next = _load();
+    try {
+      await next;
+    } catch (_) {
+      return false;
+    }
+    if (mounted) setState(() => _history = next);
+    return true;
+  }
+
   Future<void> _startDiagnosis(_DiagnosisHistoryData data) async {
     if (data.plantId == null) {
       ScaffoldMessenger.of(
@@ -123,7 +138,13 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   Future<void> _openRecord(DiagnosisSummary record) async {
     if (record.status != 'COMPLETED') {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_summaryStatusMessage(record.status))),
+        SnackBar(
+          content: Text(
+            record.status == 'NEEDS_RETAKE'
+                ? retakeReasonMessage(record.retakeReasonCode)
+                : _summaryStatusMessage(record.status),
+          ),
+        ),
       );
       return;
     }
@@ -159,7 +180,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
               ),
               _ when snapshot.hasError => _DiagnosisErrorState(
                 message: _errorMessage(snapshot.error),
-                onRetry: _retry,
+                onRetry: _retryFromError,
               ),
               _ => _diagnosisBody(snapshot.requireData),
             },
@@ -229,10 +250,16 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
     return _PrescriptionData(diagnosis: diagnosis, plant: plant);
   }
 
-  void _retry() {
-    setState(() {
-      _prescription = _load();
-    });
+  /// 오류 화면을 둔 채 다시 불러오고, 성공했을 때만 갈아 끼운다.
+  Future<bool> _retryFromError() async {
+    final next = _load();
+    try {
+      await next;
+    } catch (_) {
+      return false;
+    }
+    if (mounted) setState(() => _prescription = next);
+    return true;
   }
 
   /// 서버가 받아 주는 실패만 같은 사진으로 다시 맡긴다. 재시도 불가한
@@ -318,7 +345,7 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
             if (snapshot.hasError) {
               return _DiagnosisErrorState(
                 message: _errorMessage(snapshot.error),
-                onRetry: _retry,
+                onRetry: _retryFromError,
               );
             }
             final data = snapshot.requireData;
@@ -340,12 +367,13 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
                         ('생년월일', _shortDate(data.plant.startedOn)),
                         ('진단일', _shortDate(diagnosis.diagnosedAt)),
                       ],
-                      symptoms: _condenseItems(diagnosis.observations),
+                      symptoms: _symptomsFor(diagnosis),
                       causes: _prescriptionCauses(diagnosis.possibleCauses),
                       recommendations: _condenseItems(
-                        diagnosis.recommendedCare,
+                        diagnosis.recommendedCare.map(_firstSentence).toList(),
                       ),
                       onClose: () => Navigator.maybePop(context),
+                      plantName: data.plant.nickname,
                     ),
                   ),
                   // 서버가 받아 주는 동작만 띄운다. 재시도 가능한 실패는
@@ -424,7 +452,9 @@ class _DiagnosisPhotoConfirmScreenState
       if (diagnosis.status != 'COMPLETED') {
         setState(() {
           _submitting = false;
-          _error = _submissionStatusMessage(diagnosis.status);
+          _error = diagnosis.status == 'NEEDS_RETAKE'
+              ? retakeReasonMessage(diagnosis.retakeReasonCode)
+              : _submissionStatusMessage(diagnosis.status);
         });
         return;
       }
@@ -450,21 +480,8 @@ class _DiagnosisPhotoConfirmScreenState
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final actionBarHeight = bottomInset > 34 ? bottomInset + 39 : 73.0;
-    // 시안(4534:20043) 막대 4534:20064 top 801·높이 73, 글자 중심 y 831.57.
-    // 디자이너가 막대를 14 올리고 글자를 10씩 안쪽·12 위로 옮겼다(메모
-    // 6049:2755, 이전 815·59·843.57). 글자는 홈 인디케이터 구역에 걸쳐
-    // 있다. 안전 영역을 빼고 남은 칸에 TextButton(위아래 여백 8)을 넣으면
-    // 글자 칸이 줄어 잘렸으므로 막대 top 기준으로 놓는다.
-    const labelCenterFromBarTop = 831.57 - 801;
-    const hitHeight = 44.0;
-    const hitPadding = 12.0;
-    final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: hitPadding),
-      minimumSize: const Size(0, hitHeight),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
+    // 시안(4534:20043) 막대 4534:20064. 자리와 버튼은 [PhotoConfirmBar].
+    final actionBarHeight = PhotoConfirmBar.heightOf(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: PopScope(
@@ -494,36 +511,11 @@ class _DiagnosisPhotoConfirmScreenState
                 right: 0,
                 bottom: 0,
                 height: actionBarHeight,
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  child: Stack(
-                    children: [
-                      // '다시 촬영' 글자 x=40, '다음' 글자 오른쪽 끝 x=361.04.
-                      Positioned(
-                        left: 40 - hitPadding,
-                        top: labelCenterFromBarTop - hitHeight / 2,
-                        child: TextButton(
-                          key: const ValueKey('diagnosis-retake-button'),
-                          style: buttonStyle,
-                          onPressed: _submitting ? null : _retake,
-                          child: const Text(
-                            '다시 촬영',
-                            style: _captureActionStyle,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 402 - 361.04 - hitPadding,
-                        top: labelCenterFromBarTop - hitHeight / 2,
-                        child: TextButton(
-                          key: const ValueKey('diagnosis-submit-button'),
-                          style: buttonStyle,
-                          onPressed: _submitting ? null : _submit,
-                          child: const Text('다음', style: _captureActionStyle),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: PhotoConfirmBar(
+                  retakeKey: const ValueKey('diagnosis-retake-button'),
+                  nextKey: const ValueKey('diagnosis-submit-button'),
+                  onRetake: _submitting ? null : _retake,
+                  onNext: _submitting ? null : _submit,
                 ),
               ),
               if (_submitting)
@@ -583,13 +575,6 @@ class _DiagnosisPhotoConfirmScreenState
   }
 }
 
-const _captureActionStyle = TextStyle(
-  color: Colors.white,
-  fontFamily: 'Paperlogy',
-  fontSize: 16,
-  fontWeight: FontWeight.w500,
-);
-
 /// 시안 4534:20001의 인앱 카메라를 띄운다. 예전에는 OS 카메라를 썼지만
 /// 초점 가이드·플래시·앨범이 시안에 있어 앱 안에서 찍는다.
 DiagnosisPhotoPicker _inAppCamera(BuildContext context) => () async {
@@ -615,8 +600,21 @@ Future<DiagnosisPhoto?> _captureDiagnosisPhoto(
   }
 }
 
+/// 서버가 사진을 다시 찍으라고 한 이유(`retake_reason_code`)를 사용자 문구로
+/// 바꾼다. 예전에는 이유와 상관없이 같은 문구라 무엇을 고칠지 몰랐다(10/31).
+/// 코드는 백엔드 integrations/diagnosis.py(사진 품질)·kindwise.py(식물 여부).
+String retakeReasonMessage(String? reasonCode) => switch (reasonCode) {
+  'PLANT_NOT_VISIBLE' => '사진에서 식물을 찾지 못했어요. 식물이 잘 보이게 다시 찍어 주세요.',
+  'IMAGE_TOO_DARK' => '사진이 너무 어두워요. 밝은 곳에서 다시 찍어 주세요.',
+  'IMAGE_TOO_BRIGHT' => '사진이 너무 밝아요. 빛이 덜 비치는 곳에서 다시 찍어 주세요.',
+  'IMAGE_BLURRY' => '사진이 흐려요. 흔들리지 않게 초점을 맞춰 다시 찍어 주세요.',
+  'IMAGE_TOO_SMALL' => '사진이 너무 작아요. 식물을 가까이에서 다시 찍어 주세요.',
+  'IMAGE_TYPE_UNSUPPORTED' => '지원하지 않는 사진 형식이에요. 카메라로 다시 찍어 주세요.',
+  'IMAGE_INVALID' => '사진을 읽지 못했어요. 다시 찍어 주세요.',
+  _ => '사진을 다시 촬영해주세요.',
+};
+
 String _submissionStatusMessage(String status) => switch (status) {
-  'NEEDS_RETAKE' => '식물을 더 밝고 선명하게 촬영해 주세요.',
   'FAILED' => '진단을 완료하지 못했습니다. 새 사진으로 다시 시도해 주세요.',
   'CANCELLED' => '진단 요청이 취소됐습니다.',
   _ => '진단이 진행 중이에요. 잠시 후 진단 기록에서 확인해 주세요.',
@@ -705,12 +703,13 @@ class _DiagnosisHistoryBody extends StatelessWidget {
     final past = data.records.where((item) => !_sameDay(item.diagnosedAt, now));
     return Stack(
       children: [
-        // 4534:19874·19875 절 제목은 SemiBold 16(항목 스타일). 글자 상자가
-        // 시안보다 커서 시안 top(140·267.2)에서 2를 빼야 보이는 글자가 맞는다.
-        const Positioned(
+        // 4534:19874·19875 절 제목은 시안 SemiBold 16에서 디자이너 요청으로
+        // 1 키운 17. 글자 상자가 시안보다 커서 시안 top(140·267.2)에서 2를
+        // 빼야 보이는 글자가 맞는다.
+        Positioned(
           left: 34,
           top: 46,
-          child: Text('오늘의 진단', style: kItemStyle),
+          child: Text('오늘의 진단', style: kItemStyle.copyWith(fontSize: 17)),
         ),
         Positioned(
           left: 14,
@@ -725,10 +724,10 @@ class _DiagnosisHistoryBody extends StatelessWidget {
             emptyLabel: '오늘 진단한 기록이 없습니다.',
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 34,
           top: 173.2,
-          child: Text('지난 진단', style: kItemStyle),
+          child: Text('지난 진단', style: kItemStyle.copyWith(fontSize: 17)),
         ),
         Positioned(
           left: 14,
@@ -778,7 +777,7 @@ class _DiagnosisRecordList extends StatelessWidget {
     if (records.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(left: 20, top: 17),
-        child: Text(emptyLabel, style: kCaptionStyle),
+        child: Text(emptyLabel, style: kCaptionStyle.copyWith(fontSize: 13)),
       );
     }
     return ListView.separated(
@@ -802,18 +801,28 @@ class _DiagnosisErrorState extends StatelessWidget {
   const _DiagnosisErrorState({required this.message, required this.onRetry});
 
   final String message;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message, style: kSmallStyle, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
-        ],
+    return RetryFeedback(
+      onRetry: onRetry,
+      builder: (context, phase, retry) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              phase == RetryPhase.failed ? kRetryFailedMessage : message,
+              style: kSmallStyle,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: retry,
+              child: Text(phase == RetryPhase.busy ? kRetryBusyLabel : '다시 시도'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -941,6 +950,49 @@ String _summaryStatusMessage(String status) => switch (status) {
   'CANCELLED' => '취소된 진단이에요.',
   _ => '아직 처방전을 열 수 없는 진단이에요.',
 };
+
+/// 원인 이름 속 말로 짐작한 증상(시안 4534:19767처럼 '잎 마름' 같은 짧은 말).
+///
+/// 서버 증상은 '건강 이상 가능성' 하나뿐이다. Kindwise는 원인 후보만 주고
+/// 증상은 주지 않아 백엔드가 지어내지 않았다(kindwise.py 주석). 시안처럼
+/// 짧은 증상을 보여 달라는 요청(10/31)에 따라 원인에서 흔히 나타나는 증상을
+/// 짐작해 보여 준다. 사진에서 본 증상이 아니라는 점을 알고 쓴다.
+const List<(List<String>, String)> _kCauseSymptoms = [
+  (['과습', '배수'], '잎 처짐'),
+  (['물 부족', '건조', '가뭄'], '잎 마름'),
+  (['영양', '결핍', '질소', '칼륨'], '잎 변색'),
+  (['빛 부족', '햇빛 부족', '그늘'], '웃자람'),
+  (['화상', '일소'], '잎 탐'),
+  (['곰팡이', '흰가루', '녹병', '균'], '잎 반점'),
+  (['해충', '벌레', '진딧물', '응애', '깍지'], '벌레 흔적'),
+  (['세균', '박테리아', '무름'], '잎 무름'),
+  (['냉해', '저온'], '냉해 흔적'),
+  (['뿌리'], '뿌리 상함'),
+];
+
+/// 원인 순서대로 짐작한 증상을 최대 3개 고른다. 하나도 못 짐작하면 서버
+/// 증상을 그대로 쓴다.
+List<String> _symptomsFor(DiagnosisDetailData diagnosis) {
+  final symptoms = <String>[];
+  for (final cause in diagnosis.possibleCauses) {
+    for (final (keywords, symptom) in _kCauseSymptoms) {
+      if (keywords.any(cause.name.contains) && !symptoms.contains(symptom)) {
+        symptoms.add(symptom);
+        break;
+      }
+    }
+  }
+  if (symptoms.isEmpty) return _condenseItems(diagnosis.observations);
+  return symptoms.take(3).toList();
+}
+
+/// 추천 관리는 Kindwise 관리법을 옮긴 여러 문장이라 처방전 한 줄을 넘친다.
+/// 시안(4534:19777 등)처럼 짧게 첫 문장만 보여 준다(10/31 피드백).
+String _firstSentence(String text) {
+  final trimmed = text.trim();
+  final end = RegExp(r'[.!?。](?=\s|$)').firstMatch(trimmed);
+  return end == null ? trimmed : trimmed.substring(0, end.end);
+}
 
 List<String> _condenseItems(List<String> items) {
   if (items.length <= 3) return items;

@@ -83,6 +83,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return RegisterStepScaffold(
       appBarTitle: '캐릭터 꾸미기',
+      appBarTitleColor: Colors.black,
       // 시안은 바디와 컬러를 같은 마지막 단계로 본다(4534:507 진행선이
       // 끝까지 주황).
       step: 5,
@@ -113,6 +114,7 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                     maxWidth: double.infinity,
                     maxHeight: double.infinity,
                     child: PlantCharacterArt(
+                      shadow: CharacterShadow.onWhite,
                       width: 182.4,
                       body: plantBodyFromId(widget.draft.bodyId),
                       colorId: _selectedColorId,

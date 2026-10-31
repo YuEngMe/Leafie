@@ -134,7 +134,9 @@ class ConfirmDialog extends StatelessWidget {
               top: 106.2,
               child: FigmaDialogDivider(),
             ),
-            // 아래 두 버튼은 구분선이 나눈 좌우 절반을 그대로 채운다.
+            // 아래 두 버튼은 구분선이 나눈 좌우 절반을 그대로 채운다. 글자는
+            // 절반 가운데(77·231)가 아니라 시안 자리(네 85.8, 아니오 226.2,
+            // 확인 모달 넷 공통 4534:2322·2323)에 둔다.
             Positioned(
               left: 0,
               top: 106.2,
@@ -142,6 +144,7 @@ class ConfirmDialog extends StatelessWidget {
               bottom: 0,
               child: _AbortDialogAction(
                 label: confirmLabel,
+                labelShift: 85.8 - 154 / 2,
                 onPressed: () => Navigator.of(context).pop(true),
               ),
             ),
@@ -152,6 +155,7 @@ class ConfirmDialog extends StatelessWidget {
               bottom: 0,
               child: _AbortDialogAction(
                 label: cancelLabel,
+                labelShift: 226.2 - (154 + 154 / 2),
                 color: kTextLight,
                 onPressed: () => Navigator.of(context).pop(false),
               ),
@@ -169,11 +173,15 @@ class _AbortDialogAction extends StatelessWidget {
     required this.onPressed,
     // '네'는 시안(4534:3264) 검정 SemiBold다. kItemStyle 기본색(#444)이 아니다.
     this.color = Colors.black,
+    this.labelShift = 0,
   });
 
   final String label;
   final VoidCallback onPressed;
   final Color color;
+
+  /// 버튼 가운데에서 글자를 가로로 옮기는 양. 누르는 영역은 그대로다.
+  final double labelShift;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +193,10 @@ class _AbortDialogAction extends StatelessWidget {
         // 가운데에 두면 126에 찍힌다. 아래만 6을 비워 글자를 3 올린다.
         padding: const EdgeInsets.only(bottom: 6),
       ),
-      child: Text(label, style: kItemStyle.copyWith(color: color)),
+      child: Transform.translate(
+        offset: Offset(labelShift, 0),
+        child: Text(label, style: kItemStyle.copyWith(color: color)),
+      ),
     );
   }
 }

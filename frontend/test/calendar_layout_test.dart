@@ -25,7 +25,7 @@ void main() {
       // 3341:395 압정 그룹 332.876x52 @ (35.06, 110).
       _expectRect(
         tester,
-        _svg('calendar_paper_pins.svg'),
+        find.byKey(const ValueKey('calendar-pins')),
         const Rect.fromLTWH(35.063, 110, 332.876, 52),
       );
 
@@ -331,7 +331,7 @@ void main() {
       );
       _expectRect(
         tester,
-        _svg('calendar_paper_pins_week.svg'),
+        find.byKey(const ValueKey('calendar-pins')),
         const Rect.fromLTWH(30, 120, 342, 39),
       );
       // 2687:15580 꺾쇠 @ (144, 155), 2687:15579 라벨 중심 x=201.45.

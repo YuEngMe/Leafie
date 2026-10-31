@@ -73,14 +73,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   Future<void> _openDay(DateTime date) async {
     if (_openingDay) return;
-    final todayOnly = DateTime(_today.year, _today.month, _today.day);
-    if (DateTime(date.year, date.month, date.day).isAfter(todayOnly)) {
-      setState(() => _selected = date);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('오늘 이후 날짜에는 다이어리를 쓸 수 없어요.')),
-      );
-      return;
-    }
     _openingDay = true;
     setState(() => _selected = date);
     try {
@@ -118,6 +110,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
     }
   }
 
+  /// 연필 버튼은 마지막에 고른 날이 아니라 늘 오늘 글을 연다(10/31 피드백).
+  /// 다른 달을 보고 있었으면 오늘이 있는 달로 돌아와, 글을 닫았을 때 달력에
+  /// 오늘이 골라져 보이게 한다.
+  void _openToday() {
+    final todayMonth = DateTime(_today.year, _today.month);
+    if (_month != todayMonth) {
+      setState(() => _month = todayMonth);
+      _reload();
+    }
+    _openDay(_today);
+  }
+
   void _shiftMonth(int delta) {
     setState(() {
       _month = DateTime(_month.year, _month.month + delta);
@@ -132,13 +136,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
       // 배경 일러스트가 상태바 뒤까지 이어진다(2739:34593). 시안 좌표를
       // 화면 절대값 그대로 쓸 수 있게 앱바를 띄운다.
       extendBodyBehindAppBar: true,
-      appBar: YesoAppBar(
+      // 탭 첫 화면이라 돌아갈 곳이 없다. 시안(4534:3781)도 꺾쇠가 없다.
+      appBar: const YesoAppBar(
         title: '다이어리',
         backgroundColor: Colors.transparent,
-        backIconColor: kOrangeMain,
+        showBack: false,
       ),
       body: DiaryScaffoldBody(
-        onFabPressed: () => _openDay(_selected),
+        onFabPressed: _openToday,
         paperTabs: _paperTabs(
           previousLabel: '이전 달',
           nextLabel: '다음 달',
@@ -162,7 +167,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
             DiaryCalendar(
               month: _month,
               selected: _selected,
-              onSelect: _openDay,
+              // 날짜를 누르면 고른 날 표시만 바꾼다. 글은 연필 버튼(오늘)으로만
+              // 연다(10/31 피드백).
+              onSelect: (date) => setState(() => _selected = date),
               markedDays: {
                 for (final e in _entries)
                   if (e.date.year == _month.year &&

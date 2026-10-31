@@ -15,6 +15,7 @@ import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/leafie_toast.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 
 enum CalendarViewMode { month, week }
 
@@ -94,7 +95,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Future<void> _loadCalendar() async {
+  /// [keepError]면 오류 문구와 '다시 불러오기'를 둔 채 불러온다. 진행은
+  /// 그 버튼(RetryFeedback)이 보여 준다.
+  Future<void> _loadCalendar({bool keepError = false}) async {
     final plantId = _plantId;
     if (plantId == null) {
       if (!mounted) return;
@@ -105,10 +108,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return;
     }
     final sequence = ++_loadSequence;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!keepError) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final range = _queryRange;
       final items = await _repository.listCalendar(
@@ -120,6 +125,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       setState(() {
         _items = items;
         _loading = false;
+        _error = null;
       });
     } on LeafieApiException catch (error) {
       if (!mounted || sequence != _loadSequence) return;
@@ -128,6 +134,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _error = error.message;
       });
     }
+  }
+
+  Future<bool> _retryCalendar() async {
+    await _loadCalendar(keepError: true);
+    return mounted && _error == null;
   }
 
   void _selectDate(DateTime date) {
@@ -279,7 +290,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       error: _error,
                       completingIds: _completingIds,
                       onComplete: _complete,
-                      onRetry: _loadCalendar,
+                      onRetry: _retryCalendar,
                     ),
                   )
                 else
@@ -296,7 +307,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       error: _error,
                       completingIds: _completingIds,
                       onComplete: _complete,
-                      onRetry: _loadCalendar,
+                      onRetry: _retryCalendar,
                     ),
                   ),
                 // 3341:493 원 45x45 @ (342,730). 에셋 캔버스 52.833은 그림자
@@ -436,12 +447,10 @@ class _MonthCalendar extends StatelessWidget {
         ),
         calendarPins(week: false),
         // 3341:401 라벨 중심 (201.45, 154.18) / 3341:402 꺾쇠 (143.348, 149).
-        Positioned(
+        CalendarPeriodBar.placeAt(
           left: 143.348,
           top: 146,
-          width: CalendarPeriodBar.chevronsWidth,
-          height: 16.366,
-          child: CalendarPeriodBar(
+          bar: CalendarPeriodBar(
             label: '${month.year}. ${month.month}',
             onShift: onShift,
           ),
@@ -508,12 +517,10 @@ class _WeekCalendar extends StatelessWidget {
         ),
         calendarPins(week: true),
         // 2687:15579 라벨 (159, 152) / 2687:15580 꺾쇠 (144, 155).
-        Positioned(
+        CalendarPeriodBar.placeAt(
           left: 144,
           top: 152,
-          width: CalendarPeriodBar.chevronsWidth,
-          height: 16.366,
-          child: CalendarPeriodBar(
+          bar: CalendarPeriodBar(
             label: '${selected.year}. ${selected.month}',
             onShift: onShift,
           ),
@@ -721,7 +728,7 @@ class _MonthAgenda extends StatelessWidget {
   final String? error;
   final Set<String> completingIds;
   final ValueChanged<CalendarItemData> onComplete;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -776,7 +783,7 @@ class _WeekAgenda extends StatelessWidget {
   final String? error;
   final Set<String> completingIds;
   final ValueChanged<CalendarItemData> onComplete;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -869,7 +876,7 @@ class _AgendaBody extends StatelessWidget {
   final String? error;
   final Set<String> completingIds;
   final ValueChanged<CalendarItemData> onComplete;
-  final VoidCallback onRetry;
+  final Future<bool> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -892,9 +899,16 @@ class _AgendaBody extends StatelessWidget {
     if (error != null) {
       return Align(
         alignment: Alignment.topCenter,
-        child: TextButton(
-          onPressed: onRetry,
-          child: Text('$error\n다시 불러오기', textAlign: TextAlign.center),
+        child: RetryFeedback(
+          onRetry: onRetry,
+          builder: (context, phase, retry) => TextButton(
+            onPressed: retry,
+            child: Text(switch (phase) {
+              RetryPhase.idle => '$error\n다시 불러오기',
+              RetryPhase.busy => '$error\n$kRetryBusyLabel',
+              RetryPhase.failed => '$kRetryFailedMessage\n다시 불러오기',
+            }, textAlign: TextAlign.center),
+          ),
         ),
       );
     }

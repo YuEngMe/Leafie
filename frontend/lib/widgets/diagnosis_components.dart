@@ -67,9 +67,12 @@ class DiagnosisRecordTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 38.5),
-            Text(title, style: kBodyStyle.copyWith(color: kDiagnosisTitle)),
+            Text(
+              title,
+              style: kBodyStyle.copyWith(fontSize: 17, color: kDiagnosisTitle),
+            ),
             const SizedBox(width: 10),
-            Text(dateLabel, style: kCaptionStyle),
+            Text(dateLabel, style: kCaptionStyle.copyWith(fontSize: 13)),
             const Spacer(),
             // 4534:19852 꺾쇠: 위로 향한 채운 꺾쇠(#CCCBCB)를 90° 돌린 것.
             // 돌린 뒤 8.29×13 상자가 행 오른쪽 끝에서 18.7 안쪽(x 361)에 온다.
@@ -100,6 +103,7 @@ class PrescriptionCard extends StatelessWidget {
     required this.causes,
     required this.recommendations,
     required this.onClose,
+    this.plantName = '내 식물',
   });
 
   /// 빨간 클립 top부터 노란 카드 bottom까지의 실제 영역.
@@ -116,6 +120,9 @@ class PrescriptionCard extends StatelessWidget {
   final List<PrescriptionCause> causes;
   final List<String> recommendations;
   final VoidCallback onClose;
+
+  /// 원인분석 문구에 넣는 식물 이름(애칭).
+  final String plantName;
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +216,10 @@ class PrescriptionCard extends StatelessWidget {
             height: 30,
             child: Text(
               '처방전',
-              style: kTitleStyle.copyWith(fontSize: 25, color: kTextDark),
+              style: kTitleStyle.copyWith(
+                fontSize: 25 + _kRxFontBump,
+                color: kTextDark,
+              ),
             ),
           ),
           // 4534:19740 닫기: 십자(Union 17.7, #A1A1A1)를 -46.21° 돌리고
@@ -238,11 +248,13 @@ class PrescriptionCard extends StatelessWidget {
               ),
             ),
           ),
+          // 4534:19741 흰 상자 (34, 229) 334x141 → 카드 기준 (22, 131).
+          // 카드 원점은 시안 화면 (12, 98)이다(증상 띠 34.1 → 22.1).
           Positioned(
-            left: 39,
-            top: 131.29,
-            width: 307,
-            height: 140.592,
+            left: 22,
+            top: 131,
+            width: 334,
+            height: 141,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -253,9 +265,10 @@ class PrescriptionCard extends StatelessWidget {
               ),
             ),
           ),
+          // 4534:19742 사진 틀 (44, 238) 136x124.05 → 카드 기준 (32, 140).
           Positioned(
-            left: 47,
-            top: 139.56,
+            left: 32,
+            top: 140,
             width: 136,
             height: 124.051,
             child: ClipRRect(
@@ -296,7 +309,9 @@ class PrescriptionCard extends StatelessWidget {
               width: 42,
               child: Text(
                 patientRows[index].$1,
-                style: kPrescriptionLabelStyle.copyWith(fontSize: 9),
+                style: kPrescriptionLabelStyle.copyWith(
+                  fontSize: 9 + _kRxFontBump,
+                ),
               ),
             ),
             Positioned(
@@ -308,7 +323,7 @@ class PrescriptionCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: kPrescriptionLabelStyle.copyWith(
-                  fontSize: 9,
+                  fontSize: 9 + _kRxFontBump,
                   fontWeight: FontWeight.w400,
                   color: kTextDark,
                 ),
@@ -322,12 +337,13 @@ class PrescriptionCard extends StatelessWidget {
             height: 13,
             child: Row(
               children: [
+                // 4534:19748 상태 점 8.02x8.30 #FFEE83.
                 const SizedBox.square(
                   dimension: 8.025,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: kAppleGreen,
+                      color: Color(0xFFFFEE83),
                     ),
                   ),
                 ),
@@ -338,7 +354,7 @@ class PrescriptionCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: kPrescriptionBodyStyle.copyWith(
-                      fontSize: 10,
+                      fontSize: 10 + _kRxFontBump,
                       color: kTextDark,
                     ),
                   ),
@@ -379,7 +395,7 @@ class PrescriptionCard extends StatelessWidget {
               child: Text(
                 '0${index + 1}.',
                 style: kPrescriptionBodyStyle.copyWith(
-                  fontSize: 13.951,
+                  fontSize: 13.951 + _kRxFontBump,
                   fontWeight: FontWeight.w700,
                   color: kBrightOrange,
                   // 4534:19768 자간 2%.
@@ -393,22 +409,28 @@ class PrescriptionCard extends StatelessWidget {
               width: 66,
               child: Text(
                 symptoms[index],
-                maxLines: 1,
+                // 서버 증상은 '건강 이상 가능성'처럼 칸(66)보다 길다. 아래에
+                // 다음 항목이 없는 마지막 줄은 두 줄까지 보여 준다.
+                maxLines: index == symptoms.take(3).length - 1 ? 2 : 1,
                 overflow: TextOverflow.ellipsis,
                 style: kPrescriptionBodyStyle.copyWith(
-                  fontSize: 12.393,
+                  fontSize: 12.393 + _kRxFontBump,
                   fontWeight: FontWeight.w500,
                   color: kTextDark,
                   letterSpacing: 0.2479,
+                  height: 1.15,
                 ),
               ),
             ),
           ],
+          // 4534:19765 상자 231x85. 글자를 1 키우고 관리 문장까지 채우면(디자이너
+          // 요청: 시안처럼 내용을 채워 달라) 85를 넘쳐, 아래 추천관리 띠(441.84)
+          // 와의 간격 30 중 17을 써서 102로 늘린다.
           Positioned(
             left: 126,
             top: 326,
             width: 231,
-            height: 85,
+            height: 102,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: const Color(0x80FFF1D0),
@@ -416,14 +438,22 @@ class PrescriptionCard extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(11, 8, 9, 7),
-                child: Text(
-                  _causeSummary(statusLabel, causes, recommendations),
-                  maxLines: 5,
+                child: Text.rich(
+                  _causeSummary(
+                    plantName,
+                    statusLabel,
+                    causes,
+                    recommendations,
+                  ),
+                  maxLines: 6,
                   overflow: TextOverflow.ellipsis,
+                  // 4534:19770 Paperlogy 5 Medium 11, 줄 높이 130%, 자간 2%.
                   style: kPrescriptionBodyStyle.copyWith(
-                    fontSize: 11,
+                    fontSize: 11 + _kRxFontBump,
+                    fontWeight: FontWeight.w500,
                     color: kTextDark,
-                    height: 1.45,
+                    height: 1.3,
+                    letterSpacing: (11 + _kRxFontBump) * 0.02,
                   ),
                 ),
               ),
@@ -473,7 +503,7 @@ class PrescriptionCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: kPrescriptionBodyStyle.copyWith(
-                  fontSize: 12.361,
+                  fontSize: 12.361 + _kRxFontBump,
                   fontWeight: FontWeight.w600,
                   color: kTextDark,
                   letterSpacing: 0.2472,
@@ -487,10 +517,14 @@ class PrescriptionCard extends StatelessWidget {
   }
 }
 
+/// 처방전 안 글자를 시안보다 모두 키우는 크기(10/31 피드백: "전부 다 1씩").
+/// 시안 수치는 그대로 두고 이 값을 더한다.
+const double _kRxFontBump = 1;
+
 // 4534:19782 등 절 제목. 시안 자간 2%(0.2472).
 const TextStyle _sectionHeadingStyle = TextStyle(
   fontFamily: kFontFamily,
-  fontSize: 12.361,
+  fontSize: 12.361 + _kRxFontBump,
   fontWeight: FontWeight.w600,
   color: kBrightOrange,
   letterSpacing: 0.2472,
@@ -613,16 +647,40 @@ class _CareIcon extends StatelessWidget {
   }
 }
 
-String _causeSummary(
+/// 원인분석 문구(시안 4534:19770). 시안은 "오늘 하루 새싹이의 건강상태는
+/// **34점**이에요. / **햇빛이 부족**하고, **건습**의 문제가 있어요. / (빈 줄)
+/// / 관리 방법" 꼴로 핵심만 Bold 주황으로 강조한다. 서버가 점수를 주지 않아
+/// 점수 자리에는 상태 문구(condition_label)를 강조한다. 마지막 관리 문장은
+/// 서버가 따로 주지 않아 추천관리 첫 줄을 쓴다.
+TextSpan _causeSummary(
+  String plantName,
   String statusLabel,
   List<PrescriptionCause> causes,
   List<String> recommendations,
 ) {
-  final causeText = causes.isEmpty
-      ? '분석된 원인 정보가 없습니다.'
-      : '가능한 원인은 ${causes.map((cause) => cause.label).join(', ')}입니다.';
-  final careText = recommendations.isEmpty ? '' : '\n${recommendations.first}';
-  return '오늘의 건강상태는 $statusLabel.\n$causeText$careText';
+  const strong = TextStyle(fontWeight: FontWeight.w700, color: kBrightOrange);
+  return TextSpan(
+    children: [
+      TextSpan(text: '오늘 하루 $plantName의 건강상태는 '),
+      TextSpan(text: statusLabel, style: strong),
+      const TextSpan(text: '.\n'),
+      if (causes.isEmpty)
+        const TextSpan(text: '분석된 원인 정보가 없어요.')
+      else ...[
+        for (var i = 0; i < causes.length; i++) ...[
+          if (i > 0) const TextSpan(text: ', '),
+          TextSpan(text: causes[i].label, style: strong),
+        ],
+        const TextSpan(text: '의 문제가 있어요.'),
+      ],
+      // 시안은 관리 문장 앞에 빈 줄을 둔다. 상자가 좁아 반 줄만 띄운다.
+      if (recommendations.isNotEmpty) ...[
+        const TextSpan(text: '\n'),
+        const TextSpan(text: '\n', style: TextStyle(fontSize: 6)),
+        TextSpan(text: recommendations.first),
+      ],
+    ],
+  );
 }
 
 /// 원인 분석 막대 한 줄.

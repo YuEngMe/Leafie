@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
@@ -55,6 +54,16 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
   late String _selectedBodyId = widget.plant.bodyId;
   bool _busy = false;
 
+  /// 휠이 처음 가리킬 색. 목록에 없는 색이면 캐릭터가 옐로로 그려지므로
+  /// (`plantBodyAssetFor`) 휠도 옐로에서 시작한다.
+  int _initialColorIndex() {
+    final index = kPlantAppearanceColors.indexWhere(
+      (c) => c.id == _selectedColorId,
+    );
+    if (index >= 0) return index;
+    return kPlantAppearanceColors.indexWhere((c) => c.id == 'color_yellow');
+  }
+
   Future<void> _apply() async {
     final colorChanged = _selectedColorId != widget.plant.colorId;
     final bodyChanged = _selectedBodyId != widget.plant.bodyId;
@@ -86,7 +95,11 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 꾸미기'),
+      // 6049:2649 제목은 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 꾸미기',
+        titleColor: Colors.black,
+      ),
       body: PlantDetailBody(
         children: [
           // 바디 스위처 5038:6460(노드 5070:906). 시안은 앱바 아래 작은 실루엣
@@ -144,6 +157,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
                 maxWidth: double.infinity,
                 maxHeight: double.infinity,
                 child: PlantCharacterArt(
+                  shadow: CharacterShadow.onWhite,
                   width: 182.4,
                   body: plantBodyFromId(_selectedBodyId),
                   colorId: _selectedColorId,
@@ -161,12 +175,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
             top: ColorWheelPicker.top - PlantDetailBody.appBarBand,
             height: ColorWheelPicker.height,
             child: ColorWheelPicker(
-              initialIndex: math.max(
-                0,
-                kPlantAppearanceColors.indexWhere(
-                  (c) => c.id == _selectedColorId,
-                ),
-              ),
+              initialIndex: _initialColorIndex(),
               onSelected: (index) => setState(() {
                 _selectedColorId = kPlantAppearanceColors[index].id;
               }),

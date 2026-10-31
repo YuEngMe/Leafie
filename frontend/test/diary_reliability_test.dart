@@ -249,7 +249,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('15'));
+    await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '보존할 제목');
     await tester.enterText(find.byType(TextField).last, '보존할 본문');
@@ -282,7 +282,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('15'));
+    await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '한 번만');
 
@@ -341,7 +341,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('15'));
+    await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -358,7 +358,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('15'));
+    await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '15일');
     await tester.tap(find.bySemanticsLabel('다음 날'));

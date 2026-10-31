@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -293,6 +295,11 @@ class CalendarModeSwitch extends StatelessWidget {
 
 /// 기간 라벨(3341:401)과 좌우 꺾쇠(3341:402).
 /// 라벨은 16 SemiBold, 꺾쇠는 SVG 그룹 114.33x10.01.
+///
+/// 위젯 상자는 그림보다 [touchPadding]만큼 넓다. 누르는 영역을 그림 상자
+/// 밖으로 넘치게 두면 Flutter가 그 부분을 터치로 받지 않아, 예전에는 꺾쇠
+/// 위아래를 누르면 달이 안 넘어갔다(10/31 피드백). 놓을 때는 [placeAt]으로
+/// 그림 자리(시안 좌표)를 넘긴다.
 class CalendarPeriodBar extends StatelessWidget {
   const CalendarPeriodBar({
     super.key,
@@ -303,18 +310,40 @@ class CalendarPeriodBar extends StatelessWidget {
   static const double chevronsWidth = 114.333;
   static const double chevronsHeight = 10.01;
 
+  /// 라벨 줄 높이(3341:401).
+  static const double labelHeight = 16.366;
+
+  /// 그림 상자 바깥으로 넓힌 터치 여유. 꺾쇠마다 44x44(iOS 최소 터치
+  /// 크기)를 누를 수 있게 잡았다.
+  static const EdgeInsets touchPadding = EdgeInsets.fromLTRB(10, 14, 10, 14);
+
+  /// 좌우 꺾쇠 하나의 터치 폭.
+  static const double _hitWidth = 44;
+
+  /// 그림 좌상단이 시안 ([left], [top])에 오도록 넓힌 상자에 놓는다.
+  static Widget placeAt({
+    required double left,
+    required double top,
+    required Widget bar,
+  }) => Positioned(
+    left: left - touchPadding.left,
+    top: top - touchPadding.top,
+    width: chevronsWidth + touchPadding.horizontal,
+    height: labelHeight + touchPadding.vertical,
+    child: bar,
+  );
+
   final String label;
   final ValueChanged<int> onShift;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      clipBehavior: Clip.none,
       children: [
         // 꺾쇠는 라벨 줄(y=146, h=16.366) 안에서 3px 아래(y=149)에 앉는다.
         Positioned(
-          left: 0,
-          top: 3,
+          left: touchPadding.left,
+          top: touchPadding.top + 3,
           width: chevronsWidth,
           height: chevronsHeight,
           child: SvgPicture.asset(
@@ -323,7 +352,11 @@ class CalendarPeriodBar extends StatelessWidget {
           ),
         ),
         // 3341:401 `2026. 7` 16 SemiBold #444, 꺾쇠 그룹 안 가운데.
-        Positioned.fill(
+        Positioned(
+          left: touchPadding.left,
+          top: touchPadding.top,
+          width: chevronsWidth,
+          height: labelHeight,
           child: Center(
             child: Text(
               label,
@@ -336,16 +369,20 @@ class CalendarPeriodBar extends StatelessWidget {
           ),
         ),
         // 터치 영역만 넓힌다. 그림은 위 SVG가 그린다.
-        for (final (key, delta, left) in const [
-          ('calendar-period-prev', -1, -8.0),
-          ('calendar-period-next', 1, chevronsWidth - 24),
+        for (final (key, delta, left) in [
+          ('calendar-period-prev', -1, 0.0),
+          (
+            'calendar-period-next',
+            1,
+            chevronsWidth + touchPadding.horizontal - _hitWidth,
+          ),
         ])
           Positioned(
             key: ValueKey(key),
             left: left,
-            top: -12,
-            width: 32,
-            height: 34,
+            top: 0,
+            bottom: 0,
+            width: _hitWidth,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onShift(delta),
@@ -356,7 +393,12 @@ class CalendarPeriodBar extends StatelessWidget {
   }
 }
 
-/// 종이 패널(3341:394 / 2687:15578)과 압정(3341:395 / 2687:17780).
+/// 종이 패널(4534:5045 월간 / 4534:5566 주간).
+///
+/// 시안 사각형에는 Figma Texture 효과(r 1.1)가 걸려 가장자리가 찢긴 듯
+/// 들쭉날쭉하다. Figma는 이 효과를 노이즈로 가장자리를 밀어 그리므로
+/// ([_TornPaperClipper]) 같은 폭(±1.1)으로 흔든 윤곽에 종이를 잘라 그린다.
+/// 그림자는 검정 25% · 흐림 4.09 · 아래 4.09다.
 class CalendarPaper extends StatelessWidget {
   const CalendarPaper({super.key, required this.width, required this.height});
 
@@ -365,30 +407,26 @@ class CalendarPaper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final clipper = _TornPaperClipper();
     return SizedBox(
       width: width,
       height: height,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFDFDFD),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x4D444444),
-              blurRadius: 4,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        // 3345:633 Mask group: `image 309` 구겨진 종이를 90도 돌려
-        // mix-blend-multiply 20%로 덮는다.
-        child: ClipRect(
-          child: Opacity(
-            opacity: 0.2,
-            child: RotatedBox(
-              quarterTurns: 1,
-              child: Image.asset(
-                'assets/images/calendar_paper_texture.png',
-                fit: BoxFit.cover,
+      child: CustomPaint(
+        painter: _TornPaperShadowPainter(clipper),
+        child: ClipPath(
+          clipper: clipper,
+          child: ColoredBox(
+            color: const Color(0xFFFDFDFD),
+            // 3345:633 Mask group: `image 309` 구겨진 종이를 90도 돌려
+            // mix-blend-multiply 20%로 덮는다.
+            child: Opacity(
+              opacity: 0.2,
+              child: RotatedBox(
+                quarterTurns: 1,
+                child: Image.asset(
+                  'assets/images/calendar_paper_texture.png',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -398,20 +436,168 @@ class CalendarPaper extends StatelessWidget {
   }
 }
 
+/// 사각형 네 변을 노이즈로 ±[_kTornAmplitude] 흔든 윤곽. 같은 크기면 늘
+/// 같은 모양이 나오도록 시드를 고정한다.
+class _TornPaperClipper extends CustomClipper<Path> {
+  /// Figma Texture r 1.1. 변위 폭이 곧 반지름이다.
+  static const double _kTornAmplitude = 1.1;
+
+  /// 노이즈 한 칸(px). Figma 텍스처 노이즈 주기(약 2.7px)에 맞춘다.
+  static const double _kTornStep = 2.7;
+
+  @override
+  Path getClip(Size size) {
+    final random = math.Random(7);
+    double jitter() => (random.nextDouble() * 2 - 1) * _kTornAmplitude;
+    final path = Path();
+    void edge(Offset from, Offset to, Offset normal, {bool first = false}) {
+      final length = (to - from).distance;
+      final steps = math.max(1, (length / _kTornStep).round());
+      for (var i = 0; i < steps; i++) {
+        final t = i / steps;
+        final point = Offset.lerp(from, to, t)! + normal * jitter();
+        if (first && i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+    }
+
+    final w = size.width;
+    final h = size.height;
+    edge(Offset.zero, Offset(w, 0), const Offset(0, -1), first: true);
+    edge(Offset(w, 0), Offset(w, h), const Offset(1, 0));
+    edge(Offset(w, h), Offset(0, h), const Offset(0, 1));
+    edge(Offset(0, h), Offset.zero, const Offset(-1, 0));
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_TornPaperClipper oldClipper) => false;
+}
+
+class _TornPaperShadowPainter extends CustomPainter {
+  _TornPaperShadowPainter(this.clipper);
+
+  final _TornPaperClipper clipper;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPath(
+      clipper.getClip(size).shift(const Offset(0, 4.0916)),
+      Paint()
+        ..color = const Color(0x40000000)
+        // Figma 흐림 4.09 = sigma 2.05.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0458),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_TornPaperShadowPainter oldDelegate) => false;
+}
+
 /// 압정 두 개. 월간은 332.876x52@(35.06,110), 주간은 342x39@(30,120)로 크기가 다르다.
 /// `Stack` 안에 그대로 넣으면 되도록 Positioned를 스스로 만든다.
+///
+/// 예전에는 내보낸 SVG를 썼는데, 시안의 안쪽 그림자(Inner shadow)를
+/// flutter_svg가 그리지 못해 납작한 단색으로 보였다(10/31 디자이너: "노란색
+/// 더 뜨기, 그림자 띄우기"). 그래서 [_CalendarPinsPainter]가 직접 그린다.
 Widget calendarPins({required bool week}) => Positioned(
   left: week ? 30 : 35.063,
   top: week ? 120 : 110,
   width: week ? 342 : 332.876,
   height: week ? 39 : 52,
-  child: SvgPicture.asset(
-    week
-        ? 'assets/images/calendar_paper_pins_week.svg'
-        : 'assets/images/calendar_paper_pins.svg',
-    fit: BoxFit.fill,
+  child: CustomPaint(
+    key: const ValueKey('calendar-pins'),
+    painter: week ? _CalendarPinsPainter.week : _CalendarPinsPainter.month,
   ),
 );
+
+/// 압정 노란 원(Ellipse 742) 위에 회색 막대(Rectangle 161127420)를 겹친다.
+/// 좌표는 압정 그룹 상자 기준(시안 켈린더 2 4534:4708 / 캘린더 4 4534:5212).
+class _CalendarPinsPainter extends CustomPainter {
+  const _CalendarPinsPainter({required this.circles, required this.rods});
+
+  static const month = _CalendarPinsPainter(
+    circles: [
+      Rect.fromLTWH(0, 32, 20.0528, 20),
+      Rect.fromLTWH(312.8236, 32, 20.0528, 20),
+    ],
+    rods: [
+      Rect.fromLTWH(4.01065, 0, 12.0317, 46),
+      Rect.fromLTWH(316.834, 0, 12.0317, 46),
+    ],
+  );
+
+  static const week = _CalendarPinsPainter(
+    circles: [Rect.fromLTWH(0, 19, 20, 20), Rect.fromLTWH(322, 19, 20, 20)],
+    rods: [Rect.fromLTWH(5, 0, 10, 30), Rect.fromLTWH(327, 0, 10, 30)],
+  );
+
+  final List<Rect> circles;
+  final List<Rect> rods;
+
+  static const Color _circleColor = Color(0xFFFFF3C8);
+  static const Color _rodColor = Color(0xFFD9D9D9);
+
+  /// 시안 Inner shadow는 둘 다 흐림 4, 검정 25%. 원은 아래로 2, 막대는
+  /// 위로 13 밀어 막대 아래쪽이 둥글게 어두워진다.
+  static const Color _shadowColor = Color(0x40000000);
+  static const Offset _circleShadowOffset = Offset(0, 2);
+  static const Offset _rodShadowOffset = Offset(0, -13);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final circle in circles) {
+      _paintWithInnerShadow(
+        canvas,
+        Path()..addOval(circle),
+        _circleColor,
+        _circleShadowOffset,
+      );
+    }
+    for (final rod in rods) {
+      _paintWithInnerShadow(
+        canvas,
+        Path()
+          ..addRRect(RRect.fromRectAndRadius(rod, const Radius.circular(5))),
+        _rodColor,
+        _rodShadowOffset,
+      );
+    }
+  }
+
+  /// 도형을 칠한 뒤, 도형 안쪽으로만 [offset]만큼 밀린 그림자를 얹는다.
+  /// 밀린 도형의 바깥(구멍 뚫린 큰 사각형)을 흐리게 칠하고 원래 도형으로
+  /// 잘라 낸다.
+  static void _paintWithInnerShadow(
+    Canvas canvas,
+    Path shape,
+    Color color,
+    Offset offset,
+  ) {
+    canvas.drawPath(shape, Paint()..color = color);
+    final bounds = shape.getBounds().inflate(20);
+    canvas.save();
+    canvas.clipPath(shape);
+    canvas.drawPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(bounds),
+        shape.shift(offset),
+      ),
+      Paint()
+        ..color = _shadowColor
+        // Figma 흐림 4 = CSS blur 4 = sigma 2.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CalendarPinsPainter oldDelegate) => false;
+}
 
 /// 45px 원형 버튼의 드롭 섀도(3341:493, 3496:12213 공통: blur σ1.958, 검정 20%,
 /// 오프셋 0). 에셋 캔버스 52.833은 그림자 여백 3.917을 사방에 둔다.

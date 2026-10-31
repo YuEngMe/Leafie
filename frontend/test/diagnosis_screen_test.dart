@@ -238,6 +238,14 @@ void main() {
     expect(find.text('조금 관리가 필요해요'), findsOneWidget);
     expect(find.text('해바라기'), findsOneWidget);
     expect(find.text('다시 진단하기'), findsOneWidget);
+    // 추천관리는 시안처럼 첫 문장만 짧게 보여 준다.
+    expect(find.text('물을 줄여주세요.'), findsOneWidget);
+    expect(find.textContaining('흙이 마른 뒤에'), findsNothing);
+    // 증상은 원인에서 짐작한 짧은 말이다. 짐작 못 한 원인은 건너뛴다.
+    expect(find.text('잎 처짐'), findsOneWidget);
+    expect(find.text('잎 변색'), findsOneWidget);
+    expect(find.text('03.'), findsNothing);
+    expect(find.text('건강 이상 가능성'), findsNothing);
   });
 
   testWidgets('홈 우측 진단 아이콘이 진단 기록 화면을 연다', (tester) async {
@@ -294,6 +302,60 @@ void main() {
 
     expect(find.text('진단이 진행 중이에요.'), findsOneWidget);
     expect(find.text('처방전'), findsNothing);
+  });
+
+  testWidgets('다시 찍어야 하는 기록은 서버가 거절한 이유를 알린다', (tester) async {
+    _setIPhone16ProViewport(tester);
+    final repository = _FakeDiagnosisRepository(
+      records: [
+        DiagnosisSummary(
+          id: 'retake',
+          status: 'NEEDS_RETAKE',
+          diagnosedAt: DateTime(2026, 9, 6, 10),
+          photoUrl: 'https://example.com/retake.jpg',
+          conditionLabel: null,
+          retakeReasonCode: 'PLANT_NOT_VISIBLE',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DiagnosisScreen(
+          plantId: 'plant-id',
+          plantName: '새싹이',
+          repository: repository,
+          now: () => DateTime(2026, 9, 6, 12),
+          imageProviderBuilder: (_) => MemoryImage(_greenPixelPng),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새싹이 진단 기록'));
+    await tester.pump();
+
+    expect(
+      find.text('사진에서 식물을 찾지 못했어요. 식물이 잘 보이게 다시 찍어 주세요.'),
+      findsOneWidget,
+    );
+    expect(find.text('처방전'), findsNothing);
+  });
+
+  test('재촬영 사유마다 고칠 점을 알려 주고, 모르는 사유는 기본 문구다', () {
+    const codes = [
+      'PLANT_NOT_VISIBLE',
+      'IMAGE_TOO_DARK',
+      'IMAGE_TOO_BRIGHT',
+      'IMAGE_BLURRY',
+      'IMAGE_TOO_SMALL',
+      'IMAGE_TYPE_UNSUPPORTED',
+      'IMAGE_INVALID',
+    ];
+    final messages = codes.map(retakeReasonMessage).toSet();
+    expect(messages, hasLength(codes.length));
+    expect(messages, isNot(contains('사진을 다시 촬영해주세요.')));
+    expect(retakeReasonMessage(null), '사진을 다시 촬영해주세요.');
+    expect(retakeReasonMessage('NEW_CODE'), '사진을 다시 촬영해주세요.');
   });
 
   testWidgets('진단하기는 촬영 사진 확인 후 실제 진단 요청으로 이어진다', (tester) async {
@@ -425,9 +487,14 @@ class _FakeDiagnosisRepository implements DiagnosisRepository {
       diagnosedAt: DateTime(2026, 9, 6),
       photoUrl: 'https://example.com/$diagnosisId.jpg',
       conditionLabel: '조금 관리가 필요해요',
-      observations: const ['잎 처짐'],
-      possibleCauses: const [DiagnosisCauseData(name: '과습', confidence: 0.76)],
-      recommendedCare: const ['물을 줄여주세요.'],
+      observations: const ['건강 이상 가능성'],
+      possibleCauses: const [
+        DiagnosisCauseData(name: '과습', confidence: 0.76),
+        DiagnosisCauseData(name: '영양 결핍', confidence: 0.4),
+        DiagnosisCauseData(name: '알 수 없는 원인', confidence: 0.2),
+      ],
+      // 실제 서버처럼 여러 문장이 이어진 관리법.
+      recommendedCare: const ['물을 줄여주세요. 흙이 마른 뒤에 주는 것이 좋습니다.'],
     );
   }
 

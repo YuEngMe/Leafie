@@ -312,6 +312,7 @@ class DiagnosisSummary {
     required this.diagnosedAt,
     required this.photoUrl,
     required this.conditionLabel,
+    this.retakeReasonCode,
   });
 
   factory DiagnosisSummary.fromJson(Map<String, dynamic> json) {
@@ -338,6 +339,7 @@ class DiagnosisSummary {
       diagnosedAt: diagnosedAt,
       photoUrl: photoUrl,
       conditionLabel: conditionLabel as String?,
+      retakeReasonCode: json['retake_reason_code']?.toString(),
     );
   }
 
@@ -346,6 +348,9 @@ class DiagnosisSummary {
   final DateTime diagnosedAt;
   final String photoUrl;
   final String? conditionLabel;
+
+  /// `NEEDS_RETAKE`일 때 서버가 다시 찍으라고 한 이유(`PLANT_NOT_VISIBLE` 등).
+  final String? retakeReasonCode;
 }
 
 class DiagnosisDetailData {

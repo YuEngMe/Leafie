@@ -7,7 +7,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 
 /// Figma 3564:243(알림 설정), 2353:408(닉네임 변경)의 회색 알약 토스트.
 ///
-/// 334×36, radius 50, `#A1A1A1`, 그림자 0 0 2 rgba(0,0,0,.18), 12px 흰 글씨
+/// 334×36, radius 50, `#A1A1A1`, 그림자 흐림 4 검정 18%(4534:3094), 12px 흰 글씨
 /// 중앙. 알림 쪽만 왼쪽 17px에 종 아이콘(13.816×16)이 붙는다.
 class LeafieToast extends StatelessWidget {
   const LeafieToast({super.key, required this.text, this.bell = false});
@@ -26,7 +26,7 @@ class LeafieToast extends StatelessWidget {
       decoration: BoxDecoration(
         color: kTextLight,
         borderRadius: BorderRadius.circular(50),
-        boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 2)],
+        boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 4)],
       ),
       child: Stack(
         children: [

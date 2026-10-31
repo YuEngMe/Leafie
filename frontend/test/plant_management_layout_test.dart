@@ -212,10 +212,10 @@ void main() {
       await _pumpScreen(tester, PlantManagementScreen(repository: repository));
 
       // 캐릭터 PNG는 캔버스에 투명 여백이 있어 그려지는 상자가 시안
-      // 프레임(61.22)보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
+      // 프레임보다 크다. 그림 밑선이 선반에 닿는지를 잰다.
       // PlantCharacterArt 박스(width × 649/698)에서 circle 몸통은
       // 가로 89.7%, 아래 여백은 박스 높이의 37/649 = 5.70%.
-      final drawn = plantArtWidthFor(61.219);
+      final drawn = plantArtWidthFor(53.4);
       final drawnHeight = drawn * 649 / 698;
       final inkBottomGap = drawnHeight * (649 - 612) / 649;
 
@@ -226,8 +226,8 @@ void main() {
         );
         expect(rect.center.dx, _closeTo1px(entry.value));
         expect(rect.bottom - inkBottomGap, _closeTo1px(319));
-        // 시안 캐릭터 61.22 폭이 실제로 그만큼 보이도록 그려진다.
-        expect(rect.width * 0.897, _closeTo1px(61.219));
+        // 시안 몸통 53.4 폭이 실제로 그만큼 보이도록 그려진다.
+        expect(rect.width * 0.897, _closeTo1px(53.4));
       }
 
       // 4번째는 2행 첫 칸. 선반 2는 y=441.
@@ -429,14 +429,19 @@ void main() {
         PlantPersonalityScreen(plant: _plant(personalityType: 'OUTGOING')),
       );
 
-      // 4889:2239 앱바 "캐릭터 성격".
+      // 4889:2239 앱바 "캐릭터 성격". 제목은 검정(공용 기본 #444 아님).
       expect(find.text('캐릭터 성격'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('캐릭터 성격')).style!.color,
+        Colors.black,
+      );
 
       // 옛 시안(2568:1714)으로 그려 요소가 20~33px 위에 있었다.
       // 4889:2258 성격 이름: 보이는 글자 꼭대기 156 → Flutter 상자 151.
       final label = tester.getRect(find.text('활발한 성격'));
       expect(label.top, _closeTo1px(151));
-      expect(label.center.dx, _closeTo1px(201));
+      // 이름 칸 x150 w93 → 가운데 196.5.
+      expect(label.center.dx, _closeTo1px(196.5));
 
       // 4889:2254/2256 칩 y=190, 58.69x20.67.
       final firstTag = tester.getRect(find.text('#긍정적'));
@@ -772,8 +777,12 @@ void main() {
     testWidgets('앱바·바디 스위처·컬러 휠·체크 배지 좌표', (tester) async {
       await pump(tester);
 
-      // 5038:6523 앱바.
+      // 5038:6523 앱바. 제목은 검정(6049:2649, 공용 기본 #444 아님).
       expect(find.text('캐릭터 꾸미기'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('캐릭터 꾸미기')).style!.color,
+        Colors.black,
+      );
       // 5038:6460 시안: 헤드라인 자리에 바디 스위처가 온다(헤드라인 없음).
       expect(find.text('식물을 꾸며주세요!'), findsNothing);
       // 바디 스위처는 앱바 아래 top 143, 화면 중앙 정렬(dx≈201).

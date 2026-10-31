@@ -14,10 +14,19 @@ class AppBottomNav extends StatelessWidget {
   /// 눌린 탭을 알려준다. 아직 화면이 없는 탭은 호출부가 무시하면 된다.
   final ValueChanged<FigmaNavIcon>? onTap;
 
-  /// 지금 선택된 탭. 이 아이콘만 진하게(opacity 1) 그리고 나머지는 흐리게
-  /// (opacity 0.5) 그려 바에서 활성 탭을 알린다. null이면 넷 다 진하게 둔다
-  /// — 라우트로 잠깐 뜨는 캘린더·다이어리 바는 활성 표시 대상이 아니다.
+  /// 지금 선택된 탭. 이 아이콘만 [activeColor](밝은 오렌지)로 칠하고
+  /// 나머지는 SVG 원래 색(오렌지_메인)으로 둔다(흐리게 하지 않는다).
+  /// null이면 넷 다 기본색 — 라우트로 잠깐 뜨는 캘린더·다이어리 바는 활성
+  /// 표시 대상이 아니다.
+  ///
+  /// 근거는 시안이 아니라 디자이너 요청(2026-10-31, "선택된 탭을 캘린더
+  /// 선택 때처럼, 네 탭 모두")이다. 시안 "다이어리 5"(4534:3781)가 3번째
+  /// (달력 모양) 아이콘을 칠한 것은 예시일 뿐 그 화면에 그대로 적용하라는
+  /// 뜻이 아니라고 디자이너가 확인했다(2026-10-31).
   final FigmaNavIcon? activeIcon;
+
+  /// 선택된 탭 아이콘 색.
+  static const Color activeColor = kBrightOrange;
 
   /// 시안 3628:2139/2123/2130/2144의 좌표. 바 안쪽 기준이다.
   /// 2026-09-07 갱신: 아이콘 네 개가 5px 위로 올라갔다(y 817 → 812).
@@ -35,6 +44,9 @@ class AppBottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: kBackgroundWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        // 시안 네비 그룹(Group 1597881250) Drop shadow 흐림 5.3, 검정 25%.
+        // 마이페이지처럼 흰 배경에서는 이 그림자로만 네비가 구분된다.
+        boxShadow: [BoxShadow(color: Color(0x40000000), blurRadius: 5.3)],
       ),
       child: Stack(
         children: [
@@ -43,8 +55,7 @@ class AppBottomNav extends StatelessWidget {
               icon: entry.key,
               left: entry.value.dx,
               top: entry.value.dy,
-              // activeIcon이 null이면 강조를 끄고 넷 다 진하게(active=true).
-              active: activeIcon == null || entry.key == activeIcon,
+              active: entry.key == activeIcon,
               onTap: onTap == null ? null : () => onTap!(entry.key),
             ),
         ],
@@ -53,7 +64,7 @@ class AppBottomNav extends StatelessWidget {
   }
 }
 
-/// 아이콘 하나. 활성이면 opacity 1, 비활성이면 0.5로 그리고, 누르는 동안
+/// 아이콘 하나. 활성이면 [AppBottomNav.activeColor]로 칠하고, 누르는 동안
 /// 0.95로 살짝 줄어든다(눌림 피드백).
 class _NavItem extends StatefulWidget {
   const _NavItem({
@@ -91,9 +102,9 @@ class _NavItemState extends State<_NavItem> {
     const minTarget = 48.0;
     final padX = (minTarget - widget.icon.figmaSize.width) / 2;
     final padY = (minTarget - widget.icon.figmaSize.height) / 2;
-    // 정보 전달이라 opacity 강조는 모션을 꺼도 유지하되, 그때는 즉시 반영한다.
+    // 정보 전달이라 색 강조는 모션을 꺼도 유지하되, 그때는 즉시 반영한다.
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final opacityDuration = reduceMotion
+    final colorDuration = reduceMotion
         ? Duration.zero
         : const Duration(milliseconds: 180);
     return Positioned(
@@ -114,10 +125,13 @@ class _NavItemState extends State<_NavItem> {
             scale: _pressed && !reduceMotion ? AppMotion.pressScale : 1,
             duration: AppMotion.press,
             curve: AppMotion.easeOut,
-            child: AnimatedOpacity(
-              opacity: widget.active ? 1.0 : 0.5,
-              duration: opacityDuration,
-              child: FigmaBottomNavIcon(widget.icon),
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(
+                end: widget.active ? AppBottomNav.activeColor : kOrangeMain,
+              ),
+              duration: colorDuration,
+              builder: (context, color, _) =>
+                  FigmaBottomNavIcon(widget.icon, color: color),
             ),
           ),
         ),

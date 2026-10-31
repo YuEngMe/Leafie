@@ -133,30 +133,41 @@ class LoginPasswordField extends StatelessWidget {
       height: AppLayout.loginPasswordComponentHeight,
       child: Stack(
         children: [
-          RoundedInputField(
-            controller: controller,
-            hintText: '비밀번호를 입력하세요.',
-            obscureText: true,
-            centerText: true,
-            hasError: isError,
-            height: AppLayout.onboardingControlHeight,
-            centerVertically: true,
-            contentPadding: isError
-                ? const EdgeInsets.fromLTRB(16, 18, 32, 19)
-                : const EdgeInsets.fromLTRB(16, 17, 16, 20),
-            overlaySuffix: true,
-            // TODO(design): 2395:31은 빈 칸에도 눈을 그리는데 회원가입
-            // 2395:40은 값이 있을 때만 그린다. 가릴 게 없는데 토글이 있는
-            // 쪽이 어색해 디자이너에게 확인을 요청해 뒀다(2026-09-05).
-            // 답이 "값 있을 때만"이면 이 줄만 지우면 된다.
-            alwaysShowEye: true,
-            hintStyle: kLoginHintStyle,
-            // 위 세로 여백으로 힌트 자리를 시안(4534:1342)에 맞춰 두었다.
-            hintLift: 0,
-            // 가림 문자는 오류 여부와 관계없이 14 SemiBold 연회색 ●다
-            // (4534:1342 일반 · 4534:2394 오류).
-            obscuredTextStyle: kLoginPasswordValueStyle,
-            showShadow: !isError,
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => RoundedInputField(
+              controller: controller,
+              hintText: '비밀번호를 입력하세요.',
+              obscureText: true,
+              centerText: true,
+              hasError: isError,
+              height: AppLayout.onboardingControlHeight,
+              centerVertically: true,
+              // 값이 있으면 ●를 눈 아이콘 왼쪽 공간 가운데에 둔다(4534:1318
+              // ● 가운데 x192, 오류 상태 2370과 같은 오른쪽 32). 빈 칸
+              // 힌트는 칸 가운데(4534:2499)라 오른쪽 16을 쓴다.
+              contentPadding: isError
+                  ? const EdgeInsets.fromLTRB(16, 18, 32, 19)
+                  : EdgeInsets.fromLTRB(
+                      16,
+                      17,
+                      value.text.isEmpty ? 16 : 32,
+                      20,
+                    ),
+              overlaySuffix: true,
+              // TODO(design): 2395:31은 빈 칸에도 눈을 그리는데 회원가입
+              // 2395:40은 값이 있을 때만 그린다. 가릴 게 없는데 토글이 있는
+              // 쪽이 어색해 디자이너에게 확인을 요청해 뒀다(2026-09-05).
+              // 답이 "값 있을 때만"이면 이 줄만 지우면 된다.
+              alwaysShowEye: true,
+              hintStyle: kLoginHintStyle,
+              // 위 세로 여백으로 힌트 자리를 시안(4534:1342)에 맞춰 두었다.
+              hintLift: 0,
+              // 가림 문자는 오류 여부와 관계없이 14 SemiBold 연회색 ●다
+              // (4534:1342 일반 · 4534:2394 오류).
+              obscuredTextStyle: kLoginPasswordValueStyle,
+              showShadow: !isError,
+            ),
           ),
           Positioned(
             top: AppLayout.loginPasswordLinksTop,

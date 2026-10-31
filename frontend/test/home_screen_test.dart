@@ -16,10 +16,13 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/notification_api.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/services/sensor_api.dart';
+import 'package:yeso_plant/theme/app_motion.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/home_components.dart';
+import 'package:yeso_plant/widgets/instant_page_route.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
+import 'package:yeso_plant/widgets/retry_feedback.dart';
 
 import 'support/device_view.dart';
 
@@ -235,17 +238,17 @@ void main() {
       const Rect.fromLTWH(28, 113, 79.9966, 79.9966),
       'sun node',
     );
-    // 시안 4534:9620: 전체보기 29.256×28.775, 진단 22×32 노드에 사방 5·4.4
-    // 그림자 여백. 알약은 일부러 높이 96으로 줄여 둔 상태라 세로 자리는
-    // 상하 여백 14 기준이다(커밋 7c0ab64).
+    // 시안 4534:9620: 전체보기 29.256×28.775(8, 15), 진단 22×32(11, 67)
+    // 노드에 사방 5·4.4 그림자 여백. 알약은 시안대로 높이 117이다(10/31
+    // 피드백으로 7c0ab64의 96을 되돌림).
     expectRect(
       assetRect(FigmaHomeIcon.viewAll.asset),
-      const Rect.fromLTWH(333 + 7.87 - 5, 113 + 14 - 5, 39.256, 38.775),
+      const Rect.fromLTWH(333 + 8 - 5, 113 + 15 - 5, 39.256, 38.775),
       'view all',
     );
     expectRect(
       assetRect(FigmaHomeIcon.viewDiagnosis.asset),
-      const Rect.fromLTWH(333 + 11.5 - 4.4, 113 + 50 - 4.4, 30.8, 40.8),
+      const Rect.fromLTWH(333 + 11 - 4.4, 113 + 67 - 4.4, 30.8, 40.8),
       'diagnosis',
     );
     // 우체통 노드 4534:9607 (310,461) 74.1×120, PNG는 사방 5 바깥.
@@ -415,6 +418,19 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-environment-card')));
     await tester.pump();
     expect(find.text('기기연결이 필요합니다'), findsOneWidget);
+
+    // 판을 조금만 끌어내리면 제자리로 돌아온다.
+    final panel = find.byKey(const ValueKey('home-environment-panel'));
+    await tester.drag(panel, const Offset(0, 30));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-environment-card')), findsNothing);
+    expect(tester.getTopLeft(find.text('기기연결이 필요합니다')).dy, 683);
+
+    // 충분히 끌어내리면 끝까지 내려간 뒤 접힌다.
+    await tester.drag(panel, const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(find.text('기기연결이 필요합니다'), findsNothing);
+    expect(find.byKey(const ValueKey('home-environment-card')), findsOneWidget);
   });
 
   testWidgets('햇빛 요청에서 해를 누르면 감사 상태가 된다', (tester) async {
@@ -710,6 +726,96 @@ void main() {
       await tester.pumpAndSettle();
       expect(faceAssets(tester), {_defaultFace});
     });
+
+    group('머리(잎)', () {
+      Future<void> pumpLeafHome(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(402, 874);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: HomeScreen(
+              period: HomeTimePeriod.day,
+              plant: HomePlant(
+                name: '실제식물',
+                startedOn: null,
+                personalityType: null,
+                bodyId: 'body_circle',
+                hairId: 'hair_monstera',
+              ),
+              initialScene: HomeScene.idle,
+              initialGaugesExpanded: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      /// 몸통 박스 좌상단(화면 좌표). 터치 영역은 그 위로 머리 자리만큼 넓다.
+      Offset bodyBoxTopLeft(WidgetTester tester) =>
+          tester.getTopLeft(find.byKey(const ValueKey('home-character-pet'))) +
+          Offset(0, PlantCharacterArt.maxHairOverflow(173.02));
+
+      testWidgets('몸통 위로 넘친 잎을 눌러도 쓰담는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        // 잎은 몸통 박스 위로 넘쳐 그려진다.
+        expect(leaf.top, lessThan(0));
+
+        await tester.tapAt(bodyBoxTopLeft(tester) + leaf.center);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), contains(_happyFace));
+
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('잎 옆 빈 하늘은 쓰담하지 않는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+
+        // 잎 오른쪽 바깥, 잎 높이 가운데.
+        await tester.tapAt(
+          bodyBoxTopLeft(tester) + Offset(leaf.right + 12, leaf.center.dy),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), {_defaultFace});
+      });
+
+      testWidgets('기울어진 잎을 감싼 사각형의 빈 모서리는 쓰담하지 않는다', (tester) async {
+        await pumpLeafHome(tester);
+        final leaf = PlantCharacterArt.hairInkRect(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        // 몬스테라 잎은 왼쪽으로 기울어 오른쪽 위 모서리가 빈 하늘이다.
+        final corner = leaf.topRight + const Offset(-6, 6);
+        final hit = PlantCharacterArt.hairHitPath(
+          width: 173.02,
+          body: PlantBody.circle,
+          hairId: 'hair_monstera',
+        )!;
+        expect(hit.contains(corner), isFalse);
+        expect(hit.contains(leaf.center), isTrue);
+
+        await tester.tapAt(bodyBoxTopLeft(tester) + corner);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(faceAssets(tester), {_defaultFace});
+      });
+    });
   });
 
   testWidgets('GET /home 결과로 이름과 D+를 갱신한다', (tester) async {
@@ -859,6 +965,21 @@ void main() {
       expect(find.text('서버새싹 방'), findsOneWidget);
     });
 
+    testWidgets('다시 시도를 누르면 연결 중을 보이고, 또 끊기면 잠깐 알린다', (tester) async {
+      await pumpHome(tester, [offline, offline]);
+
+      await tester.tap(retry);
+      await tester.pump();
+      expect(find.text(kRetryBusyLabel), findsOneWidget);
+
+      await tester.pump(AppMotion.retryMinBusy);
+      expect(find.text('다시 시도'), findsOneWidget);
+      expect(find.text(kRetryFailedMessage), findsOneWidget);
+
+      await tester.pump(AppMotion.retryFailedHold);
+      expect(find.text('인터넷 연결을 확인하고 다시 시도해주세요.'), findsOneWidget);
+    });
+
     testWidgets('이미 띄운 식물을 다시 불러오다 끊기면 게이지를 그대로 둔다', (tester) async {
       final calls = await pumpHome(tester, [homeData, offline, homeData]);
       final gaugeCard = find.byKey(const ValueKey('home-environment-collapse'));
@@ -970,7 +1091,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+    // 꺾쇠 그림(24)보다 넓은 44x44 안, 그림 바깥 구석을 눌러도 넘어간다.
+    final next = find.byKey(const ValueKey('home-next-plant'));
+    expect(tester.getSize(next), const Size(44, 44));
+    await tester.tapAt(tester.getRect(next).topRight.translate(-3, 3));
     await tester.pumpAndSettle();
 
     expect(repository.selectedIds, ['plant-b']);
@@ -1337,7 +1461,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('home-notifications')));
-    await tester.pumpAndSettle();
+    // 알림센터는 슬라이드 없이 한 프레임 만에 다 뜬다.
+    await tester.pump();
+    final route = ModalRoute.of(tester.element(find.text('알림 하나')))!;
+    expect(route, isA<InstantPageRoute<NotificationData>>());
+    expect(route.animation!.value, 1);
     await tester.tap(find.text('알림 하나'));
     await tester.pumpAndSettle();
 
@@ -1483,6 +1611,43 @@ void main() {
         )
         .key;
     expect(after, isNot(before));
+  });
+
+  testWidgets('오른쪽 집 아이콘을 누르면 캐릭터 전체보기를 연다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository(const []),
+          loadHomeForPlant: (_) async => const HomeDashboardData(
+            plant: null,
+            room: null,
+            todayEvents: [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+          plantManagementBuilder: (_, _, _, _) =>
+              const Scaffold(body: Text('전체보기 화면')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 시안 4534:9620: 알약 333,113 45x117.
+    final viewSwitch = find.byType(FigmaHomeViewSwitch);
+    expect(tester.getTopLeft(viewSwitch), const Offset(333, 113));
+    expect(tester.getSize(viewSwitch), const Size(45, 117));
+
+    await tester.tap(find.byKey(const ValueKey('home-overview-switch')));
+    // 전체보기도 슬라이드 없이 한 번에 뜬다.
+    await tester.pump();
+    expect(
+      ModalRoute.of(tester.element(find.text('전체보기 화면'))),
+      isA<InstantPageRoute<Object?>>(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('전체보기 화면'), findsOneWidget);
   });
 
   testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (
@@ -1940,6 +2105,12 @@ void main() {
 
       await tester.tap(
         find.byKey(const ValueKey('home-dialogue-prompt-DIAGNOSIS_PROMPT')),
+      );
+      // 진단은 슬라이드 없이 한 번에 뜬다.
+      await tester.pump();
+      expect(
+        ModalRoute.of(tester.element(find.byType(DiagnosisScreen))),
+        isA<InstantPageRoute<void>>(),
       );
       await tester.pumpAndSettle();
 

@@ -123,7 +123,11 @@ class _PlantRegisterPersonalityScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
-      appBar: const YesoAppBar(title: '캐릭터 성격'),
+      // 6049:2564 제목은 검정이다(공용 앱바 기본 #444).
+      appBar: const YesoAppBar(
+        title: '캐릭터 성격',
+        titleColor: Colors.black,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -141,6 +145,7 @@ class _PlantRegisterPersonalityScreenState
                     right: 0,
                     child: Center(
                       child: PlantCharacterArt(
+                        shadow: CharacterShadow.onWhite,
                         width: AppLayout.personalityCharacterWidth,
                         body: plantBodyFromId(widget.draft.bodyId),
                         // 성격 단계엔 아직 헤어를 draft에 저장하기 전이라
@@ -182,10 +187,12 @@ class _PlantRegisterPersonalityScreenState
                         final personality = _personalities[index];
                         return Stack(
                           children: [
+                            // 이름 칸(x150 w93)의 가운데가 196.5로 화면
+                            // 가운데보다 4.5 왼쪽이다(성격 시안 6프레임 공통).
                             Positioned(
                               top: AppLayout.personalityTitleTop,
                               left: 0,
-                              right: 0,
+                              right: 9,
                               child: Center(
                                 // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
                                 child: Text(
@@ -197,10 +204,12 @@ class _PlantRegisterPersonalityScreenState
                               ),
                             ),
                             // 태그 4534:169/171: 58.69x20.67 알약 둘, 사이 6.62.
+                            // 둘의 가운데가 197로 화면 가운데보다 4 왼쪽이다
+                            // (성격 시안 8프레임 공통). 오른쪽을 8 비워 맞춘다.
                             Positioned(
                               top: AppLayout.personalityTagsTop,
                               left: 0,
-                              right: 0,
+                              right: 8,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: personality.tags
