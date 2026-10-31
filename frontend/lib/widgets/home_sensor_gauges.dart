@@ -73,36 +73,21 @@ SensorGaugeContent soilGaugeContent(
   );
 }
 
-/// 조도 게이지. 서버는 **어제 하루**(완결된 전일) 누적 조도(lux·h)와 종별 하루
-/// 기준(하한, 반그늘 종은 상한도)을 준다. 디자이너 확인에 따라 "하루 기준 대비
-/// %"로 바꿔 보여 준다(예: 72,000 / 60,000 → 어제 120%). 막대는 기준(100%)에서
-/// 꽉 찬다. 판정이 UNKNOWN이면 값이 와도 숫자를 보여 주지 않는다.
-SensorGaugeContent lightGaugeContent(
-  SensorMetricAssessment light,
-  String plantName,
-) {
-  final target = light.lower;
-  final upper = light.upper;
-  final value = light.state == SensorLevel.unknown ? null : light.value;
-  final percent = (value != null && target != null && target > 0)
-      ? (value / target * 100).round()
-      : null;
-  final upperPercent = (upper != null && target != null && target > 0)
-      ? (upper / target * 100).round()
-      : null;
+/// 조도 게이지가 막대 끝(100%)으로 치는 순간 조도(lx).
+const double lightGaugeMaxLux = 2000;
+
+/// 조도 게이지. 하루 누적이 아니라 센서가 방금 잰 순간 조도(lx)를 0~2000 lx
+/// 막대에 그린다. 종별 하루 기준(lux·h)과는 단위가 달라 견줄 수 없어 부족
+/// 표시(alert)는 하지 않는다. 아직 값이 없으면 숫자를 보여 주지 않는다.
+SensorGaugeContent lightGaugeContent(double? lux, String plantName) {
   return SensorGaugeContent(
-    description: switch ((target, upperPercent)) {
-      (null, _) => '${_topic(plantName)} 좋아하는 빛의 양을 아직 몰라요',
-      (_, final u?) => '${_topic(plantName)} 하루 기준의 100 - $u% 빛을 좋아해요',
-      _ => '${_topic(plantName)} 하루 기준의 100% 이상 빛을 좋아해요',
-    },
-    currentRatio: percent == null ? 0 : (percent / 100).clamp(0.0, 1.0),
+    description: '${_topic(plantName)} 지금 이만큼의 빛을 받고 있어요',
+    currentRatio: lux == null
+        ? 0
+        : (lux / lightGaugeMaxLux).clamp(0.0, 1.0),
     comfortRatio: 1,
-    currentLabel: percent == null
-        ? _unknownLabel(light.reason)
-        : '어제 $percent%',
-    maxLabel: '100%',
-    alert: percent != null && light.state == SensorLevel.low,
+    currentLabel: lux == null ? '측정 중' : '현재조도 ${lux.round()}lx',
+    maxLabel: '${lightGaugeMaxLux.round()}',
   );
 }
 

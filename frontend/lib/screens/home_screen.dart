@@ -128,6 +128,15 @@ enum HomeTimePeriod {
     };
   }
 
+  /// 센서가 연결돼 있을 때 순간 조도(lx)로 정하는 시간대.
+  /// 1,000 이상 낮, 300~1,000 오후, 50~300 저녁, 50 미만 늦저녁.
+  static HomeTimePeriod fromLux(double lux) {
+    if (lux >= 1000) return day;
+    if (lux >= 300) return afternoon;
+    if (lux >= 50) return evening;
+    return lateEvening;
+  }
+
   /// 방이름: 늦저녁(2431:14981)만 `#CCCBCB`, 나머지는 진한 텍스트.
   Color get titleColor => this == lateEvening ? kGrayLightest : kTextDark;
 
@@ -198,6 +207,20 @@ class _HomeScreenState extends State<HomeScreen>
   String? _serverDialogue;
   String? _serverDialogueKey;
   SensorAssessment? _serverSensor;
+
+  /// 조도 게이지의 순간 조도(lx). /home 응답에는 없어 센서 상태 API로 받는다.
+  double? _currentLux;
+
+  bool get _sensorConnected =>
+      _serverSensor?.connection == SensorConnection.active;
+
+  /// 센서가 연결돼 순간 조도를 알면 조도로, 아니면 지금 시각으로 정한다.
+  HomeTimePeriod get _period {
+    final lux = _currentLux;
+    if (widget.period != null) return widget.period!;
+    if (_sensorConnected && lux != null) return HomeTimePeriod.fromLux(lux);
+    return HomeTimePeriod.fromDateTime(DateTime.now());
+  }
 
   // 홈 대사 큐(#123). 서버가 준 오늘의 대사를 하나씩 정해진 시간만큼 보여
   // 준다. 보여 준 대사는 기기에 남겨 다시 띄우지 않는다.
@@ -429,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen>
     // 달을 눌러도 햇빛(광선/토스트)은 나오면 안 되고, 달만 흔들린다
     // (디자이너 요청 2026-10: 눌러도 반응이 없었다).
     // 햇빛은 낮(day)·오후해(afternoon)일 때만 발동한다.
-    final period = widget.period ?? HomeTimePeriod.fromDateTime(DateTime.now());
+    final period = _period;
     if (period.phaseIcon == FigmaHomeIcon.moon) {
       if (!MediaQuery.disableAnimationsOf(context)) {
         _moonController.forward(from: 0);
@@ -524,8 +547,8 @@ class _HomeScreenState extends State<HomeScreen>
       unawaited(
         _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
       );
-      // /home 응답에 판정이 이미 있으니 바로 다시 받지 않고 주기만 건다.
-      _syncSensorRefresh(fetchNow: false);
+      // /home 응답에는 순간 조도가 없어 게이지가 펼쳐져 있으면 바로 받는다.
+      _syncSensorRefresh();
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -569,13 +592,14 @@ class _HomeScreenState extends State<HomeScreen>
     return !mounted || !_homeOffline;
   }
 
-  /// 게이지가 펼쳐져 있는 동안만 센서 판정을 주기적으로 다시 받는다.
+  /// 게이지가 펼쳐져 있거나 센서가 연결돼 있는 동안 센서 판정을 주기적으로
+  /// 다시 받는다. 연결된 센서의 순간 조도가 홈 배경을 정하기 때문이다.
   /// TEMP: 시연용으로 측정이 10초 주기라 10초마다 받는다. 원래는 1분.
   void _syncSensorRefresh({bool fetchNow = true}) {
     _sensorTimer?.cancel();
     _sensorTimer = null;
     final plantId = (_serverPlant ?? widget.plant)?.id;
-    if (!_gaugesExpanded || plantId == null) return;
+    if ((!_gaugesExpanded && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
       const Duration(seconds: 10),
@@ -585,10 +609,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _refreshSensor(String plantId) async {
     final SensorAssessment? assessment;
+    final double? lux;
     try {
       final status = await (widget.sensorRepository ?? SensorApi())
           .getPlantSensorStatus(plantId);
       assessment = status.assessment;
+      lux = status.latest?.lux;
     } on LeafieApiException {
       return; // 다음 주기에 다시 받는다. 게이지는 마지막 판정을 둔다.
     } on FormatException {
@@ -597,7 +623,10 @@ class _HomeScreenState extends State<HomeScreen>
     // 그사이 다른 식물로 옮겼으면 이전 식물의 판정을 덮어쓰지 않는다.
     if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
     if (assessment == null) return;
-    setState(() => _serverSensor = assessment);
+    setState(() {
+      _serverSensor = assessment;
+      _currentLux = lux;
+    });
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
@@ -715,6 +744,7 @@ class _HomeScreenState extends State<HomeScreen>
     _serverDialogue = null;
     _serverDialogueKey = null;
     _serverSensor = null;
+    _currentLux = null;
     _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
     _pendingDialogues.clear();
@@ -999,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildHome(BuildContext context) {
     final plant = _serverPlant ?? widget.plant;
-    final period = widget.period ?? HomeTimePeriod.fromDateTime(DateTime.now());
+    final period = _period;
 
     return Scaffold(
       backgroundColor: kHomeGreen,
@@ -1502,6 +1532,7 @@ class _HomeScreenState extends State<HomeScreen>
                 else if (_gaugesExpanded)
                   _HomeEnvironmentPanel(
                     sensor: _serverSensor,
+                    lux: _currentLux,
                     plantName: plant.name,
                     onCollapse: () {
                       setState(() => _gaugesExpanded = false);
@@ -1959,11 +1990,13 @@ class _OutsideShadowPainter extends CustomPainter {
 class _HomeEnvironmentPanel extends StatefulWidget {
   const _HomeEnvironmentPanel({
     required this.sensor,
+    required this.lux,
     required this.plantName,
     required this.onCollapse,
   });
 
   final SensorAssessment? sensor;
+  final double? lux;
   final String plantName;
   final VoidCallback onCollapse;
 
@@ -2012,6 +2045,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
   @override
   Widget build(BuildContext context) {
     final sensor = widget.sensor;
+    final lux = widget.lux;
     final plantName = widget.plantName;
     final onCollapse = widget.onCollapse;
     return Positioned(
@@ -2027,7 +2061,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
           animation: _drag,
           builder: (context, child) =>
               Transform.translate(offset: Offset(0, _drag.value), child: child),
-          child: _panel(sensor, plantName, onCollapse),
+          child: _panel(sensor, lux, plantName, onCollapse),
         ),
       ),
     );
@@ -2035,6 +2069,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
 
   Widget _panel(
     SensorAssessment? sensor,
+    double? lux,
     String plantName,
     VoidCallback onCollapse,
   ) {
@@ -2095,7 +2130,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
             _gauge(
               top: 697 - 575,
               kind: EnvironmentGaugeKind.light,
-              content: lightGaugeContent(sensor.light, plantName),
+              content: lightGaugeContent(lux, plantName),
             ),
           ],
         ],
