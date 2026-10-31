@@ -11,6 +11,7 @@ import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 시안 2564:947 "전체보기_캐릭터 상세 1".
 ///
@@ -53,9 +54,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     }
   }
 
@@ -67,9 +66,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
       return;
     }
     if (!mounted) return;
@@ -125,9 +122,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

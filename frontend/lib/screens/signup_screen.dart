@@ -12,6 +12,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yeso_plant/widgets/edge_swipe_back.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 // 이메일 형식만 검사 — 실제 서버 확인이 아니라 클라이언트 형식 체크.
 final _emailFormatRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -174,21 +175,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _signup() async {
     if (!_emailChecked) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('이메일을 먼저 확인해주세요.')));
+      showLeafieToast(context, text: '이메일을 먼저 확인해주세요.');
       return;
     }
     if (_passwordController.text.length < 8) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('비밀번호는 최소 8자리 이상이어야 합니다.')));
+      showLeafieToast(context, text: '비밀번호는 최소 8자리 이상이어야 합니다.');
       return;
     }
     if (_passwordController.text != _passwordConfirmController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')));
+      showLeafieToast(context, text: '비밀번호가 일치하지 않습니다.');
       return;
     }
 
@@ -207,12 +202,9 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authErrorMessage(e, fallback: '가입하지 못했어요. 잠시 후 다시 시도해 주세요.'),
-            ),
-          ),
+        showLeafieToast(
+          context,
+          text: authErrorMessage(e, fallback: '가입하지 못했어요. 잠시 후 다시 시도해 주세요.'),
         );
       }
     } finally {

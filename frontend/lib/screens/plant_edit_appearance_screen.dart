@@ -8,6 +8,7 @@ import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 시안 5038:6460 "캐릭터 꾸미기"(편집).
 ///
@@ -85,9 +86,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     }
   }
 
@@ -96,10 +95,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
       // 6049:2649 제목은 검정이다(공용 앱바 기본 #444).
-      appBar: const YesoAppBar(
-        title: '캐릭터 꾸미기',
-        titleColor: Colors.black,
-      ),
+      appBar: const YesoAppBar(title: '캐릭터 꾸미기', titleColor: Colors.black),
       body: PlantDetailBody(
         children: [
           // 바디 스위처 5038:6460(노드 5070:906). 시안은 앱바 아래 작은 실루엣

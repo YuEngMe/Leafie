@@ -10,6 +10,7 @@ import 'package:yeso_plant/widgets/login_credentials_form.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/social_login_section.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 typedef OAuthSignInLauncher =
     Future<bool> Function(
@@ -87,9 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('로그인 성공')));
+        showLeafieToast(context, text: '로그인 성공');
       }
     } on AuthException catch (e) {
       // Figma "03 앱 진입_로그인"(2026-08-09 확인): 로그인 실패는 비밀번호
@@ -122,18 +121,13 @@ class _LoginScreenState extends State<LoginScreen> {
               authScreenLaunchMode: LaunchMode.externalApplication,
             );
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그인 화면을 열지 못했어요. 다시 시도해주세요.')),
-        );
+        showLeafieToast(context, text: '로그인 화면을 열지 못했어요. 다시 시도해주세요.');
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authErrorMessage(e, fallback: '소셜 로그인에 실패했어요. 다시 시도해 주세요.'),
-            ),
-          ),
+        showLeafieToast(
+          context,
+          text: authErrorMessage(e, fallback: '소셜 로그인에 실패했어요. 다시 시도해 주세요.'),
         );
       }
     }

@@ -10,6 +10,7 @@ import 'package:yeso_plant/widgets/fade_page_route.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 Future<String> _submitPlantRegistration(PlantRegistrationDraft draft) async {
   return PlantApi().registerPlant(draft);
@@ -79,17 +80,13 @@ class _PlantRegisterCompleteScreenState
       }
     } on LeafieApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        showLeafieToast(context, text: error.message);
       }
     } catch (error, stackTrace) {
       debugPrint('Plant registration failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('식물을 등록하지 못했어요.')));
+        showLeafieToast(context, text: '식물을 등록하지 못했어요.');
       }
     } finally {
       // 실패했으면 이번에 고정된 요청 본문까지 남겨 둔다. 앱을 껐다 켜서

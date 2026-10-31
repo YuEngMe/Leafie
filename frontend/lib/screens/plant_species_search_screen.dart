@@ -18,6 +18,7 @@ import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 export 'package:yeso_plant/models/plant_species_candidate.dart';
 
@@ -157,9 +158,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
   Future<void> _pickPhoto() async {
     final name = widget.name;
     if (name == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('식물 이름을 먼저 입력해주세요.')));
+      showLeafieToast(context, text: '식물 이름을 먼저 입력해주세요.');
       return;
     }
     final cameraAvailable =
@@ -227,9 +226,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     // 사진에서 식물을 찾지 못하면 실패 화면에 세우지 않고 같은 방법으로 다시
     // 찍게 한다(디자이너 답 11-B). 다시 찍기를 취소하면 이 화면에 남는다.
     if (retakeRequested != true || !mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('식물을 인식하지 못했어요. 다시 찍어 주세요.')));
+    showLeafieToast(context, text: '식물을 인식하지 못했어요. 다시 찍어 주세요.');
     await retake();
   }
 
@@ -261,9 +258,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
       await _openPhoto(photo, name, retake: () => _pickGallery(name));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('갤러리에서 사진을 불러오지 못했어요.')));
+      showLeafieToast(context, text: '갤러리에서 사진을 불러오지 못했어요.');
     }
   }
 
@@ -305,9 +300,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
     }
     if (normalized.length < 2) {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('검색어를 두 글자 이상 입력해 주세요.')));
+      showLeafieToast(context, text: '검색어를 두 글자 이상 입력해 주세요.');
       return;
     }
     setState(() => _loading = true);
@@ -326,9 +319,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
         _highlightedIndex = null;
         _loading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } catch (_) {
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
@@ -336,9 +327,7 @@ class _PlantSpeciesSearchScreenState extends State<PlantSpeciesSearchScreen> {
         _highlightedIndex = null;
         _loading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('식물을 검색하지 못했어요.')));
+      showLeafieToast(context, text: '식물을 검색하지 못했어요.');
     }
   }
 

@@ -201,9 +201,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       await _loadCalendar();
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _completingIds.remove(item.id));
     }
@@ -228,9 +226,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       await _loadCalendar();
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     }
   }
 

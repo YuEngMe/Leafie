@@ -9,6 +9,7 @@ import 'package:yeso_plant/widgets/figma_glyphs.dart';
 import 'package:yeso_plant/widgets/inset_shadow_box.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// Figma "회원 탈퇴"(2570:1994)와 완료 화면(2570:11895).
 ///
@@ -50,9 +51,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       );
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

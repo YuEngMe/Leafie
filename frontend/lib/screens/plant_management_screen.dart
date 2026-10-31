@@ -8,6 +8,7 @@ import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/svg_drop_shadow.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 시안 4534:6665 "전체보기_"(옛 기준 2316:5103 "전체보기_내 캐릭터").
 ///
@@ -145,9 +146,7 @@ class _PlantManagementScreenState extends State<PlantManagementScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showLeafieToast(context, text: message);
   }
 
   @override

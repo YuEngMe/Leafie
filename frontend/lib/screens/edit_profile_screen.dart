@@ -46,9 +46,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (next.isEmpty) {
       // 시안(2316:6397)은 빈 칸에서도 버튼이 오렌지라 눌린다. 비우고
       // 누른 경우는 안내로 막는다.
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('닉네임을 입력해주세요.')));
+      showLeafieToast(context, text: '닉네임을 입력해주세요.');
       return;
     }
     setState(() => _submitting = true);
@@ -65,9 +63,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) Navigator.pop(context, profile.nickname);
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

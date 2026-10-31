@@ -14,6 +14,7 @@ import 'package:yeso_plant/services/plant_management_api.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 import 'package:yeso_plant/widgets/main_tab_shell.dart';
 
 Finder _navIcon(FigmaNavIcon icon) => find.byWidgetPredicate(
@@ -125,9 +126,9 @@ void main() {
     expect(find.byType(DiaryEntryScreen), findsNothing);
     final errorText = find.textContaining('다이어리를 불러오지 못했어요.');
     expect(errorText, findsOneWidget);
-    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.behavior, SnackBarBehavior.floating);
-    expect((snackBar.margin! as EdgeInsets).bottom, greaterThan(79));
+    // 기본 SnackBar(화면 아래 검은 띠)가 아니라 시안 회색 토스트로 띄운다.
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.byType(LeafieToast), findsOneWidget);
     final errorTextRect = tester.getRect(errorText);
     final bottomNavRect = tester.getRect(find.byType(AppBottomNav));
     expect(errorTextRect.bottom, lessThan(bottomNavRect.top));

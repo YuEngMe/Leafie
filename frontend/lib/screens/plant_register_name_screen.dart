@@ -12,6 +12,7 @@ import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 class PlantRegisterNameScreen extends StatefulWidget {
   const PlantRegisterNameScreen({
@@ -91,9 +92,7 @@ class _PlantRegisterNameScreenState extends State<PlantRegisterNameScreen> {
   void _goToNextStep() {
     final name = _nicknameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('애칭을 입력해주세요')));
+      showLeafieToast(context, text: '애칭을 입력해주세요');
       return;
     }
     // 종은 다음 화면(2315:2515)에서 고른다.

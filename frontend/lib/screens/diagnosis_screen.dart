@@ -12,6 +12,7 @@ import 'package:yeso_plant/widgets/photo_confirm_bar.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 typedef DiagnosisImageProviderBuilder =
     ImageProvider<Object> Function(String url);
@@ -106,9 +107,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   Future<void> _startDiagnosis(_DiagnosisHistoryData data) async {
     if (data.plantId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('먼저 식물을 등록해주세요.')));
+      showLeafieToast(context, text: '먼저 식물을 등록해주세요.');
       return;
     }
     final callback = widget.onStartDiagnosis;
@@ -137,14 +136,11 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   Future<void> _openRecord(DiagnosisSummary record) async {
     if (record.status != 'COMPLETED') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            record.status == 'NEEDS_RETAKE'
-                ? retakeReasonMessage(record.retakeReasonCode)
-                : _summaryStatusMessage(record.status),
-          ),
-        ),
+      showLeafieToast(
+        context,
+        text: record.status == 'NEEDS_RETAKE'
+            ? retakeReasonMessage(record.retakeReasonCode)
+            : _summaryStatusMessage(record.status),
       );
       return;
     }
@@ -276,9 +272,7 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
       });
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -296,9 +290,7 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
       });
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -594,9 +586,7 @@ Future<DiagnosisPhoto?> _captureDiagnosisPhoto(
     return await picker();
   } on Object {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('카메라를 사용할 수 없습니다. 다시 시도해 주세요.')),
-      );
+      showLeafieToast(context, text: '카메라를 사용할 수 없습니다. 다시 시도해 주세요.');
     }
     return null;
   }

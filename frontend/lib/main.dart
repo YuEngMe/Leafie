@@ -17,6 +17,7 @@ import 'package:yeso_plant/widgets/design_status_bar_inset.dart';
 import 'package:yeso_plant/widgets/fade_page_route.dart';
 import 'package:yeso_plant/widgets/platform_reduce_motion.dart';
 import 'package:yeso_plant/widgets/tap_outside_unfocus.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 // OAuth·이메일 인증·비밀번호 재설정 링크가 모두 이 스킴으로 앱에 돌아온다.
 // android/ios에 등록해둔 값과 반드시 일치해야 한다.
@@ -96,7 +97,7 @@ class _YesoAppState extends State<YesoApp> {
         // OAUTH_CALLBACK_FAILED: 콜백 URL 교환 자체가 실패한 경우.
         // api-spec.md 3장의 OAuth 오류 상태 중 하나 — 로그인 화면에 남아
         // 다시 시도하게 한다.
-        _showSnackBar('로그인 처리 중 오류가 발생했어요. 다시 시도해주세요.');
+        _showToast('로그인 처리 중 오류가 발생했어요. 다시 시도해주세요.');
       },
     );
   }
@@ -145,7 +146,9 @@ class _YesoAppState extends State<YesoApp> {
         break;
       case AuthChangeEvent.signedIn:
         // 서버 프로필의 profile_completed로 신규 소셜 가입자를 가른다.
-        _runOrDefer(() => _openAuthenticatedScreen(navigator, data.session?.user));
+        _runOrDefer(
+          () => _openAuthenticatedScreen(navigator, data.session?.user),
+        );
         break;
       case AuthChangeEvent.initialSession:
         if (data.session != null) {
@@ -204,12 +207,11 @@ class _YesoAppState extends State<YesoApp> {
     );
   }
 
-  void _showSnackBar(String message) {
-    final context = _navigatorKey.currentContext;
-    if (context == null) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _showToast(String message) {
+    // Navigator의 context로는 그 아래 Overlay를 찾지 못하므로 직접 받는다.
+    final overlay = _navigatorKey.currentState?.overlay;
+    if (overlay == null) return;
+    showLeafieToastOn(overlay, text: message);
   }
 
   @override

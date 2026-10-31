@@ -35,6 +35,7 @@ import 'package:yeso_plant/widgets/home_sensor_gauges.dart';
 import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/services/home_dialogue_seen_store.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 홈 API가 반환한 등록 식물 정보.
 class HomePlant {
@@ -1087,9 +1088,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (!mounted) return false;
     setState(() => _homeError = null);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(failure)));
+    showLeafieToast(context, text: failure);
     await _loadPlants();
     return false;
   }
@@ -1128,9 +1127,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) {
         setState(() {
@@ -1320,9 +1317,7 @@ class _HomeScreenState extends State<HomeScreen>
       loaded = await _selectAndLoad(plantId);
     } on LeafieApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        showLeafieToast(context, text: error.message);
       }
     } finally {
       if (mounted) setState(() => _switchingPlant = false);
