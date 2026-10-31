@@ -158,6 +158,12 @@ class SensorAssessmentService:
             )
         )
         result.connection = SensorConnection.ACTIVE if recent else SensorConnection.STALE
+        if day is None:
+            # 최신순으로 읽은 측정 중 조도가 있는 첫 값. 지난 날짜 판정에는
+            # '지금' 조도가 없으므로 비워 둔다.
+            result.current_lux = next(
+                (float(reading.lux) for reading in recent if reading.lux is not None), None
+            )
         result.soil.reason = "NO_RECENT_DATA"
         result.light.date = light_day
         result.light.reason = "NO_RECENT_DATA"

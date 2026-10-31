@@ -132,3 +132,6 @@ class SensorAssessment(BaseModel):
     provisional: bool = True
     soil: SensorMetricAssessment
     light: SensorMetricAssessment
+    # 가장 최근 측정의 순간 조도(lx). 홈 배경·조도 게이지가 이 값을 쓴다.
+    # /home이 이미 읽은 최근 측정에서 채워, 앱이 센서 상태를 다시 부르지 않게 한다.
+    current_lux: float | None = Field(default=None, alias="currentLux")

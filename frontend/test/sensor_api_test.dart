@@ -152,6 +152,19 @@ void main() {
     expect(called, isTrue);
   });
 
+  test('판정의 currentLux는 숫자면 읽고 없으면 null이다', () {
+    Map<String, dynamic> body([Object? lux = 'absent']) => {
+      'connection': 'ACTIVE',
+      'soil': {'state': 'OK', 'unit': 'relative_percent'},
+      'light': {'state': 'OK', 'unit': 'lux_hours'},
+      if (lux != 'absent') 'currentLux': lux,
+    };
+    expect(SensorAssessment.fromJson(body(523)).currentLux, 523.0);
+    expect(SensorAssessment.fromJson(body()).currentLux, isNull);
+    expect(SensorAssessment.fromJson(body(null)).currentLux, isNull);
+    expect(() => SensorAssessment.fromJson(body('523')), throwsFormatException);
+  });
+
   test('센서 상태 ACTIVE는 latest와 dailyLight를 파싱한다', () async {
     final status = await api((request) async {
       expect(request.method, 'GET');

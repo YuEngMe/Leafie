@@ -221,21 +221,24 @@ class LeafieApiClient {
   }
 }
 
+/// 앱 전체가 함께 쓰는 연결. 요청마다 새로 만들고 닫으면 매번 TCP·TLS
+/// 연결부터 다시 맺어 요청 하나에 약 0.28초가 더 들었다(배포 서버 실측:
+/// 새 연결 0.39초, 이어 쓰기 0.11초). 쉬는 연결은 15초 뒤 닫혀, 앱을 오래
+/// 내려 뒀다 돌아와도 끊긴 연결을 다시 쓰지 않는다.
+final HttpClient _sharedHttpClient = HttpClient()
+  ..connectionTimeout = const Duration(seconds: 10)
+  ..idleTimeout = const Duration(seconds: 15);
+
 Future<LeafieHttpResponse> _sendWithHttpClient(LeafieHttpRequest input) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
-  try {
-    final request = await client.openUrl(input.method, input.uri);
-    input.headers.forEach(request.headers.set);
-    if (input.body != null) request.add(encodeLeafieJsonBody(input.body!));
-    if (input.rawBody != null) request.add(input.rawBody!);
-    final response = await request.close();
-    return LeafieHttpResponse(
-      statusCode: response.statusCode,
-      body: await response.transform(utf8.decoder).join(),
-    );
-  } finally {
-    client.close(force: true);
-  }
+  final request = await _sharedHttpClient.openUrl(input.method, input.uri);
+  input.headers.forEach(request.headers.set);
+  if (input.body != null) request.add(encodeLeafieJsonBody(input.body!));
+  if (input.rawBody != null) request.add(input.rawBody!);
+  final response = await request.close();
+  return LeafieHttpResponse(
+    statusCode: response.statusCode,
+    body: await response.transform(utf8.decoder).join(),
+  );
 }
 
 @visibleForTesting
