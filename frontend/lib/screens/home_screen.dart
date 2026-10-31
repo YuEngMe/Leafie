@@ -131,9 +131,9 @@ enum HomeTimePeriod {
   /// 방이름: 늦저녁(2431:14981)만 `#CCCBCB`, 나머지는 진한 텍스트.
   Color get titleColor => this == lateEvening ? kGrayLightest : kTextDark;
 
-  /// D+와 알림 벨: 주간은 진한 텍스트·오렌지, 그 외 세 시간대는 연노랑
+  /// D+와 알림 벨: 주간은 검정(4534:9685)·오렌지, 그 외 세 시간대는 연노랑
   /// `#FFECA6`(2431:14986, 3429:1965).
-  Color get counterColor => this == day ? kTextDark : kPaleYellow;
+  Color get counterColor => this == day ? Colors.black : kPaleYellow;
   Color get notificationColor => this == day ? kOrangeMain : kPaleYellow;
 }
 
