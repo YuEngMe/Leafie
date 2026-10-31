@@ -27,8 +27,9 @@ String hairForCategory(String category) => switch (category) {
 /// 종별로 헤어를 세분화해 매핑한다. category 매핑(같은 category = 같은 헤어)만으로는
 /// 데이지·수국·에케베리아·하월시아처럼 전용 헤어가 있는 종을 구분할 수 없어,
 /// 안정적인 `species.referenceId`(catalog:<학명-slug>)로 먼저 분기하고 표에 없는
-/// 종은 `hairForCategory`로 폴백한다. (백엔드 HairType enum에 9종 전부 있어 어떤
-/// hair_id를 보내도 POST /plants가 통과한다.)
+/// 종은 `hairForCategory`로 폴백한다. (백엔드 HairType enum에 14종 전부 있어 어떤
+/// hair_id를 보내도 POST /plants가 통과한다. 하월시아·스투키·극락조·괴마옥은
+/// 11/1에 추가한 값이라 그 이전 서버는 422로 거절한다.)
 String hairForSpecies(PlantSpeciesCandidate species) =>
     switch (species.referenceId) {
       'catalog:helianthus-annuus' => 'hair_sunflower',
@@ -37,7 +38,13 @@ String hairForSpecies(PlantSpeciesCandidate species) =>
       'catalog:monstera-deliciosa' => 'hair_monstera',
       'catalog:cactaceae' => 'hair_flower_cactus',
       'catalog:echeveria-elegans' => 'hair_rosette_succulent',
-      'catalog:haworthiopsis-attenuata' => 'hair_pointed_succulent',
+      // 시안 식물 머리(6512:2062)에 종 전용 머리가 있는 종. 예전에는
+      // 하월시아가 산세베리아 머리를, 산세베리아는 관엽 기본(몬스테라)을 썼다.
+      'catalog:dracaena-trifasciata' => 'hair_pointed_succulent',
+      'catalog:haworthiopsis-attenuata' => 'hair_haworthia',
+      'catalog:dracaena-stuckyi' => 'hair_stuckyi',
+      'catalog:strelitzia-reginae' => 'hair_strelitzia',
+      'catalog:euphorbia-gwaemaok' => 'hair_gwaemaok',
       _ => hairForCategory(species.categorySuggestion),
     };
 
