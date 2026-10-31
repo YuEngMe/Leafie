@@ -1192,8 +1192,9 @@ void main() {
             plantRepository: _FakePlantManagementRepository([
               _managedPlant('plant-a', '첫째', selected: true),
             ]),
-            loadHomeForPlant: (_) async => const HomeDashboardData(
-              plant: HomePlantData(
+            // 편지가 오면 서버는 알림과 답장 대사(LETTER_SENT)도 함께 만든다.
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
                 id: 'plant-a',
                 nickname: '첫째',
                 personalityType: 'OUTGOING',
@@ -1207,14 +1208,25 @@ void main() {
                 backgroundPhase: 'DAY',
                 dialogueKey: 'NORMAL',
                 dialogue: null,
+                dialogueQueue: [
+                  if (letters.count > 0)
+                    const HomeDialogueEvent(
+                      eventId: 'e-letter',
+                      dialogueKey: 'LETTER_SENT',
+                      dialogue: '내 답장도 받아줘!',
+                      duration: Duration(seconds: 10),
+                    ),
+                ],
               ),
-              todayEvents: [],
+              todayEvents: const [],
               unreadLetterCount: 0,
-              unreadNotificationCount: 0,
+              unreadNotificationCount: letters.count,
             ),
           ),
         ),
       );
+      // 기기에 남긴 "본 대사" 목록을 읽는 비동기 작업을 끝낸다.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
       await tester.pump();
       return letters;
@@ -1264,6 +1276,17 @@ void main() {
       expect(letters.calls, afterArrival, reason: '편지가 오면 더 세지 않는다');
     });
 
+    testWidgets('편지가 오면 답장 대사도 띄운다', (tester) async {
+      final letters = await pumpLetters(tester);
+      LetterArrivalWatch.instance.diaryCreated();
+      letters.count = 1;
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('내 답장도 받아줘!'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('1분이 지나면 30초 간격으로 늦춰 센다', (tester) async {
       final letters = await pumpLetters(tester);
       LetterArrivalWatch.instance.diaryCreated();
@@ -1286,7 +1309,8 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       await tester.pump();
-      expect(letters.calls, before + 1);
+      // 늘었으니 /home을 다시 받고, 그 응답을 반영하며 한 번 더 센다.
+      expect(letters.calls, before + 2);
       expect(badge, findsOneWidget);
     });
   });

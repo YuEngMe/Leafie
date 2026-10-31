@@ -867,16 +867,20 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  /// 편지 수를 다시 세서 늘었으면 true. 편지가 오면 서버가 알림도 하나
-  /// 만들므로 벨 숫자도 같은 만큼 올린다(/home을 다시 받지 않는다).
+  /// 편지 수를 다시 세서 늘었으면 true. 편지가 오면 서버가 알림과 답장
+  /// 대사(LETTER_SENT)도 만드는데 둘 다 /home에만 실려 오므로, 그때만
+  /// 지금 방의 /home을 한 번 다시 받는다.
   Future<bool> _checkNewLetters() async {
+    final plantId = (_serverPlant ?? widget.plant)?.id;
     // 직전 조회가 실패해 0으로 숨겨 둔 값이면 늘었는지 알 수 없다.
     final before = _letterCountKnown ? _unreadLetterCount : null;
     await _refreshLetterBadge();
     if (!mounted || before == null || !_letterCountKnown) return false;
-    final arrived = _unreadLetterCount - before;
-    if (arrived <= 0) return false;
-    setState(() => _unreadNotificationCount += arrived);
+    if (_unreadLetterCount <= before) return false;
+    // 그사이 방을 옮겼으면 옮긴 방의 /home이 이미 대사를 가져온다.
+    if (!_switchingPlant && plantId == (_serverPlant ?? widget.plant)?.id) {
+      await _loadHome(plantId);
+    }
     return true;
   }
 
