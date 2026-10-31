@@ -12,6 +12,7 @@ import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/letter_api.dart';
@@ -239,7 +240,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late HomeScene _scene;
   late bool _gaugesExpanded;
 
@@ -321,6 +323,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 연결이 끊긴 조회의 식물. 다시 시도는 같은 요청을 다시 보낸다.
   String? _offlinePlantId;
   int _unreadNotificationCount = 0;
+
+  /// 새 다이어리 뒤 편지가 올 때까지만 편지 수를 센다. 처음 1분은 3초마다
+  /// (데모 서버는 몇 초 만에 온다), 그 뒤 30초마다 최대 16분(원래 5~15분).
+  /// 편지가 오면 바로 멈춰, 평소 홈에는 요청이 늘지 않는다.
+  Timer? _letterWatchTimer;
+
+  /// 확인을 시작한 뒤 지금까지 기다린 시간. 확인 중이 아니면 null.
+  Duration? _letterWatchElapsed;
+
+  /// 마지막 편지 수 조회가 성공했는가. 실패하면 배지를 0으로 숨긴다.
+  bool _letterCountKnown = false;
+  static const Duration _letterWatchFastFor = Duration(minutes: 1);
+  static const Duration _letterWatchFast = Duration(seconds: 3);
+  static const Duration _letterWatchSlow = Duration(seconds: 30);
+  static const Duration _letterWatchMax = Duration(minutes: 16);
   int _unreadLetterCount = 0;
   List<ManagedPlant> _plants = const [];
   bool _switchingPlant = false;
@@ -379,6 +396,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    LetterArrivalWatch.instance.addListener(_startLetterWatch);
     _raysController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -413,6 +432,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    LetterArrivalWatch.instance.removeListener(_startLetterWatch);
+    _letterWatchTimer?.cancel();
     _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
     _petTimer?.cancel();
@@ -813,6 +835,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
   /// 같은 식물 기준으로 센다. 홈 응답의 unread_letter_count는 전체 식물
   /// 합계라 쓰지 않는다.
+  /// 앱을 내렸다가 돌아오면(알림을 보고 오는 등) 편지 수를 한 번 다시 센다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_checkNewLetters());
+  }
+
+  void _startLetterWatch() {
+    _letterWatchTimer?.cancel();
+    _letterWatchElapsed = Duration.zero;
+    _scheduleLetterCheck();
+  }
+
+  void _scheduleLetterCheck() {
+    final elapsed = _letterWatchElapsed;
+    if (elapsed == null) return;
+    if (elapsed >= _letterWatchMax) {
+      _letterWatchElapsed = null;
+      return;
+    }
+    final wait = elapsed < _letterWatchFastFor
+        ? _letterWatchFast
+        : _letterWatchSlow;
+    _letterWatchTimer = Timer(wait, () async {
+      _letterWatchElapsed = elapsed + wait;
+      if (await _checkNewLetters()) {
+        _letterWatchElapsed = null;
+      } else if (mounted) {
+        _scheduleLetterCheck();
+      }
+    });
+  }
+
+  /// 편지 수를 다시 세서 늘었으면 true. 편지가 오면 서버가 알림도 하나
+  /// 만들므로 벨 숫자도 같은 만큼 올린다(/home을 다시 받지 않는다).
+  Future<bool> _checkNewLetters() async {
+    // 직전 조회가 실패해 0으로 숨겨 둔 값이면 늘었는지 알 수 없다.
+    final before = _letterCountKnown ? _unreadLetterCount : null;
+    await _refreshLetterBadge();
+    if (!mounted || before == null || !_letterCountKnown) return false;
+    final arrived = _unreadLetterCount - before;
+    if (arrived <= 0) return false;
+    setState(() => _unreadNotificationCount += arrived);
+    return true;
+  }
+
   Future<void> _refreshLetterBadge() async {
     final plantId = (_serverPlant ?? widget.plant)?.id;
     if (plantId == null) {
@@ -823,10 +890,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final count = await _letterRepository.unreadCount(plantId);
       // 그사이 다른 식물로 넘어갔으면 이전 식물 개수를 띄우지 않는다.
       if (!mounted || (_serverPlant ?? widget.plant)?.id != plantId) return;
-      setState(() => _unreadLetterCount = count);
+      setState(() {
+        _unreadLetterCount = count;
+        _letterCountKnown = true;
+      });
     } catch (_) {
       // 배지는 부가 정보라 조회에 실패해도 홈을 막지 않고 배지만 숨긴다.
-      if (mounted) setState(() => _unreadLetterCount = 0);
+      if (mounted) {
+        setState(() {
+          _unreadLetterCount = 0;
+          _letterCountKnown = false;
+        });
+      }
     }
   }
 

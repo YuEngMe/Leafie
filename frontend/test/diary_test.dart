@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/services/diary_api.dart';
@@ -315,6 +316,38 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
+    testWidgets('고른 날을 한 번 더 누르면 쓴 글이 있는 날만 그 글을 연다', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore()
+        ..entries = [DiaryEntry(date: DateTime(2026, 7, 1), title: '첫날 일기')];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 처음 누르면 고르기만 한다.
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+
+      // 고른 날을 다시 누르면 그날 글이 열린다.
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsOneWidget);
+      expect(find.text('첫날 일기'), findsOneWidget);
+      Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
+      await tester.pumpAndSettle();
+
+      // 글이 없는 날은 두 번 눌러도 열지 않는다.
+      await tester.tap(find.text('10'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('10'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+    });
+
     testWidgets('연필 버튼은 다른 날을 골랐어도 오늘 글을 연다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(
@@ -580,6 +613,74 @@ void main() {
         find.byType(DiaryWeatherPicker),
       );
       expect(picker.selected, DiaryWeather.sunny);
+    });
+
+    testWidgets('휴지통은 시안(6507:3098) 자리에 있고, 확인하면 그날 글을 지운다', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore()
+        ..entries = [DiaryEntry(date: DateTime(2026, 7, 15), title: '지울 글')];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
+      await tester.pumpAndSettle();
+
+      final trash = find.byKey(const ValueKey('diary-delete'));
+      // 시안 (322, 426) 19x20.152의 중심, 누르는 칸은 44x44.
+      expect(tester.getCenter(trash).dx, closeTo(322 + 19 / 2, 0.01));
+      expect(tester.getCenter(trash).dy, closeTo(426 + 20.152 / 2, 0.01));
+      expect(tester.getSize(trash), const Size(44, 44));
+
+      // 아니오면 그대로 둔다.
+      await tester.tap(trash);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('아니오'));
+      await tester.pumpAndSettle();
+      expect(store.entries, hasLength(1));
+      expect(find.byKey(const ValueKey('diary-delete')), findsOneWidget);
+
+      // 네면 지우고 다이어리 화면으로 돌아간다.
+      await tester.tap(trash);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('네'));
+      await tester.pumpAndSettle();
+      expect(store.entries, isEmpty);
+      expect(find.byKey(const ValueKey('diary-delete')), findsNothing);
+      expect(find.byType(DiaryCalendar), findsOneWidget);
+    });
+
+    testWidgets('새로 쓴 날을 저장할 때만 편지 확인 신호를 보낸다', (tester) async {
+      _setUpView(tester);
+      var signals = 0;
+      void count() => signals++;
+      LetterArrivalWatch.instance.addListener(count);
+      addTearDown(() => LetterArrivalWatch.instance.removeListener(count));
+      final store = _MemoryStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> writeAndLeave(String title) async {
+        await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, title);
+        await tester.pump();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
+
+      await writeAndLeave('처음 쓴 글');
+      expect(signals, 1);
+      // 같은 날을 고쳐 저장하면 편지가 다시 오지 않으니 신호도 없다.
+      await writeAndLeave('고친 글');
+      expect(store.saveCount, 2);
+      expect(signals, 1);
     });
 
     testWidgets('뒤로 나가도 쓴 글이 저장된다', (tester) async {

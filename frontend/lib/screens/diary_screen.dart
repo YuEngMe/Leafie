@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/period_swipe.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -70,6 +74,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
     } on LeafieApiException {
       // 인증이 없는 위젯 테스트와 네트워크 오류에서도 달력은 계속 보인다.
     }
+  }
+
+  void _selectDay(DateTime date) {
+    final again = DiaryEntry.sameDay(date, _selected);
+    final written = _entries.any(
+      (entry) => DiaryEntry.sameDay(entry.date, date),
+    );
+    if (again && written) {
+      unawaited(_openDay(date));
+      return;
+    }
+    setState(() => _selected = date);
   }
 
   Future<void> _openDay(DateTime date) async {
@@ -172,9 +188,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
               DiaryCalendar(
                 month: _month,
                 selected: _selected,
-                // 날짜를 누르면 고른 날 표시만 바꾼다. 글은 연필 버튼(오늘)으로만
-                // 연다(10/31 피드백).
-                onSelect: (date) => setState(() => _selected = date),
+                // 날짜를 누르면 고른 날 표시만 바꾼다(10/31 피드백). 이미 고른
+                // 날을 다시 누르면, 쓴 글이 있는 날만 그 글을 연다(11/01 요청).
+                // 새 글은 지금처럼 연필 버튼(오늘)으로만 쓴다.
+                onSelect: _selectDay,
                 markedDays: {
                   for (final e in _entries)
                     if (e.date.year == _month.year &&
@@ -427,6 +444,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       _recordExists = false;
     } else {
       await store.save(current);
+      // 새로 쓴 날에만 식물 편지가 온다. 홈이 그때만 편지를 세게 알린다.
+      if (!_recordExists) LetterArrivalWatch.instance.diaryCreated();
       _recordExists = true;
     }
     _persistedEntry = current;
@@ -453,6 +472,22 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     if (!mounted) return;
     Navigator.pop(context);
   });
+
+  /// 지우면 그날 받은 편지도 서버에서 함께 지워지고, 같은 날을 다시 쓰면
+  /// 새 편지가 온다. 지운 뒤에는 다이어리 화면으로 돌아간다.
+  Future<void> _deleteEntry() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      dialog: const ConfirmDialog(message: '삭제하시겠습니까?'),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runSubmission(() async {
+      if (_recordExists) await widget.store?.delete(_entry.date);
+      if (!mounted) return;
+      _setCurrentEntry(DiaryEntry(date: _entry.date), exists: false);
+      Navigator.pop(context);
+    });
+  }
 
   Future<void> _openCalendar() => _runSubmission(() async {
     await _persistCurrent();
@@ -596,7 +631,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   Positioned(
                     left: 63,
                     top: 423.4,
-                    width: 270,
+                    // 오른쪽 끝 휴지통(6507:3098, x322)과 겹치지 않게 줄인다.
+                    width: 322 - 4 - 63,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
@@ -618,6 +654,30 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  // 4534:3320 휴지통(6507:3098): (322, 426) 19x20.152. 누르기
+                  // 쉽게 같은 중심에 44x44를 둔다.
+                  Positioned(
+                    left: 322 + 19 / 2 - 22,
+                    top: 426 + 20.152 / 2 - 22,
+                    width: 44,
+                    height: 44,
+                    child: Semantics(
+                      button: true,
+                      label: '다이어리 삭제',
+                      child: GestureDetector(
+                        key: const ValueKey('diary-delete'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _submitting ? null : _deleteEntry,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/images/diary_delete.svg',
+                            width: 19,
+                            height: 20.152,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   // 3496:10621 제목 밑줄, 3496:10625 본문.
