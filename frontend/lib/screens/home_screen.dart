@@ -1814,10 +1814,12 @@ class _HomeStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
+      // 4534:9687: (21,725) 360×51, 흰색 30%, 모서리 35, 바깥 그림자
+      // 검정 20% 흐림 5, GLASS 흐림 3.
       left: 21,
       right: 21,
-      top: 727,
-      height: 49,
+      top: 725,
+      height: 51,
       child: Semantics(
         button: true,
         label: '조도 습도 체크하기',
@@ -1825,25 +1827,23 @@ class _HomeStatusCard extends StatelessWidget {
           key: const ValueKey('home-environment-card'),
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.42),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x26000000), blurRadius: 4),
-                  ],
-                ),
-                child: const Row(
-                  children: [
-                    SizedBox(width: 8),
-                    FigmaHomeAssetIcon(FigmaHomeIcon.environmentCheck),
-                    SizedBox(width: 14),
-                    Text('조도 습도 체크하기', style: kItemStyle),
-                  ],
+          child: CustomPaint(
+            painter: const _OutsideShadowPainter(radius: _kStatusCardRadius),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_kStatusCardRadius),
+              child: BackdropFilter(
+                // Figma 흐림 3 = sigma 1.5.
+                filter: ui.ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  child: const Row(
+                    children: [
+                      SizedBox(width: 8),
+                      FigmaHomeAssetIcon(FigmaHomeIcon.environmentCheck),
+                      SizedBox(width: 14),
+                      Text('조도 습도 체크하기', style: kItemStyle),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1852,6 +1852,42 @@ class _HomeStatusCard extends StatelessWidget {
       ),
     );
   }
+}
+
+const double _kStatusCardRadius = 35;
+
+/// 반투명 카드의 그림자를 카드 바깥에만 그린다. 시안은 "Show behind
+/// transparent areas"가 꺼져 있어 흰색 30% 아래로 그림자가 비치지 않는다.
+class _OutsideShadowPainter extends CustomPainter {
+  const _OutsideShadowPainter({required this.radius});
+
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final card = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    canvas.clipPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect((Offset.zero & size).inflate(12)),
+        Path()..addRRect(card),
+      ),
+    );
+    canvas.drawRRect(
+      card,
+      Paint()
+        ..color = const Color(0x33000000)
+        // Figma 흐림 5 = sigma 2.5.
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_OutsideShadowPainter oldDelegate) =>
+      oldDelegate.radius != radius;
 }
 
 class _HomeEnvironmentPanel extends StatelessWidget {
