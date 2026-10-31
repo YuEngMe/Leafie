@@ -352,6 +352,8 @@ class _DiagnosisDetailScreenState extends State<DiagnosisDetailScreen> {
             final diagnosis = data.diagnosis;
             return _ReferenceBody(
               child: Stack(
+                // 버튼(698 + 51)이 본문 748을 1px 넘어 아래 그림자가 잘리지 않게.
+                clipBehavior: Clip.none,
                 children: [
                   Positioned(
                     left: 12,
@@ -655,6 +657,8 @@ class _DiagnosisEmptyBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      // 버튼(698 + 51)이 본문 748을 1px 넘어 아래 그림자가 잘리지 않게.
+      clipBehavior: Clip.none,
       children: [
         // 4534:19705 제목 글자 y390~409(본문 기준 298~317). 예전엔 기준
         // 높이 795를 실제 본문 748에 눌러 담아 글자가 5~9px 위로, 버튼이
@@ -702,6 +706,8 @@ class _DiagnosisHistoryBody extends StatelessWidget {
     final today = data.records.where((item) => _sameDay(item.diagnosedAt, now));
     final past = data.records.where((item) => !_sameDay(item.diagnosedAt, now));
     return Stack(
+      // 버튼(698 + 51)이 본문 748을 1px 넘어 아래 그림자가 잘리지 않게.
+      clipBehavior: Clip.none,
       children: [
         // 4534:19874·19875 절 제목은 시안 SemiBold 16에서 디자이너 요청으로
         // 1 키운 17. 글자 상자가 시안보다 커서 시안 top(140·267.2)에서 2를

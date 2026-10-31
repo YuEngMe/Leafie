@@ -808,7 +808,7 @@ class _WeekAgenda extends StatelessWidget {
     if (groups.isEmpty) return const _EmptyAgenda();
     return _FadeBottom(
       child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: _FadeBottom.height),
+        padding: _FadeBottom.listPadding,
         itemCount: groups.length,
         itemBuilder: (context, index) {
           final entry = groups.entries.elementAt(index);
@@ -915,7 +915,7 @@ class _AgendaBody extends StatelessWidget {
     if (items.isEmpty) return const _EmptyAgenda();
     return _FadeBottom(
       child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: _FadeBottom.height),
+        padding: _FadeBottom.listPadding,
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(height: kCardGap),
         itemBuilder: (context, index) {
@@ -944,18 +944,41 @@ class _FadeBottom extends StatelessWidget {
 
   static const double height = 55;
 
+  /// 목록과 마스크는 자기 경계에서 자른다. 카드가 목록 폭(374)에 꽉 차
+  /// 카드 그림자(흐림 4)가 좌우·위에서 잘리므로 그만큼 바깥으로 넓히고
+  /// 같은 만큼 안쪽 여백을 줘 카드 자리는 그대로 둔다.
+  static const double shadowRoom = 6;
+
+  static const listPadding = EdgeInsets.fromLTRB(
+    shadowRoom,
+    shadowRoom,
+    shadowRoom,
+    height,
+  );
+
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ShaderMask(
-    shaderCallback: (rect) => LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: const [Colors.white, Colors.white, Colors.transparent],
-      stops: [0, 1 - height / rect.height, 1],
-    ).createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
-    blendMode: BlendMode.dstIn,
-    child: child,
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Positioned(
+        left: -shadowRoom,
+        right: -shadowRoom,
+        top: -shadowRoom,
+        bottom: 0,
+        child: ShaderMask(
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: const [Colors.white, Colors.white, Colors.transparent],
+            stops: [0, 1 - height / rect.height, 1],
+          ).createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
+          blendMode: BlendMode.dstIn,
+          child: child,
+        ),
+      ),
+    ],
   );
 }
 
