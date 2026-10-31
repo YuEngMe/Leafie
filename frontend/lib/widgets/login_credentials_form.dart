@@ -132,6 +132,9 @@ class LoginPasswordField extends StatelessWidget {
     return SizedBox(
       height: AppLayout.loginPasswordComponentHeight,
       child: Stack(
+        // 칸이 이 상자 맨 위에 붙어 있어 기본값(hardEdge)이면 위로 번지는
+        // 그림자가 잘려 윗변이 평평하게 끊긴다(시안 4534:2522는 사방 그림자).
+        clipBehavior: Clip.none,
         children: [
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
