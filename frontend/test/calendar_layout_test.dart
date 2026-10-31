@@ -756,7 +756,11 @@ void fadeTests() {
 
     expect(find.byType(ShaderMask), findsOneWidget);
     // 마지막 카드가 마스크 구간 위까지 올라올 수 있게 목록 바닥 여백 55.
+    // 좌우·위 6은 카드 그림자 몫으로 목록을 넓힌 만큼이다.
     final list = tester.widget<ListView>(find.byType(ListView));
-    expect(list.padding, const EdgeInsets.only(bottom: 55));
+    expect(list.padding, const EdgeInsets.fromLTRB(6, 6, 6, 55));
+    // 넓혀도 첫 카드 자리는 시안(3429:677 x13, y588.195) 그대로다.
+    final card = tester.getTopLeft(find.byType(CalendarEventCard).first);
+    expect(card.dx, closeTo(13, 0.01));
   });
 }
