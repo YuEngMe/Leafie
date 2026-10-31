@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     sensor_assess_insufficient_data: bool = False
     # TEMP: 시연용. 센서 측정·집계 주기(초). 기본은 10분.
     sensor_sample_interval_seconds: int = Field(default=600, ge=1)
+    # TEMP: 시연용. 다이어리 뒤 편지를 보내기까지 기다리는 시간(초). 비워 두면
+    # 원래대로 5~15분 사이 무작위다. 생성(약 6초)보다 짧으면 생성되는 즉시 보낸다.
+    letter_delay_seconds: int | None = Field(default=None, ge=0)
 
     firebase_project_id: str = "leafie-2c528"
     fcm_credentials_json: str | None = None
