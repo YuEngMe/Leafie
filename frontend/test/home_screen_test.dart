@@ -1662,6 +1662,9 @@ void main() {
           home: HomeScreen(
             key: UniqueKey(),
             period: HomeTimePeriod.day,
+            sensorRepository: sensor == null
+                ? null
+                : _FakeSensorRepository(sensor, lux: 523.4),
             plantRepository: _FakePlantManagementRepository([
               _managedPlant('plant-a', '새싹이', selected: true),
             ]),
@@ -1714,7 +1717,8 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-light')), findsOneWidget);
     expect(find.text('새싹이는 40 - 90% 습도를 좋아해요'), findsOneWidget);
     expect(find.text('현재습도 20%'), findsOneWidget);
-    expect(find.text('어제 120%'), findsOneWidget);
+    // 조도 게이지는 /home이 아니라 센서 상태 API의 순간 조도를 보여 준다.
+    expect(find.text('현재조도 523lx'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
     // 시안 4534:7952: 부족(LOW)한 값의 마커만 글자 앞에 빨간 점을 찍는다.
     Finder alertIn(String gauge) => find.descendant(
@@ -1729,7 +1733,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
   });
 
-  testWidgets('게이지가 펼쳐져 있으면 10초마다 센서 판정을 새로 받고, 접으면 멈춘다', (
+  testWidgets('연결된 센서는 접어도 10초마다 새로 받는다', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(402, 874);
@@ -1749,7 +1753,7 @@ void main() {
         unit: 'lux_hours',
       ),
     );
-    final sensors = _FakeSensorRepository(soilAt(25));
+    final sensors = _FakeSensorRepository(soilAt(25), lux: 900);
     await tester.pumpWidget(
       MaterialApp(
         home: HomeScreen(
@@ -1783,24 +1787,134 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // /home 판정을 먼저 쓰고 바로 다시 받지 않는다.
-    expect(find.text('현재습도 20%'), findsOneWidget);
-    expect(sensors.requests, isEmpty);
+    // /home에는 순간 조도가 없어 펼쳐진 채 열리면 바로 한 번 받는다.
+    expect(sensors.requests, ['plant-a']);
+    expect(find.text('현재습도 25%'), findsOneWidget);
+    expect(find.text('현재조도 900lx'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
-    expect(sensors.requests, ['plant-a']);
-    expect(find.text('현재습도 25%'), findsOneWidget);
+    expect(sensors.requests, ['plant-a', 'plant-a']);
 
+    // 접어도 센서가 연결돼 있으면 배경을 정하려고 계속 받는다.
     await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 30));
-    expect(sensors.requests, ['plant-a']);
+    expect(sensors.requests.length, 3, reason: '접으면 타이머를 다시 걸며 한 번 받는다');
+    await tester.pump(const Duration(seconds: 10));
+    expect(sensors.requests.length, 4);
 
     // 다시 펼치면 바로 한 번 받는다.
     await tester.tap(find.byKey(const ValueKey('home-environment-card')));
     await tester.pumpAndSettle();
-    expect(sensors.requests, ['plant-a', 'plant-a']);
+    expect(sensors.requests.length, 5);
+  });
+
+  group('센서가 연결되면 순간 조도로 배경을 정한다', () {
+    Future<_FakeSensorRepository> pumpHome(
+      WidgetTester tester, {
+      required SensorConnection connection,
+      double? lux,
+    }) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final sensor = SensorAssessment(
+        connection: connection,
+        soil: const SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'relative_percent',
+          value: 50,
+        ),
+        light: const SensorMetricAssessment(
+          state: SensorLevel.ok,
+          unit: 'lux_hours',
+        ),
+      );
+      final sensors = _FakeSensorRepository(sensor, lux: lux);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            initialGaugesExpanded: false,
+            sensorRepository: sensors,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '새싹이', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
+                id: 'plant-a',
+                nickname: '새싹이',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: 'NORMAL',
+                dialogue: '평소 대사',
+                sensor: sensor,
+              ),
+              todayEvents: const [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return sensors;
+    }
+
+    Finder background(HomeTimePeriod period) =>
+        find.byKey(ValueKey(period.asset));
+
+    test('lux 경계는 낮 1000, 오후 300, 저녁 50이다', () {
+      expect(HomeTimePeriod.fromLux(1000), HomeTimePeriod.day);
+      expect(HomeTimePeriod.fromLux(999.9), HomeTimePeriod.afternoon);
+      expect(HomeTimePeriod.fromLux(300), HomeTimePeriod.afternoon);
+      expect(HomeTimePeriod.fromLux(299.9), HomeTimePeriod.evening);
+      expect(HomeTimePeriod.fromLux(50), HomeTimePeriod.evening);
+      expect(HomeTimePeriod.fromLux(49.9), HomeTimePeriod.lateEvening);
+      expect(HomeTimePeriod.fromLux(0), HomeTimePeriod.lateEvening);
+    });
+
+    testWidgets('연결된 센서의 조도가 어두우면 접어 둬도 밤 배경이다', (tester) async {
+      final sensors = await pumpHome(
+        tester,
+        connection: SensorConnection.active,
+        lux: 20,
+      );
+      expect(sensors.requests, ['plant-a']);
+      expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
+    });
+
+    testWidgets('연결된 센서의 조도가 밝으면 낮 배경이다', (tester) async {
+      await pumpHome(tester, connection: SensorConnection.active, lux: 1500);
+      expect(background(HomeTimePeriod.day), findsOneWidget);
+    });
+
+    testWidgets('연결이 끊겼으면 조도를 받지 않고 시각으로 정한다', (tester) async {
+      final sensors = await pumpHome(
+        tester,
+        connection: SensorConnection.stale,
+        lux: 20,
+      );
+      expect(sensors.requests, isEmpty);
+      expect(
+        background(HomeTimePeriod.fromDateTime(DateTime.now())),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('연결돼도 조도 값이 없으면 시각으로 정한다', (tester) async {
+      await pumpHome(tester, connection: SensorConnection.active);
+      expect(
+        background(HomeTimePeriod.fromDateTime(DateTime.now())),
+        findsOneWidget,
+      );
+    });
   });
 
 
@@ -2434,9 +2548,10 @@ void main() {
 }
 
 class _FakeSensorRepository implements SensorRepository {
-  _FakeSensorRepository(this.assessment);
+  _FakeSensorRepository(this.assessment, {this.lux});
 
   final SensorAssessment assessment;
+  final double? lux;
   final requests = <String>[];
 
   @override
@@ -2445,6 +2560,9 @@ class _FakeSensorRepository implements SensorRepository {
     return PlantSensorStatus(
       plantId: plantId,
       connection: assessment.connection,
+      latest: lux == null
+          ? null
+          : SensorLatestReading(receivedAt: DateTime(2026, 10, 31), lux: lux),
       assessment: assessment,
     );
   }
