@@ -10,13 +10,14 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.care import CareEvent
 from app.models.enums import SensorConnection
 from app.models.plant import Plant, SpeciesCareGuide
 from app.models.sensor import PlantSensorDevice, PlantSensorEvent, SensorDevice, SensorReading
 from app.models.user import UserProfile
 from app.schemas.sensor import SensorAssessment, SensorLevel, SensorMetricAssessment
-from app.services.sensor_status import STALE_AFTER, soil_raw_to_percent
+from app.services.sensor_status import SAMPLE_INTERVAL, STALE_AFTER, soil_raw_to_percent
 
 
 class ThresholdRange(BaseModel):
@@ -132,10 +133,14 @@ class SensorAssessmentService:
             )
         if link is None or device.owner_user_id != plant.user_id or device.status != "CLAIMED":
             return result
-        # Evaluate light against a completed local day, not an unfinished morning.
         today = now.astimezone(local_zone(timezone)).date()
-        light_day = day if day is not None else today - timedelta(days=1)
-        start, end = day_window(light_day, timezone)
+        if day is None:
+            # Evaluate light over the latest 24 hours so it is a full day at any hour.
+            light_day = today
+            start, end = now - timedelta(days=1), now
+        else:
+            light_day = day
+            start, end = day_window(light_day, timezone)
         end_of_soil = min(end, now) if day is not None else now
         measured = func.coalesce(SensorReading.measured_at, SensorReading.received_at)
         recent = list(
@@ -176,17 +181,21 @@ class SensorAssessmentService:
             result.soil.reason = result.light.reason = "THRESHOLDS_UNAVAILABLE"
             return result
 
+        bucket = int(SAMPLE_INTERVAL.total_seconds())
         soil_buckets = {}
         for reading in recent:
             timestamp = reading.measured_at or reading.received_at
             if reading.soil_raw is not None:
-                soil_buckets.setdefault(int(timestamp.timestamp()) // 600, reading.soil_raw)
+                soil_buckets.setdefault(int(timestamp.timestamp()) // bucket, reading.soil_raw)
         result.soil.sample_count = len(soil_buckets)
         result.soil.reason = "INSUFFICIENT_SAMPLES"
         if len(soil_buckets) >= 3:
             result.soil.value = soil_raw_to_percent(round(median(list(soil_buckets.values())[:3])))
             result.soil.state = classify(result.soil.value, thresholds.soil_percent)
             result.soil.reason = None
+        elif soil_buckets and settings.sensor_assess_insufficient_data:
+            result.soil.value = soil_raw_to_percent(round(median(soil_buckets.values())))
+            result.soil.state = classify(result.soil.value, thresholds.soil_percent)
 
         # Collapse repeated deliveries in each ten-minute bucket before integrating.
         rows = list(
@@ -206,15 +215,17 @@ class SensorAssessmentService:
         light_buckets = {}
         for reading in rows:
             timestamp = reading.measured_at or reading.received_at
-            light_buckets.setdefault(int(timestamp.timestamp()) // 600, float(reading.lux))
-        expected = max(1, round((end - start).total_seconds() / 600))
+            light_buckets.setdefault(int(timestamp.timestamp()) // bucket, float(reading.lux))
+        expected = max(1, round((end - start).total_seconds() / bucket))
         result.light.sample_count = len(light_buckets)
         result.light.coverage_ratio = min(1, round(len(light_buckets) / expected, 3))
-        result.light.value = round(sum(light_buckets.values()) / 6, 1) if rows else None
+        result.light.value = round(sum(light_buckets.values()) * bucket / 3600, 1) if rows else None
         if end > now:
             result.light.reason = "DAY_IN_PROGRESS"
         elif result.light.coverage_ratio < 0.8:
             result.light.reason = "INSUFFICIENT_COVERAGE"
+            if settings.sensor_assess_insufficient_data:
+                result.light.state = classify(result.light.value, thresholds.light_lux_hours)
         else:
             result.light.state = classify(result.light.value, thresholds.light_lux_hours)
             result.light.reason = None
