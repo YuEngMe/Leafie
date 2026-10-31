@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/diary_screen.dart';
 import 'package:yeso_plant/services/diary_api.dart';
@@ -580,6 +581,37 @@ void main() {
         find.byType(DiaryWeatherPicker),
       );
       expect(picker.selected, DiaryWeather.sunny);
+    });
+
+    testWidgets('새로 쓴 날을 저장할 때만 편지 확인 신호를 보낸다', (tester) async {
+      _setUpView(tester);
+      var signals = 0;
+      void count() => signals++;
+      LetterArrivalWatch.instance.addListener(count);
+      addTearDown(() => LetterArrivalWatch.instance.removeListener(count));
+      final store = _MemoryStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> writeAndLeave(String title) async {
+        await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, title);
+        await tester.pump();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
+
+      await writeAndLeave('처음 쓴 글');
+      expect(signals, 1);
+      // 같은 날을 고쳐 저장하면 편지가 다시 오지 않으니 신호도 없다.
+      await writeAndLeave('고친 글');
+      expect(store.saveCount, 2);
+      expect(signals, 1);
     });
 
     testWidgets('뒤로 나가도 쓴 글이 저장된다', (tester) async {

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:yeso_plant/models/diary_entry.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
@@ -427,6 +428,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       _recordExists = false;
     } else {
       await store.save(current);
+      // 새로 쓴 날에만 식물 편지가 온다. 홈이 그때만 편지를 세게 알린다.
+      if (!_recordExists) LetterArrivalWatch.instance.diaryCreated();
       _recordExists = true;
     }
     _persistedEntry = current;

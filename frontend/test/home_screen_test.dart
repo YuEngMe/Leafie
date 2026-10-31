@@ -13,6 +13,7 @@ import 'package:yeso_plant/screens/home_screen.dart';
 import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/screens/mailbox_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
+import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/services/home_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/notification_api.dart';
@@ -1176,6 +1177,118 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.selectedIds, ['plant-b', 'plant-a']);
     expect(find.text('첫째 방'), findsOneWidget);
+  });
+
+  group('새 다이어리 뒤 편지가 오면 홈 우체통에 반영한다', () {
+    Future<_CountingLetters> pumpLetters(WidgetTester tester) async {
+      useDeviceView(tester);
+      final letters = _CountingLetters();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            initialGaugesExpanded: false,
+            letterRepository: letters,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+            ]),
+            loadHomeForPlant: (_) async => const HomeDashboardData(
+              plant: HomePlantData(
+                id: 'plant-a',
+                nickname: '첫째',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: 'NORMAL',
+                dialogue: null,
+              ),
+              todayEvents: [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      return letters;
+    }
+
+    final badge = find.byWidgetPredicate(
+      (w) =>
+          w is Image &&
+          w.image is AssetImage &&
+          (w.image as AssetImage).assetName ==
+              'assets/images/home_letter_badge.png',
+    );
+
+    testWidgets('평소에는 편지 수를 다시 세지 않는다', (tester) async {
+      final letters = await pumpLetters(tester);
+      final before = letters.calls;
+      await tester.pump(const Duration(minutes: 2));
+      expect(letters.calls, before);
+    });
+
+    testWidgets('새 다이어리를 저장하면 편지가 올 때까지만 세고, 오면 멈춘다', (tester) async {
+      final letters = await pumpLetters(tester);
+      expect(badge, findsNothing);
+      final before = letters.calls;
+
+      LetterArrivalWatch.instance.diaryCreated();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(letters.calls, before + 1);
+      expect(badge, findsNothing);
+
+      letters.count = 1;
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(badge, findsOneWidget);
+      // 편지가 오면 서버가 알림도 만드니 벨 숫자도 같이 오른다.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('home-notifications')),
+          matching: find.text('1'),
+        ),
+        findsOneWidget,
+      );
+
+      final afterArrival = letters.calls;
+      await tester.pump(const Duration(minutes: 2));
+      expect(letters.calls, afterArrival, reason: '편지가 오면 더 세지 않는다');
+    });
+
+    testWidgets('1분이 지나면 30초 간격으로 늦춰 센다', (tester) async {
+      final letters = await pumpLetters(tester);
+      LetterArrivalWatch.instance.diaryCreated();
+      // 60초까지는 3초마다, 그다음 확인은 30초 뒤인 90초다.
+      await tester.pump(const Duration(seconds: 61));
+      final atOneMinute = letters.calls;
+      await tester.pump(const Duration(seconds: 28));
+      expect(letters.calls, atOneMinute);
+      await tester.pump(const Duration(seconds: 2));
+      expect(letters.calls, atOneMinute + 1);
+      // 테스트가 끝나도 남는 타이머를 정리한다.
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('앱으로 돌아오면 편지 수를 한 번 다시 센다', (tester) async {
+      final letters = await pumpLetters(tester);
+      final before = letters.calls;
+      letters.count = 1;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      expect(letters.calls, before + 1);
+      expect(badge, findsOneWidget);
+    });
   });
 
   group('방 전환은 서버 응답을 기다리지 않는다', () {
@@ -3141,6 +3254,21 @@ class _EmptyMailbox implements PlantLetterRepository {
 
   @override
   Future<int> unreadCount(String plantId) async => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// 안 읽은 편지 수를 바꿔 가며 몇 번 물었는지 센다.
+class _CountingLetters implements PlantLetterRepository {
+  int count = 0;
+  int calls = 0;
+
+  @override
+  Future<int> unreadCount(String plantId) async {
+    calls++;
+    return count;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
