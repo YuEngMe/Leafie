@@ -36,6 +36,21 @@ PlantRegistrationDraft _sampleDraft() => PlantRegistrationDraft(
 );
 
 void main() {
+  test('검색 전 추천은 전용 머리가 있는 종을 앞에, 몬스테라 머리를 빌리는 관엽을 뒤에 둔다', () {
+    expect(initialPlantSuggestions.map((s) => s.displayName), [
+      '바질',
+      '몬스테라',
+      '해바라기',
+      '산세베리아',
+      '수국',
+      '에케베리아',
+      '스킨답서스',
+      '필로덴드론',
+      '아이비',
+      '금전수',
+    ]);
+  });
+
   testWidgets('애칭을 넣고 종을 고르면 환경 화면으로 draft가 전달된다', (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: PlantRegisterNameScreen()));
 

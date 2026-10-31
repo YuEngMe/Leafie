@@ -5,6 +5,7 @@ import 'package:yeso_plant/models/plant_species_candidate.dart';
 import 'package:yeso_plant/screens/plant_register_appearance_screen.dart';
 import 'package:yeso_plant/screens/plant_register_complete_screen.dart';
 import 'package:yeso_plant/widgets/color_wheel_picker.dart';
+import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 
@@ -19,6 +20,41 @@ PlantRegistrationDraft draft() => PlantRegistrationDraft(
 );
 
 void main() {
+  test('시안에 전용 머리가 있는 종은 그 머리를, 없으면 분류 기본 머리를 쓴다', () {
+    PlantSpeciesCandidate species(String id, String category) =>
+        PlantSpeciesCandidate(
+          referenceId: id,
+          displayName: id,
+          scientificName: id,
+          categorySuggestion: category,
+        );
+    const expected = {
+      'catalog:dracaena-trifasciata': 'hair_pointed_succulent',
+      'catalog:haworthiopsis-attenuata': 'hair_haworthia',
+      'catalog:dracaena-stuckyi': 'hair_stuckyi',
+      'catalog:strelitzia-reginae': 'hair_strelitzia',
+      'catalog:euphorbia-gwaemaok': 'hair_gwaemaok',
+      // 전용 머리가 없는 관엽은 몬스테라 머리로 폴백한다.
+      'catalog:epipremnum-aureum': 'hair_monstera',
+    };
+    for (final MapEntry(key: id, value: hair) in expected.entries) {
+      final category = id == 'catalog:epipremnum-aureum'
+          ? 'FOLIAGE'
+          : 'SUCCULENT_CACTUS';
+      expect(hairForSpecies(species(id, category)), hair, reason: id);
+      // 매핑한 머리는 캐릭터에 얹을 위치값이 있어야 그려진다.
+      expect(
+        PlantCharacterArt.hairInkRect(
+          width: 173,
+          body: PlantBody.circle,
+          hairId: hair,
+        ),
+        isNotNull,
+        reason: hair,
+      );
+    }
+  });
+
   testWidgets('컬러 휠을 밀어 선택하면 헤어는 종 자동 매핑값으로 draft에 저장된다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
@@ -31,11 +67,6 @@ void main() {
     await tester.pumpAndSettle();
     // 시안 4534:507에는 하단 버튼이 없고 휠의 체크 배지가 확정 버튼이다.
     expect(find.byType(PrimaryButton), findsNothing);
-    // 색을 고르기 전에는 체크 배지를 눌러도 넘어가지 않는다(기존 비활성 규칙).
-    await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
-    await tester.pumpAndSettle();
-    expect(find.byType(PlantRegisterCompleteScreen), findsNothing);
-    expect(value.bodyColorId, isNull);
     // 헤어 탭은 없고, 시안의 '컬러' 라벨만 휠 위에 있다.
     expect(find.text('헤어'), findsNothing);
     expect(find.text('컬러'), findsOneWidget);

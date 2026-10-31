@@ -10,6 +10,7 @@ import 'package:yeso_plant/screens/plant_register_body_screen.dart';
 import 'package:yeso_plant/screens/plant_register_environment_screen.dart';
 import 'package:yeso_plant/screens/plant_register_name_screen.dart';
 import 'package:yeso_plant/screens/plant_species_search_screen.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/widgets/plant_character_art.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
@@ -288,6 +289,23 @@ void main() {
     });
   });
 
+  testWidgets('색을 바꾸지 않아도 꼭대기 옐로로 바로 확정할 수 있다', (tester) async {
+    _setUpView(tester);
+    final draft = _draft();
+    await tester.pumpWidget(
+      MaterialApp(home: PlantRegisterAppearanceScreen(draft: draft)),
+    );
+    await tester.pumpAndSettle();
+    final wheel = tester.widget<ColorWheelPicker>(
+      find.byType(ColorWheelPicker),
+    );
+    expect(wheel.onConfirm, isNotNull);
+    expect(
+      tester.widget<PlantCharacterArt>(find.byType(PlantCharacterArt)).colorId,
+      'color_yellow',
+    );
+  });
+
   group('꾸미기 바디 (5028:1193)', () {
     testWidgets('헤드라인 가운데 정렬', (tester) async {
       _setUpView(tester);
@@ -320,7 +338,10 @@ void main() {
     });
 
     testWidgets('3단계 환경', (tester) async {
-      await openKeyboard(tester, PlantRegisterEnvironmentScreen(draft: _draft()));
+      await openKeyboard(
+        tester,
+        PlantRegisterEnvironmentScreen(draft: _draft()),
+      );
       expect(tester.takeException(), isNull);
     });
   });

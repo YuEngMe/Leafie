@@ -41,6 +41,32 @@ const initialPlantSuggestions = [
     scientificName: 'Monstera deliciosa',
     categorySuggestion: 'FOLIAGE',
   ),
+  // 시안에 전용 머리가 있는 종을 먼저 보인다. 아래 관엽 넷은 모두 몬스테라
+  // 머리를 빌려 쓰므로 목록을 내려야 보인다(11/1 사용자 요청).
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:helianthus-annuus',
+    displayName: '해바라기',
+    scientificName: 'Helianthus annuus',
+    categorySuggestion: 'FLOWER',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:dracaena-trifasciata',
+    displayName: '산세베리아',
+    scientificName: 'Dracaena trifasciata',
+    categorySuggestion: 'FOLIAGE',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:hydrangea-macrophylla',
+    displayName: '수국',
+    scientificName: 'Hydrangea macrophylla',
+    categorySuggestion: 'FLOWER',
+  ),
+  PlantSpeciesCandidate(
+    referenceId: 'catalog:echeveria-elegans',
+    displayName: '에케베리아',
+    scientificName: 'Echeveria elegans',
+    categorySuggestion: 'SUCCULENT_CACTUS',
+  ),
   PlantSpeciesCandidate(
     referenceId: 'catalog:epipremnum-aureum',
     displayName: '스킨답서스',

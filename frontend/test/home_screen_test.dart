@@ -1192,8 +1192,9 @@ void main() {
             plantRepository: _FakePlantManagementRepository([
               _managedPlant('plant-a', '첫째', selected: true),
             ]),
-            loadHomeForPlant: (_) async => const HomeDashboardData(
-              plant: HomePlantData(
+            // 편지가 오면 서버는 알림과 답장 대사(LETTER_SENT)도 함께 만든다.
+            loadHomeForPlant: (_) async => HomeDashboardData(
+              plant: const HomePlantData(
                 id: 'plant-a',
                 nickname: '첫째',
                 personalityType: 'OUTGOING',
@@ -1207,14 +1208,25 @@ void main() {
                 backgroundPhase: 'DAY',
                 dialogueKey: 'NORMAL',
                 dialogue: null,
+                dialogueQueue: [
+                  if (letters.count > 0)
+                    const HomeDialogueEvent(
+                      eventId: 'e-letter',
+                      dialogueKey: 'LETTER_SENT',
+                      dialogue: '내 답장도 받아줘!',
+                      duration: Duration(seconds: 10),
+                    ),
+                ],
               ),
-              todayEvents: [],
+              todayEvents: const [],
               unreadLetterCount: 0,
-              unreadNotificationCount: 0,
+              unreadNotificationCount: letters.count,
             ),
           ),
         ),
       );
+      // 기기에 남긴 "본 대사" 목록을 읽는 비동기 작업을 끝낸다.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
       await tester.pump();
       return letters;
@@ -1264,6 +1276,17 @@ void main() {
       expect(letters.calls, afterArrival, reason: '편지가 오면 더 세지 않는다');
     });
 
+    testWidgets('편지가 오면 답장 대사도 띄운다', (tester) async {
+      final letters = await pumpLetters(tester);
+      LetterArrivalWatch.instance.diaryCreated();
+      letters.count = 1;
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('내 답장도 받아줘!'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('1분이 지나면 30초 간격으로 늦춰 센다', (tester) async {
       final letters = await pumpLetters(tester);
       LetterArrivalWatch.instance.diaryCreated();
@@ -1286,7 +1309,8 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       await tester.pump();
-      expect(letters.calls, before + 1);
+      // 늘었으니 /home을 다시 받고, 그 응답을 반영하며 한 번 더 센다.
+      expect(letters.calls, before + 2);
       expect(badge, findsOneWidget);
     });
   });
@@ -1763,6 +1787,153 @@ void main() {
     expect(bell, findsOneWidget);
   });
 
+  testWidgets('우체통 위 편지 배지를 눌러도 우편함이 열린다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          letterRepository: _UnreadLetters(),
+          loadHomeForPlant: (plantId) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 1,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // 우편함이 떠 있는 동안은 벨을 그리지 않으므로 벨로 열림을 확인한다.
+    final bell = find.byKey(const ValueKey('home-notifications'));
+    expect(bell, findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('home-letter-badge')));
+    await tester.pumpAndSettle();
+    expect(bell, findsNothing);
+  });
+
+  group('습도 알림 말풍선', () {
+    SensorAssessment soil(SensorLevel state, double value) => SensorAssessment(
+      connection: SensorConnection.active,
+      soil: SensorMetricAssessment(
+        state: state,
+        unit: 'relative_percent',
+        value: value,
+        lower: 40,
+        upper: 90,
+      ),
+      light: const SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+      ),
+    );
+
+    Future<({_FakeSensorRepository sensors, List<String?> homes})> pumpThirsty(
+      WidgetTester tester,
+    ) async {
+      useDeviceView(tester);
+      final sensors = _FakeSensorRepository(
+        soil(SensorLevel.low, 10),
+        lux: 300,
+      );
+      final homes = <String?>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            initialGaugesExpanded: false,
+            sensorRepository: sensors,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+            ]),
+            // 서버는 /home을 받을 때의 습도 판정으로 대사를 고른다.
+            loadHomeForPlant: (plantId) async {
+              homes.add(plantId);
+              final low = sensors.assessment.soil.state == SensorLevel.low;
+              return HomeDashboardData(
+                plant: const HomePlantData(
+                  id: 'plant-a',
+                  nickname: '첫째',
+                  personalityType: 'OUTGOING',
+                  colorId: 'color_orange',
+                  hairId: 'hair_sprout',
+                  startedOn: '2026-05-01',
+                  daysTogether: 3,
+                  primaryPhotoUrl: null,
+                ),
+                room: HomeRoomData(
+                  backgroundPhase: 'DAY',
+                  dialogueKey: low ? 'SOIL_MOISTURE_LOW' : 'NORMAL',
+                  dialogue: low ? '목말라… 물 줘' : '평소 대사',
+                  sensor: sensors.assessment,
+                ),
+                todayEvents: const [],
+                unreadLetterCount: 0,
+                unreadNotificationCount: 0,
+              );
+            },
+          ),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      await tester.pump();
+      return (sensors: sensors, homes: homes);
+    }
+
+    testWidgets('습도가 정상으로 돌아오면 /home을 다시 받아 목마른 말풍선을 내린다', (tester) async {
+      final (:sensors, :homes) = await pumpThirsty(tester);
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      final before = homes.length;
+
+      // 판정이 그대로면 /home을 다시 받지 않는다.
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      expect(homes.length, before);
+
+      sensors.assessment = soil(SensorLevel.ok, 60);
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(homes.length, before + 1);
+      expect(find.text('목말라… 물 줘'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('쓰다듬는 동안은 고정 말풍선을 숨기고, 그치면 다시 띄운다', (tester) async {
+      await pumpThirsty(tester);
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-character-pet')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('목말라… 물 줘'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
@@ -2098,7 +2269,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
   });
 
-  testWidgets('연결된 센서는 접어도 10초마다 새로 받는다', (tester) async {
+  testWidgets('연결된 센서는 펼치면 5초, 접어도 60초마다 새로 받는다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -2155,7 +2326,7 @@ void main() {
     expect(find.text('현재습도 25%'), findsOneWidget);
     expect(find.text('현재조도 900lx'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     expect(sensors.requests, ['plant-a', 'plant-a']);
 
@@ -2164,7 +2335,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(sensors.requests.length, 2, reason: '접을 때는 이미 받은 값이 있어 다시 받지 않는다');
     await tester.pump(const Duration(seconds: 50));
-    expect(sensors.requests.length, 2, reason: '접어 둔 동안은 10초마다 받지 않는다');
+    expect(sensors.requests.length, 2, reason: '접어 둔 동안은 5초마다 받지 않는다');
     await tester.pump(const Duration(seconds: 10));
     expect(sensors.requests.length, 3, reason: '접어 둔 동안은 60초마다 받는다');
 
@@ -3156,7 +3327,7 @@ class _PerPlantSensors implements SensorRepository {
 class _FakeSensorRepository implements SensorRepository {
   _FakeSensorRepository(this.assessment, {this.lux});
 
-  final SensorAssessment assessment;
+  SensorAssessment assessment;
   double? lux;
   final requests = <String>[];
 

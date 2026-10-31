@@ -471,7 +471,8 @@ class _HomeScreenState extends State<HomeScreen>
     _syncDialoguePlayback();
     _petTimer = Timer(_petHold, () {
       if (!mounted) return;
-      _petCount = 0;
+      // 숨겨 둔 고정 말풍선을 다시 띄우도록 다시 그린다.
+      setState(() => _petCount = 0);
       _syncDialoguePlayback();
     });
   }
@@ -797,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// 다시 받는다. 연결된 센서의 순간 조도가 홈 배경을 정하기 때문이다.
   /// 게이지를 보고 있을 때만 자주 받고, 접어 둔 동안은 배경만 정하면 되니
   /// 천천히 받는다.
-  /// TEMP: 시연용으로 측정이 10초 주기라 펼친 동안 10초마다 받는다. 원래는 1분.
+  /// TEMP: 시연용으로 측정 주기가 짧아 펼친 동안 5초마다 받는다. 원래는 1분.
   void _syncSensorRefresh({bool fetchNow = true}) {
     _sensorTimer?.cancel();
     _sensorTimer = null;
@@ -805,7 +806,7 @@ class _HomeScreenState extends State<HomeScreen>
     if ((!_panelOpen && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
-      _panelOpen ? const Duration(seconds: 10) : const Duration(seconds: 60),
+      _panelOpen ? const Duration(seconds: 5) : const Duration(seconds: 60),
       (_) => _refreshSensor(plantId),
     );
   }
@@ -826,10 +827,19 @@ class _HomeScreenState extends State<HomeScreen>
     // 그사이 다른 식물로 옮겼으면 이전 식물의 판정을 덮어쓰지 않는다.
     if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
     if (assessment == null) return;
+    final previous = _serverSensor;
     setState(() {
       _serverSensor = assessment;
       _currentLux = lux;
     });
+    // 습도·조도 알림 대사와 표정은 /home만 정해 주므로, 판정이 바뀌면
+    // (목마름이 풀리는 등) /home을 한 번 다시 받는다.
+    if (previous != null &&
+        !_switchingPlant &&
+        (previous.soil.state != assessment.soil.state ||
+            previous.light.state != assessment.light.state)) {
+      await _loadHome(plantId);
+    }
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
@@ -867,16 +877,20 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  /// 편지 수를 다시 세서 늘었으면 true. 편지가 오면 서버가 알림도 하나
-  /// 만들므로 벨 숫자도 같은 만큼 올린다(/home을 다시 받지 않는다).
+  /// 편지 수를 다시 세서 늘었으면 true. 편지가 오면 서버가 알림과 답장
+  /// 대사(LETTER_SENT)도 만드는데 둘 다 /home에만 실려 오므로, 그때만
+  /// 지금 방의 /home을 한 번 다시 받는다.
   Future<bool> _checkNewLetters() async {
+    final plantId = (_serverPlant ?? widget.plant)?.id;
     // 직전 조회가 실패해 0으로 숨겨 둔 값이면 늘었는지 알 수 없다.
     final before = _letterCountKnown ? _unreadLetterCount : null;
     await _refreshLetterBadge();
     if (!mounted || before == null || !_letterCountKnown) return false;
-    final arrived = _unreadLetterCount - before;
-    if (arrived <= 0) return false;
-    setState(() => _unreadNotificationCount += arrived);
+    if (_unreadLetterCount <= before) return false;
+    // 그사이 방을 옮겼으면 옮긴 방의 /home이 이미 대사를 가져온다.
+    if (!_switchingPlant && plantId == (_serverPlant ?? widget.plant)?.id) {
+      await _loadHome(plantId);
+    }
     return true;
   }
 
@@ -1221,7 +1235,9 @@ class _HomeScreenState extends State<HomeScreen>
       : null;
 
   /// 고정 말풍선 자리에 지금 무엇이 보이는지. 바뀌면 흐려지며 갈아 끼운다.
+  /// 쓰다듬는 동안은 머리 위 반응만 보이게 고정 말풍선을 비운다(11/1 사용자 요청).
   String get _conversationKey {
+    if (_petCount > 0) return 'petting';
     if (_scene != HomeScene.idle) return 'scene-${_scene.name}';
     final sticky = _stickyMessage;
     return sticky == null || sticky.isEmpty
@@ -1549,14 +1565,15 @@ class _HomeScreenState extends State<HomeScreen>
                         key: ValueKey(_conversationKey),
                         fit: StackFit.expand,
                         children: [
-                          _HomeConversation(
-                            scene: _scene,
-                            serverDialogue: _requestDialogue,
-                            fallbackKey: _serverDialogueKey,
-                            onPromptTap: _openPrompt,
-                            // 상황 말풍선이 없을 때는 중요한 알림만 고정해 둔다.
-                            fallbackMessage: _stickyMessage,
-                          ),
+                          if (_petCount == 0)
+                            _HomeConversation(
+                              scene: _scene,
+                              serverDialogue: _requestDialogue,
+                              fallbackKey: _serverDialogueKey,
+                              onPromptTap: _openPrompt,
+                              // 상황 말풍선이 없을 때는 중요한 알림만 고정해 둔다.
+                              fallbackMessage: _stickyMessage,
+                            ),
                         ],
                       ),
                     ),
@@ -1566,15 +1583,24 @@ class _HomeScreenState extends State<HomeScreen>
                   // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
                   // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
                   // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
+                  // 배지를 눌러도 우체통처럼 우편함을 연다(11/1 사용자 요청).
                   Positioned(
                     left: 319 - 4,
                     top: 390 - 4,
                     width: 55 + 8,
                     height: 62.188 + 8,
-                    child: Image.asset(
-                      'assets/images/home_letter_badge.png',
-                      fit: BoxFit.contain,
-                      semanticLabel: '새 편지가 도착했어요',
+                    child: Semantics(
+                      button: true,
+                      label: '우편함 열기',
+                      child: GestureDetector(
+                        key: const ValueKey('home-letter-badge'),
+                        onTap: () => _openMailbox(plant.id),
+                        child: Image.asset(
+                          'assets/images/home_letter_badge.png',
+                          fit: BoxFit.contain,
+                          semanticLabel: '새 편지가 도착했어요',
+                        ),
+                      ),
                     ),
                   ),
                 if (plant != null)
