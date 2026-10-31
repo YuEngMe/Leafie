@@ -826,10 +826,19 @@ class _HomeScreenState extends State<HomeScreen>
     // 그사이 다른 식물로 옮겼으면 이전 식물의 판정을 덮어쓰지 않는다.
     if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
     if (assessment == null) return;
+    final previous = _serverSensor;
     setState(() {
       _serverSensor = assessment;
       _currentLux = lux;
     });
+    // 습도·조도 알림 대사와 표정은 /home만 정해 주므로, 판정이 바뀌면
+    // (목마름이 풀리는 등) /home을 한 번 다시 받는다.
+    if (previous != null &&
+        !_switchingPlant &&
+        (previous.soil.state != assessment.soil.state ||
+            previous.light.state != assessment.light.state)) {
+      await _loadHome(plantId);
+    }
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도

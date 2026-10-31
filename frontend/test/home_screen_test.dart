@@ -1830,6 +1830,95 @@ void main() {
     expect(bell, findsNothing);
   });
 
+  group('습도 알림 말풍선', () {
+    SensorAssessment soil(SensorLevel state, double value) => SensorAssessment(
+      connection: SensorConnection.active,
+      soil: SensorMetricAssessment(
+        state: state,
+        unit: 'relative_percent',
+        value: value,
+        lower: 40,
+        upper: 90,
+      ),
+      light: const SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+      ),
+    );
+
+    Future<({_FakeSensorRepository sensors, List<String?> homes})> pumpThirsty(
+      WidgetTester tester,
+    ) async {
+      useDeviceView(tester);
+      final sensors = _FakeSensorRepository(
+        soil(SensorLevel.low, 10),
+        lux: 300,
+      );
+      final homes = <String?>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            initialGaugesExpanded: false,
+            sensorRepository: sensors,
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+            ]),
+            // 서버는 /home을 받을 때의 습도 판정으로 대사를 고른다.
+            loadHomeForPlant: (plantId) async {
+              homes.add(plantId);
+              final low = sensors.assessment.soil.state == SensorLevel.low;
+              return HomeDashboardData(
+                plant: const HomePlantData(
+                  id: 'plant-a',
+                  nickname: '첫째',
+                  personalityType: 'OUTGOING',
+                  colorId: 'color_orange',
+                  hairId: 'hair_sprout',
+                  startedOn: '2026-05-01',
+                  daysTogether: 3,
+                  primaryPhotoUrl: null,
+                ),
+                room: HomeRoomData(
+                  backgroundPhase: 'DAY',
+                  dialogueKey: low ? 'SOIL_MOISTURE_LOW' : 'NORMAL',
+                  dialogue: low ? '목말라… 물 줘' : '평소 대사',
+                  sensor: sensors.assessment,
+                ),
+                todayEvents: const [],
+                unreadLetterCount: 0,
+                unreadNotificationCount: 0,
+              );
+            },
+          ),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      await tester.pump();
+      return (sensors: sensors, homes: homes);
+    }
+
+    testWidgets('습도가 정상으로 돌아오면 /home을 다시 받아 목마른 말풍선을 내린다', (tester) async {
+      final (:sensors, :homes) = await pumpThirsty(tester);
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      final before = homes.length;
+
+      // 판정이 그대로면 /home을 다시 받지 않는다.
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      expect(homes.length, before);
+
+      sensors.assessment = soil(SensorLevel.ok, 60);
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(homes.length, before + 1);
+      expect(find.text('목말라… 물 줘'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
@@ -3223,7 +3312,7 @@ class _PerPlantSensors implements SensorRepository {
 class _FakeSensorRepository implements SensorRepository {
   _FakeSensorRepository(this.assessment, {this.lux});
 
-  final SensorAssessment assessment;
+  SensorAssessment assessment;
   double? lux;
   final requests = <String>[];
 
