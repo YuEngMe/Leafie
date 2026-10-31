@@ -43,6 +43,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
       ? _Step.setNewPassword
       : _Step.emailInput;
   String? _emailFormatError;
+  String _lastEmail = '';
   bool _loading = false;
   Timer? _cooldownTimer;
   Duration _remaining = _resendCooldown;
@@ -63,8 +64,15 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     _emailController.addListener(_refreshEmailAction);
   }
 
+  /// 이메일을 고치면 형식 오류를 지운다. 오류가 남아 있으면 발송 버튼이
+  /// 꺼진 채라 고친 주소로 다시 보낼 수 없다. 커서만 옮긴 알림은 거른다.
   void _refreshEmailAction() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final email = _emailController.text;
+    setState(() {
+      if (email != _lastEmail) _emailFormatError = null;
+      _lastEmail = email;
+    });
   }
 
   @override
