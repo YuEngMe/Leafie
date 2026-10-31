@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/main.dart' show oauthRedirectUrl;
 import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -40,8 +41,9 @@ class ChangePasswordAuth {
 
   /// 재설정 메일을 보낸다. 로그인 전 화면(PasswordResetScreen)과 같은 일이라
   /// 같은 API를 쓴다 — 메일 템플릿도 Reset password 하나로 모인다.
-  Future<void> sendLink(String email) =>
-      Supabase.instance.client.auth.resetPasswordForEmail(email);
+  /// redirectTo가 없으면 링크가 Supabase Site URL(localhost)로 간다.
+  Future<void> sendLink(String email) => Supabase.instance.client.auth
+      .resetPasswordForEmail(email, redirectTo: oauthRedirectUrl);
 
   Future<void> updatePassword(String password) => Supabase.instance.client.auth
       .updateUser(UserAttributes(password: password));
