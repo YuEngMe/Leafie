@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import AppError
 from app.integrations.queue import JobQueue
 from app.models.letter import Letter
@@ -64,6 +65,9 @@ async def reserve_letter(
             code="DIARY_NOT_FOUND", message="다이어리를 찾을 수 없습니다.", status_code=404
         )
     now = datetime.now(UTC)
+    delay = settings.letter_delay_seconds
+    if delay is None:
+        delay = 300 + secrets.randbelow(601)
     letter_id = await session.scalar(
         insert(Letter)
         .values(
@@ -71,7 +75,7 @@ async def reserve_letter(
             plant_id=diary.plant_id,
             diary_id=diary.id,
             diary_date=diary.diary_date,
-            scheduled_at=now + timedelta(seconds=300 + secrets.randbelow(601)),
+            scheduled_at=now + timedelta(seconds=delay),
         )
         .on_conflict_do_nothing(index_elements=[Letter.diary_id])
         .returning(Letter.id)

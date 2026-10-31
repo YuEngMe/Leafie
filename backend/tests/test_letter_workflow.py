@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import delete, func, inspect, select, text, update
 from sqlalchemy.engine import make_url
 
-from app.core.config import Settings
+from app.core.config import Settings, settings
 from app.core.errors import AppError
 from app.db.base import AUTH_USERS_TABLE, Base
 from app.db.session import Database
@@ -199,6 +199,13 @@ async def make_due(db, letter_id):
             .where(Letter.id == letter_id)
             .values(scheduled_at=datetime.now(UTC) - timedelta(seconds=1))
         )
+
+
+async def test_demo_delay_setting_replaces_random_wait(db, queue, monkeypatch):
+    monkeypatch.setattr(settings, "letter_delay_seconds", 5)
+    _, _, _, letter_id = await seed(db, queue)
+    letter = await load(db, letter_id)
+    assert 4 <= (letter.scheduled_at - letter.created_at).total_seconds() <= 6
 
 
 async def test_reservation_is_unique_fixed_and_does_not_backfill(db, queue):
