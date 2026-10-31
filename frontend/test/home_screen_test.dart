@@ -2145,7 +2145,7 @@ void main() {
   });
 
 
-  testWidgets('편지가 하나도 없으면 우편함을 눌러도 아무 창도 뜨지 않는다 (디자이너 답 4-C)', (
+  testWidgets('편지가 하나도 없어도 우편함을 누르면 빈 우편함이 열린다', (
     tester,
   ) async {
     useDeviceView(tester);
@@ -2171,9 +2171,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-mailbox')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MailboxScreen), findsNothing);
-    expect(find.text('아직 도착한 편지가 없어요.'), findsNothing);
-    expect(find.byKey(const ValueKey('home-notifications')), findsOneWidget);
+    expect(find.byType(MailboxScreen), findsOneWidget);
   });
 
   group('홈 모션 2차 (디자이너 답 5-A·7-B·9-B)', () {

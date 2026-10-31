@@ -605,9 +605,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openMailbox(String? plantId) async {
     if (_checkingMailbox || _mailboxOpen) return;
-    // 편지가 하나도 없으면 빈 우편함 창을 띄우지 않고 아무 반응도 하지
-    // 않는다(디자이너 답 4-C). 목록을 못 불러오면 우편함이 직접 오류를
-    // 보여 주도록 그대로 연다.
+    // 편지가 하나도 없어도 우편함을 연다(10/31 사용자 요청, 디자이너 답
+    // 4-C를 뒤집음). 빈 우편함은 '아직 도착한 편지가 없어요.'를 보여 준다.
+    // 목록을 미리 받아 넘기고, 못 받으면 우편함이 직접 오류를 보여 준다.
     List<PlantLetter>? letters;
     if (plantId != null) {
       _checkingMailbox = true;
@@ -618,7 +618,7 @@ class _HomeScreenState extends State<HomeScreen>
       } finally {
         _checkingMailbox = false;
       }
-      if (!mounted || (letters != null && letters.isEmpty)) return;
+      if (!mounted) return;
     }
     setState(() => _mailboxOpen = true);
     try {
