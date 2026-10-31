@@ -178,8 +178,7 @@ Future<void> launch(
     }
   });
   if (openDirectly) {
-    // 편지가 하나도 없으면 홈 우편함은 눌러도 열리지 않는다(디자이너 답
-    // 4-C). 빈 목록 화면은 편지를 다 지웠을 때 보이므로 우편함을 바로 연다.
+    // 홈 우편함 탭을 거치지 않고 우편함을 바로 연다.
     unawaited(
       showPlantMailbox(
         tester.element(find.byType(HomeScreen)),
@@ -207,6 +206,13 @@ Future<void> pumpUntilFound(
     await tester.pump();
   }
   expect(finder, findsWidgets);
+}
+
+/// 새 편지가 없으면 우체통 그림부터 뜬다. 봉투를 눌러 목록을 연다.
+Future<void> openListFromHouse(WidgetTester tester) async {
+  expect(find.byKey(const ValueKey('mail-list')), findsNothing);
+  await tester.tap(find.byKey(const ValueKey('mail-house-envelope')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> openMotionPreview(
@@ -249,6 +255,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byKey(const ValueKey('mail-preview-exit')));
     await tester.pumpAndSettle();
+    await openListFromHouse(tester);
     expect(find.text('아직 도착한 편지가 없어요.'), findsOneWidget);
     expect(find.text('TO. 미리보기 사용자'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -263,6 +270,7 @@ void main() {
     expect(repository.reads, isEmpty);
     await tester.tap(find.byKey(const ValueKey('mail-preview-exit')));
     await tester.pumpAndSettle();
+    await openListFromHouse(tester);
     expect(find.byKey(const ValueKey('mail-list')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('mail-one')));
     await tester.pumpAndSettle();
@@ -340,9 +348,12 @@ void main() {
     expect(repository.reads, ['one']);
   });
 
-  testWidgets('새 편지가 없으면 목록으로 바로 이동하고 기존 편지도 열 수 있다', (tester) async {
+  testWidgets('새 편지가 없으면 우체통부터 뜨고 봉투를 눌러 기존 편지를 열 수 있다', (
+    tester,
+  ) async {
     final repository = Repository([letter(read: true)]);
     await launch(tester, repository);
+    await openListFromHouse(tester);
     expect(find.text('NEW!'), findsNothing);
     expect(find.byKey(const ValueKey('mail-list')), findsOneWidget);
     expectSingleUnclippedLine(
@@ -398,6 +409,7 @@ void main() {
       letter(read: true, id: 'three', preview: '세 번째 편지예요.'),
     ]);
     await launch(tester, repository);
+    await openListFromHouse(tester);
     final first = tester.getRect(find.byKey(const ValueKey('mail-one')));
     final second = tester.getRect(find.byKey(const ValueKey('mail-two')));
     expect(first.left, closeTo(43, .01));
@@ -423,6 +435,7 @@ void main() {
 
   testWidgets('빈 우편함은 예시 편지를 만들지 않는다', (tester) async {
     await launch(tester, Repository([]), openDirectly: true);
+    await openListFromHouse(tester);
     expect(find.text('아직 도착한 편지가 없어요.'), findsOneWidget);
     expect(find.text('NEW!'), findsNothing);
     await tester.tap(find.byTooltip('닫기').first);
@@ -523,6 +536,7 @@ void main() {
     final repository = Repository([letter(read: true)])
       ..pendingDeletes['one'] = pending.future;
     await launch(tester, repository);
+    await openListFromHouse(tester);
     await tester.timedDrag(
       find.byKey(const ValueKey('mail-one')),
       const Offset(-180, 0),
@@ -597,6 +611,7 @@ void main() {
   testWidgets('삭제 실패는 행을 유지하고 명시적 재시도를 제공한다', (tester) async {
     final repository = Repository([letter(read: true)])..failDelete = true;
     await launch(tester, repository);
+    await openListFromHouse(tester);
     await tester.longPress(find.byKey(const ValueKey('mail-one')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mail-delete-one')));
@@ -638,6 +653,7 @@ void main() {
       List.generate(10, (i) => letter(read: true, id: '$i')),
     );
     await launch(tester, repository);
+    await openListFromHouse(tester);
     tester.view.physicalSize = const Size(804, 1748);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(

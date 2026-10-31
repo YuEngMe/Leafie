@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yeso_plant/main.dart' show oauthRedirectUrl;
 import 'package:yeso_plant/services/auth_error_message.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
@@ -108,7 +109,11 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
       _loading = true;
     });
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      // redirectTo가 없으면 링크가 Supabase Site URL(localhost)로 간다.
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: oauthRedirectUrl,
+      );
       if (mounted) {
         setState(() => _step = _Step.linkSent);
         _startCooldown();
@@ -174,7 +179,9 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     return Scaffold(
       backgroundColor: kBackgroundWhite,
       // 완료 화면(4534:2261)은 앱바·뒤로가기 없이 문구와 로그인 버튼만 있다.
-      appBar: _step == _Step.done ? null : const YesoAppBar(title: '비밀번호 재설정', titleShift: -4.5),
+      appBar: _step == _Step.done
+          ? null
+          : const YesoAppBar(title: '비밀번호 재설정', titleShift: -4.5),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(

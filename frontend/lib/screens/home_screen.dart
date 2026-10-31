@@ -605,9 +605,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openMailbox(String? plantId) async {
     if (_checkingMailbox || _mailboxOpen) return;
-    // 편지가 하나도 없으면 빈 우편함 창을 띄우지 않고 아무 반응도 하지
-    // 않는다(디자이너 답 4-C). 목록을 못 불러오면 우편함이 직접 오류를
-    // 보여 주도록 그대로 연다.
+    // 편지가 하나도 없어도 우편함을 연다(10/31 사용자 요청, 디자이너 답
+    // 4-C를 뒤집음). 빈 우편함은 '아직 도착한 편지가 없어요.'를 보여 준다.
+    // 목록을 미리 받아 넘기고, 못 받으면 우편함이 직접 오류를 보여 준다.
     List<PlantLetter>? letters;
     if (plantId != null) {
       _checkingMailbox = true;
@@ -618,7 +618,7 @@ class _HomeScreenState extends State<HomeScreen>
       } finally {
         _checkingMailbox = false;
       }
-      if (!mounted || (letters != null && letters.isEmpty)) return;
+      if (!mounted) return;
     }
     setState(() => _mailboxOpen = true);
     try {
@@ -1933,6 +1933,9 @@ class _HomeEnvironmentPanel extends StatefulWidget {
 class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
     with SingleTickerProviderStateMixin {
   static const double _height = 220;
+  // 시안 4534:8611은 판이 화면 끝(874)까지 깔린다. 탭바 윗변(795)에서
+  // 끊으면 탭바 둥근 모서리 사이로 흰 30%가 안 덮인 배경이 드러난다.
+  static const double _panelHeight = 874 - 575;
   static const double _collapseDistance = 60;
   static const double _collapseVelocity = 500;
 
@@ -1972,7 +1975,7 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
       left: 0,
       right: 0,
       top: 575,
-      height: _height,
+      height: _panelHeight,
       child: GestureDetector(
         key: const ValueKey('home-environment-panel'),
         onVerticalDragUpdate: _onDragUpdate,

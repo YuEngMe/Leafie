@@ -153,7 +153,9 @@ class _MailboxScreenState extends State<MailboxScreen> {
       setState(() {
         _letters = List.of(letters);
         _selected = unread;
-        _view = unread == null ? _MailView.list : _MailView.newLetter;
+        // 새 편지가 없으면 우체통 그림부터 보여 주고, 봉투를 눌러 목록을
+        // 연다(10/31 사용자 요청: 0통이어도 우체통 화면).
+        _view = unread == null ? _MailView.house : _MailView.newLetter;
         _error = null;
       });
       if (unread != null) _scheduleUnreadOpening(unread);
