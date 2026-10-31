@@ -72,6 +72,11 @@ class HairType(StrEnum):
     ROSETTE_SUCCULENT = "hair_rosette_succulent"
     SPROUT = "hair_sprout"
     DAISY = "hair_daisy"
+    HAWORTHIA = "hair_haworthia"
+    STUCKYI = "hair_stuckyi"
+    STRELITZIA = "hair_strelitzia"
+    GWAEMAOK = "hair_gwaemaok"
+    PINK_PIE = "hair_pink_pie"
 
 
 class BodyType(StrEnum):

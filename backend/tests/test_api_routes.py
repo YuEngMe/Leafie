@@ -105,7 +105,7 @@ def test_plant_update_openapi_accepts_profile_and_care_dates() -> None:
     }
 
 
-def test_plant_hair_openapi_exposes_the_nine_supported_designs() -> None:
+def test_plant_hair_openapi_exposes_the_fourteen_supported_designs() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     assert schemas["HairType"]["enum"] == [
         "hair_sunflower",
@@ -117,6 +117,11 @@ def test_plant_hair_openapi_exposes_the_nine_supported_designs() -> None:
         "hair_rosette_succulent",
         "hair_sprout",
         "hair_daisy",
+        "hair_haworthia",
+        "hair_stuckyi",
+        "hair_strelitzia",
+        "hair_gwaemaok",
+        "hair_pink_pie",
     ]
 
 
