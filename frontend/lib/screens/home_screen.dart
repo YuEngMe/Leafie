@@ -631,9 +631,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     unawaited(
       _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
     );
-    // /home 판정에 순간 조도(currentLux)가 오면 센서 상태를 바로 다시
-    // 받지 않는다. 옛 서버처럼 없으면 지금처럼 바로 받는다.
-    _syncSensorRefresh(fetchNow: room?.sensor?.currentLux == null);
+    // 순간 조도가 필요한 건 센서가 연결된 방뿐이다. /home 판정에 조도가
+    // 오면 센서 상태를 바로 다시 받지 않는다.
+    final sensor = room?.sensor;
+    _syncSensorRefresh(
+      fetchNow:
+          sensor?.connection == SensorConnection.active &&
+          sensor?.currentLux == null,
+    );
   }
 
   /// 지금 방 좌우의 /home을 미리 받아 둔다. 1분 안에 받은 건 다시 받지 않고,
