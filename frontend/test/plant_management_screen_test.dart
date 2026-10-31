@@ -6,6 +6,8 @@ import 'package:yeso_plant/screens/plant_edit_info_screen.dart';
 import 'package:yeso_plant/screens/plant_management_screen.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
+import 'package:yeso_plant/widgets/color_wheel_picker.dart';
+import 'package:yeso_plant/widgets/plant_appearance_colors.dart';
 import 'package:yeso_plant/widgets/plant_detail_components.dart';
 
 ManagedPlant _plant({
@@ -305,6 +307,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.appearanceColor, 'color_light_green');
+  });
+
+  testWidgets('상세 > 꾸미기는 목록에 없는 색이면 옐로에서 시작한다', (tester) async {
+    final repository = _FakeRepository([
+      _plant(
+        id: '1',
+        nickname: '새싹이',
+        selected: true,
+        colorId: 'color_unknown',
+      ),
+    ]);
+    await _pumpScreen(tester, repository);
+
+    await tester.tap(find.byKey(const ValueKey('plant_slot_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plant_detail_menu_꾸미기')));
+    await tester.pumpAndSettle();
+
+    // 캐릭터는 옐로 몸통으로 그려지므로(plantBodyAssetFor) 휠도 맞춘다.
+    final wheel = tester.widget<ColorWheelPicker>(
+      find.byType(ColorWheelPicker),
+    );
+    expect(kPlantAppearanceColors[wheel.initialIndex].id, 'color_yellow');
   });
 
   testWidgets('상세 > 성격은 식물의 성격 글자를 보여준다', (tester) async {

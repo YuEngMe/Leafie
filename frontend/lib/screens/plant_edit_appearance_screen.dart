@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/services/plant_management_api.dart';
@@ -54,6 +53,16 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
   late String _selectedColorId = widget.plant.colorId;
   late String _selectedBodyId = widget.plant.bodyId;
   bool _busy = false;
+
+  /// 휠이 처음 가리킬 색. 목록에 없는 색이면 캐릭터가 옐로로 그려지므로
+  /// (`plantBodyAssetFor`) 휠도 옐로에서 시작한다.
+  int _initialColorIndex() {
+    final index = kPlantAppearanceColors.indexWhere(
+      (c) => c.id == _selectedColorId,
+    );
+    if (index >= 0) return index;
+    return kPlantAppearanceColors.indexWhere((c) => c.id == 'color_yellow');
+  }
 
   Future<void> _apply() async {
     final colorChanged = _selectedColorId != widget.plant.colorId;
@@ -166,12 +175,7 @@ class _PlantEditAppearanceScreenState extends State<PlantEditAppearanceScreen> {
             top: ColorWheelPicker.top - PlantDetailBody.appBarBand,
             height: ColorWheelPicker.height,
             child: ColorWheelPicker(
-              initialIndex: math.max(
-                0,
-                kPlantAppearanceColors.indexWhere(
-                  (c) => c.id == _selectedColorId,
-                ),
-              ),
+              initialIndex: _initialColorIndex(),
               onSelected: (index) => setState(() {
                 _selectedColorId = kPlantAppearanceColors[index].id;
               }),
