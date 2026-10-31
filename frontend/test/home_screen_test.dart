@@ -1177,6 +1177,17 @@ void main() {
 
   group('방 전환은 서버 응답을 기다리지 않는다', () {
     const names = {'plant-a': '첫째', 'plant-b': '둘째', 'plant-c': '셋째'};
+    const noDevice = SensorAssessment(
+      connection: SensorConnection.noDevice,
+      soil: SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'relative_percent',
+      ),
+      light: SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+      ),
+    );
     const active = SensorAssessment(
       connection: SensorConnection.active,
       soil: SensorMetricAssessment(
@@ -1305,6 +1316,34 @@ void main() {
       }
       expect(repository.selectedIds.last, 'plant-c');
       expect(character('plant-c'), findsOneWidget);
+    });
+
+    testWidgets('기기가 없는 방은 펼쳐 둬도 접힌 카드로 보이고, 누르면 그 방만 펼친다', (tester) async {
+      final (_, gates, sensorRepo) = await pump(
+        tester,
+        gateFrom: 99,
+        sensors: {'plant-b': noDevice},
+      );
+      final card = find.text('조도 습도 체크하기');
+      final message = find.text('기기연결이 필요합니다');
+      expect(find.byKey(const ValueKey('home-gauge-humidity')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      expect(card, findsOneWidget);
+      expect(message, findsNothing);
+      // 기기가 없으니 센서 상태를 따로 부르지 않는다.
+      expect(sensorRepo.requests, isNot(contains('plant-b')));
+
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(message, findsOneWidget);
+
+      // 기기가 있는 방으로 가면 원래대로 펼쳐 둔 판이다.
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home-gauge-humidity')), findsOneWidget);
+      expect(gates, isEmpty);
     });
   });
 

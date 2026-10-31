@@ -242,6 +242,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late HomeScene _scene;
   late bool _gaugesExpanded;
+
+  /// 기기가 없는 방에서 사용자가 직접 카드를 눌러 연 방. 기기가 없는 방은
+  /// 판을 펼쳐 둔 상태여도 '기기연결이 필요합니다' 대신 접힌 카드로 둔다.
+  String? _noDeviceOpenedFor;
+
+  /// 판이 실제로 펼쳐져 보이는가. [_gaugesExpanded]는 사용자가 정한 상태이고,
+  /// 기기가 없는 방은 그 방에서 직접 열었을 때만 펼친다.
+  bool get _panelOpen =>
+      _gaugesExpanded &&
+      (_serverSensor?.connection != SensorConnection.noDevice ||
+          _noDeviceOpenedFor == (_serverPlant ?? widget.plant)?.id);
   Timer? _sensorTimer;
   HomePlant? _serverPlant;
   String? _serverDialogue;
@@ -699,12 +710,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _sensorTimer?.cancel();
     _sensorTimer = null;
     final plantId = (_serverPlant ?? widget.plant)?.id;
-    if ((!_gaugesExpanded && !_sensorConnected) || plantId == null) return;
+    if ((!_panelOpen && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
-      _gaugesExpanded
-          ? const Duration(seconds: 10)
-          : const Duration(seconds: 60),
+      _panelOpen ? const Duration(seconds: 10) : const Duration(seconds: 60),
       (_) => _refreshSensor(plantId),
     );
   }
@@ -1059,7 +1068,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 말풍선이 떠 있으면 가려진 것으로 본다. 해를 눌러 생긴 감사 반응
   /// ("아 따뜻해~고마워!")은 광선이 떠 있는 동안(약 3초)만 큐를 비켜 준다.
   bool get _dialogueVisible =>
-      !_gaugesExpanded &&
+      !_panelOpen &&
       !(_scene == HomeScene.cared && _sunActive) &&
       _scene != HomeScene.happy;
 
@@ -1324,7 +1333,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onDiagnosisTap: _openDiagnosis,
                   ),
                 ),
-                if (plant != null && !_gaugesExpanded)
+                if (plant != null && !_panelOpen)
                   _HomeConversation(
                     scene: _scene,
                     serverDialogue: _requestDialogue,
@@ -1710,7 +1719,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       onTap: () => _startPlantRegistration(context),
                     ),
                   )
-                else if (_gaugesExpanded)
+                else if (_panelOpen)
                   _HomeEnvironmentPanel(
                     roomKey: plant.id,
                     slideDirection: _slideDirection,
@@ -1718,7 +1727,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     lux: _currentLux,
                     plantName: plant.name,
                     onCollapse: () {
-                      setState(() => _gaugesExpanded = false);
+                      setState(() {
+                        _gaugesExpanded = false;
+                        _noDeviceOpenedFor = null;
+                      });
                       _syncDialoguePlayback();
                       _syncSensorRefresh(fetchNow: false);
                     },
@@ -1726,7 +1738,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 else
                   _HomeStatusCard(
                     onTap: () {
-                      setState(() => _gaugesExpanded = true);
+                      setState(() {
+                        _gaugesExpanded = true;
+                        _noDeviceOpenedFor = plant.id;
+                      });
                       _syncDialoguePlayback();
                       _syncSensorRefresh();
                     },
