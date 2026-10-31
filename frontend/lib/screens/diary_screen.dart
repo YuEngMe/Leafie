@@ -8,6 +8,7 @@ import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/period_swipe.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
@@ -457,6 +458,22 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     Navigator.pop(context);
   });
 
+  /// 지우면 그날 받은 편지도 서버에서 함께 지워지고, 같은 날을 다시 쓰면
+  /// 새 편지가 온다. 지운 뒤에는 다이어리 화면으로 돌아간다.
+  Future<void> _deleteEntry() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      dialog: const ConfirmDialog(message: '삭제하시겠습니까?'),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runSubmission(() async {
+      if (_recordExists) await widget.store?.delete(_entry.date);
+      if (!mounted) return;
+      _setCurrentEntry(DiaryEntry(date: _entry.date), exists: false);
+      Navigator.pop(context);
+    });
+  }
+
   Future<void> _openCalendar() => _runSubmission(() async {
     await _persistCurrent();
     if (!mounted) return;
@@ -599,7 +616,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   Positioned(
                     left: 63,
                     top: 423.4,
-                    width: 270,
+                    // 오른쪽 끝 휴지통(6507:3098, x322)과 겹치지 않게 줄인다.
+                    width: 322 - 4 - 63,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
@@ -621,6 +639,30 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  // 4534:3320 휴지통(6507:3098): (322, 426) 19x20.152. 누르기
+                  // 쉽게 같은 중심에 44x44를 둔다.
+                  Positioned(
+                    left: 322 + 19 / 2 - 22,
+                    top: 426 + 20.152 / 2 - 22,
+                    width: 44,
+                    height: 44,
+                    child: Semantics(
+                      button: true,
+                      label: '다이어리 삭제',
+                      child: GestureDetector(
+                        key: const ValueKey('diary-delete'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _submitting ? null : _deleteEntry,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/images/diary_delete.svg',
+                            width: 19,
+                            height: 20.152,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   // 3496:10621 제목 밑줄, 3496:10625 본문.

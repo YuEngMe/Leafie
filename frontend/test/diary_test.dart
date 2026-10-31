@@ -583,6 +583,43 @@ void main() {
       expect(picker.selected, DiaryWeather.sunny);
     });
 
+    testWidgets('휴지통은 시안(6507:3098) 자리에 있고, 확인하면 그날 글을 지운다', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore()
+        ..entries = [DiaryEntry(date: DateTime(2026, 7, 15), title: '지울 글')];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('다이어리 쓰기'));
+      await tester.pumpAndSettle();
+
+      final trash = find.byKey(const ValueKey('diary-delete'));
+      // 시안 (322, 426) 19x20.152의 중심, 누르는 칸은 44x44.
+      expect(tester.getCenter(trash).dx, closeTo(322 + 19 / 2, 0.01));
+      expect(tester.getCenter(trash).dy, closeTo(426 + 20.152 / 2, 0.01));
+      expect(tester.getSize(trash), const Size(44, 44));
+
+      // 아니오면 그대로 둔다.
+      await tester.tap(trash);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('아니오'));
+      await tester.pumpAndSettle();
+      expect(store.entries, hasLength(1));
+      expect(find.byKey(const ValueKey('diary-delete')), findsOneWidget);
+
+      // 네면 지우고 다이어리 화면으로 돌아간다.
+      await tester.tap(trash);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('네'));
+      await tester.pumpAndSettle();
+      expect(store.entries, isEmpty);
+      expect(find.byKey(const ValueKey('diary-delete')), findsNothing);
+      expect(find.byType(DiaryCalendar), findsOneWidget);
+    });
+
     testWidgets('새로 쓴 날을 저장할 때만 편지 확인 신호를 보낸다', (tester) async {
       _setUpView(tester);
       var signals = 0;
