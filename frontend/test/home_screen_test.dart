@@ -1932,7 +1932,7 @@ void main() {
                 room: HomeRoomData(
                   backgroundPhase: 'DAY',
                   dialogueKey: low ? 'SOIL_MOISTURE_LOW' : 'NORMAL',
-                  dialogue: low ? '목말라… 물 줘' : '평소 대사',
+                  dialogue: low ? '목말라, 물 줘' : '평소 대사',
                   sensor: sensors.assessment,
                 ),
                 todayEvents: const [],
@@ -1951,7 +1951,7 @@ void main() {
 
     testWidgets('습도가 정상으로 돌아오면 /home을 다시 받아 목마른 말풍선을 내린다', (tester) async {
       final (:sensors, :homes) = await pumpThirsty(tester);
-      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      expect(find.text('목말라, 물 줘'), findsOneWidget);
       final before = homes.length;
 
       // 판정이 그대로면 /home을 다시 받지 않는다.
@@ -1964,22 +1964,22 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
       expect(homes.length, before + 1);
-      expect(find.text('목말라… 물 줘'), findsNothing);
+      expect(find.text('목말라, 물 줘'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
 
     testWidgets('쓰다듬는 동안은 고정 말풍선을 숨기고, 그치면 다시 띄운다', (tester) async {
       await pumpThirsty(tester);
-      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      expect(find.text('목말라, 물 줘'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('home-character-pet')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
-      expect(find.text('목말라… 물 줘'), findsNothing);
+      expect(find.text('목말라, 물 줘'), findsNothing);
 
       await tester.pump(const Duration(seconds: 3));
       await tester.pump(const Duration(milliseconds: 700));
-      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      expect(find.text('목말라, 물 줘'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
   });
