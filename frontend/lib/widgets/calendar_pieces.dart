@@ -47,6 +47,9 @@ class CalendarEventCard extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Stack(
+        // 완료 버튼 자리(323 + 52)가 카드 폭 374를 1px 넘어 기본값이면 카드
+        // 상자에서 잘리고, 그 바깥에 그리는 카드 그림자가 사방 다 사라진다.
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: DecoratedBox(
