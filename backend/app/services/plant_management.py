@@ -789,12 +789,13 @@ class PlantManagementService:
                 body_id=context.plant.body_id,
                 color_id=context.plant.color_id,
                 hair_id=context.plant.hair_id,
+                # 표정은 토양 수분만 본다. 밤에 조도가 낮다고 슬퍼 보이면 안 된다.
                 expression_id=(
                     ExpressionType.SAD
                     if active_sensor_keys
+                    & {HomeDialogueKey.SOIL_MOISTURE_LOW, HomeDialogueKey.SOIL_MOISTURE_HIGH}
                     else ExpressionType.HAPPY
-                    if sensor is not None
-                    and sensor.soil.state == sensor.light.state == SensorLevel.OK
+                    if sensor is not None and sensor.soil.state == SensorLevel.OK
                     else ExpressionType.DEFAULT
                     if sensor is not None
                     else context.plant.expression_id

@@ -332,6 +332,32 @@ async def test_home_consumes_sensor_states_and_filters_resolved_dialogues():
     assert home.plant.expression_id == "expression_happy"
 
 
+async def test_home_expression_follows_soil_only():
+    user_id = uuid4()
+    plant = make_plant(user_id, created_at=NOW - timedelta(days=10))
+    service, repository, _, _ = build_service([plant])
+    sensor = SensorAssessment(
+        connection="ACTIVE",
+        soil=SensorMetricAssessment(unit="relative_percent", state="OK", value=50),
+        light=SensorMetricAssessment(unit="lux_hours", state="LOW", value=10),
+    )
+    service._assessments = SimpleNamespace(read=AsyncMock(return_value=sensor))
+    repository.dialogue_events = [HomeDialogueEvent(uuid4(), HomeDialogueKey.LIGHT_LOW, NOW)]
+    home = await service.get_home(user_id, plant.id, now=NOW)
+    # 조도가 부족해도 토양이 적당하면 슬프지 않고 기쁘다. 말풍선은 조도 안내를 따른다.
+    assert home.room.dialogue_key == "LIGHT_LOW"
+    assert home.plant.expression_id == "expression_happy"
+    sensor.soil.state = SensorLevel.UNKNOWN
+    home = await service.get_home(user_id, plant.id, now=NOW)
+    assert home.plant.expression_id == "expression_default"
+    sensor.soil.state = SensorLevel.HIGH
+    repository.dialogue_events = [
+        HomeDialogueEvent(uuid4(), HomeDialogueKey.SOIL_MOISTURE_HIGH, NOW)
+    ]
+    home = await service.get_home(user_id, plant.id, now=NOW)
+    assert home.plant.expression_id == "expression_sad"
+
+
 async def test_home_uses_optimal_light_dialogue_when_no_higher_priority_prompt():
     user_id = uuid4()
     plant = make_plant(user_id, created_at=NOW)
