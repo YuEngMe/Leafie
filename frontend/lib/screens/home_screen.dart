@@ -146,6 +146,47 @@ enum HomeTimePeriod {
   Color get notificationColor => this == day ? kOrangeMain : kPaleYellow;
 }
 
+/// 배경·해달·머리글 색이 시간대를 따라 함께 바뀌는 시간. 동작 줄이기를
+/// 켰으면 바로 바꾼다.
+Duration _periodCrossfade(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context)
+    ? Duration.zero
+    : AppMotion.periodCrossfade;
+
+/// 머리글 세 색을 한 번에 섞는 값. 배경이 서서히 바뀌는 동안 글자색만
+/// 먼저 바뀌지 않게 같이 옮긴다.
+class _HeaderColors {
+  const _HeaderColors(this.title, this.counter, this.notification);
+
+  _HeaderColors.of(HomeTimePeriod period)
+    : this(period.titleColor, period.counterColor, period.notificationColor);
+
+  final Color title;
+  final Color counter;
+  final Color notification;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _HeaderColors &&
+      other.title == title &&
+      other.counter == counter &&
+      other.notification == notification;
+
+  @override
+  int get hashCode => Object.hash(title, counter, notification);
+}
+
+class _HeaderColorsTween extends Tween<_HeaderColors> {
+  _HeaderColorsTween({super.end});
+
+  @override
+  _HeaderColors lerp(double t) => _HeaderColors(
+    Color.lerp(begin!.title, end!.title, t)!,
+    Color.lerp(begin!.counter, end!.counter, t)!,
+    Color.lerp(begin!.notification, end!.notification, t)!,
+  );
+}
+
 /// Figma 3441:2의 대표 홈 대화 상태.
 /// idle은 말풍선 없음(2590:12165), happy는 "히히/신난다/좋은 하루야!" 세 개
 /// (2346:479 등 6프레임). happy를 띄우는 조건은 팀 확인 대기(TODOLIST).
@@ -198,8 +239,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late HomeScene _scene;
   late bool _gaugesExpanded;
   Timer? _sensorTimer;
@@ -1027,6 +1067,34 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // 누르기 쉽게 사방 4px을 더 받으므로 노드 좌상단에서 4를 뺀다.
+  Widget _periodIcon(HomeTimePeriod period) => Positioned(
+    left: period.phaseIconOrigin.dx - 4,
+    top: period.phaseIconOrigin.dy - 4,
+    child: GestureDetector(
+      key: const ValueKey('home-period-control'),
+      behavior: HitTestBehavior.opaque,
+      onTap: _handlePeriodIconTap,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: AnimatedBuilder(
+          animation: _moonController,
+          // 달: ±0.15rad(약 9°)를 세 번 왕복하며 줄어든다.
+          builder: (context, child) => Transform.rotate(
+            key: const ValueKey('home-moon-swing'),
+            angle: _moonController.isAnimating
+                ? math.sin(_moonController.value * math.pi * 6) *
+                      0.15 *
+                      (1 - _moonController.value)
+                : 0,
+            child: child,
+          ),
+          child: FigmaHomeAssetIcon(period.phaseIcon),
+        ),
+      ),
+    ),
+  );
+
   Widget _buildHome(BuildContext context) {
     final plant = _serverPlant ?? widget.plant;
     final period = _period;
@@ -1042,10 +1110,25 @@ class _HomeScreenState extends State<HomeScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  period.asset,
-                  key: ValueKey(period.asset),
-                  fit: BoxFit.fill,
+                // 시간대·조도가 바뀌면 새 배경을 위에 서서히 띄운다. 나가는
+                // 배경은 흐리지 않고 깔아 둔다. 둘 다 흐리면 중간에 뒤 초록이
+                // 비친다.
+                AnimatedSwitcher(
+                  duration: _periodCrossfade(context),
+                  switchInCurve: AppMotion.ease,
+                  transitionBuilder: (child, animation) =>
+                      child.key == ValueKey(period.asset)
+                      ? FadeTransition(opacity: animation, child: child)
+                      : child,
+                  layoutBuilder: (current, previous) => Stack(
+                    fit: StackFit.expand,
+                    children: [...previous, ?current],
+                  ),
+                  child: Image.asset(
+                    period.asset,
+                    key: ValueKey(period.asset),
+                    fit: BoxFit.fill,
+                  ),
                 ),
                 _HomeHeader(
                   roomName: plant?.name,
@@ -1109,30 +1192,17 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                   ),
-                // 누르기 쉽게 사방 4px을 더 받으므로 노드 좌상단에서 4를 뺀다.
-                Positioned(
-                  left: period.phaseIconOrigin.dx - 4,
-                  top: period.phaseIconOrigin.dy - 4,
-                  child: GestureDetector(
-                    key: const ValueKey('home-period-control'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _handlePeriodIconTap,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: AnimatedBuilder(
-                        animation: _moonController,
-                        // 달: ±0.15rad(약 9°)를 세 번 왕복하며 줄어든다.
-                        builder: (context, child) => Transform.rotate(
-                          key: const ValueKey('home-moon-swing'),
-                          angle: _moonController.isAnimating
-                              ? math.sin(_moonController.value * math.pi * 6) *
-                                    0.15 *
-                                    (1 - _moonController.value)
-                              : 0,
-                          child: child,
-                        ),
-                        child: FigmaHomeAssetIcon(period.phaseIcon),
-                      ),
+                // 해·달은 시간대마다 그림과 자리가 달라 배경과 같이 겹쳐 바꾼다.
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: _periodCrossfade(context),
+                    layoutBuilder: (current, previous) => Stack(
+                      fit: StackFit.expand,
+                      children: [...previous, ?current],
+                    ),
+                    child: Stack(
+                      key: ValueKey(period),
+                      children: [_periodIcon(period)],
                     ),
                   ),
                 ),
@@ -1389,7 +1459,8 @@ class _HomeScreenState extends State<HomeScreen>
                             } else if (t < 0.75) {
                               raise = 1;
                             } else {
-                              raise = 1 -
+                              raise =
+                                  1 -
                                   AppMotion.easeInOut.transform(
                                     (t - 0.75) / 0.25,
                                   );
@@ -1593,10 +1664,17 @@ class _HomeHeader extends StatelessWidget {
   final VoidCallback onNotifications;
 
   @override
-  Widget build(BuildContext context) {
-    final titleColor = period.titleColor;
-    final counterColor = period.counterColor;
-    final notificationColor = period.notificationColor;
+  Widget build(BuildContext context) => TweenAnimationBuilder<_HeaderColors>(
+    tween: _HeaderColorsTween(end: _HeaderColors.of(period)),
+    duration: _periodCrossfade(context),
+    curve: AppMotion.ease,
+    builder: (context, colors, _) => _content(colors),
+  );
+
+  Widget _content(_HeaderColors colors) {
+    final titleColor = colors.title;
+    final counterColor = colors.counter;
+    final notificationColor = colors.notification;
 
     return Stack(
       children: [
@@ -2433,9 +2511,7 @@ class _CharacterHitArea extends StatelessWidget {
           // ClipPath는 다각형 밖 터치를 받지 않는다.
           Positioned.fill(
             child: ClipPath(
-              clipper: _PathClipper(
-                hair.shift(Offset(0, _kCharacterHairRoom)),
-              ),
+              clipper: _PathClipper(hair.shift(Offset(0, _kCharacterHairRoom))),
               child: const Listener(behavior: HitTestBehavior.opaque),
             ),
           ),
@@ -2626,8 +2702,10 @@ class _WaterFlowPainter extends CustomPainter {
   /// 주둥이에서 나타나고, 본체가 투명해지는 아래쪽에서 사라진다.
   static double _alphaAt(double s, Offset p) {
     final emerge = (s / _emerge).clamp(0.0, 1.0);
-    final fall =
-        ((p.dy - _fadeStartY) / (_fadeEndY - _fadeStartY)).clamp(0.0, 1.0);
+    final fall = ((p.dy - _fadeStartY) / (_fadeEndY - _fadeStartY)).clamp(
+      0.0,
+      1.0,
+    );
     return emerge * (1 - fall);
   }
 

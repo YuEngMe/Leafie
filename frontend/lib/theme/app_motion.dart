@@ -25,6 +25,10 @@ abstract final class AppMotion {
   /// 기준을 따르기로 해 M3 duration medium2 값을 쓴다.
   static const Duration pageFade = Duration(milliseconds: 300);
 
+  /// 홈 배경이 시간대·조도에 따라 바뀔 때 새 배경이 서서히 드러나는 시간.
+  /// 하늘색이 바뀌는 느낌이라 화면 전환보다 길게 둔다(시안에 값 없음).
+  static const Duration periodCrossfade = Duration(milliseconds: 1200);
+
   /// 위 전환의 커브. M3 emphasized decelerate: 새 화면이 빨리 드러나고 천천히
   /// 자리 잡는다.
   static const Curve pageFadeCurve = Cubic(0.05, 0.7, 0.1, 1);

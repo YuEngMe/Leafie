@@ -260,9 +260,7 @@ void main() {
   });
 
   // 시안 4534:16876(happy)·4534:9272(편지 배지)·4534:7570(게이지) 기준.
-  testWidgets('홈 헤더·말풍선·편지 배지·물뿌리개·게이지 판이 시안대로 그려진다', (
-    tester,
-  ) async {
+  testWidgets('홈 헤더·말풍선·편지 배지·물뿌리개·게이지 판이 시안대로 그려진다', (tester) async {
     useDeviceView(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -1288,9 +1286,7 @@ void main() {
       expect(find.text('햇빛 좀 쬐고 싶어!'), findsOneWidget);
     });
 
-    testWidgets('흙이 마른 상황이면 일정이 없어도 목마른 말풍선에 서버 대사를 띄운다', (
-      tester,
-    ) async {
+    testWidgets('흙이 마른 상황이면 일정이 없어도 목마른 말풍선에 서버 대사를 띄운다', (tester) async {
       await pumpHome(
         tester,
         (id) async => dashboard(
@@ -1307,9 +1303,7 @@ void main() {
       expect(find.text('목이 바싹 말랐어!'), findsOneWidget);
     });
 
-    testWidgets('물주기 일정과 햇빛 부족이 겹치면 물을 먼저 띄우고 햇빛 대사는 넣지 않는다', (
-      tester,
-    ) async {
+    testWidgets('물주기 일정과 햇빛 부족이 겹치면 물을 먼저 띄우고 햇빛 대사는 넣지 않는다', (tester) async {
       await pumpHome(
         tester,
         (id) async => dashboard(
@@ -1553,9 +1547,7 @@ void main() {
     });
   });
 
-  testWidgets('내 캐릭터에서 돌아오면 캘린더 탭을 새로 만들어 일정을 다시 불러온다', (
-    tester,
-  ) async {
+  testWidgets('내 캐릭터에서 돌아오면 캘린더 탭을 새로 만들어 일정을 다시 불러온다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1595,7 +1587,9 @@ void main() {
 
     await tester.tap(navIcon(FigmaNavIcon.calendar));
     await tester.pumpAndSettle();
-    final before = tester.widget<CalendarScreen>(find.byType(CalendarScreen)).key;
+    final before = tester
+        .widget<CalendarScreen>(find.byType(CalendarScreen))
+        .key;
 
     await tester.tap(navIcon(FigmaNavIcon.home));
     await tester.pumpAndSettle();
@@ -1650,9 +1644,7 @@ void main() {
     expect(find.text('전체보기 화면'), findsOneWidget);
   });
 
-  testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (
-    tester,
-  ) async {
+  testWidgets('센서가 정상이면 게이지 두 줄을, 기기가 없으면 연결 안내를 보여 준다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1719,7 +1711,10 @@ void main() {
     expect(find.text('현재습도 20%'), findsOneWidget);
     // 조도 게이지는 /home이 아니라 센서 상태 API의 순간 조도를 보여 준다.
     expect(find.text('현재조도 523lx'), findsOneWidget);
-    expect(find.byKey(const ValueKey('home-environment-message')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('home-environment-message')),
+      findsNothing,
+    );
     // 시안 4534:7952: 부족(LOW)한 값의 마커만 글자 앞에 빨간 점을 찍는다.
     Finder alertIn(String gauge) => find.descendant(
       of: find.byKey(ValueKey('home-gauge-$gauge')),
@@ -1733,9 +1728,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
   });
 
-  testWidgets('연결된 센서는 접어도 10초마다 새로 받는다', (
-    tester,
-  ) async {
+  testWidgets('연결된 센서는 접어도 10초마다 새로 받는다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1895,6 +1888,63 @@ void main() {
       expect(background(HomeTimePeriod.day), findsOneWidget);
     });
 
+    testWidgets('조도가 바뀌면 새 배경이 이전 배경 위로 서서히 드러난다', (tester) async {
+      final sensors = await pumpHome(
+        tester,
+        connection: SensorConnection.active,
+        lux: 1500,
+      );
+      sensors.lux = 20;
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      // 전환 중에는 두 배경이 겹쳐 있고, 나가는 낮 배경은 흐려지지 않는다.
+      expect(background(HomeTimePeriod.day), findsOneWidget);
+      expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
+      final incoming = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: background(HomeTimePeriod.lateEvening),
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      expect(incoming.opacity.value, inExclusiveRange(0, 1));
+      final outgoing = find.ancestor(
+        of: background(HomeTimePeriod.day),
+        matching: find.byType(FadeTransition),
+      );
+      expect(
+        tester
+            .widgetList<FadeTransition>(outgoing)
+            .map((fade) => fade.opacity.value),
+        everyElement(1.0),
+      );
+
+      await tester.pump(AppMotion.periodCrossfade);
+      expect(background(HomeTimePeriod.day), findsNothing);
+      expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
+    });
+
+    testWidgets('동작 줄이기를 켜면 배경을 바로 바꾼다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final sensors = await pumpHome(
+        tester,
+        connection: SensorConnection.active,
+        lux: 1500,
+      );
+      sensors.lux = 20;
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump();
+
+      expect(background(HomeTimePeriod.day), findsNothing);
+      expect(background(HomeTimePeriod.lateEvening), findsOneWidget);
+    });
+
     testWidgets('연결이 끊겼으면 조도를 받지 않고 시각으로 정한다', (tester) async {
       final sensors = await pumpHome(
         tester,
@@ -1916,7 +1966,6 @@ void main() {
       );
     });
   });
-
 
   testWidgets('평소 표정은 서버가 정한 표정을 따른다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
@@ -1960,7 +2009,6 @@ void main() {
         .map((art) => art.expression);
     expect(faces, contains(PlantExpression.sad));
   });
-
 
   testWidgets('캐릭터를 탭하면 얼굴만 바뀌고 몸통·머리는 흐려지지 않는다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
@@ -2125,7 +2173,6 @@ void main() {
     );
   });
 
-
   group('홈 대사 큐', () {
     const queue = [
       HomeDialogueEvent(
@@ -2190,9 +2237,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('큐 대사를 순서대로 정해진 시간만큼 보여 주고, 끝나면 기본 대사로 돌아간다', (
-      tester,
-    ) async {
+    testWidgets('큐 대사를 순서대로 정해진 시간만큼 보여 주고, 끝나면 기본 대사로 돌아간다', (tester) async {
       await pumpQueueHome(tester);
       expect(find.text('물 고마워!'), findsOneWidget);
 
@@ -2215,9 +2260,7 @@ void main() {
       expect(find.text('오늘도 좋은 하루!'), findsOneWidget);
     });
 
-    testWidgets('재생 중에 게이지를 펼치면 멈추고, 끝까지 못 본 대사는 다시 나온다', (
-      tester,
-    ) async {
+    testWidgets('재생 중에 게이지를 펼치면 멈추고, 끝까지 못 본 대사는 다시 나온다', (tester) async {
       await pumpQueueHome(tester);
       expect(find.text('물 고마워!'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
@@ -2232,11 +2275,7 @@ void main() {
     });
 
     testWidgets('돌봄 반응 말풍선이 뜨면 큐 대사는 비켜 준다', (tester) async {
-      await pumpQueueHome(
-        tester,
-        dialogueKey: 'LIGHT_LOW',
-        dialogue: '빛이 모자라',
-      );
+      await pumpQueueHome(tester, dialogueKey: 'LIGHT_LOW', dialogue: '빛이 모자라');
       expect(find.text('물 고마워!'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('home-period-control')));
@@ -2308,7 +2347,10 @@ void main() {
     testWidgets('평소 대사는 눌러도 화면을 옮기지 않는다', (tester) async {
       await pumpQueueHome(tester, events: const []);
 
-      expect(find.byKey(const ValueKey('home-dialogue-fallback')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-dialogue-fallback')),
+        findsOneWidget,
+      );
       expect(
         find.byWidgetPredicate(
           (w) =>
@@ -2332,10 +2374,7 @@ void main() {
     });
   });
 
-
-  testWidgets('편지가 하나도 없어도 우편함을 누르면 빈 우편함이 열린다', (
-    tester,
-  ) async {
+  testWidgets('편지가 하나도 없어도 우편함을 누르면 빈 우편함이 열린다', (tester) async {
     useDeviceView(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -2551,7 +2590,7 @@ class _FakeSensorRepository implements SensorRepository {
   _FakeSensorRepository(this.assessment, {this.lux});
 
   final SensorAssessment assessment;
-  final double? lux;
+  double? lux;
   final requests = <String>[];
 
   @override
