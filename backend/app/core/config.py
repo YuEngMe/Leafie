@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = Field(default=45.0, gt=0)
     diagnosis_requests_per_24_hours: int = Field(default=10, ge=1, le=1000)
     species_identification_requests_per_24_hours: int = Field(default=20, ge=1, le=1000)
+    # TEMP: 연동 테스트용. 샘플·커버리지가 부족해도 센서 판정값을 내려준다.
+    sensor_assess_insufficient_data: bool = False
+    # TEMP: 시연용. 센서 측정·집계 주기(초). 기본은 10분.
+    sensor_sample_interval_seconds: int = Field(default=600, ge=1)
 
     firebase_project_id: str = "leafie-2c528"
     fcm_credentials_json: str | None = None

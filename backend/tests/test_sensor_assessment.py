@@ -148,16 +148,16 @@ async def read(db, plant_id, **kwargs):
         return await SensorAssessmentService(session).read(plant_id, now=NOW, **kwargs)
 
 
-async def test_actual_db_low_soil_deduplication_and_completed_day_light(assessment_db):
+async def test_actual_db_low_soil_deduplication_and_latest_24_hours_light(assessment_db):
     db, _, plant_id = assessment_db
     await add_readings(db, [NOW - timedelta(minutes=i) for i in (5, 15, 25)], repeats=2)
-    start, end = day_window(NOW.date() - timedelta(days=1), "Asia/Seoul")
+    start = NOW - timedelta(days=1)
     await add_readings(db, [start + timedelta(minutes=i * 10) for i in range(144)], repeats=2)
     result = await read(db, plant_id)
     assert result.provisional
     assert result.soil.state == "LOW"
     assert result.soil.sample_count == 3
-    assert result.light.date == NOW.date() - timedelta(days=1)
+    assert result.light.date == NOW.date()
     assert result.light.sample_count == 144
     assert result.light.coverage_ratio == 1
     assert result.light.value == 2400
@@ -174,9 +174,10 @@ async def test_partial_day_missing_data_and_future_readings_are_unknown(assessme
     assert current.soil.sample_count == 1
     assert current.light.state == "UNKNOWN"
     assert current.light.reason == "DAY_IN_PROGRESS"
-    previous = await read(db, plant_id)
-    assert previous.light.value is None
-    assert previous.light.reason == "INSUFFICIENT_COVERAGE"
+    latest = await read(db, plant_id)
+    assert latest.light.sample_count == 1
+    assert latest.light.state == "UNKNOWN"
+    assert latest.light.reason == "INSUFFICIENT_COVERAGE"
 
 
 async def test_median_rejects_single_spike_and_stale_data(assessment_db):

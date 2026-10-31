@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import AppError
 from app.models.enums import SensorConnection
 from app.models.plant import Plant
@@ -27,7 +28,7 @@ SOIL_RAW_DRY = 3200
 SOIL_RAW_WET = 1400
 
 # 기기는 10분마다 올린다. 3회 연속 수신이 없으면 STALE로 본다.
-SAMPLE_INTERVAL = timedelta(minutes=10)
+SAMPLE_INTERVAL = timedelta(seconds=settings.sensor_sample_interval_seconds)
 STALE_AFTER = SAMPLE_INTERVAL * 3
 
 DEFAULT_TIMEZONE = "Asia/Seoul"

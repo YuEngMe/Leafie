@@ -1729,6 +1729,80 @@ void main() {
     expect(find.byKey(const ValueKey('home-gauge-humidity')), findsNothing);
   });
 
+  testWidgets('게이지가 펼쳐져 있으면 10초마다 센서 판정을 새로 받고, 접으면 멈춘다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SensorAssessment soilAt(double value) => SensorAssessment(
+      connection: SensorConnection.active,
+      soil: SensorMetricAssessment(
+        state: SensorLevel.low,
+        unit: 'relative_percent',
+        value: value,
+        lower: 40,
+        upper: 90,
+      ),
+      light: const SensorMetricAssessment(
+        state: SensorLevel.unknown,
+        unit: 'lux_hours',
+      ),
+    );
+    final sensors = _FakeSensorRepository(soilAt(25));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          sensorRepository: sensors,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '새싹이', selected: true),
+          ]),
+          loadHomeForPlant: (_) async => HomeDashboardData(
+            plant: const HomePlantData(
+              id: 'plant-a',
+              nickname: '새싹이',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+              sensor: soilAt(20),
+            ),
+            todayEvents: const [],
+            unreadLetterCount: 0,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // /home 판정을 먼저 쓰고 바로 다시 받지 않는다.
+    expect(find.text('현재습도 20%'), findsOneWidget);
+    expect(sensors.requests, isEmpty);
+
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    expect(sensors.requests, ['plant-a']);
+    expect(find.text('현재습도 25%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 30));
+    expect(sensors.requests, ['plant-a']);
+
+    // 다시 펼치면 바로 한 번 받는다.
+    await tester.tap(find.byKey(const ValueKey('home-environment-card')));
+    await tester.pumpAndSettle();
+    expect(sensors.requests, ['plant-a', 'plant-a']);
+  });
+
 
   testWidgets('평소 표정은 서버가 정한 표정을 따른다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
@@ -2357,6 +2431,26 @@ void main() {
       expect(fill(), moreOrLessEquals(0.6));
     });
   });
+}
+
+class _FakeSensorRepository implements SensorRepository {
+  _FakeSensorRepository(this.assessment);
+
+  final SensorAssessment assessment;
+  final requests = <String>[];
+
+  @override
+  Future<PlantSensorStatus> getPlantSensorStatus(String plantId) async {
+    requests.add(plantId);
+    return PlantSensorStatus(
+      plantId: plantId,
+      connection: assessment.connection,
+      assessment: assessment,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeNotificationRepository implements NotificationRepository {
