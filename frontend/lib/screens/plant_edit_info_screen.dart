@@ -7,6 +7,7 @@ import 'package:yeso_plant/widgets/plant_detail_components.dart';
 import 'package:yeso_plant/widgets/plant_search_components.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 시안 2555:661 "캐릭터 상세_정보수정 1" + 4534:20112 "정보수정 4"(날짜 시트).
 ///
@@ -101,15 +102,11 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
     final nickname = _nickname.text.trim();
     final placeName = _place.text.trim();
     if (nickname.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('식물 이름을 입력해주세요.')));
+      showLeafieToast(context, text: '식물 이름을 입력해주세요.');
       return;
     }
     if (placeName.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('장소를 입력해주세요.')));
+      showLeafieToast(context, text: '장소를 입력해주세요.');
       return;
     }
     final nicknameChanged = nickname != widget.plant.nickname;
@@ -141,9 +138,7 @@ class _PlantEditInfoScreenState extends State<PlantEditInfoScreen> {
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     }
   }
 

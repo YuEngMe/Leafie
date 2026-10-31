@@ -7,6 +7,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/notification_tile.dart';
 import 'package:yeso_plant/widgets/retry_feedback.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 typedef NotificationSelected = void Function(NotificationData notification);
 
@@ -139,9 +140,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showLeafieToast(context, text: message);
   }
 
   @override

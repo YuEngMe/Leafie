@@ -11,6 +11,7 @@ import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 final _emailFormatRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 const _resendCooldown = Duration(minutes: 3, seconds: 21); // Figma 시안의 03:21
@@ -120,12 +121,9 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authErrorMessage(e, fallback: '메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'),
-            ),
-          ),
+        showLeafieToast(
+          context,
+          text: authErrorMessage(e, fallback: '메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'),
         );
       }
     } finally {
@@ -135,15 +133,11 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
 
   Future<void> _setNewPassword() async {
     if (_newPasswordController.text.length < 8) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('비밀번호는 최소 8자리 이상이어야 합니다.')));
+      showLeafieToast(context, text: '비밀번호는 최소 8자리 이상이어야 합니다.');
       return;
     }
     if (_newPasswordController.text != _newPasswordConfirmController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')));
+      showLeafieToast(context, text: '비밀번호가 일치하지 않습니다.');
       return;
     }
 
@@ -155,11 +149,11 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
       if (mounted) setState(() => _step = _Step.done);
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authErrorMessage(e, fallback: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.'),
-            ),
+        showLeafieToast(
+          context,
+          text: authErrorMessage(
+            e,
+            fallback: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
           ),
         );
       }

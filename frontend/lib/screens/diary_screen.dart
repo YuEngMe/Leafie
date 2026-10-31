@@ -9,7 +9,6 @@ import 'package:yeso_plant/services/letter_arrival_watch.dart';
 import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
-import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/period_swipe.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
@@ -17,6 +16,7 @@ import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:yeso_plant/widgets/edge_swipe_back.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// Figma "다이어리"(2739:34592). 달력에서 날짜를 고르면 그 날 글로 넘어간다.
 class DiaryScreen extends StatefulWidget {
@@ -110,16 +110,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      _showDiaryError(
-        context,
-        error,
-        action: '다이어리를 열지 못했어요.',
-        bottomMargin:
-            AppLayout.homeBottomNavHeight *
-                MediaQuery.sizeOf(context).height /
-                AppLayout.referenceViewport.height +
-            12,
-      );
+      _showDiaryError(context, error, action: '다이어리를 열지 못했어요.');
     } finally {
       if (mounted) {
         _openingDay = false;
@@ -393,9 +384,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       );
     } on Exception {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('사진을 불러오지 못했어요.')));
+      showLeafieToast(context, text: '사진을 불러오지 못했어요.');
       return;
     }
     if (picked == null ||
@@ -769,22 +758,14 @@ bool _sameEntry(DiaryEntry entry, DiaryEntry? other) =>
     entry.mediaFileId == other.mediaFileId &&
     entry.weather == other.weather;
 
+/// 토스트는 하단 탭바 위(시안 744 자리)에 뜨므로 탭바를 가리지 않는다.
 void _showDiaryError(
   BuildContext context,
   Object error, {
   required String action,
-  double? bottomMargin,
 }) {
   final detail = error is LeafieApiException ? error.message : action;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      behavior: bottomMargin == null ? null : SnackBarBehavior.floating,
-      margin: bottomMargin == null
-          ? null
-          : EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
-      content: Text('$detail 다시 시도해주세요.'),
-    ),
-  );
+  showLeafieToast(context, text: '$detail 다시 시도해주세요.');
 }
 
 class _BodyBox extends StatelessWidget {

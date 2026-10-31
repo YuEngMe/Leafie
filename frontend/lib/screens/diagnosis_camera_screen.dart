@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 /// 초점 가이드 SVG 캔버스(288×287)가 노드(269.96×268.05)보다 사방으로
 /// 넘치는 폭. 스트로크가 캔버스 밖으로 잘리지 않게 넣어 둔 여백이다.
@@ -127,9 +128,7 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
       if (mounted) Navigator.of(context).pop(bytes);
     } on CameraException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.description ?? '사진을 찍지 못했어요.')),
-      );
+      showLeafieToast(context, text: error.description ?? '사진을 찍지 못했어요.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -144,9 +143,7 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
       if (mounted) setState(() => _flashOn = next);
     } on CameraException {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('플래시를 켤 수 없어요.')));
+      showLeafieToast(context, text: '플래시를 켤 수 없어요.');
     }
   }
 
@@ -158,9 +155,7 @@ class _DiagnosisCameraScreenState extends State<DiagnosisCameraScreen>
       if (bytes != null && mounted) Navigator.of(context).pop(bytes);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('앨범을 열 수 없어요.')));
+      showLeafieToast(context, text: '앨범을 열 수 없어요.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

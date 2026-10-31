@@ -12,6 +12,7 @@ import 'package:yeso_plant/widgets/onboarding_fields.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 import 'package:yeso_plant/widgets/yeso_app_bar.dart';
 import 'package:yeso_plant/widgets/edge_swipe_back.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 // Figma "04 앱 진입_회원가입"의 소셜 닉네임 설정 화면(2026-08-11 확인).
 // 카카오·네이버 등 소셜 로그인은 회원가입 화면이 없어 닉네임을 못 받으므로,
@@ -72,9 +73,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
   Future<void> _submit() async {
     final nickname = _nicknameController.text.trim();
     if (nickname.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('닉네임을 입력해주세요.')));
+      showLeafieToast(context, text: '닉네임을 입력해주세요.');
       return;
     }
 
@@ -89,9 +88,7 @@ class _OAuthNicknameScreenState extends State<OAuthNicknameScreen> {
       }
     } on LeafieApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

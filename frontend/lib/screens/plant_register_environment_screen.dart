@@ -7,6 +7,7 @@ import 'package:yeso_plant/widgets/primary_button.dart';
 import 'package:yeso_plant/widgets/register_step_scaffold.dart';
 import 'package:yeso_plant/widgets/rounded_input_field.dart';
 import 'package:yeso_plant/services/registration_draft_store.dart';
+import 'package:yeso_plant/widgets/leafie_toast.dart';
 
 class PlantRegisterEnvironmentScreen extends StatefulWidget {
   const PlantRegisterEnvironmentScreen({super.key, required this.draft});
@@ -75,9 +76,7 @@ class _PlantRegisterEnvironmentScreenState
 
   void _goToNextStep() {
     if (_placeNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('장소를 입력해주세요')));
+      showLeafieToast(context, text: '장소를 입력해주세요');
       return;
     }
     // 마지막 물 준 날·분갈이 날은 둘 다 선택값이다(백엔드 #92). 고른 날짜만
@@ -88,9 +87,7 @@ class _PlantRegisterEnvironmentScreenState
         date != null &&
         DateTime(date.year, date.month, date.day).isAfter(todayOnly);
     if (isFuture(_lastWateredOn) || isFuture(_lastRepottedOn)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('오늘 이후 날짜는 선택할 수 없습니다.')));
+      showLeafieToast(context, text: '오늘 이후 날짜는 선택할 수 없습니다.');
       return;
     }
 

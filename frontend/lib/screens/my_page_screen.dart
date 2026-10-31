@@ -157,9 +157,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     } on LeafieApiException catch (error) {
       if (!mounted) return;
       setState(() => _notificationsEnabled = previous);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showLeafieToast(context, text: error.message);
     }
   }
 
