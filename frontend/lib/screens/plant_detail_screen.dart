@@ -361,10 +361,11 @@ class _PlantPersonalityScreenState extends State<PlantPersonalityScreen> {
                   children: [
                     // 성격 이름 4889:2258. 시안 글자 상자 152(높이 24)인데
                     // Flutter 상자는 글자 위 여백이 1px 더 커서, 보이는 글자
-                    // 꼭대기(시안 156)를 맞추려고 상자를 151에 둔다.
+                    // 꼭대기(시안 156)를 맞추려고 상자를 151에 둔다. 가로
+                    // 가운데는 196.5(x150 w93)로 화면 가운데보다 4.5 왼쪽이다.
                     Positioned(
                       left: 0,
-                      right: 0,
+                      right: 9,
                       top: 151 - _kSlotTop,
                       height: 25,
                       child: Center(

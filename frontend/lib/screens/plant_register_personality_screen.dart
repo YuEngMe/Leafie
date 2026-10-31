@@ -187,10 +187,12 @@ class _PlantRegisterPersonalityScreenState
                         final personality = _personalities[index];
                         return Stack(
                           children: [
+                            // 이름 칸(x150 w93)의 가운데가 196.5로 화면
+                            // 가운데보다 4.5 왼쪽이다(성격 시안 6프레임 공통).
                             Positioned(
                               top: AppLayout.personalityTitleTop,
                               left: 0,
-                              right: 0,
+                              right: 9,
                               child: Center(
                                 // 2318:3964만 kTextDark가 아닌 #2E2E2E를 쓴다.
                                 child: Text(

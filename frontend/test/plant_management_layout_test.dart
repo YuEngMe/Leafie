@@ -440,7 +440,8 @@ void main() {
       // 4889:2258 성격 이름: 보이는 글자 꼭대기 156 → Flutter 상자 151.
       final label = tester.getRect(find.text('활발한 성격'));
       expect(label.top, _closeTo1px(151));
-      expect(label.center.dx, _closeTo1px(201));
+      // 이름 칸 x150 w93 → 가운데 196.5.
+      expect(label.center.dx, _closeTo1px(196.5));
 
       // 4889:2254/2256 칩 y=190, 58.69x20.67.
       final firstTag = tester.getRect(find.text('#긍정적'));
