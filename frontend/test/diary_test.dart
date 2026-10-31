@@ -316,6 +316,38 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
+    testWidgets('고른 날을 한 번 더 누르면 쓴 글이 있는 날만 그 글을 연다', (tester) async {
+      _setUpView(tester);
+      final store = _MemoryStore()
+        ..entries = [DiaryEntry(date: DateTime(2026, 7, 1), title: '첫날 일기')];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DiaryScreen(store: store, today: DateTime(2026, 7, 15)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 처음 누르면 고르기만 한다.
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+
+      // 고른 날을 다시 누르면 그날 글이 열린다.
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsOneWidget);
+      expect(find.text('첫날 일기'), findsOneWidget);
+      Navigator.of(tester.element(find.byType(DiaryEntryScreen))).pop();
+      await tester.pumpAndSettle();
+
+      // 글이 없는 날은 두 번 눌러도 열지 않는다.
+      await tester.tap(find.text('10'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('10'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DiaryEntryScreen), findsNothing);
+    });
+
     testWidgets('연필 버튼은 다른 날을 골랐어도 오늘 글을 연다', (tester) async {
       _setUpView(tester);
       await tester.pumpWidget(

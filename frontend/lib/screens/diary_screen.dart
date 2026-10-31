@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
@@ -72,6 +74,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
     } on LeafieApiException {
       // 인증이 없는 위젯 테스트와 네트워크 오류에서도 달력은 계속 보인다.
     }
+  }
+
+  void _selectDay(DateTime date) {
+    final again = DiaryEntry.sameDay(date, _selected);
+    final written = _entries.any(
+      (entry) => DiaryEntry.sameDay(entry.date, date),
+    );
+    if (again && written) {
+      unawaited(_openDay(date));
+      return;
+    }
+    setState(() => _selected = date);
   }
 
   Future<void> _openDay(DateTime date) async {
@@ -174,9 +188,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
               DiaryCalendar(
                 month: _month,
                 selected: _selected,
-                // 날짜를 누르면 고른 날 표시만 바꾼다. 글은 연필 버튼(오늘)으로만
-                // 연다(10/31 피드백).
-                onSelect: (date) => setState(() => _selected = date),
+                // 날짜를 누르면 고른 날 표시만 바꾼다(10/31 피드백). 이미 고른
+                // 날을 다시 누르면, 쓴 글이 있는 날만 그 글을 연다(11/01 요청).
+                // 새 글은 지금처럼 연필 버튼(오늘)으로만 쓴다.
+                onSelect: _selectDay,
                 markedDays: {
                   for (final e in _entries)
                     if (e.date.year == _month.year &&
