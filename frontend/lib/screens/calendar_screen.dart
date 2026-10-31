@@ -10,6 +10,7 @@ import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
+import 'package:yeso_plant/widgets/period_swipe.dart';
 import 'package:yeso_plant/widgets/app_bottom_nav.dart';
 import 'package:yeso_plant/widgets/calendar_new_event_sheet.dart';
 import 'package:yeso_plant/widgets/calendar_pieces.dart';
@@ -237,124 +238,131 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kHomeGreen,
-      body: SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.fill,
-          child: SizedBox(
-            width: AppLayout.referenceViewport.width,
-            height: AppLayout.referenceViewport.height,
-            child: Stack(
-              children: [
-                // 시안(4534:4708 홈 배경_기본)은 홈 배경을 흰 바탕에 70%로
-                // 옅게 깐다. 다이어리 배경 PNG가 바로 그 합성본이라(픽셀
-                // 255−0.7×(255−홈) 일치) 같은 에셋을 쓴다.
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/diary_background.png',
-                    fit: BoxFit.fill,
+      // 좌우로 밀면 꺾쇠와 같이 이전·다음 달(주간 보기면 주)로 넘긴다.
+      body: PeriodSwipe(
+        onPrevious: () => _shiftPeriod(-1),
+        onNext: () => _shiftPeriod(1),
+        child: SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: SizedBox(
+              width: AppLayout.referenceViewport.width,
+              height: AppLayout.referenceViewport.height,
+              child: Stack(
+                children: [
+                  // 시안(4534:4708 홈 배경_기본)은 홈 배경을 흰 바탕에 70%로
+                  // 옅게 깐다. 다이어리 배경 PNG가 바로 그 합성본이라(픽셀
+                  // 255−0.7×(255−홈) 일치) 같은 에셋을 쓴다.
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/diary_background.png',
+                      fit: BoxFit.fill,
+                    ),
                   ),
-                ),
-                _CalendarHeader(mode: _mode, onModeChanged: _changeMode),
-                if (_mode == CalendarViewMode.month)
-                  _MonthCalendar(
-                    month: _visibleMonth,
-                    selected: _selected,
-                    items: _items,
-                    onSelect: _selectDate,
-                    onShift: _shiftPeriod,
-                  )
-                else
-                  _WeekCalendar(
-                    selected: _selected,
-                    items: _items,
-                    onSelect: _selectDate,
-                    onShift: _shiftPeriod,
-                  ),
-                if (_mode == CalendarViewMode.month)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    // 처음 들어왔을 때 둘째 카드(653~704)까지는 온전히 보여야
-                    // 한다(2026-09-13 디자이너). 목록 바닥을 759로 두면 페이드
-                    // 55px이 정확히 704부터 시작해 셋째 카드부터 사라진다.
-                    // + 버튼(730~775)은 목록 위에 그려지므로 겹쳐도 된다.
-                    bottom: 115,
-                    child: _MonthAgenda(
+                  _CalendarHeader(mode: _mode, onModeChanged: _changeMode),
+                  if (_mode == CalendarViewMode.month)
+                    _MonthCalendar(
+                      month: _visibleMonth,
                       selected: _selected,
-                      today: _today,
-                      items: _items
-                          .where((item) => _sameDay(item.date, _selected))
-                          .toList(),
-                      loading: _loading,
-                      error: _error,
-                      completingIds: _completingIds,
-                      onComplete: _complete,
-                      onRetry: _retryCalendar,
-                    ),
-                  )
-                else
-                  // 2687:17819 첫 헤딩 y=327, 카드 x=14.
-                  Positioned(
-                    left: 14,
-                    width: 374,
-                    top: 327,
-                    height: 388,
-                    child: _WeekAgenda(
-                      weekStart: _startOfWeek(_selected),
                       items: _items,
-                      loading: _loading,
-                      error: _error,
-                      completingIds: _completingIds,
-                      onComplete: _complete,
-                      onRetry: _retryCalendar,
+                      onSelect: _selectDate,
+                      onShift: _shiftPeriod,
+                    )
+                  else
+                    _WeekCalendar(
+                      selected: _selected,
+                      items: _items,
+                      onSelect: _selectDate,
+                      onShift: _shiftPeriod,
                     ),
-                  ),
-                // 3341:493 원 45x45 @ (342,730). 에셋 캔버스 52.833은 그림자
-                // 여백 3.917을 사방에 두르고 있어 그만큼 당겨 앉힌다.
-                Positioned(
-                  left: 342 - 3.917,
-                  top: 730 - 3.917,
-                  width: 52.833,
-                  height: 52.833,
-                  child: GestureDetector(
-                    key: const ValueKey('calendar-add'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _showCreateSheet,
-                    child: CustomPaint(
-                      painter: const FabShadowPainter(),
-                      child: SvgPicture.asset('assets/images/calendar_fab.svg'),
+                  if (_mode == CalendarViewMode.month)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      // 처음 들어왔을 때 둘째 카드(653~704)까지는 온전히 보여야
+                      // 한다(2026-09-13 디자이너). 목록 바닥을 759로 두면 페이드
+                      // 55px이 정확히 704부터 시작해 셋째 카드부터 사라진다.
+                      // + 버튼(730~775)은 목록 위에 그려지므로 겹쳐도 된다.
+                      bottom: 115,
+                      child: _MonthAgenda(
+                        selected: _selected,
+                        today: _today,
+                        items: _items
+                            .where((item) => _sameDay(item.date, _selected))
+                            .toList(),
+                        loading: _loading,
+                        error: _error,
+                        completingIds: _completingIds,
+                        onComplete: _complete,
+                        onRetry: _retryCalendar,
+                      ),
+                    )
+                  else
+                    // 2687:17819 첫 헤딩 y=327, 카드 x=14.
+                    Positioned(
+                      left: 14,
+                      width: 374,
+                      top: 327,
+                      height: 388,
+                      child: _WeekAgenda(
+                        weekStart: _startOfWeek(_selected),
+                        items: _items,
+                        loading: _loading,
+                        error: _error,
+                        completingIds: _completingIds,
+                        onComplete: _complete,
+                        onRetry: _retryCalendar,
+                      ),
                     ),
-                  ),
-                ),
-                if (widget.showBottomNav)
+                  // 3341:493 원 45x45 @ (342,730). 에셋 캔버스 52.833은 그림자
+                  // 여백 3.917을 사방에 두르고 있어 그만큼 당겨 앉힌다.
                   Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: AppBottomNav(
-                      onTap: (tab) => switch (tab) {
-                        FigmaNavIcon.home => Navigator.pop(context),
-                        FigmaNavIcon.diary =>
-                          widget.diaryBuilder == null
-                              ? Navigator.pop(context)
-                              : Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: widget.diaryBuilder!,
-                                  ),
-                                ),
-                        FigmaNavIcon.my => Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyPageScreen(),
-                          ),
+                    left: 342 - 3.917,
+                    top: 730 - 3.917,
+                    width: 52.833,
+                    height: 52.833,
+                    child: GestureDetector(
+                      key: const ValueKey('calendar-add'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _showCreateSheet,
+                      child: CustomPaint(
+                        painter: const FabShadowPainter(),
+                        child: SvgPicture.asset(
+                          'assets/images/calendar_fab.svg',
                         ),
-                        _ => null,
-                      },
+                      ),
                     ),
                   ),
-              ],
+                  if (widget.showBottomNav)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: AppBottomNav(
+                        onTap: (tab) => switch (tab) {
+                          FigmaNavIcon.home => Navigator.pop(context),
+                          FigmaNavIcon.diary =>
+                            widget.diaryBuilder == null
+                                ? Navigator.pop(context)
+                                : Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: widget.diaryBuilder!,
+                                    ),
+                                  ),
+                          FigmaNavIcon.my => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MyPageScreen(),
+                            ),
+                          ),
+                          _ => null,
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

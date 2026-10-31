@@ -7,6 +7,7 @@ import 'package:yeso_plant/services/diary_api.dart';
 import 'package:yeso_plant/services/leafie_api_client.dart';
 import 'package:yeso_plant/theme/app_colors.dart';
 import 'package:yeso_plant/theme/app_layout.dart';
+import 'package:yeso_plant/widgets/period_swipe.dart';
 import 'package:yeso_plant/widgets/figma_asset_icons.dart';
 import 'package:yeso_plant/theme/app_text_styles.dart';
 import 'package:yeso_plant/widgets/diary_components.dart';
@@ -161,23 +162,28 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 ),
                 _ => null,
               },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            DiaryCalendar(
-              month: _month,
-              selected: _selected,
-              // 날짜를 누르면 고른 날 표시만 바꾼다. 글은 연필 버튼(오늘)으로만
-              // 연다(10/31 피드백).
-              onSelect: (date) => setState(() => _selected = date),
-              markedDays: {
-                for (final e in _entries)
-                  if (e.date.year == _month.year &&
-                      e.date.month == _month.month)
-                    e.date.day,
-              },
-            ),
-          ],
+        // 좌우로 밀면 꺾쇠와 같이 이전·다음 달로 넘긴다.
+        child: PeriodSwipe(
+          onPrevious: () => _shiftMonth(-1),
+          onNext: () => _shiftMonth(1),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              DiaryCalendar(
+                month: _month,
+                selected: _selected,
+                // 날짜를 누르면 고른 날 표시만 바꾼다. 글은 연필 버튼(오늘)으로만
+                // 연다(10/31 피드백).
+                onSelect: (date) => setState(() => _selected = date),
+                markedDays: {
+                  for (final e in _entries)
+                    if (e.date.year == _month.year &&
+                        e.date.month == _month.month)
+                      e.date.day,
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
