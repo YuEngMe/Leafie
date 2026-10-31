@@ -165,6 +165,18 @@ async def test_actual_db_low_soil_deduplication_and_latest_24_hours_light(assess
     assert result.connection == "ACTIVE"
 
 
+async def test_current_lux_is_latest_reading_and_only_for_now(assessment_db):
+    db, _, plant_id = assessment_db
+    await add_readings(db, [NOW - timedelta(minutes=15)], lux=300)
+    await add_readings(db, [NOW - timedelta(minutes=5)], lux=1200)
+    assert (await read(db, plant_id)).current_lux == 1200
+    # 지난 날짜 판정(일기용)에는 '지금' 조도를 싣지 않는다.
+    assert (await read(db, plant_id, day=NOW.date())).current_lux is None
+    async with db.session_context() as session:
+        stale = await SensorAssessmentService(session).read(plant_id, now=NOW + timedelta(hours=1))
+    assert stale.current_lux is None
+
+
 async def test_partial_day_missing_data_and_future_readings_are_unknown(assessment_db):
     db, _, plant_id = assessment_db
     await add_readings(db, [NOW - timedelta(minutes=5)], repeats=4)
