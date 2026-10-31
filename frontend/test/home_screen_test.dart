@@ -1580,6 +1580,7 @@ void main() {
       required bool wateringRequest,
       String dialogueKey = 'NORMAL',
       String dialogue = '오늘도 힘차게 자라 볼게!',
+      SensorLevel? soil,
     }) => HomeDashboardData(
       plant: HomePlantData(
         id: plantId,
@@ -1595,6 +1596,19 @@ void main() {
         backgroundPhase: 'DAY',
         dialogueKey: dialogueKey,
         dialogue: dialogue,
+        sensor: soil == null
+            ? null
+            : SensorAssessment(
+                connection: SensorConnection.active,
+                soil: SensorMetricAssessment(
+                  state: soil,
+                  unit: 'relative_percent',
+                ),
+                light: const SensorMetricAssessment(
+                  state: SensorLevel.unknown,
+                  unit: 'lux_hours',
+                ),
+              ),
       ),
       todayEvents: [
         if (wateringRequest)
@@ -1659,6 +1673,42 @@ void main() {
       );
 
       expect(find.byType(PlantRequestBubble), findsOneWidget);
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsOneWidget);
+    });
+
+    testWidgets('센서가 습도를 적정으로 판정하면 물주기 일정이 있어도 목마른 말풍선을 띄우지 않는다', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        (id) async => dashboard(
+          id ?? 'plant-a',
+          wateringRequest: true,
+          soil: SensorLevel.ok,
+        ),
+        _FakePlantManagementRepository([
+          _managedPlant('plant-a', '첫째', selected: true),
+        ]),
+        settle: false,
+      );
+
+      expect(find.text('나 지금 목말라.. 물이 필요해'), findsNothing);
+      expect(find.text('오늘도 힘차게 자라 볼게!'), findsOneWidget);
+    });
+
+    testWidgets('센서가 습도를 판정하지 못했으면 물주기 일정으로 목마른 말풍선을 띄운다', (tester) async {
+      await pumpHome(
+        tester,
+        (id) async => dashboard(
+          id ?? 'plant-a',
+          wateringRequest: true,
+          soil: SensorLevel.unknown,
+        ),
+        _FakePlantManagementRepository([
+          _managedPlant('plant-a', '첫째', selected: true),
+        ]),
+      );
+
       expect(find.text('나 지금 목말라.. 물이 필요해'), findsOneWidget);
     });
 

@@ -687,9 +687,17 @@ class _HomeScreenState extends State<HomeScreen>
   /// 바꾸고, 대사·배지·센서 조회는 곧 올 새 응답에 맡긴다.
   void _applyHome(HomeDashboardData data, {bool fromCache = false}) {
     final room = data.room;
-    final hasWateringRequest = data.todayEvents.any(
-      (event) => event.careType == 'WATERING' && event.completable,
-    );
+    // 센서가 습도를 판정했으면 목마름은 그 판정(SOIL_MOISTURE_LOW)만 따른다.
+    // 물 주기 일정만으로 띄우면 흙을 적셔도 목마른 말풍선이 남았다.
+    final soilJudged = switch (room?.sensor?.soil.state) {
+      null || SensorLevel.unknown => false,
+      _ => true,
+    };
+    final hasWateringRequest =
+        !soilJudged &&
+        data.todayEvents.any(
+          (event) => event.careType == 'WATERING' && event.completable,
+        );
     setState(() {
       final plant = data.plant;
       _serverPlant = plant == null
