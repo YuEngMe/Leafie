@@ -791,8 +791,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _careToastOpacity = 0;
     _serverDialogue = null;
     _serverDialogueKey = null;
-    _serverSensor = null;
-    _currentLux = null;
+    // 센서 판은 지우지 않는다. 지우면 새 방 응답이 오기 전에 판이 먼저
+    // '기기연결이 필요합니다'로 바뀌었다가 다시 바뀐다. 캐릭터와 같은 순간에
+    // 한 번만 바뀌도록 응답(_loadHome)이 갈아 끼운다.
     _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
     _pendingDialogues.clear();
@@ -1627,6 +1628,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   )
                 else if (_gaugesExpanded)
                   _HomeEnvironmentPanel(
+                    roomKey: plant.id,
+                    slideDirection: _slideDirection,
                     sensor: _serverSensor,
                     lux: _currentLux,
                     plantName: plant.name,
@@ -2092,12 +2095,17 @@ class _OutsideShadowPainter extends CustomPainter {
 
 class _HomeEnvironmentPanel extends StatefulWidget {
   const _HomeEnvironmentPanel({
+    required this.roomKey,
+    required this.slideDirection,
     required this.sensor,
     required this.lux,
     required this.plantName,
     required this.onCollapse,
   });
 
+  /// 판 내용이 어느 방 것인지. 바뀌면 캐릭터와 같은 방향으로 밀려 바뀐다.
+  final String? roomKey;
+  final int slideDirection;
   final SensorAssessment? sensor;
   final double? lux;
   final String plantName;
@@ -2186,6 +2194,57 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
       ),
       child: Stack(
         children: [
+          // 방을 넘기면 판 틀과 손잡이는 두고 안의 내용만 캐릭터와 같은
+          // 방향·길이로 밀려 바뀐다(디자이너 답 5-A의 방 전환과 맞춘다).
+          Positioned.fill(
+            child: ClipRect(
+              child: RoomSlideSwitcher(
+                direction: widget.slideDirection,
+                distance: 1,
+                child: SizedBox(
+                  key: ValueKey('home-environment-room-${widget.roomKey}'),
+                  width: AppLayout.referenceViewport.width,
+                  height: _panelHeight,
+                  child: Stack(
+                    children: [
+                      if (sensorPanelMessage(sensor) case final message?)
+                        Positioned(
+                          left: 34,
+                          right: 34,
+                          // Figma 3822:601: y=683, relative to the panel at y=575.
+                          top: 108,
+                          child: Text(
+                            message,
+                            key: const ValueKey('home-environment-message'),
+                            textAlign: TextAlign.center,
+                            // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
+                            // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
+                            style: kTitleStyle.copyWith(
+                              fontSize: 21,
+                              color: const Color(0xFF434343),
+                            ),
+                          ),
+                        )
+                      else ...[
+                        // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
+                        // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
+                        _gauge(
+                          top: 606 - 575,
+                          kind: EnvironmentGaugeKind.humidity,
+                          content: soilGaugeContent(sensor!.soil, plantName),
+                        ),
+                        _gauge(
+                          top: 697 - 575,
+                          kind: EnvironmentGaugeKind.light,
+                          content: lightGaugeContent(lux, plantName),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -2204,38 +2263,6 @@ class _HomeEnvironmentPanelState extends State<_HomeEnvironmentPanel>
               ),
             ),
           ),
-          if (sensorPanelMessage(sensor) case final message?)
-            Positioned(
-              left: 34,
-              right: 34,
-              // Figma 3822:601: y=683, relative to the panel at y=575.
-              top: 108,
-              child: Text(
-                message,
-                key: const ValueKey('home-environment-message'),
-                textAlign: TextAlign.center,
-                // 최신 시안(4534:22)에는 이 상태가 없어 옛 시안(3822:601)의
-                // 21을 그대로 둔다. 타이틀 스타일이 20으로 바뀌어 명시한다.
-                style: kTitleStyle.copyWith(
-                  fontSize: 21,
-                  color: const Color(0xFF434343),
-                ),
-              ),
-            )
-          else ...[
-            // 시안 4534:7570: 습도 게이지 y=606, 조도 게이지 y=697
-            // (패널 top 575 기준 31·122), x=33.8, 폭 335.5.
-            _gauge(
-              top: 606 - 575,
-              kind: EnvironmentGaugeKind.humidity,
-              content: soilGaugeContent(sensor!.soil, plantName),
-            ),
-            _gauge(
-              top: 697 - 575,
-              kind: EnvironmentGaugeKind.light,
-              content: lightGaugeContent(lux, plantName),
-            ),
-          ],
         ],
       ),
     );

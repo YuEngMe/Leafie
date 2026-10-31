@@ -10,6 +10,7 @@ import 'package:yeso_plant/models/plant_letter.dart';
 import 'package:yeso_plant/screens/calendar_screen.dart';
 import 'package:yeso_plant/screens/diagnosis_screen.dart';
 import 'package:yeso_plant/screens/home_screen.dart';
+import 'package:yeso_plant/widgets/room_slide_switcher.dart';
 import 'package:yeso_plant/screens/mailbox_screen.dart';
 import 'package:yeso_plant/screens/notification_screen.dart';
 import 'package:yeso_plant/services/home_api.dart';
@@ -1876,6 +1877,91 @@ void main() {
     expect(sensors.requests.length, 4);
   });
 
+  group('방을 넘기면 센서 판 내용도 캐릭터와 같이 밀려 바뀐다', () {
+    const activeSensor = SensorAssessment(
+      connection: SensorConnection.active,
+      soil: SensorMetricAssessment(
+        state: SensorLevel.ok,
+        unit: 'relative_percent',
+        value: 50,
+      ),
+      light: SensorMetricAssessment(state: SensorLevel.ok, unit: 'lux_hours'),
+    );
+
+    HomeDashboardData dashboard(String id, SensorAssessment? sensor) =>
+        HomeDashboardData(
+          plant: HomePlantData(
+            id: id,
+            nickname: id == 'plant-a' ? '첫째' : '둘째',
+            personalityType: 'OUTGOING',
+            colorId: 'color_orange',
+            hairId: 'hair_sprout',
+            startedOn: '2026-05-01',
+            daysTogether: 3,
+            primaryPhotoUrl: null,
+          ),
+          room: HomeRoomData(
+            backgroundPhase: 'DAY',
+            dialogueKey: 'NORMAL',
+            dialogue: null,
+            sensor: sensor,
+          ),
+          todayEvents: const [],
+          unreadLetterCount: 0,
+          unreadNotificationCount: 0,
+        );
+
+    testWidgets('응답 전에는 이전 방 판을 두고, 응답이 오면 함께 밀린다', (tester) async {
+      useDeviceView(tester);
+      final gate = Completer<void>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            period: HomeTimePeriod.day,
+            sensorRepository: _PerPlantSensors({'plant-a': activeSensor}),
+            plantRepository: _FakePlantManagementRepository([
+              _managedPlant('plant-a', '첫째', selected: true),
+              _managedPlant('plant-b', '둘째'),
+            ]),
+            letterRepository: _UnreadLetters(),
+            loadHomeForPlant: (plantId) async {
+              if (plantId == 'plant-b') {
+                await gate.future;
+                return dashboard('plant-b', null);
+              }
+              return dashboard('plant-a', activeSensor);
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final humidity = find.byKey(const ValueKey('home-gauge-humidity'));
+      final message = find.text('기기연결이 필요합니다');
+      expect(humidity, findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+      await tester.pumpAndSettle();
+      // 둘째 방 응답 전: 판을 미리 비워 '기기연결이 필요합니다'를 띄우지 않는다.
+      expect(humidity, findsOneWidget);
+      expect(message, findsNothing);
+
+      gate.complete();
+      await tester.pump();
+      await tester.pump(RoomSlideSwitcher.duration ~/ 2);
+      // 밀리는 중: 첫째 방 게이지가 나가고 둘째 방 안내가 들어온다.
+      expect(humidity, findsOneWidget);
+      expect(message, findsOneWidget);
+      expect(
+        tester.getTopLeft(message).dx,
+        greaterThan(tester.getTopLeft(humidity).dx),
+      );
+
+      await tester.pumpAndSettle();
+      expect(humidity, findsNothing);
+      expect(message, findsOneWidget);
+    });
+  });
+
   group('센서가 연결되면 순간 조도로 배경을 정한다', () {
     Future<_FakeSensorRepository> pumpHome(
       WidgetTester tester, {
@@ -2671,6 +2757,39 @@ void main() {
       expect(fill(), moreOrLessEquals(0.6));
     });
   });
+}
+
+/// 식물마다 다른 판정을 준다. 목록에 없는 식물은 기기가 없다.
+class _PerPlantSensors implements SensorRepository {
+  _PerPlantSensors(this.assessments);
+
+  final Map<String, SensorAssessment> assessments;
+
+  @override
+  Future<PlantSensorStatus> getPlantSensorStatus(String plantId) async {
+    final assessment =
+        assessments[plantId] ??
+        const SensorAssessment(
+          connection: SensorConnection.noDevice,
+          soil: SensorMetricAssessment(
+            state: SensorLevel.unknown,
+            unit: 'relative_percent',
+          ),
+          light: SensorMetricAssessment(
+            state: SensorLevel.unknown,
+            unit: 'lux_hours',
+          ),
+        );
+    return PlantSensorStatus(
+      plantId: plantId,
+      connection: assessment.connection,
+      latest: null,
+      assessment: assessment,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeSensorRepository implements SensorRepository {
