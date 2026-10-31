@@ -306,6 +306,9 @@ class ChangePasswordDoneScreen extends StatelessWidget {
       backgroundColor: kBackgroundWhite,
       body: SafeArea(
         child: Stack(
+          // 버튼(744 + 51)이 본문 794를 1px 넘어 기본값이면 버튼 아래 그림자가
+          // 잘린다.
+          clipBehavior: Clip.none,
           children: [
             const Positioned(
               left: 0,
