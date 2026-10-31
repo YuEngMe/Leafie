@@ -9,7 +9,7 @@ import 'dart:typed_data';
 const sensorBleNamePrefix = 'PROV_';
 
 /// ESP-IDF provisioning BLE 서비스 UUID(펌웨어 기본값).
-const sensorBleServiceUuid = '021a9004-0382-4aea-bff4-6b3f1c5adfb4';
+const sensorBleServiceUuid = '1775244d-6b43-439b-877c-060f2d9bed07';
 
 final _deviceIdPattern = RegExp(r'^[0-9A-F]{12}$');
 final _pinPattern = RegExp(r'^[0-9]{8}$');
@@ -207,7 +207,7 @@ void checkSensorClaimResponse(Uint8List bytes) {
 
 /// protocomm BLE는 엔드포인트마다 특성 하나를 두고, 서비스 UUID의 3~4번째
 /// 바이트 자리에 16비트 번호를 넣어 특성 UUID를 만든다.
-/// 예: 0xFF51 → `021aff51-0382-4aea-bff4-6b3f1c5adfb4`
+/// 예: 0xFF51 → `1775ff51-6b43-439b-877c-060f2d9bed07`
 String sensorBleCharacteristicUuid(int shortUuid) {
   final hex = shortUuid.toRadixString(16).padLeft(4, '0');
   return '${sensorBleServiceUuid.substring(0, 4)}$hex'

@@ -139,7 +139,7 @@ void main() {
     final ff55 = sensorBleCharacteristicUuid(0xFF55);
 
     test('특성 UUID는 서비스 UUID에 번호를 끼운다', () {
-      expect(session, '021aff51-0382-4aea-bff4-6b3f1c5adfb4');
+      expect(session, '1775ff51-6b43-439b-877c-060f2d9bed07');
     });
 
     test('디스크립터 이름이 있으면 그것을 쓴다', () {

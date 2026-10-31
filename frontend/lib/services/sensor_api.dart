@@ -396,6 +396,7 @@ class PlantSensorStatus {
     this.deviceId,
     this.latest,
     this.dailyLight,
+    this.assessment,
   });
 
   factory PlantSensorStatus.fromJson(Map<String, dynamic> json) {
@@ -403,11 +404,13 @@ class PlantSensorStatus {
     final deviceId = json['deviceId'];
     final latest = json['latest'];
     final dailyLight = json['dailyLight'];
+    final assessment = json['assessment'];
     if (plantId is! String ||
         plantId.isEmpty ||
         (deviceId != null && deviceId is! String) ||
         (latest != null && latest is! Map<String, dynamic>) ||
-        (dailyLight != null && dailyLight is! Map<String, dynamic>)) {
+        (dailyLight != null && dailyLight is! Map<String, dynamic>) ||
+        (assessment != null && assessment is! Map<String, dynamic>)) {
       throw const FormatException('Invalid sensor status');
     }
     return PlantSensorStatus(
@@ -424,6 +427,9 @@ class PlantSensorStatus {
       dailyLight: dailyLight == null
           ? null
           : SensorDailyLight.fromJson(dailyLight as Map<String, dynamic>),
+      assessment: assessment == null
+          ? null
+          : SensorAssessment.fromJson(assessment as Map<String, dynamic>),
     );
   }
 
@@ -432,6 +438,9 @@ class PlantSensorStatus {
   final SensorConnection connection;
   final SensorLatestReading? latest;
   final SensorDailyLight? dailyLight;
+
+  /// 홈 게이지와 같은 판정. 서버가 항상 채우지만 예전 응답과 호환되게 null을 허용한다.
+  final SensorAssessment? assessment;
 }
 
 T _enumFrom<T extends _WireEnum>(List<T> values, Object? raw, String message) {

@@ -156,6 +156,7 @@ class HomeScreen extends StatefulWidget {
     this.notificationRepository,
     this.plantManagementBuilder,
     this.letterRepository,
+    this.sensorRepository,
   });
 
   /// 등록 직후 서버에 보낸 snapshot을 바로 표시할 때만 전달한다.
@@ -173,6 +174,9 @@ class HomeScreen extends StatefulWidget {
 
   /// 기본 알림 화면이 쓸 저장소. 테스트에서 갈아끼운다.
   final NotificationRepository? notificationRepository;
+
+  /// 게이지 판정을 새로 받아 올 저장소. 테스트에서 갈아끼운다.
+  final SensorRepository? sensorRepository;
   final Widget Function(
     BuildContext context,
     PlantManagementRepository repository,
@@ -189,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin {
   late HomeScene _scene;
   late bool _gaugesExpanded;
+  Timer? _sensorTimer;
   HomePlant? _serverPlant;
   String? _serverDialogue;
   String? _serverDialogueKey;
@@ -306,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
     _careToastTimer?.cancel();
     _sunHideTimer?.cancel();
@@ -518,6 +524,8 @@ class _HomeScreenState extends State<HomeScreen>
       unawaited(
         _enqueueDialogues(room?.dialogueQueue ?? const [], room?.dialogueKey),
       );
+      // /home 응답에 판정이 이미 있으니 바로 다시 받지 않고 주기만 건다.
+      _syncSensorRefresh(fetchNow: false);
       return true;
     } on LeafieApiException catch (error) {
       if (!mounted || request != _homeRequest) return false;
@@ -559,6 +567,37 @@ class _HomeScreenState extends State<HomeScreen>
   Future<bool> _retryAfterDisconnect() async {
     await _loadHome(_offlinePlantId);
     return !mounted || !_homeOffline;
+  }
+
+  /// 게이지가 펼쳐져 있는 동안만 센서 판정을 주기적으로 다시 받는다.
+  /// TEMP: 시연용으로 측정이 10초 주기라 10초마다 받는다. 원래는 1분.
+  void _syncSensorRefresh({bool fetchNow = true}) {
+    _sensorTimer?.cancel();
+    _sensorTimer = null;
+    final plantId = (_serverPlant ?? widget.plant)?.id;
+    if (!_gaugesExpanded || plantId == null) return;
+    if (fetchNow) unawaited(_refreshSensor(plantId));
+    _sensorTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshSensor(plantId),
+    );
+  }
+
+  Future<void> _refreshSensor(String plantId) async {
+    final SensorAssessment? assessment;
+    try {
+      final status = await (widget.sensorRepository ?? SensorApi())
+          .getPlantSensorStatus(plantId);
+      assessment = status.assessment;
+    } on LeafieApiException {
+      return; // 다음 주기에 다시 받는다. 게이지는 마지막 판정을 둔다.
+    } on FormatException {
+      return;
+    }
+    // 그사이 다른 식물로 옮겼으면 이전 식물의 판정을 덮어쓰지 않는다.
+    if (!mounted || plantId != (_serverPlant ?? widget.plant)?.id) return;
+    if (assessment == null) return;
+    setState(() => _serverSensor = assessment);
   }
 
   /// 우편함은 지금 방 식물의 편지만 보여 주므로(시안 우체통_0~5) 배지도
@@ -676,6 +715,7 @@ class _HomeScreenState extends State<HomeScreen>
     _serverDialogue = null;
     _serverDialogueKey = null;
     _serverSensor = null;
+    _sensorTimer?.cancel();
     _dialogueTimer?.cancel();
     _pendingDialogues.clear();
     _playingDialogue = null;
@@ -931,6 +971,7 @@ class _HomeScreenState extends State<HomeScreen>
         _tabShellKey.currentState?.select(FigmaNavIcon.home);
         setState(() => _gaugesExpanded = true);
         _syncDialoguePlayback();
+        _syncSensorRefresh();
       case null:
         break;
     }
@@ -1465,6 +1506,7 @@ class _HomeScreenState extends State<HomeScreen>
                     onCollapse: () {
                       setState(() => _gaugesExpanded = false);
                       _syncDialoguePlayback();
+                      _syncSensorRefresh();
                     },
                   )
                 else
@@ -1472,6 +1514,7 @@ class _HomeScreenState extends State<HomeScreen>
                     onTap: () {
                       setState(() => _gaugesExpanded = true);
                       _syncDialoguePlayback();
+                      _syncSensorRefresh();
                     },
                   ),
               ],
