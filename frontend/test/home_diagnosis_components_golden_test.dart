@@ -9,6 +9,19 @@ import 'package:yeso_plant/widgets/home_components.dart';
 import 'package:yeso_plant/widgets/onboarding_overlays.dart';
 
 void main() {
+  testWidgets('대사의 말줄임표(…)는 글자 바닥에 오도록 마침표 세 개로 그린다', (tester) async {
+    // Paperlogy는 U+2026을 글자 가운데 높이에 그려 점이 떠 보인다.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: PlantRequestBubble(message: '괜찮은데… 그래도 햇빛 좀…'),
+        ),
+      ),
+    );
+    expect(find.text('괜찮은데... 그래도 햇빛 좀...'), findsOneWidget);
+    expect(find.textContaining('…'), findsNothing);
+  });
+
   testWidgets('홈 말풍선과 환경 게이지 402x260 스냅샷', (tester) async {
     tester.view.physicalSize = const Size(402, 260);
     tester.view.devicePixelRatio = 1;

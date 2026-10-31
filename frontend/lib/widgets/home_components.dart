@@ -42,9 +42,12 @@ class PlantRequestBubble extends StatelessWidget {
           ),
           const SizedBox(width: 5),
           // 서버 대사는 성격마다 길이가 달라 화면을 넘으면 말줄임한다.
+          // Paperlogy는 말줄임표(U+2026)를 글자 가운데 높이에 그려 점이 떠
+          // 보이므로, 바닥에 붙는 마침표 세 개로 바꿔 그린다(11/1 사용자 요청).
+          // 넘쳐서 Flutter가 붙이는 말줄임표는 바꿀 수 없어 그대로다.
           Flexible(
             child: Text(
-              message,
+              message.replaceAll('…', '...'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: kSmallStyle.copyWith(
