@@ -471,7 +471,8 @@ class _HomeScreenState extends State<HomeScreen>
     _syncDialoguePlayback();
     _petTimer = Timer(_petHold, () {
       if (!mounted) return;
-      _petCount = 0;
+      // 숨겨 둔 고정 말풍선을 다시 띄우도록 다시 그린다.
+      setState(() => _petCount = 0);
       _syncDialoguePlayback();
     });
   }
@@ -1234,7 +1235,9 @@ class _HomeScreenState extends State<HomeScreen>
       : null;
 
   /// 고정 말풍선 자리에 지금 무엇이 보이는지. 바뀌면 흐려지며 갈아 끼운다.
+  /// 쓰다듬는 동안은 머리 위 반응만 보이게 고정 말풍선을 비운다(11/1 사용자 요청).
   String get _conversationKey {
+    if (_petCount > 0) return 'petting';
     if (_scene != HomeScene.idle) return 'scene-${_scene.name}';
     final sticky = _stickyMessage;
     return sticky == null || sticky.isEmpty
@@ -1562,14 +1565,15 @@ class _HomeScreenState extends State<HomeScreen>
                         key: ValueKey(_conversationKey),
                         fit: StackFit.expand,
                         children: [
-                          _HomeConversation(
-                            scene: _scene,
-                            serverDialogue: _requestDialogue,
-                            fallbackKey: _serverDialogueKey,
-                            onPromptTap: _openPrompt,
-                            // 상황 말풍선이 없을 때는 중요한 알림만 고정해 둔다.
-                            fallbackMessage: _stickyMessage,
-                          ),
+                          if (_petCount == 0)
+                            _HomeConversation(
+                              scene: _scene,
+                              serverDialogue: _requestDialogue,
+                              fallbackKey: _serverDialogueKey,
+                              onPromptTap: _openPrompt,
+                              // 상황 말풍선이 없을 때는 중요한 알림만 고정해 둔다.
+                              fallbackMessage: _stickyMessage,
+                            ),
                         ],
                       ),
                     ),

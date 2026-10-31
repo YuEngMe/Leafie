@@ -1917,6 +1917,21 @@ void main() {
       expect(find.text('목말라… 물 줘'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets('쓰다듬는 동안은 고정 말풍선을 숨기고, 그치면 다시 띄운다', (tester) async {
+      await pumpThirsty(tester);
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-character-pet')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('목말라… 물 줘'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('목말라… 물 줘'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
