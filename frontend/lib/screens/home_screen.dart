@@ -634,7 +634,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   /// 게이지가 펼쳐져 있거나 센서가 연결돼 있는 동안 센서 판정을 주기적으로
   /// 다시 받는다. 연결된 센서의 순간 조도가 홈 배경을 정하기 때문이다.
-  /// TEMP: 시연용으로 측정이 10초 주기라 10초마다 받는다. 원래는 1분.
+  /// 게이지를 보고 있을 때만 자주 받고, 접어 둔 동안은 배경만 정하면 되니
+  /// 천천히 받는다.
+  /// TEMP: 시연용으로 측정이 10초 주기라 펼친 동안 10초마다 받는다. 원래는 1분.
   void _syncSensorRefresh({bool fetchNow = true}) {
     _sensorTimer?.cancel();
     _sensorTimer = null;
@@ -642,7 +644,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if ((!_gaugesExpanded && !_sensorConnected) || plantId == null) return;
     if (fetchNow) unawaited(_refreshSensor(plantId));
     _sensorTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      _gaugesExpanded
+          ? const Duration(seconds: 10)
+          : const Duration(seconds: 60),
       (_) => _refreshSensor(plantId),
     );
   }
@@ -792,8 +796,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _scene = HomeScene.idle;
   }
 
-  /// [plantId]를 서버에 고르고 그 식물의 홈을 불러온다. 고르기에 실패하면
-  /// 예외를 그대로 던진다(아무것도 바뀌지 않았다).
+  /// [plantId]를 서버에 고르고 그 식물의 홈을 불러온다. 둘은 서로 기다릴
+  /// 필요가 없어(홈 API가 plant_id를 받는다) 함께 보낸다. 고르기에 실패하면
+  /// 불러온 방을 이전 식물로 되돌리고 예외를 그대로 던진다.
   ///
   /// 고르기는 됐는데 홈을 못 불러오면 화면은 이전 식물에 남는다. 서버
   /// 선택만 새 식물로 넘어가 있으면 다음 실행·알림 이동이 화면과 다른
@@ -803,10 +808,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 새 식물에 두고, 연결 끊김 모달의 다시 시도가 새 식물을 불러온다.
   Future<bool> _selectAndLoad(String plantId) async {
     final previousId = (_serverPlant ?? widget.plant)?.id;
-    await _plantRepository.selectPlant(plantId);
+    final selecting = _plantRepository.selectPlant(plantId);
     final request = _homeRequest + 1;
-    if (await _loadHome(plantId)) {
-      await _loadPlants();
+    final loading = _loadHome(plantId);
+    try {
+      await selecting;
+    } on LeafieApiException {
+      await loading;
+      if (mounted && previousId != null) await _loadHome(previousId);
+      rethrow;
+    }
+    if (await loading) {
+      // 목록은 선택 표시만 달라져 다시 받지 않고 여기서 바꾼다.
+      if (mounted) {
+        setState(() {
+          _plants = [
+            for (final plant in _plants)
+              plant.copyWith(isSelected: plant.id == plantId),
+          ];
+        });
+      }
       return true;
     }
     // 그사이 다른 조회가 시작돼 이 응답을 버렸으면 실패가 아니다.
@@ -1608,7 +1629,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onCollapse: () {
                       setState(() => _gaugesExpanded = false);
                       _syncDialoguePlayback();
-                      _syncSensorRefresh();
+                      _syncSensorRefresh(fetchNow: false);
                     },
                   )
                 else

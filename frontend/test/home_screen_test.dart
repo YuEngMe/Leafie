@@ -1,3 +1,4 @@
+import 'dart:async';
 // 홈은 API가 반환한 데이터만 표시해야 한다. 세션 fallback과 Figma 예시값이
 // 남아 있으면 다른 사용자의 데이터처럼 보이므로 여기서 회귀를 막는다.
 
@@ -1099,6 +1100,77 @@ void main() {
     expect(find.text('둘째 방'), findsOneWidget);
     expect(find.text('D+ 3'), findsOneWidget);
   });
+
+  testWidgets('캐릭터를 바꾸면 선택 저장과 홈 조회를 함께 보내고 목록은 다시 받지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakePlantManagementRepository([
+      _managedPlant('plant-a', '첫째', selected: true),
+      _managedPlant('plant-b', '둘째'),
+    ]);
+    final homeRequests = <String?>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          initialGaugesExpanded: false,
+          plant: const HomePlant(
+            id: 'plant-a',
+            name: '첫째',
+            startedOn: null,
+            personalityType: null,
+          ),
+          plantRepository: repository,
+          loadHomeForPlant: (plantId) async {
+            homeRequests.add(plantId);
+            return HomeDashboardData(
+              plant: HomePlantData(
+                id: plantId!,
+                nickname: plantId == 'plant-b' ? '둘째' : '첫째',
+                personalityType: 'OUTGOING',
+                colorId: 'color_orange',
+                hairId: 'hair_sprout',
+                startedOn: '2026-05-01',
+                daysTogether: 3,
+                primaryPhotoUrl: null,
+              ),
+              room: const HomeRoomData(
+                backgroundPhase: 'DAY',
+                dialogueKey: 'NORMAL',
+                dialogue: null,
+              ),
+              todayEvents: const [],
+              unreadLetterCount: 0,
+              unreadNotificationCount: 0,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final listCallsBefore = repository.listCalls;
+    homeRequests.clear();
+
+    // 선택 저장이 끝나기 전에도 홈 조회가 나가고, 그 사이 방이 바뀐다.
+    repository.selectGate = Completer<void>();
+    await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+    await tester.pump();
+    expect(repository.selectedIds, ['plant-b']);
+    expect(homeRequests, ['plant-b']);
+
+    repository.selectGate!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('둘째 방'), findsOneWidget);
+    expect(repository.listCalls, listCallsBefore, reason: '전환 뒤 목록을 다시 받지 않는다');
+
+    // 목록 선택 표시는 로컬에서 바뀌어, 다시 > 를 누르면 첫째로 돌아온다.
+    await tester.tap(find.byKey(const ValueKey('home-next-plant')));
+    await tester.pumpAndSettle();
+    expect(repository.selectedIds, ['plant-b', 'plant-a']);
+    expect(find.text('첫째 방'), findsOneWidget);
+  });
+
   group('다음 식물을 못 불러오면 화면과 서버 선택을 맞춘다 (HG-ISS-009)', () {
     HomeDashboardData first() => const HomeDashboardData(
       plant: HomePlantData(
@@ -1792,14 +1864,16 @@ void main() {
     // 접어도 센서가 연결돼 있으면 배경을 정하려고 계속 받는다.
     await tester.tap(find.byKey(const ValueKey('home-environment-collapse')));
     await tester.pumpAndSettle();
-    expect(sensors.requests.length, 3, reason: '접으면 타이머를 다시 걸며 한 번 받는다');
+    expect(sensors.requests.length, 2, reason: '접을 때는 이미 받은 값이 있어 다시 받지 않는다');
+    await tester.pump(const Duration(seconds: 50));
+    expect(sensors.requests.length, 2, reason: '접어 둔 동안은 10초마다 받지 않는다');
     await tester.pump(const Duration(seconds: 10));
-    expect(sensors.requests.length, 4);
+    expect(sensors.requests.length, 3, reason: '접어 둔 동안은 60초마다 받는다');
 
     // 다시 펼치면 바로 한 번 받는다.
     await tester.tap(find.byKey(const ValueKey('home-environment-card')));
     await tester.pumpAndSettle();
-    expect(sensors.requests.length, 5);
+    expect(sensors.requests.length, 4);
   });
 
   group('센서가 연결되면 순간 조도로 배경을 정한다', () {
@@ -1895,7 +1969,8 @@ void main() {
         lux: 1500,
       );
       sensors.lux = 20;
-      await tester.pump(const Duration(seconds: 10));
+      // 접어 둔 홈은 60초마다 조도를 받는다.
+      await tester.pump(const Duration(seconds: 60));
       await tester.pump(const Duration(milliseconds: 600));
 
       // 전환 중에는 두 배경이 겹쳐 있고, 나가는 낮 배경은 흐려지지 않는다.
@@ -1938,7 +2013,7 @@ void main() {
         lux: 1500,
       );
       sensors.lux = 20;
-      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(seconds: 60));
       await tester.pump();
 
       expect(background(HomeTimePeriod.day), findsNothing);
@@ -2705,9 +2780,16 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
 
   List<ManagedPlant> plants;
   final List<String?> selectedIds = [];
+  int listCalls = 0;
+
+  /// 있으면 선택 저장이 이 신호를 받을 때까지 끝나지 않는다.
+  Completer<void>? selectGate;
 
   @override
-  Future<List<ManagedPlant>> listPlants() async => plants;
+  Future<List<ManagedPlant>> listPlants() async {
+    listCalls++;
+    return plants;
+  }
 
   @override
   Future<ManagedPlant> getPlant(String plantId) async =>
@@ -2716,6 +2798,7 @@ class _FakePlantManagementRepository implements PlantManagementRepository {
   @override
   Future<String?> selectPlant(String? plantId) async {
     selectedIds.add(plantId);
+    await selectGate?.future;
     plants = [
       for (final plant in plants)
         plant.copyWith(isSelected: plant.id == plantId),
