@@ -58,14 +58,15 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
     );
   }
 
-  late String? _selectedColorId = widget.draft.bodyColorId;
+  // 아직 고르지 않았으면 휠 꼭대기에 둔 옐로를 고른 것으로 본다. 꼭대기 칸은
+  // 다시 눌러도 바뀌는 게 없어 선택이 안 되던 문제(11/1 사용자 요청).
+  late String _selectedColorId = widget.draft.bodyColorId ?? 'color_yellow';
   // 헤어는 사용자가 고르지 않는다. 종(referenceId)으로 자동 매핑된 값을 그대로
   // draft에 저장하고, 미리보기에도 그 헤어를 얹어 보여준다.
   late final String _selectedHairId =
       widget.draft.headItem ?? hairForSpecies(widget.draft.species);
 
   void _confirm() {
-    if (_selectedColorId == null) return;
     widget.draft.bodyColorId = _selectedColorId;
     widget.draft.headItem = _selectedHairId;
     Navigator.push(
@@ -129,20 +130,16 @@ class _AppearanceState extends State<PlantRegisterAppearanceScreen> {
                 top: fromDesign(ColorWheelPicker.top),
                 height: ColorWheelPicker.height,
                 child: ColorWheelPicker(
-                  // 아직 고르지 않았으면 미리보기 몸통(색 없음 → 옐로)과 같은
-                  // 옐로를 꼭대기에 둔다(시안도 옐로가 꼭대기).
+                  // 시안도 옐로가 꼭대기다.
                   initialIndex: math.max(
                     0,
-                    _colors.indexWhere(
-                      (c) => c.id == (_selectedColorId ?? 'color_yellow'),
-                    ),
+                    _colors.indexWhere((c) => c.id == _selectedColorId),
                   ),
                   onSelected: (index) => setState(() {
                     _selectedColorId = _colors[index].id;
                   }),
                   confirmLabel: '선택 완료',
-                  // 기존처럼 색을 한 번 고르기 전에는 확정할 수 없다.
-                  onConfirm: _selectedColorId == null ? null : _confirm,
+                  onConfirm: _confirm,
                 ),
               ),
             ],

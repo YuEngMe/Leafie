@@ -31,11 +31,6 @@ void main() {
     await tester.pumpAndSettle();
     // 시안 4534:507에는 하단 버튼이 없고 휠의 체크 배지가 확정 버튼이다.
     expect(find.byType(PrimaryButton), findsNothing);
-    // 색을 고르기 전에는 체크 배지를 눌러도 넘어가지 않는다(기존 비활성 규칙).
-    await tester.tap(find.byKey(const ValueKey('appearance_confirm')));
-    await tester.pumpAndSettle();
-    expect(find.byType(PlantRegisterCompleteScreen), findsNothing);
-    expect(value.bodyColorId, isNull);
     // 헤어 탭은 없고, 시안의 '컬러' 라벨만 휠 위에 있다.
     expect(find.text('헤어'), findsNothing);
     expect(find.text('컬러'), findsOneWidget);
