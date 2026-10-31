@@ -1787,6 +1787,49 @@ void main() {
     expect(bell, findsOneWidget);
   });
 
+  testWidgets('우체통 위 편지 배지를 눌러도 우편함이 열린다', (tester) async {
+    useDeviceView(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          period: HomeTimePeriod.day,
+          plantRepository: _FakePlantManagementRepository([
+            _managedPlant('plant-a', '첫째', selected: true),
+          ]),
+          letterRepository: _UnreadLetters(),
+          loadHomeForPlant: (plantId) async => const HomeDashboardData(
+            plant: HomePlantData(
+              id: 'plant-a',
+              nickname: '첫째',
+              personalityType: 'OUTGOING',
+              colorId: 'color_orange',
+              hairId: 'hair_sprout',
+              startedOn: '2026-05-01',
+              daysTogether: 3,
+              primaryPhotoUrl: null,
+            ),
+            room: HomeRoomData(
+              backgroundPhase: 'DAY',
+              dialogueKey: 'NORMAL',
+              dialogue: '평소 대사',
+            ),
+            todayEvents: [],
+            unreadLetterCount: 1,
+            unreadNotificationCount: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // 우편함이 떠 있는 동안은 벨을 그리지 않으므로 벨로 열림을 확인한다.
+    final bell = find.byKey(const ValueKey('home-notifications'));
+    expect(bell, findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('home-letter-badge')));
+    await tester.pumpAndSettle();
+    expect(bell, findsNothing);
+  });
+
   testWidgets('관리 일정 알림을 누르면 알림 목록을 닫고 캘린더 탭으로 간다', (tester) async {
     tester.view.physicalSize = const Size(402, 874);
     tester.view.devicePixelRatio = 1;

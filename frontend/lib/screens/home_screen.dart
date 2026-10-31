@@ -1570,15 +1570,24 @@ class _HomeScreenState extends State<HomeScreen>
                   // y=390 55×62.188이고, PNG에는 그림자 여백 4(시안 inset
                   // −7.27%·−6.43%)가 사방에 들어 있어 그만큼 넘쳐 그린다. 노드
                   // 상자에 PNG 전체를 넣으면 봉투가 약 13% 작아졌다.
+                  // 배지를 눌러도 우체통처럼 우편함을 연다(11/1 사용자 요청).
                   Positioned(
                     left: 319 - 4,
                     top: 390 - 4,
                     width: 55 + 8,
                     height: 62.188 + 8,
-                    child: Image.asset(
-                      'assets/images/home_letter_badge.png',
-                      fit: BoxFit.contain,
-                      semanticLabel: '새 편지가 도착했어요',
+                    child: Semantics(
+                      button: true,
+                      label: '우편함 열기',
+                      child: GestureDetector(
+                        key: const ValueKey('home-letter-badge'),
+                        onTap: () => _openMailbox(plant.id),
+                        child: Image.asset(
+                          'assets/images/home_letter_badge.png',
+                          fit: BoxFit.contain,
+                          semanticLabel: '새 편지가 도착했어요',
+                        ),
+                      ),
                     ),
                   ),
                 if (plant != null)
